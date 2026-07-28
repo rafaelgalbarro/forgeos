@@ -1,1 +1,0 @@
-"use strict";exports.id=441,exports.ids=[441],exports.modules={2822:(a,b,c)=>{c.d(b,{createWebsiteMission:()=>d});async function d(a){let{createWebsiteProject:b}=await c.e(2059).then(c.bind(c,44440)),d=b({name:a.slice(0,40)||"Mi Sitio Web",templateId:"landing-saas",idea:{title:a,description:a,audience:"general"}});return{projectId:d.id,href:`/website-factory/${d.id}`}}}};

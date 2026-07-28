@@ -1,1 +1,0 @@
-"use strict";exports.id=3150,exports.ids=[3150],exports.modules={53150:(a,b,c)=>{c.d(b,{createFounderMission:()=>d});async function d(a){return{href:"/founder",sessionStarted:!0}}}};

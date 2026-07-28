@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[5576],{35576:(e,c,i)=>{i.d(c,{createApplicationMission:()=>t});async function t(e){let{createAppProject:c}=await i.e(5383).then(i.bind(i,45383)),t=c(e,e.slice(0,40));return{projectId:t.id,href:"/application-factory/".concat(t.id)}}}}]);

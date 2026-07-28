@@ -1,1 +1,0 @@
-"use strict";exports.id=3322,exports.ids=[3322],exports.modules={43322:(a,b,c)=>{c.d(b,{createMobileMission:()=>d});async function d(a){let{createMobileProject:b}=await c.e(3582).then(c.bind(c,53582)),d=b(a,a.slice(0,40));return{projectId:d.id,href:`/mobile-factory/${d.id}`}}}};

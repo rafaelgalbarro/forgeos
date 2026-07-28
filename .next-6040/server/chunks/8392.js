@@ -1,1 +1,0 @@
-"use strict";exports.id=8392,exports.ids=[8392],exports.modules={58392:(a,b,c)=>{c.d(b,{y:()=>d});function d(a){return{headline:a.headline,summary:a.summary,risks:a.risks.map(({title:a,description:b})=>({title:a,description:b})),opportunities:a.opportunities,alternatives:a.alternatives,recommendation:a.recommendations.map(a=>a.text).join(" "),shouldCompare:a.shouldCompare}}}};

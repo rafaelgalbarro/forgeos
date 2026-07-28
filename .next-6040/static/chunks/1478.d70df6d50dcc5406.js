@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[1478],{41478:(e,c,i)=>{i.d(c,{createMobileMission:()=>t});async function t(e){let{createMobileProject:c}=await i.e(9147).then(i.bind(i,59147)),t=c(e,e.slice(0,40));return{projectId:t.id,href:"/mobile-factory/".concat(t.id)}}}}]);

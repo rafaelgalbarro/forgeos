@@ -1,0 +1,1 @@
+"use strict";exports.id=3753,exports.ids=[3753],exports.modules={63753:(a,b,c)=>{c.d(b,{consultExecutiveMesh:()=>d});async function d(a){return{summary:`Evaluaci\xf3n ejecutiva sobre "${a.slice(0,40)}" — consenso preliminar favorable.`}}}};

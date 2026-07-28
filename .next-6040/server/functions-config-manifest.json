@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/preview-runtime/[id]": {
+      "maxDuration": 300
+    },
+    "/api/preview-runtime": {
+      "maxDuration": 300
+    },
+    "/api/preview-runtime/e2e": {
+      "maxDuration": 600
+    },
+    "/api/preview-runtime/start": {
+      "maxDuration": 300
+    }
+  }
+}

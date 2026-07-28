@@ -1,0 +1,133 @@
+Delegating Program 6130 to a background worker to build the Portfolio Command Center.
+
+[REDACTED]
+TOOL_PROMPT:
+Implement PROGRAM 6130 â€” PORTFOLIO COMMAND CENTER for ForgeOS.
+
+Workspace: C:\Users\RafaelGalbarroBarba\Projects\ForgeOS_App_Factory\ForgeOS_App_Factory_v0_1
+
+## Context
+Programs 6100 (Performance), 6110 (Portfolio Engine), and 6120 (Value Engine) provide the backend foundation. Now create the main UI panel to control all companies in a portfolio.
+
+## CRITICAL RULES
+- NO duplicating Company Command Center (/company/[ventureId])
+- NO loading all dashboards for each company
+- NO invented/fake data
+- NO charts without real data source
+- Server Components default, client only for interaction
+- NO heavy engine imports in client components on mount
+- Follow Parallel Execution Governance - register in docs/architecture-v2/agent-change-log.md
+- Build/clean/dev sequential: kill:ports â†’ clean â†’ check:v2-boundaries â†’ test â†’ build â†’ reset:dev
+- NEVER parallel build + dev
+- Do NOT start Program 6140
+
+## CANONICAL ROUTE
+/portfolio/[portfolioId]
+
+Must allow understanding in <30 seconds: how many companies, which active, which generate value, which blocked, resource consumption, approvals needed, where to focus.
+
+## IMPLEMENTATION SCOPE
+
+### 1. Quick Portfolio View
+Show: portfolio name, active/paused/at-risk ventures, active executions, blockers, approvals, actual spend, estimated spend, known current value, portfolio next milestone.
+
+### 2. Venture Grid
+Each card: name, lifecycle, priority, value stage, evidence status, creation health, active executions, latest preview, latest release, blockers, approvals, cost to next milestone, recommended action.
+
+Actions: Open Company, Open Mission, Pause, Resume, Change Priority, Review Value, View Preview.
+
+### 3. Portfolio Views
+Create views: OVERVIEW, VENTURES, VALUE, EXECUTIONS, RESOURCES, RISKS, APPROVALS, SHARED ASSETS, ACTIVITY
+
+### 4. Multi-Create Flow
+Action: Create Multiple Companies
+Steps: 1) Define objectives, 2) Add ideas, 3) Select venture count, 4) Configure priority, 5) Configure resources, 6) Choose start mode, 7) Review impact, 8) Create portfolio batch. Show per-company result.
+
+Reuse CreateVentureBatch from 6110.
+
+### 5. Execution Board
+Show: running, queued, paused, blocked, failed, completed.
+Actions: pause, resume, cancel, reprioritize, retry.
+Don't block navigation during executions.
+
+### 6. Value Board
+Show: stage, evidence, milestone, economics, risk, confidence, recommendation.
+Allow venture comparison (ComparePortfolioVentures from 6120).
+
+### 7. Resource Board
+Show: AI budget, token use, estimated cost, workers, builds, previews, storage, limits, reservations.
+Distinguish actual, estimated, projected.
+
+### 8. Portfolio Alerts
+Alerts: venture no progress, budget exhausted, build failed, insufficient evidence, critical risk, broken dependency, pending approval, inactive preview, blocked release.
+
+### 9. Responsive and Performance
+Server Components, streaming, pagination, virtualization, lazy detail panels, partial refresh, section-level error boundaries.
+100 cards without loading 100 full dashboards.
+
+Use ListPortfolioVentures query (6100/6110), light projections, pagination.
+
+### 10. Routes
+Create and verify:
+- /portfolio (list portfolios)
+- /portfolio/[portfolioId] (main command center)
+- /portfolio/[portfolioId]/ventures
+- /portfolio/[portfolioId]/value
+- /portfolio/[portfolioId]/executions
+- /portfolio/[portfolioId]/resources
+Also verify links work to: /company/[ventureId], /mission-control, /studio/[missionId]
+
+### 11. Portfolio Read Model & Server Actions
+Create read model in src/core/application/portfolio-command-center/ (or extend portfolio read models):
+- query, query handler, read-model type, mapper, actions
+Consume PortfolioReadModel from 6110, VenturePortfolioCard, value summaries from 6120
+
+### 12. UI Components
+Create in components/experience/ or components/portfolio/:
+- PortfolioCommandCenterView.tsx
+- PortfolioQuickView.tsx
+- VentureGridCard.tsx
+- ExecutionBoard.tsx
+- ValueBoard.tsx
+- ResourceBoard.tsx
+- PortfolioAlerts.tsx
+- MultiCreateFlow.tsx (wizard)
+- PortfolioViewTabs.tsx
+
+Styles in styles/fhis/ aligned with --mc-* tokens and Company Command Center patterns.
+
+### 13. Certification
+Use RAFAEL VENTURES LAB fixture (6110):
+5 companies with different states, priorities, one paused, one blocked, multiple executions, allocations, evidence, milestones, risks, recommendations.
+
+Fixture in src/core/composition/fixtures/ - NOT hardcoded in production UI.
+
+### 14. Tests
+- Route rendering tests
+- Read model query tests
+- Pagination tests
+- No heavy client imports test
+- Link navigation tests
+- Batch create flow tests
+
+### 15. Documentation
+Create docs/v2/portfolio-command-center/ with README.md, routes.md, read-model.md, views.md, multi-create.md, performance.md, certification.md, final-report.md
+
+### 16. Sequential Validation
+npm run kill:ports â†’ clean â†’ check:v2-boundaries â†’ test â†’ build â†’ reset:dev â†’ smoke tests â†’ route verification
+
+## EXISTING CODE TO REUSE
+- src/core/application/company-dashboard/ - pattern for read model (6090)
+- components/experience/CompanyCommandCenterView.tsx - UI patterns
+- app/company/[ventureId]/page.tsx - server page pattern
+- src/core/composition/fixtures/rafael-ventures-lab.ts (6110)
+- src/core/application/portfolio/ queries from 6110
+- Value queries from 6120
+- Program 6100 performance patterns (pagination, light DTOs, server-first)
+
+Check what Programs 6100, 6110, 6120 background agents implemented before duplicating.
+
+## DELIVERABLE
+Return final report with evidence. Only declare "PROGRAM 6130 â€” PORTFOLIO COMMAND CENTER VERIFICADO" if build exit 0, smoke tests pass, routes work, UI fluid. Do NOT start Program 6140.
+
+Read transcript if needed: C:\Users\RafaelGalbarroBarba\.cursor\projects\c-Users-RafaelGalbarroBarba-Projects-ForgeOS-App-Factory-ForgeOS-App-Factory-v0-1/agent-transcripts/c9e4520d-d974-4662-91a6-b7a04ead5cce/c9e4520d-d974-4662-91a6-b7a04ead5cce.jsonl

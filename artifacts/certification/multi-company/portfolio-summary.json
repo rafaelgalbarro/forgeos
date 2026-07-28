@@ -1,0 +1,217 @@
+{
+  "generatedAt": "2026-07-27T09:51:13.227Z",
+  "freshness": "LIVE",
+  "portfolioId": "portfolio-rafael-ventures-lab",
+  "workspaceId": "ws-1785145873134-1",
+  "name": "RAFAEL VENTURES LAB",
+  "slug": "rafael-ventures-lab",
+  "status": "ACTIVE",
+  "summary": {
+    "portfolioId": "portfolio-rafael-ventures-lab",
+    "workspaceId": "ws-1785145873134-1",
+    "name": "RAFAEL VENTURES LAB",
+    "totalVentures": 5,
+    "activeVentures": 4,
+    "pausedVentures": 1,
+    "closedVentures": 0,
+    "criticalPriority": 0,
+    "atRiskVentures": 0,
+    "activeExecutions": 0,
+    "queuedExecutions": 0
+  },
+  "metrics": {
+    "portfolioId": "portfolio-rafael-ventures-lab",
+    "workspaceId": "ws-1785145873134-1",
+    "name": "RAFAEL VENTURES LAB",
+    "totalVentures": 5,
+    "activeVentures": 4,
+    "pausedVentures": 1,
+    "closedVentures": 0,
+    "criticalPriority": 0,
+    "atRiskVentures": 0,
+    "activeExecutions": 0,
+    "queuedExecutions": 0
+  },
+  "capacity": [
+    {
+      "resourceType": "AI_EXECUTION",
+      "limit": 30,
+      "used": 4,
+      "available": 26,
+      "utilizationPercent": 13
+    },
+    {
+      "resourceType": "BUILD_WORKER",
+      "limit": 6,
+      "used": 0,
+      "available": 6,
+      "utilizationPercent": 0
+    },
+    {
+      "resourceType": "PREVIEW_SANDBOX",
+      "limit": 3,
+      "used": 0,
+      "available": 3,
+      "utilizationPercent": 0
+    },
+    {
+      "resourceType": "TOKEN_BUDGET",
+      "limit": 1000000,
+      "used": 0,
+      "available": 1000000,
+      "utilizationPercent": 0
+    }
+  ],
+  "ventures": [
+    {
+      "ventureId": "ven-1785145873137-2",
+      "name": "TABLEFLOW",
+      "slug": "tableflow",
+      "priority": "HIGH",
+      "lifecycle": "IDEA",
+      "paused": false,
+      "archived": false,
+      "closed": false,
+      "health": "HEALTHY",
+      "valueStatus": "UNKNOWN",
+      "blockers": [],
+      "activeExecutions": 0,
+      "latestActivity": "2026-07-27T09:51:13.180Z",
+      "updatedAt": "2026-07-27T09:51:13.180Z"
+    },
+    {
+      "ventureId": "ven-1785145873147-4",
+      "name": "LUXORA EYEWEAR",
+      "slug": "luxora-eyewear",
+      "priority": "HIGH",
+      "lifecycle": "IDEA",
+      "paused": false,
+      "archived": false,
+      "closed": false,
+      "health": "HEALTHY",
+      "valueStatus": "UNKNOWN",
+      "blockers": [],
+      "activeExecutions": 0,
+      "latestActivity": "2026-07-27T09:51:13.181Z",
+      "updatedAt": "2026-07-27T09:51:13.181Z"
+    },
+    {
+      "ventureId": "ven-1785145873158-6",
+      "name": "LOCALGROW AI",
+      "slug": "localgrow-ai",
+      "priority": "NORMAL",
+      "lifecycle": "IDEA",
+      "paused": false,
+      "archived": false,
+      "closed": false,
+      "health": "HEALTHY",
+      "valueStatus": "UNKNOWN",
+      "blockers": [],
+      "activeExecutions": 0,
+      "latestActivity": "2026-07-27T09:51:13.181Z",
+      "updatedAt": "2026-07-27T09:51:13.181Z"
+    },
+    {
+      "ventureId": "ven-1785145873167-8",
+      "name": "CREATORPULSE",
+      "slug": "creatorpulse",
+      "priority": "NORMAL",
+      "lifecycle": "IDEA",
+      "paused": false,
+      "archived": false,
+      "closed": false,
+      "health": "HEALTHY",
+      "valueStatus": "UNKNOWN",
+      "blockers": [],
+      "activeExecutions": 0,
+      "latestActivity": "2026-07-27T09:51:13.181Z",
+      "updatedAt": "2026-07-27T09:51:13.181Z"
+    },
+    {
+      "ventureId": "ven-1785145873173-10",
+      "name": "ORBITA SPORTS",
+      "slug": "orbita-sports",
+      "priority": "PAUSED",
+      "lifecycle": "PAUSED",
+      "paused": true,
+      "archived": false,
+      "closed": false,
+      "health": "AT_RISK",
+      "valueStatus": "UNKNOWN",
+      "blockers": [],
+      "activeExecutions": 0,
+      "latestActivity": "2026-07-27T09:51:13.181Z",
+      "updatedAt": "2026-07-27T09:51:13.181Z"
+    }
+  ],
+  "risks": [],
+  "activity": [],
+  "allocations": [
+    {
+      "id": "alloc-tableflow-ai",
+      "ventureId": "ven-1785145873137-2",
+      "resourceType": "AI_EXECUTION",
+      "limit": 5,
+      "used": 0,
+      "reserved": 1,
+      "available": 4,
+      "status": "RESERVED",
+      "period": "cert-6150"
+    },
+    {
+      "id": "alloc-luxora-eyewear-ai",
+      "ventureId": "ven-1785145873147-4",
+      "resourceType": "AI_EXECUTION",
+      "limit": 5,
+      "used": 0,
+      "reserved": 1,
+      "available": 4,
+      "status": "RESERVED",
+      "period": "cert-6150"
+    },
+    {
+      "id": "alloc-localgrow-ai-ai",
+      "ventureId": "ven-1785145873158-6",
+      "resourceType": "AI_EXECUTION",
+      "limit": 5,
+      "used": 0,
+      "reserved": 1,
+      "available": 4,
+      "status": "RESERVED",
+      "period": "cert-6150"
+    },
+    {
+      "id": "alloc-creatorpulse-ai",
+      "ventureId": "ven-1785145873167-8",
+      "resourceType": "AI_EXECUTION",
+      "limit": 5,
+      "used": 0,
+      "reserved": 1,
+      "available": 4,
+      "status": "RESERVED",
+      "period": "cert-6150"
+    }
+  ],
+  "dependencies": [],
+  "sharedAssets": [
+    {
+      "id": "sa-design-system",
+      "name": "RVL Shared Design Tokens",
+      "assetType": "DESIGN_SYSTEM",
+      "ownerVentureId": "ven-1785145873137-2",
+      "approvalStatus": "PENDING",
+      "version": "0.1.0"
+    }
+  ],
+  "policies": [
+    {
+      "id": "pol-max-active",
+      "kind": "MAX_ACTIVE_VENTURES",
+      "enabled": true,
+      "config": {
+        "limit": 8
+      }
+    }
+  ],
+  "decisions": []
+}

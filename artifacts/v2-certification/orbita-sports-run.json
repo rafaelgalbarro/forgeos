@@ -1,0 +1,177 @@
+{
+  "ok": true,
+  "status": "PASSED",
+  "missionId": "mis-1785143265377-130",
+  "workspaceId": "ws-1785143265364-128",
+  "ventureId": "ven-1785143265371-129",
+  "checks": [
+    {
+      "id": "create_workspace",
+      "status": "PASS",
+      "detail": "ws-1785143265364-128"
+    },
+    {
+      "id": "create_venture",
+      "status": "PASS",
+      "detail": "ven-1785143265371-129"
+    },
+    {
+      "id": "create_mission",
+      "status": "PASS",
+      "detail": "mis-1785143265377-130"
+    },
+    {
+      "id": "artifacts_outputs",
+      "status": "PASS",
+      "detail": "artifacts=8 outputs=8"
+    },
+    {
+      "id": "code_project",
+      "status": "PASS",
+      "detail": "cb-mis-1785143265377-130"
+    },
+    {
+      "id": "preview",
+      "status": "PASS",
+      "detail": "classification=PLAN_ONLY; previewId=prv-ms307j71-1-w0tox9; no fake READY"
+    },
+    {
+      "id": "release_candidate",
+      "status": "PASS",
+      "detail": "releaseId=rel-ms307j71-2-bes96a; status=PUBLISHED"
+    },
+    {
+      "id": "deployment_plan",
+      "status": "PASS",
+      "detail": "status=PLAN_READY; dryRun=true"
+    },
+    {
+      "id": "company_dashboard",
+      "status": "PASS",
+      "detail": "sections=11; freshness=LIVE; deployment=PLAN_READY"
+    }
+  ],
+  "gaps": [
+    {
+      "severity": "P2",
+      "id": "sandbox_unavailable",
+      "message": "SANDBOX_UNAVAILABLE — Preview Plan only; no fake functional preview"
+    }
+  ],
+  "evidence": {
+    "fixture": "ORBITA SPORTS",
+    "startedAt": "2026-07-27T09:07:45.355Z",
+    "missionFocus": [
+      "socios",
+      "reservas",
+      "clases",
+      "entrenadores",
+      "accesos",
+      "pagos",
+      "planes",
+      "incidencias",
+      "metricas"
+    ],
+    "dashboardSections": [
+      {
+        "id": "header",
+        "reality": "GENERATED_AND_VALIDATED"
+      },
+      {
+        "id": "health",
+        "reality": "GENERATED_AND_VALIDATED"
+      },
+      {
+        "id": "summary",
+        "reality": "GENERATED_AND_VALIDATED"
+      },
+      {
+        "id": "products",
+        "reality": "GENERATED_AND_VALIDATED"
+      },
+      {
+        "id": "map",
+        "reality": "GENERATED_AND_VALIDATED"
+      },
+      {
+        "id": "visual",
+        "reality": "PLAN_ONLY"
+      },
+      {
+        "id": "technical",
+        "reality": "GENERATED_NOT_EXECUTED"
+      },
+      {
+        "id": "business",
+        "reality": "GENERATED_AND_VALIDATED"
+      },
+      {
+        "id": "qa",
+        "reality": "NOT_CREATED"
+      },
+      {
+        "id": "release",
+        "reality": "GENERATED_AND_VALIDATED"
+      },
+      {
+        "id": "activity",
+        "reality": "GENERATED_AND_VALIDATED"
+      }
+    ],
+    "ventureId": "ven-1785143265371-129",
+    "missionId": "mis-1785143265377-130",
+    "previewClassification": "PLAN_ONLY",
+    "deploymentStatus": "PLAN_READY",
+    "endedAt": "2026-07-27T09:07:45.546Z"
+  },
+  "previewClassification": "PLAN_ONLY",
+  "deploymentStatus": "PLAN_READY",
+  "releaseId": "rel-ms307j71-2-bes96a",
+  "flagsRestored": true,
+  "dashboardSections": [
+    {
+      "id": "header",
+      "reality": "GENERATED_AND_VALIDATED"
+    },
+    {
+      "id": "health",
+      "reality": "GENERATED_AND_VALIDATED"
+    },
+    {
+      "id": "summary",
+      "reality": "GENERATED_AND_VALIDATED"
+    },
+    {
+      "id": "products",
+      "reality": "GENERATED_AND_VALIDATED"
+    },
+    {
+      "id": "map",
+      "reality": "GENERATED_AND_VALIDATED"
+    },
+    {
+      "id": "visual",
+      "reality": "PLAN_ONLY"
+    },
+    {
+      "id": "technical",
+      "reality": "GENERATED_NOT_EXECUTED"
+    },
+    {
+      "id": "business",
+      "reality": "GENERATED_AND_VALIDATED"
+    },
+    {
+      "id": "qa",
+      "reality": "NOT_CREATED"
+    },
+    {
+      "id": "release",
+      "reality": "GENERATED_AND_VALIDATED"
+    },
+    {
+      "id": "activity",
+      "reality": "GENERATED_AND_VALIDATED"
+    }
+  ]
+}

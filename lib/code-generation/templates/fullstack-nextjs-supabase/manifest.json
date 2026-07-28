@@ -1,0 +1,47 @@
+{
+  "id": "fullstack-nextjs-supabase",
+  "name": "Fullstack — Next.js + Supabase",
+  "version": "1.0.0",
+  "projectType": "fullstack",
+  "stack": {
+    "framework": "nextjs",
+    "language": "typescript",
+    "database": "supabase",
+    "auth": "supabase-auth",
+    "styling": "tailwindcss"
+  },
+  "structure": [
+    "app/",
+    "components/",
+    "lib/",
+    "supabase/migrations/",
+    "tests/"
+  ],
+  "dependencies": {
+    "next": "15.x",
+    "react": "^19.0.0",
+    "@supabase/supabase-js": "^2.49.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "test": "vitest run"
+  },
+  "envVars": [
+    { "key": "NEXT_PUBLIC_SUPABASE_URL", "description": "Supabase URL", "example": "https://your-project.supabase.co", "required": true },
+    { "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY", "description": "Anon key", "example": "your-anon-key", "required": true }
+  ],
+  "conventions": {
+    "appDir": "app",
+    "componentsDir": "components",
+    "libDir": "lib",
+    "testsDir": "tests",
+    "naming": "App Router + API routes"
+  },
+  "generator": "fullstack-generator"
+}

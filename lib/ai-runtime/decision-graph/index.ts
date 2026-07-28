@@ -1,0 +1,1 @@
+export { writeRuntimeDecision } from "./bridge";

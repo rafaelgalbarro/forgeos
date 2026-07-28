@@ -1,0 +1,3 @@
+- ADVISORY (default): recommendations only.
+- SUPERVISED: execute only reversible approved actions.
+- AUTONOMOUS_SAFE: execute only policy allowlisted low-risk reversible actions.

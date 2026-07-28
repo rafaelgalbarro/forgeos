@@ -1,0 +1,266 @@
+<timestamp>Monday, Jul 27, 2026, 11:06 AM (UTC+2)</timestamp>
+<user_query>
+####################################################################################################
+######################################## FORGEOS ####################################################
+##################################### PROGRAM 6130 ##################################################
+############################## PORTFOLIO COMMAND CENTER #############################################
+####################################################################################################
+
+OBJETIVO
+
+Crear el panel principal para controlar todas las empresas de un portfolio.
+
+Ruta canÃ³nica:
+
+/portfolio/[portfolioId]
+
+Debe permitir comprender en menos de 30 segundos:
+
+- cuÃ¡ntas empresas existen;
+- cuÃ¡les estÃ¡n activas;
+- cuÃ¡les generan valor;
+- cuÃ¡les estÃ¡n bloqueadas;
+- quÃ© recursos consumen;
+- quÃ© acciones necesitan aprobaciÃ³n;
+- dÃ³nde debe centrarse el usuario.
+
+NO duplicar Company Command Center.
+NO cargar todos los dashboards de cada empresa.
+NO mostrar datos inventados.
+NO usar grÃ¡ficas sin fuente real.
+
+====================================================================================================
+1. QUICK PORTFOLIO VIEW
+====================================================================================================
+
+Mostrar:
+
+- nombre del portfolio;
+- ventures activos;
+- ventures pausados;
+- ventures en riesgo;
+- ejecuciones activas;
+- bloqueadores;
+- approvals;
+- gasto real;
+- gasto estimado;
+- valor actual conocido;
+- siguiente hito del portfolio.
+
+====================================================================================================
+2. VENTURE GRID
+====================================================================================================
+
+Cada tarjeta debe incluir:
+
+- nombre;
+- lifecycle;
+- priority;
+- value stage;
+- evidence status;
+- creation health;
+- active executions;
+- latest preview;
+- latest release;
+- blockers;
+- approvals;
+- cost to next milestone;
+- recommended action.
+
+Acciones:
+
+- Open Company;
+- Open Mission;
+- Pause;
+- Resume;
+- Change Priority;
+- Review Value;
+- View Preview.
+
+====================================================================================================
+3. PORTFOLIO VIEWS
+====================================================================================================
+
+Crear vistas:
+
+OVERVIEW
+VENTURES
+VALUE
+EXECUTIONS
+RESOURCES
+RISKS
+APPROVALS
+SHARED ASSETS
+ACTIVITY
+
+====================================================================================================
+4. MULTI-CREATE FLOW
+====================================================================================================
+
+Crear acciÃ³n:
+
+Create Multiple Companies
+
+Pasos:
+
+1. Definir objetivos.
+2. AÃ±adir ideas.
+3. Seleccionar nÃºmero de ventures.
+4. Configurar prioridad.
+5. Configurar recursos.
+6. Elegir modo de inicio.
+7. Revisar impacto.
+8. Crear portfolio batch.
+
+Mostrar resultado por empresa.
+
+====================================================================================================
+5. EXECUTION BOARD
+====================================================================================================
+
+Mostrar:
+
+- running;
+- queued;
+- paused;
+- blocked;
+- failed;
+- completed.
+
+Permitir:
+
+- pause;
+- resume;
+- cancel;
+- reprioritize;
+- retry.
+
+No bloquear la navegaciÃ³n durante ejecuciones.
+
+====================================================================================================
+6. VALUE BOARD
+====================================================================================================
+
+Mostrar:
+
+- stage;
+- evidence;
+- milestone;
+- economics;
+- risk;
+- confidence;
+- recommendation.
+
+Permitir comparar ventures.
+
+====================================================================================================
+7. RESOURCE BOARD
+====================================================================================================
+
+Mostrar:
+
+- AI budget;
+- token use;
+- estimated cost;
+- workers;
+- builds;
+- previews;
+- storage;
+- limits;
+- reservations.
+
+Distinguir actual, estimated y projected.
+
+====================================================================================================
+8. PORTFOLIO ALERTS
+====================================================================================================
+
+Alertas:
+
+- venture sin progreso;
+- presupuesto agotado;
+- build fallido;
+- evidencia insuficiente;
+- riesgo crÃ­tico;
+- dependencia rota;
+- approval pendiente;
+- preview inactiva;
+- release bloqueada.
+
+====================================================================================================
+9. RESPONSIVE AND PERFORMANCE
+====================================================================================================
+
+Usar:
+
+- Server Components;
+- streaming;
+- pagination;
+- virtualization;
+- lazy detail panels;
+- partial refresh;
+- section-level error boundaries.
+
+Cien tarjetas deben poder consultarse sin cargar cien dashboards completos.
+
+====================================================================================================
+10. ROUTES
+====================================================================================================
+
+Verificar:
+
+/portfolio
+/portfolio/[portfolioId]
+/portfolio/[portfolioId]/ventures
+/portfolio/[portfolioId]/value
+/portfolio/[portfolioId]/executions
+/portfolio/[portfolioId]/resources
+/company/[ventureId]
+/mission-control
+/studio/[missionId]
+
+====================================================================================================
+11. CERTIFICATION
+====================================================================================================
+
+Utilizar RAFAEL VENTURES LAB.
+
+Mostrar cinco empresas con:
+
+- estados diferentes;
+- prioridades diferentes;
+- una pausada;
+- una bloqueada;
+- varias ejecuciones;
+- allocations;
+- evidence;
+- milestones;
+- risks;
+- recommendations.
+
+====================================================================================================
+12. ACCEPTANCE CRITERIA
+====================================================================================================
+
+Program 6130 solo puede declararse verificado si:
+
+- existe ruta canÃ³nica de portfolio;
+- se pueden ver varias empresas;
+- se pueden crear varias empresas;
+- existen filtros;
+- existen prioridades;
+- existen acciones batch;
+- se visualiza valor;
+- se visualizan recursos;
+- se visualizan ejecuciones;
+- se visualizan riesgos;
+- se visualizan approvals;
+- Company Command Center abre correctamente;
+- la UI sigue fluida;
+- build exit 0;
+- smoke tests pasan.
+
+DECLARAR SOLO CON EVIDENCIA:
+
+PROGRAM 6130 â€” PORTFOLIO COMMAND CENTER VERIFICADO.
+</user_query>

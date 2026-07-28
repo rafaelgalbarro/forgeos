@@ -1,0 +1,20 @@
+[
+  {
+    "ventureId": "ven-1785145873137-2",
+    "missionId": "mis-1785145873141-3",
+    "status": "ACCEPTED",
+    "executionId": "exec-1785145873203-BUILD"
+  },
+  {
+    "ventureId": "ven-1785145873147-4",
+    "missionId": "mis-1785145873150-5",
+    "status": "ACCEPTED",
+    "executionId": "exec-1785145873203-BUILD"
+  },
+  {
+    "ventureId": "ven-1785145873158-6",
+    "missionId": "mis-1785145873160-7",
+    "status": "ACCEPTED",
+    "executionId": "exec-1785145873203-BUILD"
+  }
+]

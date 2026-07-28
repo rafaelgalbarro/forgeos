@@ -1,0 +1,202 @@
+﻿
+> forgeos-app-factory@0.1.0 typecheck
+> tsc --noEmit
+
+src/core/application/__tests__/application-layer.test.ts(32,25): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(44,42): error TS18046: 'ven.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(52,29): error TS18046: 'mis.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(57,18): error TS18046: 'overview.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(58,18): error TS18046: 'overview.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(73,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(74,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(82,22): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(83,20): error TS18046: 'mis.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(86,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(107,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(108,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(115,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(115,54): error TS18046: 'mis.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(116,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(181,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(184,22): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(194,18): error TS18046: 'first.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(194,33): error TS18046: 'second.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(195,18): error TS18046: 'second.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(196,63): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(227,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(228,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(276,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(277,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(283,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(283,54): error TS18046: 'mis.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(284,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(290,29): error TS18046: 'rel.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(295,15): error TS18046: 'apr.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(296,18): error TS18046: 'apr.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(311,31): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(312,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(319,22): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(320,20): error TS18046: 'mis.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(324,39): error TS18046: 'ws.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(330,28): error TS18046: 'planned.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(334,54): error TS18046: 'mis.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(336,43): error TS18046: 'planned.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(339,29): error TS18046: 'mis.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(344,18): error TS18046: 'cards.data' is of type 'unknown'.
+src/core/application/__tests__/application-layer.test.ts(345,18): error TS18046: 'cards.data' is of type 'unknown'.
+src/core/application/handlers/command/index.ts(74,15): error TS2305: Module '"../../ports"' has no exported member 'ApplicationPorts'.
+src/core/application/handlers/command/index.ts(236,45): error TS2349: This expression is not callable.
+  Type 'CommandHandler<UpdateMissionIntentCommand, unknown>' has no call signatures.
+src/core/application/handlers/command/index.ts(243,25): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/core/application/handlers/index.ts(7,15): error TS2305: Module '"../ports"' has no exported member 'ApplicationPorts'.
+src/core/application/handlers/query/index.ts(22,15): error TS2305: Module '"../../ports"' has no exported member 'ApplicationPorts'.
+src/core/application/handlers/query/index.ts(309,47): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/core/application/handlers/shared/pipeline.ts(3,30): error TS2307: Cannot find module '../commands/types' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(4,42): error TS2307: Cannot find module '../errors' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(5,39): error TS2307: Cannot find module '../ports' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(6,44): error TS2307: Cannot find module '../policies' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(7,30): error TS2307: Cannot find module '../policies' or its corresponding type declarations.
+src/core/application/services/index.ts(4,15): error TS2305: Module '"../ports"' has no exported member 'IdempotencyStorePort'.
+src/core/application/testing/in-memory.ts(20,3): error TS2305: Module '"../ports"' has no exported member 'ApplicationPorts'.
+src/core/application/testing/in-memory.ts(21,3): error TS2305: Module '"../ports"' has no exported member 'BuildRepositoryPort'.
+src/core/application/testing/in-memory.ts(22,3): error TS2305: Module '"../ports"' has no exported member 'ClockPort'.
+src/core/application/testing/in-memory.ts(23,3): error TS2305: Module '"../ports"' has no exported member 'CodebaseRepositoryPort'.
+src/core/application/testing/in-memory.ts(24,3): error TS2305: Module '"../ports"' has no exported member 'DecisionRepositoryPort'.
+src/core/application/testing/in-memory.ts(25,3): error TS2305: Module '"../ports"' has no exported member 'DeploymentRepositoryPort'.
+src/core/application/testing/in-memory.ts(26,3): error TS2305: Module '"../ports"' has no exported member 'EventStorePort'.
+src/core/application/testing/in-memory.ts(27,3): error TS2305: Module '"../ports"' has no exported member 'IdempotencyStorePort'.
+src/core/application/testing/in-memory.ts(28,3): error TS2305: Module '"../ports"' has no exported member 'MissionRepositoryPort'.
+src/core/application/testing/in-memory.ts(29,3): error TS2305: Module '"../ports"' has no exported member 'OutputRepositoryPort'.
+src/core/application/testing/in-memory.ts(30,3): error TS2305: Module '"../ports"' has no exported member 'PreviewRepositoryPort'.
+src/core/application/testing/in-memory.ts(31,3): error TS2305: Module '"../ports"' has no exported member 'ReleaseRepositoryPort'.
+src/core/application/testing/in-memory.ts(32,3): error TS2305: Module '"../ports"' has no exported member 'UnitOfWorkPort'.
+src/core/application/testing/in-memory.ts(33,3): error TS2305: Module '"../ports"' has no exported member 'VentureRepositoryPort'.
+src/core/application/testing/in-memory.ts(34,3): error TS2305: Module '"../ports"' has no exported member 'WorkspaceRepositoryPort'.
+src/core/application/testing/in-memory.ts(102,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(105,16): error TS7006: Parameter 'workspace' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(111,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(114,27): error TS7006: Parameter 'workspaceId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(117,16): error TS7006: Parameter 'venture' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(123,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(126,27): error TS7006: Parameter 'workspaceId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(129,16): error TS7006: Parameter 'mission' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(135,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(138,25): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(141,16): error TS7006: Parameter 'decision' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(147,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(150,25): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(153,16): error TS7006: Parameter 'output' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(159,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(162,25): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(165,16): error TS7006: Parameter 'codebase' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(171,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(174,31): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(180,16): error TS7006: Parameter 'build' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(186,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(189,31): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(195,16): error TS7006: Parameter 'preview' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(201,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(204,16): error TS7006: Parameter 'release' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(210,19): error TS7006: Parameter 'id' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(213,16): error TS7006: Parameter 'deployment' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(219,18): error TS7006: Parameter 'list' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(220,41): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(222,27): error TS7006: Parameter 'aggregateId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(228,15): error TS7006: Parameter 'key' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(231,15): error TS7006: Parameter 'key' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(231,20): error TS7006: Parameter 'commandId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(231,31): error TS7006: Parameter 'resultJson' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(300,16): error TS7006: Parameter 'prefix' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(320,26): error TS7006: Parameter 'actorId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(326,21): error TS7006: Parameter 'actorId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(326,30): error TS7006: Parameter 'role' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(330,32): error TS7006: Parameter 'actorId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(330,41): error TS7006: Parameter 'workspaceId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(337,20): error TS7006: Parameter 'summary' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(347,29): error TS7006: Parameter 'prompt' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(352,25): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(362,21): error TS7006: Parameter 'job' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(367,27): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/application/testing/in-memory.ts(375,26): error TS7006: Parameter 'missionId' implicitly has an 'any' type.
+src/core/domain/domain.test.ts(19,8): error TS2307: Cannot find module '../index' or its corresponding type declarations.
+src/core/domain/legacy-mappers.test.ts(9,8): error TS2307: Cannot find module '../../../legacy/adapters/domain' or its corresponding type declarations.
+src/core/events/envelope.ts(141,3): error TS2322: Type 'Readonly<{ eventId: EventId; eventType: string; eventVersion: number; catalogKind: EventCatalogKind; aggregateType: AggregateType; aggregateId: string; ... 9 more ...; sourceEventRef: string | undefined; }>' is not assignable to type 'DomainEventEnvelope<TPayload>'.
+  Types of property 'actor' are incompatible.
+    Type 'EventActor | { kind: string; id: string; }' is not assignable to type 'EventActor'.
+      Type '{ kind: string; id: string; }' is not assignable to type 'EventActor'.
+        Types of property 'kind' are incompatible.
+          Type 'string' is not assignable to type 'EventActorKind'.
+src/core/migration/deprecation.ts(74,5): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+src/core/orchestration/execution/node-executor.ts(35,22): error TS2345: Argument of type '"NODE_STARTED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/execution/node-executor.ts(87,26): error TS2345: Argument of type '"NODE_FAILED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/execution/node-executor.ts(103,24): error TS2345: Argument of type '"NODE_COMPLETED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(167,26): error TS2345: Argument of type '"MISSION_CREATED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(172,26): error TS2345: Argument of type '"PLAN_CREATED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(173,26): error TS2345: Argument of type '"OUTPUT_SELECTION_PROPOSED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(208,26): error TS2345: Argument of type '"OUTPUT_SELECTION_PROPOSED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(235,26): error TS2345: Argument of type '"OUTPUT_SELECTION_APPROVED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(261,26): error TS2345: Argument of type '"PLAN_APPROVED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(262,26): error TS2345: Argument of type '"APPROVAL_GRANTED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(270,26): error TS2345: Argument of type '"APPROVAL_GRANTED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(277,26): error TS2345: Argument of type '"APPROVAL_DENIED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(297,26): error TS2345: Argument of type '"MISSION_STARTED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(318,40): error TS2367: This comparison appears to be unintentional because the types '"ready"' and '"awaiting_approval"' have no overlap.
+src/core/orchestration/kernel/orchestration-kernel.ts(353,30): error TS2345: Argument of type '"MISSION_COMPLETED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(359,30): error TS2345: Argument of type '"MISSION_FAILED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(395,28): error TS2345: Argument of type '"NODE_FAILED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(438,26): error TS2345: Argument of type '"MISSION_PAUSED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(439,26): error TS2345: Argument of type '"RECOVERY_APPLIED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(449,26): error TS2345: Argument of type '"MISSION_RESUMED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(450,26): error TS2345: Argument of type '"RECOVERY_APPLIED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(468,26): error TS2345: Argument of type '"MISSION_CANCELLED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(469,26): error TS2345: Argument of type '"RECOVERY_APPLIED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(487,26): error TS2345: Argument of type '"RECOVERY_APPLIED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(501,54): error TS2339: Property 'missionId' does not exist on type 'DomainEvent<Record<string, unknown>>'.
+src/core/orchestration/kernel/orchestration-kernel.ts(503,26): error TS2345: Argument of type '"SNAPSHOT_TAKEN"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/kernel/orchestration-kernel.ts(510,59): error TS2339: Property 'missionId' does not exist on type 'DomainEvent<Record<string, unknown>>'.
+src/core/orchestration/kernel/orchestration-kernel.ts(523,26): error TS2345: Argument of type '"NODE_FAILED"' is not assignable to parameter of type 'DomainEventType'.
+src/core/orchestration/orchestration-kernel.test.ts(169,56): error TS2367: This comparison appears to be unintentional because the types 'DomainEventType' and '"MISSION_COMPLETED"' have no overlap.
+src/core/orchestration/ports/event-bus-port.ts(3,10): error TS2305: Module '"../../domain/events"' has no exported member 'createDomainEvent'.
+src/core/orchestration/ports/event-bus-port.ts(13,3): error TS2561: Object literal may only specify known properties, but 'MISSION_CREATED' does not exist in type 'Partial<Record<DomainEventType, string>>'. Did you mean to write 'MissionCreated'?
+src/core/orchestration/ports/event-bus-port.ts(43,29): error TS2339: Property 'source' does not exist on type 'DomainEvent<Record<string, unknown>>'.
+src/core/orchestration/ports/event-bus-port.ts(45,34): error TS2339: Property 'missionId' does not exist on type 'DomainEvent<Record<string, unknown>>'.
+src/core/orchestration/ports/event-bus-port.ts(47,38): error TS2339: Property 'id' does not exist on type 'DomainEvent<Record<string, unknown>>'.
+src/core/orchestration/snapshots/snapshot-builder.ts(81,76): error TS2339: Property 'timestamp' does not exist on type 'DomainEvent<Record<string, unknown>>'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(8,25): error TS2724: '"../../../core/domain/codebase"' has no exported member named 'CodebaseKind'. Did you mean 'CodebaseNode'?
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(45,3): error TS2322: Type '"DRAFT"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(46,3): error TS2322: Type '"DRAFT"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(47,3): error TS2322: Type '"GENERATED"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(48,3): error TS2322: Type '"GENERATED"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(49,3): error TS2322: Type '"DRAFT"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(50,3): error TS2322: Type '"READY_FOR_BUILD"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(51,3): error TS2322: Type '"GENERATED"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(52,3): error TS2322: Type '"VALIDATED"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(53,3): error TS2322: Type '"DRAFT"' is not assignable to type 'CodebaseStatus'.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(81,20): error TS2693: 'Codebase' only refers to a type, but is being used as a value here.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(104,9): error TS2322: Type '"FAILED" | "QUEUED" | "SUCCEEDED"' is not assignable to type 'BuildStatus'.
+  Type '"FAILED"' is not assignable to type 'BuildStatus'. Did you mean '"failed"'?
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(111,17): error TS2693: 'Build' only refers to a type, but is being used as a value here.
+src/legacy/adapters/domain/legacyBuildToCanonical.ts(117,21): error TS2367: This comparison appears to be unintentional because the types 'BuildStatus' and '"SUCCEEDED"' have no overlap.
+src/legacy/adapters/domain/legacyMissionToCanonical.ts(9,8): error TS2724: '"../../../core/domain/mission"' has no exported member named 'MissionIntention'. Did you mean 'MissionIntent'?
+src/legacy/adapters/domain/legacyMissionToCanonical.ts(10,8): error TS2305: Module '"../../../core/domain/mission"' has no exported member 'MissionPhase'.
+src/legacy/adapters/domain/legacyMissionToCanonical.ts(11,8): error TS2305: Module '"../../../core/domain/mission"' has no exported member 'MissionProps'.
+src/legacy/adapters/domain/legacyMissionToCanonical.ts(66,3): error TS2322: Type '"EVOLVING"' is not assignable to type 'MissionStatus'.
+src/legacy/adapters/domain/legacyMissionToCanonical.ts(131,21): error TS2693: 'Mission' only refers to a type, but is being used as a value here.
+src/legacy/adapters/domain/legacyMissionToCanonical.ts(170,14): error TS2693: 'Mission' only refers to a type, but is being used as a value here.
+src/legacy/adapters/domain/legacyMissionToCanonical.ts(191,21): error TS2339: Property 'toSnapshot' does not exist on type 'Mission'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(6,42): error TS2305: Module '"../../../core/domain/output"' has no exported member 'OutputType'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(41,3): error TS2322: Type '"DRAFT"' is not assignable to type 'OutputStatus'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(42,3): error TS2820: Type '"GENERATING"' is not assignable to type 'OutputStatus'. Did you mean '"generating"'?
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(43,3): error TS2322: Type '"PREVIEW_READY"' is not assignable to type 'OutputStatus'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(44,3): error TS2322: Type '"VALIDATING"' is not assignable to type 'OutputStatus'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(45,3): error TS2820: Type '"CHANGES_REQUESTED"' is not assignable to type 'OutputStatus'. Did you mean '"change_requested"'?
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(46,3): error TS2820: Type '"APPROVED"' is not assignable to type 'OutputStatus'. Did you mean '"approved"'?
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(47,3): error TS2322: Type '"EXPORT_READY"' is not assignable to type 'OutputStatus'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(48,3): error TS2322: Type '"DEPLOYMENT_READY"' is not assignable to type 'OutputStatus'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(49,3): error TS2322: Type '"FAILED"' is not assignable to type 'OutputStatus'.
+src/legacy/adapters/domain/legacyOutputToCanonical.ts(69,18): error TS2693: 'Output' only refers to a type, but is being used as a value here.
+src/presentation/bridges/legacy-bridges.ts(10,15): error TS2305: Module '"@/src/core/application"' has no exported member 'CommandBus'.
+tests/migration/migration-6070.test.ts(278,26): error TS2352: Conversion of type '{ title: string; }' to type '{ id: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'id' is missing in type '{ title: string; }' but required in type '{ id: string; }'.
+EXIT=2

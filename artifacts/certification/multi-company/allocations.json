@@ -1,0 +1,54 @@
+[
+  {
+    "id": "alloc-tableflow-ai",
+    "portfolioId": "portfolio-rafael-ventures-lab",
+    "ventureId": "ven-1785145873137-2",
+    "resourceType": "AI_EXECUTION",
+    "limit": 5,
+    "used": 0,
+    "reserved": 0,
+    "available": 5,
+    "period": "cert-6150",
+    "status": "RELEASED",
+    "updatedAt": "2026-07-27T09:51:13.240Z"
+  },
+  {
+    "id": "alloc-luxora-eyewear-ai",
+    "portfolioId": "portfolio-rafael-ventures-lab",
+    "ventureId": "ven-1785145873147-4",
+    "resourceType": "AI_EXECUTION",
+    "limit": 5,
+    "used": 0,
+    "reserved": 0,
+    "available": 5,
+    "period": "cert-6150",
+    "status": "RELEASED",
+    "updatedAt": "2026-07-27T09:51:13.240Z"
+  },
+  {
+    "id": "alloc-localgrow-ai-ai",
+    "portfolioId": "portfolio-rafael-ventures-lab",
+    "ventureId": "ven-1785145873158-6",
+    "resourceType": "AI_EXECUTION",
+    "limit": 5,
+    "used": 0,
+    "reserved": 0,
+    "available": 5,
+    "period": "cert-6150",
+    "status": "RELEASED",
+    "updatedAt": "2026-07-27T09:51:13.240Z"
+  },
+  {
+    "id": "alloc-creatorpulse-ai",
+    "portfolioId": "portfolio-rafael-ventures-lab",
+    "ventureId": "ven-1785145873167-8",
+    "resourceType": "AI_EXECUTION",
+    "limit": 5,
+    "used": 0,
+    "reserved": 0,
+    "available": 5,
+    "period": "cert-6150",
+    "status": "RELEASED",
+    "updatedAt": "2026-07-27T09:51:13.240Z"
+  }
+]

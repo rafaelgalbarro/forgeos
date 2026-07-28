@@ -1,0 +1,57 @@
+{
+  "program": "PROGRAM 5370 — SANDBOXED PREVIEW RUNTIME",
+  "verifiedAt": "2026-07-14T11:35:00.000Z",
+  "host": "http://127.0.0.1:3000",
+  "forgeOs": {
+    "killPorts": "OK",
+    "clean": "OK",
+    "tscNoEmit": "OK",
+    "build": "INTERMITTENT — pages-manifest.json ENOENT (webpack memory cache; tsc passes)",
+    "resetDev": "OK — dev server on :3000"
+  },
+  "sandboxStrategy": {
+    "dockerAvailable": false,
+    "strategy": "child-process",
+    "message": "Docker not installed — child process + temp dir fallback (Windows)",
+    "isolationClaim": "child-process only (NOT Docker isolation)"
+  },
+  "verificationRuns": [
+    {
+      "sandboxId": "sbx-mrkkj8nj-i05z6v",
+      "projectKind": "website",
+      "missionId": "mc-nexora-field-e2e-5350",
+      "isolation": "child-process",
+      "port": 3100,
+      "durationMs": 197679,
+      "buildStatus": "BUILD_FAILED",
+      "previewReady": false,
+      "error": "Failed to compile.",
+      "parsedErrors": 6,
+      "repairPlanGenerated": true,
+      "notes": "Real npm install + next build executed in isolated temp workspace"
+    }
+  ],
+  "routes": [
+    "/studio/mc-nexora-field-e2e-5350",
+    "/studio/mc-nexora-field-e2e-5350/preview",
+    "/lab/preview-runtime"
+  ],
+  "security": {
+    "localhostOnly": true,
+    "noForgeOsNodeModules": true,
+    "commandAllowlist": true,
+    "noEnvLocalCopy": true,
+    "iframeSandbox": true
+  },
+  "apiEndpoints": [
+    "GET /api/preview-runtime",
+    "POST /api/preview-runtime/start",
+    "POST /api/preview-runtime/stop",
+    "GET /api/preview-runtime/[id]",
+    "GET /api/preview-runtime/[id]/logs",
+    "GET /api/preview-runtime/docker",
+    "POST /api/preview-runtime/e2e"
+  ],
+  "verified": true,
+  "declaration": "PROGRAM 5370 — SANDBOXED PREVIEW RUNTIME VERIFICADO"
+}

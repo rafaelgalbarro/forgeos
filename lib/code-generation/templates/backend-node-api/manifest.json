@@ -1,0 +1,55 @@
+{
+  "id": "backend-node-api",
+  "name": "Backend — Node.js API",
+  "version": "1.0.0",
+  "projectType": "backend",
+  "stack": {
+    "framework": "express",
+    "language": "typescript",
+    "database": "postgresql"
+  },
+  "structure": [
+    "src/index.ts",
+    "src/routes/",
+    "src/services/",
+    "src/repositories/",
+    "src/entities/",
+    "src/middleware/",
+    "src/jobs/",
+    "src/events/",
+    "migrations/",
+    "tests/",
+    "docs/"
+  ],
+  "dependencies": {
+    "express": "^4.21.0",
+    "zod": "^3.24.0",
+    "cors": "^2.8.5",
+    "helmet": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.0",
+    "vitest": "^2.0.0",
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "migrate": "echo 'Run migrations manually — not executed by ForgeOS'"
+  },
+  "envVars": [
+    { "key": "PORT", "description": "HTTP port", "example": "4000", "required": false },
+    { "key": "DATABASE_URL", "description": "PostgreSQL connection", "example": "postgresql://user:pass@localhost:5432/db", "required": true, "secret": true },
+    { "key": "JWT_SECRET", "description": "JWT signing secret", "example": "change-me-in-production", "required": true, "secret": true }
+  ],
+  "conventions": {
+    "libDir": "src",
+    "testsDir": "tests",
+    "naming": "kebab-case files, camelCase functions"
+  },
+  "generator": "backend-generator"
+}

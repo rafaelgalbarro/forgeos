@@ -1,0 +1,156 @@
+Delegating Program 6110 to a background worker to implement the multi-venture portfolio engine.
+
+[REDACTED]
+TOOL_PROMPT:
+Implement PROGRAM 6110 â€” MULTI-VENTURE PORTFOLIO ENGINE for ForgeOS.
+
+Workspace: C:\Users\RafaelGalbarroBarba\Projects\ForgeOS_App_Factory\ForgeOS_App_Factory_v0_1
+
+## Context
+ForgeOS V2 has: Canonical Domain Model, CQRS, Command/Query/Event Bus, Workflow Engine, Capability Registry, Artifact/Output/Project/Release Graph, Mission Control, Company Creation Command Center, Runtime, Scheduler, Task Queue, Preview Runtime, Deployment planning, and Program 6100 Performance & Scalability Foundation.
+
+Evolve from single-venture creation to simultaneous multi-venture portfolio management within a workspace.
+
+## CRITICAL RULES
+- NO full Portfolio Command Center dashboard UI yet
+- NO new Workflow Engine
+- NO new Scheduler
+- NO duplicate existing domain entities
+- NO mixing data between ventures
+- NO production mocks
+- NO hardcoded companies in production code
+- NO positive states without evidence
+- Follow Parallel Execution Governance - register in docs/architecture-v2/agent-change-log.md
+- Build/clean/dev sequential: kill:ports â†’ clean â†’ check:v2-boundaries â†’ test â†’ build â†’ reset:dev
+- NEVER parallel build + dev
+- Do NOT start Program 6120
+
+## IMPLEMENTATION SCOPE (all 22 sections)
+
+### 1. Domain Extensions
+Audit src/core/domain/ first. Add ONLY if not existing:
+Workspace, Portfolio, PortfolioVenture, ResourceAllocation, VenturePriority, VentureLifecycle, VentureDependency, SharedAsset, SharedCapability, PortfolioPolicy, PortfolioDecision, PortfolioExecutionSummary
+
+Relations: Workspace â†’ Portfolio â†’ Ventures, Resource Allocations, Policies, Shared Assets, Portfolio Decisions
+Do NOT duplicate Venture, Mission, Product, Output, Project, Release, Deployment.
+
+### 2. Portfolio Aggregate
+Create/consolidate Portfolio as Aggregate Root with responsibilities:
+- add/remove venture, change priority/lifecycle, assign budget/capability, pause/resume/archive/close venture, register dependencies, register shared assets, apply policies, protect invariants
+
+Invariants:
+- venture belongs to one workspace
+- cannot belong to two incompatible active portfolios
+- closed venture cannot run new missions
+- paused venture doesn't start automatic tasks
+- allocations cannot exceed workspace limits
+- dependencies must reference existing entities
+- shared resources need explicit permissions
+
+### 3. Venture Lifecycle
+Canonical states: IDEA, DISCOVERING, VALIDATING, PLANNING, BUILDING, READY_TO_LAUNCH, LAUNCHED, OPERATING, GENERATING_TRACTION, GENERATING_REVENUE, PROFITABLE, SCALING, AT_RISK, PAUSED, ARCHIVED, CLOSED, FAILED
+Define valid transitions. No arbitrary jumps. Each transition stores: actor, reason, evidence, previous/new state, timestamp, decisionId when applicable.
+
+### 4. Portfolio Commands
+Create: CreatePortfolio, AddVentureToPortfolio, RemoveVentureFromPortfolio, SetVenturePriority, SetVentureLifecycle, PauseVenture, ResumeVenture, ArchiveVenture, CloseVenture, AllocateBudget, AllocateCapability, ReleaseAllocation, CreateVentureDependency, RemoveVentureDependency, RegisterSharedAsset, ApproveSharedAssetUsage, CreatePortfolioPolicy, UpdatePortfolioPolicy, RecordPortfolioDecision
+
+All must: validate workspace, validate permissions, be idempotent, generate events, persist, update projections, return typed errors.
+
+### 5. Portfolio Queries
+Create: GetPortfolio, GetPortfolioSummary, ListPortfolioVentures, GetPortfolioVenture, GetPortfolioAllocations, GetPortfolioDependencies, GetSharedAssets, GetPortfolioPolicies, GetPortfolioDecisions, GetPortfolioActivity, GetPortfolioCapacity, GetPortfolioRisks
+
+ListPortfolioVentures: pagination, search, sorting, lifecycle, priority, health, value status, blockers, active executions, latest activity. Do NOT load full dashboards for list.
+
+### 6. Portfolio Events
+Minimum events: PortfolioCreated, VentureAddedToPortfolio, VentureRemovedFromPortfolio, VenturePriorityChanged, VentureLifecycleChanged, VenturePaused, VentureResumed, VentureArchived, VentureClosed, BudgetAllocated, CapabilityAllocated, AllocationReleased, VentureDependencyCreated, VentureDependencyRemoved, SharedAssetRegistered, SharedAssetUsageApproved, PortfolioPolicyCreated, PortfolioPolicyChanged, PortfolioDecisionRecorded
+
+Feed projections, audit, activity, future value engine, future AI Venture CEO.
+
+### 7. Priority Model
+Levels: CRITICAL, HIGH, NORMAL, LOW, PAUSED
+Affects: queue ordering, worker assignment, background jobs, preview availability, build scheduling, AI budget, review urgency.
+CRITICAL cannot bypass: security, approvals, resource limits, locks, workspace policy.
+
+### 8. Resource Allocation
+Allocations for: AI executions, token budget, monetary budget (estimated), build workers, preview sandboxes, deployment slots, research capacity, human review, storage, shared services.
+
+Each allocation: portfolioId, ventureId, resourceType, limit, used, reserved, available, period, status, policy, updatedAt.
+States: AVAILABLE, RESERVED, IN_USE, EXHAUSTED, BLOCKED, RELEASED
+No real money or payments.
+
+### 9. Multi-Venture Execution
+Integrate with existing Runtime and Task Queue. Each Execution: workspaceId, portfolioId, ventureId, missionId, priority, resource requirements, execution class, owner, isolation context.
+Support: multiple ventures executing, global/workspace/venture limits, fairness, cancellation, pause, resume, retry, failure isolation.
+
+### 10. Portfolio Policies
+Configurable: max active ventures, max simultaneous builds, max active previews, AI budget per venture/portfolio, required approvals, deployment limits, closure rules, archival rules, reuse rules, privacy rules.
+Apply before risky commands.
+
+### 11. Shared Assets
+Controlled reuse of: design systems, auth packages, analytics, payment modules, CRM, templates, infra modules, research, datasets, prompts, API clients.
+Each SharedAsset: owner venture, allowed consumers, type, version, compatibility, security classification, license/restriction, provenance, approval status.
+No auto-sharing customer data or secrets.
+
+### 12. Venture Dependencies
+Types: TECHNICAL, COMMERCIAL, DATA, BRAND, INFRASTRUCTURE, FINANCIAL, OPERATIONAL
+Detect: circular dependencies, incompatible versions, unapproved dependencies, provider closure risk.
+
+### 13. Portfolio Projections
+Create: PortfolioSummaryProjection, PortfolioVentureCardProjection, PortfolioCapacityProjection, PortfolioRiskProjection, PortfolioActivityProjection, PortfolioAllocationProjection, PortfolioDependencyProjection
+Incremental updates, not full recalc per query.
+
+### 14. Portfolio Read Model
+Implement PortfolioReadModel contract with portfolio metadata, metrics, capacity, ventures (VenturePortfolioCard[]), risks, activity, freshness (LIVE/STALE/PARTIAL).
+
+### 15. Create Multiple Ventures
+Use case CreateVentureBatch: 1 to configurable limit ventures.
+Input: workspaceId, portfolioId, venture definitions, priorities, resource policies, start mode (DRAFT_ONLY, CREATE_AND_PLAN, CREATE_AND_START, SCHEDULED).
+Validate each individually. Result per venture: created/rejected/queued/blocked/reason. No destructive global transaction if one fails.
+
+### 16. Batch Operations
+Commands: PauseVentureBatch, ResumeVentureBatch, ChangePriorityBatch, ArchiveVentureBatch, RequestPortfolioReview, SchedulePortfolioBuilds
+Return per-venture results.
+
+### 17. Security and Tenancy
+Test isolation: workspaces, portfolios, ventures, cache, artifacts, previews, executions, secrets.
+No venture reads another's private data without approved SharedAsset.
+
+### 18. Failure Isolation
+Simulate: AI failure, build failure, preview failure, timeout, budget exhausted, incompatible dependency, policy block, venture closed during execution.
+Validate: error contained, registered, projection updated, other ventures continue, resources released.
+
+### 19. Test Fixture
+Certification portfolio: RAFAEL VENTURES LAB with ventures:
+1. ORBITA SPORTS - SaaS for sports centers
+2. TABLEFLOW - Restaurant OS
+3. LUXORA EYEWEAR - Premium eyewear brand
+4. LOCALGROW AI - Local business automation
+5. CREATORPULSE - Creator monetization platform
+
+Execute: 5 ventures created, 3 active, 1 paused, 1 validating, different priorities, limited resources, one shared dependency, one controlled failure.
+Fixture in src/core/composition/fixtures/ - NOT hardcoded in production.
+
+### 20. Validation
+Sequential: npm run kill:ports â†’ clean â†’ check:v2-boundaries â†’ test â†’ build â†’ reset:dev
+Then: portfolio creation, five venture, concurrent execution, fairness, resource allocation, pause/resume, batch ops, shared asset, dependency, security isolation, failure isolation, port cleanup, orphan process check.
+
+### 21. Documentation
+Create docs/v2/portfolio-engine/ with: README.md, domain.md, aggregate.md, lifecycle.md, commands.md, queries.md, events.md, priorities.md, allocations.md, policies.md, shared-assets.md, dependencies.md, projections.md, batch-creation.md, tenancy.md, certification.md, final-report.md
+
+### 22. Acceptance Criteria
+Verify: Portfolio Aggregate exists, multiple ventures can be created, batch creation, priorities, lifecycle transitions, pause/resume, allocations, policies, fairness, controlled shared assets, dependencies, isolation passes, failure doesn't stop portfolio, 5 ventures in fixture work, projections update, build exit 0.
+
+## EXISTING CODE TO REUSE
+- src/core/domain/ - extend carefully
+- src/core/application/ - CQRS (6100 may have added ListPortfolioVentures, VenturePortfolioCard)
+- src/core/composition/ - composition root, fixtures pattern from orbita-sports.ts
+- src/core/orchestration/ - workflow kernel
+- src/core/events/ - event system
+- Program 6100 artifacts: performance foundation, cache, isolation, execution queue, concurrency limits, portfolio-ready contracts
+
+Check what Program 6100 (background agent a336d14c) may have already implemented before duplicating.
+
+## DELIVERABLE
+Return final report. Only declare "PROGRAM 6110 â€” MULTI-VENTURE PORTFOLIO ENGINE VERIFICADO" with evidence. Do NOT start Program 6120.
+
+Read transcript if needed: C:\Users\RafaelGalbarroBarba\.cursor\projects\c-Users-RafaelGalbarroBarba-Projects-ForgeOS-App-Factory-ForgeOS-App-Factory-v0-1/agent-transcripts/c9e4520d-d974-4662-91a6-b7a04ead5cce/c9e4520d-d974-4662-91a6-b7a04ead5cce.jsonl

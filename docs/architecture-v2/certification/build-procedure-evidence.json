@@ -1,0 +1,94 @@
+﻿{
+    "program":  "6080",
+    "ranAt":  "2026-07-24T11:06:47.8852490Z",
+    "nodeVersion":  "v22.16.0",
+    "npmVersion":  "10.9.2",
+    "packageScripts":  {
+                           "typecheck":  false,
+                           "test":  false,
+                           "architecture:check":  false,
+                           "reset:dev":  true
+                       },
+    "steps":  [
+                  {
+                      "name":  "node_npm_versions",
+                      "command":  "node -v \u0026\u0026 npm -v",
+                      "exitCode":  0,
+                      "status":  "PASS",
+                      "notes":  "node=v22.16.0 npm=10.9.2",
+                      "durationMs":  5220
+                  },
+                  {
+                      "name":  "kill_ports",
+                      "command":  "npm run kill:ports",
+                      "exitCode":  0,
+                      "status":  "PASS",
+                      "notes":  "Possible node processes after kill:ports: PID=31244, PID=27880, PID=31672",
+                      "durationMs":  3248
+                  },
+                  {
+                      "name":  "clean",
+                      "command":  "npm run clean",
+                      "exitCode":  0,
+                      "status":  "PASS",
+                      "notes":  "\r\n\u003e forgeos-app-factory@0.1.0 clean\r\n\u003e node scripts/clean.js\r\n\r\n\r\nÔû© Limpiando cach├®s de Next.jsÔÇª\r\n  Ô£ô Eliminado .next/\r\n\r\nÔ£ô Limpieza completada.\r\n\r\n",
+                      "durationMs":  752
+                  },
+                  {
+                      "name":  "architecture_check",
+                      "command":  "npm run architecture:check",
+                      "exitCode":  null,
+                      "status":  "MISSING",
+                      "notes":  "Script architecture:check not in package.json",
+                      "durationMs":  0
+                  },
+                  {
+                      "name":  "typecheck",
+                      "command":  "npx tsc --noEmit",
+                      "exitCode":  2,
+                      "status":  "FAIL",
+                      "notes":  "typecheck script MISSING; used npx tsc --noEmit. src/core/application/commands/definitions.ts(4,15): error TS2724: \u0027\"../../domain\"\u0027 has no exported member named \u0027DeploymentTarget\u0027. Did you mean \u0027DeploymentStatus\u0027?\r\nsrc/core/application/handlers/shared/pipeline.ts(3,30): error TS2307: Cannot find module \u0027../commands/types\u0027 or its corresponding type declarations.\r\nsrc/core/application/handlers/shared/pipeline.ts(4,42): error TS2307: Cannot find module \u0027../errors\u0027 or its corresponding type declarations.\r\nsrc/core/application/handlers/shared/pipeline.ts(5,39): error TS2307: Cannot find module \u0027../ports\u0027 or its corresponding type declarations.\r\nsrc/core/application/handlers/shared/pipeline.ts(6,44): error TS2307: Cannot find module \u0027../policies\u0027 or its corresponding type declarations.\r\nsrc/core/application/handlers/shared/pipeline.ts(7,30): e\n...[truncated]",
+                      "durationMs":  54240
+                  },
+                  {
+                      "name":  "test",
+                      "command":  "npm run test",
+                      "exitCode":  null,
+                      "status":  "MISSING",
+                      "notes":  "Script test not in package.json",
+                      "durationMs":  0
+                  },
+                  {
+                      "name":  "build",
+                      "command":  "npm run build",
+                      "exitCode":  1,
+                      "status":  "FAIL",
+                      "notes":  "bundle: Build did not succeed or .next missing; no bundle sizes | \r\n\u003e forgeos-app-factory@0.1.0 build\r\n\u003e next build\r\n\r\n   Ôû▓ Next.js 15.5.19\r\n\r\n   Creating an optimized production build ...\r\n Ô£ô Compiled successfully in 38.6s\r\n   Linting and checking validity of types ...\r\nnode.exe : Failed to compile.\r\nEn C:\\Users\\RafaelGalbarroBarba\\AppData\\Local\\forgeos-node\\npm.ps1: 29 Carácter: 3\r\n+   \u0026 $NODE_EXE $NPM_CLI_JS $args\r\n+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (Failed to compile.:String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError\r\n \r\n\r\n./src/core/application/handlers/command/index.ts:74:15\r\nType error: Module \u0027\"../../ports\"\u0027 has no exported member \u0027ApplicationPorts\u0027.\r\n\r\n\u001b[0m \u001b[90m 72 |\u001b[39m   \u001b[33mCanStartBuild\u001b[39m\u001b[33m,\u001b[39m\r\n \u001b[90m 73 |\u001b[39m } \u001b[36mfrom\u001b[39m \u001b[32m\"../../policies\"\u001b[39m\u001b[33m;\u001b[39m\r\n\u001b[31m\u001b[1m\u003e\u001b[22m\u001b[39m\u001b[90m 74 |\u001b[39m \u001b[36mimport\u001b[39m type { \u001b[33mApplicationPorts\u001b[39m } \u001b[36mfrom\u001b[39m \r\n\u001b[32m\"../../ports\"\u001b[39m\u001b[33m;\u001b[39m\r\n \u001b[90m    |\u001b[39m               \u001b[31m\u001b[1m^\u001b[22m\n...[truncated]",
+                      "durationMs":  72810
+                  },
+                  {
+                      "name":  "smoke_reset_dev",
+                      "command":  "npm run reset:dev (brief) or skip",
+                      "exitCode":  null,
+                      "status":  "SKIPPED",
+                      "notes":  "ports not free: port 3000 IN_USE (PID 3300); port 3001 FREE; build failed",
+                      "durationMs":  0
+                  }
+              ],
+    "smoke":  {
+                  "status":  "SMOKE: NOT_RUN",
+                  "reason":  "ports not free: port 3000 IN_USE (PID 3300); port 3001 FREE; build failed",
+                  "routes":  [
+
+                             ],
+                  "resetDevScript":  true,
+                  "devResetJs":  true,
+                  "ports":  [
+                                "port 3000 IN_USE (PID 3300)",
+                                "port 3001 FREE"
+                            ],
+                  "notes":  "hasResetDev=True devResetJs=True; port 3000 IN_USE (PID 3300); port 3001 FREE"
+              },
+    "summary":  "node=v22.16.0 npm=10.9.2; build=FAIL; typecheck=False test=False architecture:check=False; smoke=SMOKE: NOT_RUN; failedSteps=2; Possible node processes after kill:ports: PID=31244, PID=27880, PID=31672; bundle=Build did not succeed or .next missing; no bundle sizes",
+    "buildPassed":  false
+}

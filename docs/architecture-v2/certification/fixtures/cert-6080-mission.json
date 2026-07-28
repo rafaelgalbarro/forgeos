@@ -1,0 +1,44 @@
+{
+  "program": "6080",
+  "fixtureKind": "GENERIC_CERTIFICATION_MISSION",
+  "tags": ["NOT_HARDCODED_VENTURE_MOTOR", "CERTIFICATION_ONLY"],
+  "mission": {
+    "missionId": "mission-cert-6080-aurora-ops",
+    "workspaceId": "ws-cert-6080",
+    "title": "Aurora Ops Platform",
+    "idea": "Create a company that sells an operations analytics SaaS: brand identity, public website, web application, backend API, database schema, local preview, release package, preview deployment, and an operational plan for the founding team.",
+    "requestedOutputs": [
+      "COMPANY_CREATION",
+      "BRAND",
+      "WEBSITE",
+      "WEB_APP",
+      "BACKEND",
+      "DATABASE",
+      "PREVIEW",
+      "RELEASE",
+      "PREVIEW_DEPLOYMENT",
+      "OPERATIONAL_PLAN"
+    ],
+    "executionModePreferred": "DRY_RUN",
+    "notes": "Generic fixture for PROGRAM 6080. Must not depend on NEXORA FIELD or any venture-specific motor logic."
+  },
+  "expectedFlow": [
+    "Intent",
+    "Mission",
+    "Decisions",
+    "Plan",
+    "Artifacts",
+    "Outputs",
+    "Codebases",
+    "Builds",
+    "Previews",
+    "Release",
+    "PreviewDeployment",
+    "CompanyOS",
+    "ChangeRequest",
+    "ImpactAnalysis",
+    "NewVersion",
+    "NewBuild",
+    "UpdatedPreview"
+  ]
+}

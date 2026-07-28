@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/core/delivery/**/*.ts",
+    "src/core/application/delivery-commands.ts",
+    "components/creation-output-studio/DeliveryStudioTabs.tsx",
+    "app/api/delivery/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".next"]
+}

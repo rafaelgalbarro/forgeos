@@ -1,0 +1,89 @@
+{
+  "program": "6085",
+  "startedAt": "2026-07-24T13:46:07.198Z",
+  "steps": [
+    {
+      "step": "kill:ports",
+      "status": "PASS",
+      "detail": "killed=0",
+      "at": "2026-07-24T13:46:07.769Z"
+    },
+    {
+      "step": "clean",
+      "status": "PASS",
+      "detail": "706ms",
+      "at": "2026-07-24T13:46:08.477Z"
+    },
+    {
+      "step": "check:v2-boundaries",
+      "status": "PASS",
+      "detail": "3305ms",
+      "at": "2026-07-24T13:46:11.784Z"
+    },
+    {
+      "step": "typecheck",
+      "status": "PASS",
+      "detail": "55633ms",
+      "at": "2026-07-24T13:47:07.420Z"
+    },
+    {
+      "step": "test",
+      "status": "PASS",
+      "detail": "9865ms",
+      "at": "2026-07-24T13:47:17.286Z"
+    },
+    {
+      "step": "build",
+      "status": "PASS",
+      "detail": "132486ms",
+      "at": "2026-07-24T13:49:29.773Z"
+    },
+    {
+      "step": "live-integration-atlas",
+      "status": "PASS",
+      "detail": "63731ms",
+      "at": "2026-07-24T13:50:33.505Z"
+    },
+    {
+      "step": "clean-before-dev",
+      "status": "PASS",
+      "detail": "1598ms",
+      "at": "2026-07-24T13:50:35.104Z"
+    },
+    {
+      "step": "start-dev",
+      "status": "PASS",
+      "detail": "pid=32048",
+      "at": "2026-07-24T13:50:35.218Z"
+    },
+    {
+      "step": "wait-for-ready",
+      "status": "PASS",
+      "detail": "44526ms",
+      "at": "2026-07-24T13:51:19.747Z"
+    },
+    {
+      "step": "smoke",
+      "status": "PASS",
+      "detail": "{\n  \"program\": \"6085\",\n  \"base\": \"http://127.0.0.1:3000\",\n  \"missionId\": \"smoke-placeholder\",\n  \"passed\": 15,\n  \"failed\": 0,\n  \"blocked\": 0,\n  \"results\": [\n    {\n      \"path\": \"/\",\n      \"status\": 200",
+      "at": "2026-07-24T13:52:06.971Z"
+    },
+    {
+      "step": "lineage",
+      "status": "PASS",
+      "detail": "2317ms",
+      "at": "2026-07-24T13:52:09.289Z"
+    },
+    {
+      "step": "certification",
+      "status": "PASS",
+      "detail": "5383ms",
+      "at": "2026-07-24T13:52:14.673Z"
+    }
+  ],
+  "keepDev": false,
+  "skipDev": false,
+  "skipBuild": false,
+  "endedAt": "2026-07-24T13:52:14.673Z",
+  "verdict": "INTEGRATION_PIPELINE_OK"
+}

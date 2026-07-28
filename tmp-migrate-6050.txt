@@ -1,0 +1,20 @@
+﻿
+> forgeos-app-factory@0.1.0 migrate:delivery-6050
+> npx --yes tsx scripts/migrate-delivery-model-6050.ts
+
+PROGRAM 6050 ÔÇö ARTIFACT OUTPUT CODEBASE UNIFICATION
+Ôû© Non-destructive migration (legacy stores untouched)
+
+PROGRAM 6050 ÔÇö ARTIFACT OUTPUT CODEBASE UNIFICATION
+started: 2026-07-24T11:13:27.033Z
+finished: 2026-07-24T11:13:27.033Z
+migrated=5 compatible=0 incomplete=0 conflict=0 orphaned=0 manual_review=0
+  [migrated] creation-output:out-website-mryudjh2-amlmmx ÔåÆ can-out-out-website-mryudjh2-amlmmx
+  [migrated] creation-output:out-web_application-mryudjjg-tsjkwm ÔåÆ can-out-out-web_application-mryudjjg-tsjkwm
+  [migrated] creation-output:out-mobile_application-mryudjlb-c4a0s3 ÔåÆ can-out-out-mobile_application-mryudjlb-c4a0s3
+  [migrated] creation-output:out-backend-mryudjli-3sjv3t ÔåÆ can-out-out-backend-mryudjli-3sjv3t
+  [migrated] creation-output:out-deployment-mryudm9k-1r45b2 ÔåÆ can-out-out-deployment-mryudm9k-1r45b2
+
+Report written: C:\Users\RafaelGalbarroBarba\Projects\ForgeOS_App_Factory\ForgeOS_App_Factory_v0_1\tmp\migration-6050-report.json
+Legacy data was NOT deleted.
+EXIT=0

@@ -1,0 +1,162 @@
+﻿   Ôû▓ Next.js 15.5.19
+   - Experiments (use with caution):
+     Ô¿» webpackBuildWorker
+
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully in 32.2s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/118) ...
+   Generating static pages (29/118) 
+   Generating static pages (58/118) 
+   Generating static pages (88/118) 
+ Ô£ô Generating static pages (118/118)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                     Size  First Load JS
+Ôöî Ôùï /                                        7.74 kB         138 kB
+Ôö£ Ôùï /_not-found                                 1 kB         103 kB
+Ôö£ Ôùï /admin                                   2.04 kB         112 kB
+Ôö£ Ôùï /agents                                    203 B         102 kB
+Ôö£ Ôùï /ai                                       2.9 kB         109 kB
+Ôö£ ãÆ /api/ai/run                                203 B         102 kB
+Ôö£ ãÆ /api/build-pipeline/dry-run                203 B         102 kB
+Ôö£ ãÆ /api/build-pipeline/request-approval       203 B         102 kB
+Ôö£ ãÆ /api/build-pipeline/snapshot               203 B         102 kB
+Ôö£ ãÆ /api/ceo-workspace                         203 B         102 kB
+Ôö£ ãÆ /api/connections/dry-run                   203 B         102 kB
+Ôö£ ãÆ /api/connections/request-approval          203 B         102 kB
+Ôö£ ãÆ /api/connections/test                      203 B         102 kB
+Ôö£ ãÆ /api/generate/product                      203 B         102 kB
+Ôö£ ãÆ /api/generate/research                     203 B         102 kB
+Ôö£ ãÆ /api/real-build-flow/approve               203 B         102 kB
+Ôö£ ãÆ /api/real-build-flow/controlled-execute    203 B         102 kB
+Ôö£ ãÆ /api/real-build-flow/dry-run               203 B         102 kB
+Ôö£ ãÆ /api/real-build-flow/execute               203 B         102 kB
+Ôö£ ãÆ /api/real-build-flow/request-approval      203 B         102 kB
+Ôö£ ãÆ /api/real-build-flow/simulate-real         203 B         102 kB
+Ôö£ ãÆ /api/real-execution/approve                203 B         102 kB
+Ôö£ ãÆ /api/real-execution/dry-run                203 B         102 kB
+Ôö£ ãÆ /api/real-execution/execute                203 B         102 kB
+Ôö£ ãÆ /api/real-execution/request-approval       203 B         102 kB
+Ôö£ Ôùï /beta                                    4.07 kB         116 kB
+Ôö£ Ôùï /billing                                  4.5 kB         110 kB
+Ôö£ ãÆ /build/[id]                              11.9 kB         129 kB
+Ôö£ Ôùï /capital                                 2.75 kB         114 kB
+Ôö£ Ôùï /ceo                                       158 B         176 kB
+Ôö£ Ôùï /creator                                 1.34 kB         242 kB
+Ôö£ Ôùï /dashboard                               5.66 kB         129 kB
+Ôö£ Ôùï /deployments                             6.11 kB         234 kB
+Ôö£ Ôùï /design-system                           6.39 kB         109 kB
+Ôö£ Ôùï /docs                                      129 B         112 kB
+Ôö£ ÔùÅ /docs/[slug]                               129 B         112 kB
+Ôö£   Ôö£ /docs/quickstart
+Ôö£   Ôö£ /docs/onboarding
+Ôö£   Ôö£ /docs/venture-factory
+Ôö£   Ôöö [+4 more paths]
+Ôö£ Ôùï /enterprise                                172 B         115 kB
+Ôö£ Ôùï /feedback                                1.54 kB         113 kB
+Ôö£ Ôùï /forgot-password                         1.52 kB         114 kB
+Ôö£ Ôùï /founder                                 1.11 kB         147 kB
+Ôö£ Ôùï /founder-journey                         9.85 kB         142 kB
+Ôö£ Ôùï /ideas                                     203 B         102 kB
+Ôö£ ãÆ /intelligence/[id]                       3.86 kB         141 kB
+Ôö£ Ôùï /investors                               2.01 kB         113 kB
+Ôö£ Ôùï /lab/ai-collaboration                    6.34 kB         161 kB
+Ôö£ Ôùï /lab/ai-runtime                          2.62 kB         122 kB
+Ôö£ Ôùï /lab/ai-skills                           3.37 kB         162 kB
+Ôö£ Ôùï /lab/analytics-skills                    2.88 kB         161 kB
+Ôö£ Ôùï /lab/autonomous-organization             1.19 kB         112 kB
+Ôö£ Ôùï /lab/backend-factory                     6.52 kB         141 kB
+Ôö£ Ôùï /lab/build-context                       3.79 kB         128 kB
+Ôö£ Ôùï /lab/build-dna                            7.1 kB         109 kB
+Ôö£ Ôùï /lab/build-registry                       3.6 kB         112 kB
+Ôö£ Ôùï /lab/business-skills                     3.04 kB         161 kB
+Ôö£ Ôùï /lab/capabilities                        2.54 kB         175 kB
+Ôö£ Ôùï /lab/database-factory                    3.19 kB         141 kB
+Ôö£ Ôùï /lab/developer-skills                    3.52 kB         162 kB
+Ôö£ ãÆ /lab/ecosystem                           8.34 kB         174 kB
+Ôö£ Ôùï /lab/enterprise                          1.69 kB         116 kB
+Ôö£ Ôùï /lab/execution-engine                    7.07 kB         137 kB
+Ôö£ Ôùï /lab/executive-mesh                      2.09 kB         208 kB
+Ôö£ Ôùï /lab/executive-runtime                   9.59 kB         165 kB
+Ôö£ Ôùï /lab/forge-capital                       1.74 kB         113 kB
+Ôö£ Ôùï /lab/frontend-factory                    8.41 kB         139 kB
+Ôö£ Ôùï /lab/infrastructure-factory               5.9 kB         140 kB
+Ôö£ Ôùï /lab/live-ai                             1.22 kB         253 kB
+Ôö£ Ôùï /lab/marketing-skills                    3.06 kB         161 kB
+Ôö£ Ôùï /lab/network                             2.22 kB         114 kB
+Ôö£ Ôùï /lab/os-rc2                              7.33 kB         120 kB
+Ôö£ Ôùï /lab/productivity-skills                  3.1 kB         161 kB
+Ôö£ Ôùï /lab/qa-factory                          6.21 kB         140 kB
+Ôö£ Ôùï /lab/rc1                                  4.2 kB         182 kB
+Ôö£ Ôùï /lab/real-build-flow                      2.5 kB         227 kB
+Ôö£ Ôùï /lab/real-connections                    3.35 kB         176 kB
+Ôö£ Ôùï /lab/real-execution                      3.53 kB         168 kB
+Ôö£ Ôùï /lab/release-manager                     3.98 kB         162 kB
+Ôö£ Ôùï /lab/runtime-observability               7.66 kB         151 kB
+Ôö£ Ôùï /lab/runtime-scheduler                   4.71 kB         113 kB
+Ôö£ Ôùï /lab/self-evolution                      1.08 kB         117 kB
+Ôö£ Ôùï /lab/skill-store                         2.71 kB         168 kB
+Ôö£ Ôùï /lab/skills                              2.21 kB         160 kB
+Ôö£ Ôùï /lab/skills-governance                   2.75 kB         161 kB
+Ôö£ Ôùï /lab/state-machine                        4.7 kB         113 kB
+Ôö£ Ôùï /lab/task-queue                          5.74 kB         125 kB
+Ôö£ Ôùï /lab/venture-factory                     1.17 kB         131 kB
+Ôö£ Ôùï /lab/venture-intelligence                1.02 kB         112 kB
+Ôö£ Ôùï /lab/workers                             8.82 kB         125 kB
+Ôö£ Ôùï /landing                                 5.65 kB         111 kB
+Ôö£ Ôùï /live                                      224 B         252 kB
+Ôö£ Ôùï /login                                   2.25 kB         114 kB
+Ôö£ Ôùï /marketplace                             4.38 kB         170 kB
+Ôö£ Ôùï /network                                   168 B         112 kB
+Ôö£ Ôùï /new-app                                   203 B         102 kB
+Ôö£ ãÆ /new-app/generating/[id]                   203 B         102 kB
+Ôö£ Ôùï /onboarding                              7.77 kB         136 kB
+Ôö£ Ôùï /organization                            2.05 kB         113 kB
+Ôö£ Ôùï /os                                      1.81 kB         129 kB
+Ôö£ Ôùï /os/analytics                              565 B         135 kB
+Ôö£ Ôùï /os/build                                  182 B         106 kB
+Ôö£ Ôùï /os/calendar                               565 B         135 kB
+Ôö£ Ôùï /os/capital                                565 B         135 kB
+Ôö£ Ôùï /os/ceo                                    158 B         176 kB
+Ôö£ Ôùï /os/creator                                639 B         241 kB
+Ôö£ Ôùï /os/knowledge                              182 B         106 kB
+Ôö£ Ôùï /os/labs                                   182 B         106 kB
+Ôö£ Ôùï /os/marketplace                            182 B         106 kB
+Ôö£ Ôùï /os/portfolio                              565 B         135 kB
+Ôö£ Ôùï /os/settings                               182 B         106 kB
+Ôö£ ãÆ /os/workspace/[id]                         727 B         160 kB
+Ôö£ Ôùï /plugins                                  3.5 kB         109 kB
+Ôö£ Ôùï /pricing                                 5.48 kB         111 kB
+Ôö£ Ôùï /privacy                                   702 B         106 kB
+Ôö£ Ôùï /profile                                 2.65 kB         115 kB
+Ôö£ Ôùï /projects                                1.88 kB         111 kB
+Ôö£ Ôùï /register                                2.35 kB         114 kB
+Ôö£ ãÆ /resultado/[id]                            203 B         102 kB
+Ôö£ Ôùï /sdk                                      2.2 kB         108 kB
+Ôö£ Ôùï /security                                  702 B         106 kB
+Ôö£ Ôùï /self-evolution                            168 B         116 kB
+Ôö£ Ôùï /settings                                2.43 kB         115 kB
+Ôö£ Ôùï /status                                  3.05 kB         115 kB
+Ôö£ Ôùï /store                                   5.24 kB         171 kB
+Ôö£ Ôùï /support                                 4.51 kB         116 kB
+Ôö£ Ôùï /templates                                 182 B         106 kB
+Ôö£ Ôùï /venture-factory                           174 B         130 kB
+Ôö£ ãÆ /venture/[id]                              577 B         160 kB
+Ôö£ ãÆ /venture/[id]/knowledge                  21.3 kB         157 kB
+Ôö£ ãÆ /venture/[id]/print                      4.82 kB         121 kB
+Ôö£ ãÆ /venture/[id]/timeline                   10.6 kB         120 kB
+Ôö£ Ôùï /waitlist                                1.94 kB         114 kB
+Ôöö Ôùï /workspace                               7.27 kB         135 kB
++ First Load JS shared by all                 102 kB
+  Ôö£ chunks/1255-b8cf77ab14370e57.js            46 kB
+  Ôö£ chunks/4bd1b696-100b9d70ed4e49c1.js      54.2 kB
+  Ôöö other shared chunks (total)              2.05 kB
+
+
+Ôùï  (Static)   prerendered as static content
+ÔùÅ  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ãÆ  (Dynamic)  server-rendered on demand
+

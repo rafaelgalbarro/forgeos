@@ -1,0 +1,4440 @@
+{
+  "version": 1,
+  "workspaces": {
+    "ws-1785145873134-1": {
+      "id": "ws-1785145873134-1",
+      "name": "RAFAEL VENTURES LAB Workspace",
+      "slug": "rafael-ventures-lab-ws",
+      "ownerId": "cert-actor-6150",
+      "organizationId": "org-ws-1785145873134-1",
+      "ventureIds": [
+        "ven-1785145873137-2",
+        "ven-1785145873147-4",
+        "ven-1785145873158-6",
+        "ven-1785145873167-8",
+        "ven-1785145873173-10"
+      ],
+      "status": "active",
+      "createdAt": "2026-07-27T09:51:13.134Z",
+      "updatedAt": "2026-07-27T09:51:13.173Z"
+    }
+  },
+  "ventures": {
+    "ven-1785145873137-2": {
+      "id": "ven-1785145873137-2",
+      "workspaceId": "ws-1785145873134-1",
+      "name": "TABLEFLOW",
+      "slug": "tableflow",
+      "idea": "Operations table OS for multi-location teams — reservations, floor plans, staff shifts, and service SLAs.",
+      "ownerId": "cert-actor-6150",
+      "status": "draft",
+      "missionIds": [
+        "mis-1785145873141-3"
+      ],
+      "createdAt": "2026-07-27T09:51:13.137Z",
+      "updatedAt": "2026-07-27T09:51:13.141Z"
+    },
+    "ven-1785145873147-4": {
+      "id": "ven-1785145873147-4",
+      "workspaceId": "ws-1785145873134-1",
+      "name": "LUXORA EYEWEAR",
+      "slug": "luxora-eyewear",
+      "idea": "DTC premium eyewear brand with virtual try-on, prescription capture, and fulfillment tracking.",
+      "ownerId": "cert-actor-6150",
+      "status": "draft",
+      "missionIds": [
+        "mis-1785145873150-5"
+      ],
+      "createdAt": "2026-07-27T09:51:13.147Z",
+      "updatedAt": "2026-07-27T09:51:13.150Z"
+    },
+    "ven-1785145873158-6": {
+      "id": "ven-1785145873158-6",
+      "workspaceId": "ws-1785145873134-1",
+      "name": "LOCALGROW AI",
+      "slug": "localgrow-ai",
+      "idea": "AI advisor for local growers — crop planning, demand signals, and co-op distribution.",
+      "ownerId": "cert-actor-6150",
+      "status": "draft",
+      "missionIds": [
+        "mis-1785145873160-7"
+      ],
+      "createdAt": "2026-07-27T09:51:13.158Z",
+      "updatedAt": "2026-07-27T09:51:13.160Z"
+    },
+    "ven-1785145873167-8": {
+      "id": "ven-1785145873167-8",
+      "workspaceId": "ws-1785145873134-1",
+      "name": "CREATORPULSE",
+      "slug": "creatorpulse",
+      "idea": "Creator analytics and monetization pulse — audience health, offer experiments, payout readiness.",
+      "ownerId": "cert-actor-6150",
+      "status": "draft",
+      "missionIds": [
+        "mis-1785145873169-9"
+      ],
+      "createdAt": "2026-07-27T09:51:13.167Z",
+      "updatedAt": "2026-07-27T09:51:13.169Z"
+    },
+    "ven-1785145873173-10": {
+      "id": "ven-1785145873173-10",
+      "workspaceId": "ws-1785145873134-1",
+      "name": "ORBITA SPORTS",
+      "slug": "orbita-sports",
+      "idea": "Plataforma SaaS para centros deportivos que gestiona socios, reservas, clases, entrenadores, accesos, pagos, planes, incidencias y metricas operativas.",
+      "ownerId": "cert-actor-6150",
+      "status": "draft",
+      "missionIds": [
+        "mis-1785145873175-11"
+      ],
+      "createdAt": "2026-07-27T09:51:13.173Z",
+      "updatedAt": "2026-07-27T09:51:13.175Z"
+    }
+  },
+  "missions": {
+    "mis-1785145873141-3": {
+      "id": "mis-1785145873141-3",
+      "workspaceId": "ws-1785145873134-1",
+      "ventureId": "ven-1785145873137-2",
+      "founderId": "cert-actor-6150",
+      "intent": {
+        "primary": "Operations table OS for multi-location teams — reservations, floor plans, staff shifts, and service SLAs.",
+        "secondary": [
+          "reservations",
+          "floor-plans",
+          "shifts",
+          "sla",
+          "ops-metrics"
+        ],
+        "confidence": 0.9,
+        "extractedIdea": "TABLEFLOW"
+      },
+      "status": "UNDERSTANDING",
+      "planApproved": false,
+      "conversation": [],
+      "decisionIds": [],
+      "outputIds": [],
+      "timeline": [
+        {
+          "id": "tl-mis-1785145873141-3-created",
+          "at": "2026-07-27T09:51:13.141Z",
+          "label": "Mission created",
+          "type": "system"
+        },
+        {
+          "id": "tl-mis-1785145873141-3-intent",
+          "at": "2026-07-27T09:51:13.143Z",
+          "label": "Intent updated",
+          "type": "intent"
+        }
+      ],
+      "createdAt": "2026-07-27T09:51:13.141Z",
+      "updatedAt": "2026-07-27T09:51:13.143Z"
+    },
+    "mis-1785145873150-5": {
+      "id": "mis-1785145873150-5",
+      "workspaceId": "ws-1785145873134-1",
+      "ventureId": "ven-1785145873147-4",
+      "founderId": "cert-actor-6150",
+      "intent": {
+        "primary": "DTC premium eyewear brand with virtual try-on, prescription capture, and fulfillment tracking.",
+        "secondary": [
+          "catalog",
+          "try-on",
+          "prescription",
+          "checkout",
+          "fulfillment"
+        ],
+        "confidence": 0.9,
+        "extractedIdea": "LUXORA EYEWEAR"
+      },
+      "status": "UNDERSTANDING",
+      "planApproved": false,
+      "conversation": [],
+      "decisionIds": [],
+      "outputIds": [],
+      "timeline": [
+        {
+          "id": "tl-mis-1785145873150-5-created",
+          "at": "2026-07-27T09:51:13.150Z",
+          "label": "Mission created",
+          "type": "system"
+        },
+        {
+          "id": "tl-mis-1785145873150-5-intent",
+          "at": "2026-07-27T09:51:13.154Z",
+          "label": "Intent updated",
+          "type": "intent"
+        }
+      ],
+      "createdAt": "2026-07-27T09:51:13.150Z",
+      "updatedAt": "2026-07-27T09:51:13.154Z"
+    },
+    "mis-1785145873160-7": {
+      "id": "mis-1785145873160-7",
+      "workspaceId": "ws-1785145873134-1",
+      "ventureId": "ven-1785145873158-6",
+      "founderId": "cert-actor-6150",
+      "intent": {
+        "primary": "AI advisor for local growers — crop planning, demand signals, and co-op distribution.",
+        "secondary": [
+          "crop-plan",
+          "demand",
+          "co-op",
+          "advisories"
+        ],
+        "confidence": 0.9,
+        "extractedIdea": "LOCALGROW AI"
+      },
+      "status": "UNDERSTANDING",
+      "planApproved": false,
+      "conversation": [],
+      "decisionIds": [],
+      "outputIds": [],
+      "timeline": [
+        {
+          "id": "tl-mis-1785145873160-7-created",
+          "at": "2026-07-27T09:51:13.160Z",
+          "label": "Mission created",
+          "type": "system"
+        },
+        {
+          "id": "tl-mis-1785145873160-7-intent",
+          "at": "2026-07-27T09:51:13.165Z",
+          "label": "Intent updated",
+          "type": "intent"
+        }
+      ],
+      "createdAt": "2026-07-27T09:51:13.160Z",
+      "updatedAt": "2026-07-27T09:51:13.165Z"
+    },
+    "mis-1785145873169-9": {
+      "id": "mis-1785145873169-9",
+      "workspaceId": "ws-1785145873134-1",
+      "ventureId": "ven-1785145873167-8",
+      "founderId": "cert-actor-6150",
+      "intent": {
+        "primary": "Creator analytics and monetization pulse — audience health, offer experiments, payout readiness.",
+        "secondary": [
+          "audience",
+          "offers",
+          "experiments",
+          "payouts"
+        ],
+        "confidence": 0.9,
+        "extractedIdea": "CREATORPULSE"
+      },
+      "status": "UNDERSTANDING",
+      "planApproved": false,
+      "conversation": [],
+      "decisionIds": [],
+      "outputIds": [],
+      "timeline": [
+        {
+          "id": "tl-mis-1785145873169-9-created",
+          "at": "2026-07-27T09:51:13.169Z",
+          "label": "Mission created",
+          "type": "system"
+        },
+        {
+          "id": "tl-mis-1785145873169-9-intent",
+          "at": "2026-07-27T09:51:13.171Z",
+          "label": "Intent updated",
+          "type": "intent"
+        }
+      ],
+      "createdAt": "2026-07-27T09:51:13.169Z",
+      "updatedAt": "2026-07-27T09:51:13.171Z"
+    },
+    "mis-1785145873175-11": {
+      "id": "mis-1785145873175-11",
+      "workspaceId": "ws-1785145873134-1",
+      "ventureId": "ven-1785145873173-10",
+      "founderId": "cert-actor-6150",
+      "intent": {
+        "primary": "Plataforma SaaS para centros deportivos que gestiona socios, reservas, clases, entrenadores, accesos, pagos, planes, incidencias y metricas operativas.",
+        "secondary": [
+          "socios",
+          "reservas",
+          "clases",
+          "entrenadores",
+          "accesos",
+          "pagos",
+          "planes",
+          "incidencias",
+          "metricas"
+        ],
+        "confidence": 0.9,
+        "extractedIdea": "ORBITA SPORTS"
+      },
+      "status": "UNDERSTANDING",
+      "planApproved": false,
+      "conversation": [],
+      "decisionIds": [],
+      "outputIds": [],
+      "timeline": [
+        {
+          "id": "tl-mis-1785145873175-11-created",
+          "at": "2026-07-27T09:51:13.175Z",
+          "label": "Mission created",
+          "type": "system"
+        },
+        {
+          "id": "tl-mis-1785145873175-11-intent",
+          "at": "2026-07-27T09:51:13.177Z",
+          "label": "Intent updated",
+          "type": "intent"
+        }
+      ],
+      "createdAt": "2026-07-27T09:51:13.175Z",
+      "updatedAt": "2026-07-27T09:51:13.177Z"
+    }
+  },
+  "decisions": {},
+  "outputs": {},
+  "codebases": {},
+  "builds": {},
+  "previews": {},
+  "releases": {
+    "rel-1785145873215-12": {
+      "id": "rel-1785145873215-12",
+      "workspaceId": "ws-1785145873134-1",
+      "missionId": "mis-1785145873141-3",
+      "version": "1.0.0-rc.1",
+      "status": "pending_approval",
+      "createdAt": "2026-07-27T09:51:13.215Z",
+      "updatedAt": "2026-07-27T09:51:13.215Z"
+    }
+  },
+  "deployments": {},
+  "events": [
+    {
+      "eventId": "evt-ws-ws-1785145873134-1",
+      "type": "WorkspaceCreated",
+      "occurredAt": "2026-07-27T09:51:13.134Z",
+      "aggregateId": "ws-1785145873134-1",
+      "aggregateType": "Workspace",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "name": "RAFAEL VENTURES LAB Workspace",
+        "slug": "rafael-ventures-lab-ws"
+      },
+      "correlationId": "corr-6150-1785145873133"
+    },
+    {
+      "eventId": "evt-ven-ven-1785145873137-2",
+      "type": "VentureCreated",
+      "occurredAt": "2026-07-27T09:51:13.137Z",
+      "aggregateId": "ven-1785145873137-2",
+      "aggregateType": "Venture",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "name": "TABLEFLOW",
+        "slug": "tableflow"
+      },
+      "correlationId": "corr-6150-1785145873137"
+    },
+    {
+      "eventId": "evt-mis-mis-1785145873141-3",
+      "type": "MissionCreated",
+      "occurredAt": "2026-07-27T09:51:13.141Z",
+      "aggregateId": "mis-1785145873141-3",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "ventureId": "ven-1785145873137-2"
+      },
+      "correlationId": "corr-6150-1785145873140"
+    },
+    {
+      "eventId": "evt-mis-intent-mis-1785145873141-3-2026-07-27T09:51:13.143Z",
+      "type": "MissionIntentUpdated",
+      "occurredAt": "2026-07-27T09:51:13.143Z",
+      "aggregateId": "mis-1785145873141-3",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "primary": "Operations table OS for multi-location teams — reservations, floor plans, staff shifts, and service SLAs.",
+        "confidence": 0.9
+      },
+      "correlationId": "corr-6150-1785145873143"
+    },
+    {
+      "eventId": "evt-ven-ven-1785145873147-4",
+      "type": "VentureCreated",
+      "occurredAt": "2026-07-27T09:51:13.147Z",
+      "aggregateId": "ven-1785145873147-4",
+      "aggregateType": "Venture",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "name": "LUXORA EYEWEAR",
+        "slug": "luxora-eyewear"
+      },
+      "correlationId": "corr-6150-1785145873147"
+    },
+    {
+      "eventId": "evt-mis-mis-1785145873150-5",
+      "type": "MissionCreated",
+      "occurredAt": "2026-07-27T09:51:13.150Z",
+      "aggregateId": "mis-1785145873150-5",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "ventureId": "ven-1785145873147-4"
+      },
+      "correlationId": "corr-6150-1785145873150"
+    },
+    {
+      "eventId": "evt-mis-intent-mis-1785145873150-5-2026-07-27T09:51:13.154Z",
+      "type": "MissionIntentUpdated",
+      "occurredAt": "2026-07-27T09:51:13.154Z",
+      "aggregateId": "mis-1785145873150-5",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "primary": "DTC premium eyewear brand with virtual try-on, prescription capture, and fulfillment tracking.",
+        "confidence": 0.9
+      },
+      "correlationId": "corr-6150-1785145873154"
+    },
+    {
+      "eventId": "evt-ven-ven-1785145873158-6",
+      "type": "VentureCreated",
+      "occurredAt": "2026-07-27T09:51:13.158Z",
+      "aggregateId": "ven-1785145873158-6",
+      "aggregateType": "Venture",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "name": "LOCALGROW AI",
+        "slug": "localgrow-ai"
+      },
+      "correlationId": "corr-6150-1785145873158"
+    },
+    {
+      "eventId": "evt-mis-mis-1785145873160-7",
+      "type": "MissionCreated",
+      "occurredAt": "2026-07-27T09:51:13.160Z",
+      "aggregateId": "mis-1785145873160-7",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "ventureId": "ven-1785145873158-6"
+      },
+      "correlationId": "corr-6150-1785145873160"
+    },
+    {
+      "eventId": "evt-mis-intent-mis-1785145873160-7-2026-07-27T09:51:13.165Z",
+      "type": "MissionIntentUpdated",
+      "occurredAt": "2026-07-27T09:51:13.165Z",
+      "aggregateId": "mis-1785145873160-7",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "primary": "AI advisor for local growers — crop planning, demand signals, and co-op distribution.",
+        "confidence": 0.9
+      },
+      "correlationId": "corr-6150-1785145873165"
+    },
+    {
+      "eventId": "evt-ven-ven-1785145873167-8",
+      "type": "VentureCreated",
+      "occurredAt": "2026-07-27T09:51:13.167Z",
+      "aggregateId": "ven-1785145873167-8",
+      "aggregateType": "Venture",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "name": "CREATORPULSE",
+        "slug": "creatorpulse"
+      },
+      "correlationId": "corr-6150-1785145873167"
+    },
+    {
+      "eventId": "evt-mis-mis-1785145873169-9",
+      "type": "MissionCreated",
+      "occurredAt": "2026-07-27T09:51:13.169Z",
+      "aggregateId": "mis-1785145873169-9",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "ventureId": "ven-1785145873167-8"
+      },
+      "correlationId": "corr-6150-1785145873169"
+    },
+    {
+      "eventId": "evt-mis-intent-mis-1785145873169-9-2026-07-27T09:51:13.171Z",
+      "type": "MissionIntentUpdated",
+      "occurredAt": "2026-07-27T09:51:13.171Z",
+      "aggregateId": "mis-1785145873169-9",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "primary": "Creator analytics and monetization pulse — audience health, offer experiments, payout readiness.",
+        "confidence": 0.9
+      },
+      "correlationId": "corr-6150-1785145873171"
+    },
+    {
+      "eventId": "evt-ven-ven-1785145873173-10",
+      "type": "VentureCreated",
+      "occurredAt": "2026-07-27T09:51:13.173Z",
+      "aggregateId": "ven-1785145873173-10",
+      "aggregateType": "Venture",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "name": "ORBITA SPORTS",
+        "slug": "orbita-sports"
+      },
+      "correlationId": "corr-6150-1785145873173"
+    },
+    {
+      "eventId": "evt-mis-mis-1785145873175-11",
+      "type": "MissionCreated",
+      "occurredAt": "2026-07-27T09:51:13.175Z",
+      "aggregateId": "mis-1785145873175-11",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "ventureId": "ven-1785145873173-10"
+      },
+      "correlationId": "corr-6150-1785145873175"
+    },
+    {
+      "eventId": "evt-mis-intent-mis-1785145873175-11-2026-07-27T09:51:13.177Z",
+      "type": "MissionIntentUpdated",
+      "occurredAt": "2026-07-27T09:51:13.177Z",
+      "aggregateId": "mis-1785145873175-11",
+      "aggregateType": "Mission",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "primary": "Plataforma SaaS para centros deportivos que gestiona socios, reservas, clases, entrenadores, accesos, pagos, planes, incidencias y metricas operativas.",
+        "confidence": 0.9
+      },
+      "correlationId": "corr-6150-1785145873177"
+    },
+    {
+      "eventId": "evt-rel-rel-1785145873215-12",
+      "type": "ReleaseCreated",
+      "occurredAt": "2026-07-27T09:51:13.215Z",
+      "aggregateId": "rel-1785145873215-12",
+      "aggregateType": "Release",
+      "workspaceId": "ws-1785145873134-1",
+      "payload": {
+        "version": "1.0.0-rc.1"
+      }
+    }
+  ],
+  "idempotency": {
+    "idem-6150-1785145873140-ocerjo": {
+      "commandId": "idem-6150-1785145873140-ocerjo",
+      "resultJson": "{\"id\":\"mis-1785145873141-3\",\"workspaceId\":\"ws-1785145873134-1\",\"ventureId\":\"ven-1785145873137-2\",\"status\":\"DRAFT\",\"planApproved\":false,\"intentPrimary\":\"VENTURE\",\"idea\":\"Operations table OS for multi-location teams — reservations, floor plans, staff shifts, and service SLAs.\",\"decisionCount\":0,\"outputCount\":0,\"updatedAt\":\"2026-07-27T09:51:13.141Z\"}"
+    },
+    "idem-6150-1785145873150-ttcrak": {
+      "commandId": "idem-6150-1785145873150-ttcrak",
+      "resultJson": "{\"id\":\"mis-1785145873150-5\",\"workspaceId\":\"ws-1785145873134-1\",\"ventureId\":\"ven-1785145873147-4\",\"status\":\"DRAFT\",\"planApproved\":false,\"intentPrimary\":\"VENTURE\",\"idea\":\"DTC premium eyewear brand with virtual try-on, prescription capture, and fulfillment tracking.\",\"decisionCount\":0,\"outputCount\":0,\"updatedAt\":\"2026-07-27T09:51:13.150Z\"}"
+    },
+    "idem-6150-1785145873160-gz8dhj": {
+      "commandId": "idem-6150-1785145873160-gz8dhj",
+      "resultJson": "{\"id\":\"mis-1785145873160-7\",\"workspaceId\":\"ws-1785145873134-1\",\"ventureId\":\"ven-1785145873158-6\",\"status\":\"DRAFT\",\"planApproved\":false,\"intentPrimary\":\"VENTURE\",\"idea\":\"AI advisor for local growers — crop planning, demand signals, and co-op distribution.\",\"decisionCount\":0,\"outputCount\":0,\"updatedAt\":\"2026-07-27T09:51:13.160Z\"}"
+    },
+    "idem-6150-1785145873169-3oa2xh": {
+      "commandId": "idem-6150-1785145873169-3oa2xh",
+      "resultJson": "{\"id\":\"mis-1785145873169-9\",\"workspaceId\":\"ws-1785145873134-1\",\"ventureId\":\"ven-1785145873167-8\",\"status\":\"DRAFT\",\"planApproved\":false,\"intentPrimary\":\"VENTURE\",\"idea\":\"Creator analytics and monetization pulse — audience health, offer experiments, payout readiness.\",\"decisionCount\":0,\"outputCount\":0,\"updatedAt\":\"2026-07-27T09:51:13.169Z\"}"
+    },
+    "idem-6150-1785145873175-9t3sly": {
+      "commandId": "idem-6150-1785145873175-9t3sly",
+      "resultJson": "{\"id\":\"mis-1785145873175-11\",\"workspaceId\":\"ws-1785145873134-1\",\"ventureId\":\"ven-1785145873173-10\",\"status\":\"DRAFT\",\"planApproved\":false,\"intentPrimary\":\"VENTURE\",\"idea\":\"Plataforma SaaS para centros deportivos que gestiona socios, reservas, clases, entrenadores, accesos, pagos, planes, incidencias y metricas operativas.\",\"decisionCount\":0,\"outputCount\":0,\"updatedAt\":\"2026-07-27T09:51:13.175Z\"}"
+    }
+  },
+  "workflowPlans": {
+    "mis-1785145873141-3": {
+      "planId": "plan_mis-1785145873141-3",
+      "missionId": "mis-1785145873141-3",
+      "version": 2,
+      "objective": "Operations table OS for multi-location teams — reservations, floor plans, staff shifts, and service SLAs.",
+      "stages": [
+        {
+          "stageId": "understand",
+          "label": "Understand Intent",
+          "nodeIds": [
+            "n_understand"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "select",
+          "label": "Select Outputs",
+          "nodeIds": [
+            "n_select_outputs"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "approve",
+          "label": "Approve Plan",
+          "nodeIds": [
+            "n_approve_plan"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "generate",
+          "label": "Generate Assets",
+          "nodeIds": [
+            "n_venture",
+            "n_brand",
+            "n_website",
+            "n_webapp",
+            "n_codebase"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 5
+        },
+        {
+          "stageId": "build",
+          "label": "Build",
+          "nodeIds": [
+            "n_build"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 2
+        },
+        {
+          "stageId": "preview",
+          "label": "Preview & Release",
+          "nodeIds": [
+            "n_preview",
+            "n_release",
+            "n_deploy"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 3
+        }
+      ],
+      "nodes": [
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_understand",
+          "type": "UNDERSTAND",
+          "label": "Understand Intent",
+          "stageId": "understand",
+          "inputReferences": [
+            "intent:raw"
+          ],
+          "outputContract": "IntentProfile",
+          "dependencies": [],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "ceo",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_select_outputs",
+          "type": "DECIDE",
+          "label": "Select Outputs",
+          "stageId": "select",
+          "inputReferences": [
+            "IntentProfile"
+          ],
+          "outputContract": "OutputSelectionDecision",
+          "dependencies": [
+            "n_understand"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "RECOMMENDATION",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "product",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_approve_plan",
+          "type": "APPROVE",
+          "label": "Approve Plan",
+          "stageId": "approve",
+          "inputReferences": [
+            "OutputSelectionDecision",
+            "MissionExecutionPlan"
+          ],
+          "outputContract": "ApprovedPlan",
+          "dependencies": [
+            "n_select_outputs"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "APPROVAL",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "ceo",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateMarketResearch"
+          ],
+          "optional": false,
+          "nodeId": "n_venture",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateMarketResearch",
+          "label": "Generate Venture",
+          "stageId": "generate",
+          "inputReferences": [
+            "ApprovedPlan"
+          ],
+          "outputContract": "VentureArtifact",
+          "dependencies": [
+            "n_approve_plan"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "research",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.211Z",
+          "startedAt": "2026-07-27T09:51:13.211Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateBrand"
+          ],
+          "optional": false,
+          "nodeId": "n_brand",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateBrand",
+          "label": "Generate Brand",
+          "stageId": "generate",
+          "inputReferences": [
+            "VentureArtifact"
+          ],
+          "outputContract": "BrandArtifact",
+          "dependencies": [
+            "n_venture"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "brand",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.212Z",
+          "startedAt": "2026-07-27T09:51:13.212Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateWebsite"
+          ],
+          "optional": false,
+          "nodeId": "n_website",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateWebsite",
+          "label": "Generate Website",
+          "stageId": "generate",
+          "inputReferences": [
+            "BrandArtifact"
+          ],
+          "outputContract": "WebsiteArtifact",
+          "dependencies": [
+            "n_brand"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "product",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.212Z",
+          "startedAt": "2026-07-27T09:51:13.212Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateWebApplication"
+          ],
+          "optional": false,
+          "nodeId": "n_webapp",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateWebApplication",
+          "label": "Generate Web App",
+          "stageId": "generate",
+          "inputReferences": [
+            "BrandArtifact",
+            "VentureArtifact"
+          ],
+          "outputContract": "WebAppArtifact",
+          "dependencies": [
+            "n_brand"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "engineering",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.212Z",
+          "startedAt": "2026-07-27T09:51:13.212Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateCodebase"
+          ],
+          "optional": false,
+          "nodeId": "n_codebase",
+          "type": "GENERATE_CODEBASE",
+          "capability": "GenerateCodebase",
+          "label": "Generate Codebase",
+          "stageId": "generate",
+          "inputReferences": [
+            "WebsiteArtifact",
+            "WebAppArtifact"
+          ],
+          "outputContract": "CodebaseArtifact",
+          "dependencies": [
+            "n_website",
+            "n_webapp"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "engineering",
+          "weight": 2,
+          "finishedAt": "2026-07-27T09:51:13.212Z",
+          "startedAt": "2026-07-27T09:51:13.212Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:BuildCodebase"
+          ],
+          "optional": false,
+          "nodeId": "n_build",
+          "type": "BUILD",
+          "capability": "BuildCodebase",
+          "label": "Build Codebase",
+          "stageId": "build",
+          "inputReferences": [
+            "CodebaseArtifact"
+          ],
+          "outputContract": "BuildArtifact",
+          "dependencies": [
+            "n_codebase"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "build",
+          "weight": 2,
+          "finishedAt": "2026-07-27T09:51:13.212Z",
+          "startedAt": "2026-07-27T09:51:13.212Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:CreatePreview"
+          ],
+          "optional": false,
+          "nodeId": "n_preview",
+          "type": "CREATE_PREVIEW",
+          "capability": "CreatePreview",
+          "label": "Create Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "BuildArtifact"
+          ],
+          "outputContract": "PreviewArtifact",
+          "dependencies": [
+            "n_build"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "qa",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.212Z",
+          "startedAt": "2026-07-27T09:51:13.212Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "logical:n_release"
+          ],
+          "optional": false,
+          "nodeId": "n_release",
+          "type": "CREATE_RELEASE",
+          "label": "Release Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "PreviewArtifact"
+          ],
+          "outputContract": "ReleaseArtifact",
+          "dependencies": [
+            "n_preview"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "ops",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.213Z",
+          "startedAt": "2026-07-27T09:51:13.213Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:DeployRelease"
+          ],
+          "optional": false,
+          "nodeId": "n_deploy",
+          "type": "DEPLOY",
+          "capability": "DeployRelease",
+          "label": "Deployment Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "ReleaseArtifact"
+          ],
+          "outputContract": "DeploymentArtifact",
+          "dependencies": [
+            "n_release"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "DEPLOYMENT_APPROVAL",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "ops",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.213Z",
+          "startedAt": "2026-07-27T09:51:13.213Z"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": "n_understand",
+          "to": "n_select_outputs",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_select_outputs",
+          "to": "n_approve_plan",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_approve_plan",
+          "to": "n_venture",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_venture",
+          "to": "n_brand",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_brand",
+          "to": "n_website",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_brand",
+          "to": "n_webapp",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_website",
+          "to": "n_codebase",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_webapp",
+          "to": "n_codebase",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_codebase",
+          "to": "n_build",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_build",
+          "to": "n_preview",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_preview",
+          "to": "n_release",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_release",
+          "to": "n_deploy",
+          "reason": "workflow"
+        }
+      ],
+      "approvals": [
+        {
+          "approvalId": "ap_n_select_outputs",
+          "gate": "RECOMMENDATION",
+          "nodeId": "n_select_outputs",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.208Z",
+          "resolvedAt": "2026-07-27T09:51:13.209Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        },
+        {
+          "approvalId": "ap_n_approve_plan",
+          "gate": "APPROVAL",
+          "nodeId": "n_approve_plan",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.208Z",
+          "resolvedAt": "2026-07-27T09:51:13.209Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        },
+        {
+          "approvalId": "ap_n_deploy",
+          "gate": "DEPLOYMENT_APPROVAL",
+          "nodeId": "n_deploy",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.208Z",
+          "resolvedAt": "2026-07-27T09:51:13.209Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        }
+      ],
+      "policies": {
+        "productionAutoActivate": false,
+        "maxConcurrency": 3,
+        "maxWorkspaceCount": 2,
+        "maxProviderCalls": 20,
+        "maxEstimatedCost": {
+          "amount": 25,
+          "unit": "EUR",
+          "confidence": 0.55,
+          "assumptions": [
+            "Fixture-based estimate; not actual spend"
+          ],
+          "source": "policy-default",
+          "kind": "estimated"
+        },
+        "allowParallelism": true,
+        "cancellationPropagates": true
+      },
+      "estimatedCost": {
+        "amount": 14.4,
+        "unit": "EUR",
+        "confidence": 0.55,
+        "assumptions": [
+          "Sum of node cost weights",
+          "Not billing data"
+        ],
+        "source": "orchestration-estimator",
+        "kind": "estimated"
+      },
+      "estimatedDuration": {
+        "amount": 11.200000000000001,
+        "unit": "min",
+        "confidence": 0.55,
+        "assumptions": [
+          "Sum of node duration weights",
+          "Parallelism not fully subtracted"
+        ],
+        "source": "orchestration-estimator",
+        "kind": "estimated"
+      },
+      "status": "completed",
+      "executionMode": "DRY_RUN",
+      "createdAt": "2026-07-27T09:51:13.208Z",
+      "updatedAt": "2026-07-27T09:51:13.214Z"
+    },
+    "mis-1785145873150-5": {
+      "planId": "plan_mis-1785145873150-5",
+      "missionId": "mis-1785145873150-5",
+      "version": 2,
+      "objective": "DTC premium eyewear brand with virtual try-on, prescription capture, and fulfillment tracking.",
+      "stages": [
+        {
+          "stageId": "understand",
+          "label": "Understand Intent",
+          "nodeIds": [
+            "n_understand"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "select",
+          "label": "Select Outputs",
+          "nodeIds": [
+            "n_select_outputs"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "approve",
+          "label": "Approve Plan",
+          "nodeIds": [
+            "n_approve_plan"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "generate",
+          "label": "Generate Assets",
+          "nodeIds": [
+            "n_venture",
+            "n_brand",
+            "n_website",
+            "n_webapp",
+            "n_codebase"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 5
+        },
+        {
+          "stageId": "build",
+          "label": "Build",
+          "nodeIds": [
+            "n_build"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 2
+        },
+        {
+          "stageId": "preview",
+          "label": "Preview & Release",
+          "nodeIds": [
+            "n_preview",
+            "n_release",
+            "n_deploy"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 3
+        }
+      ],
+      "nodes": [
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_understand",
+          "type": "UNDERSTAND",
+          "label": "Understand Intent",
+          "stageId": "understand",
+          "inputReferences": [
+            "intent:raw"
+          ],
+          "outputContract": "IntentProfile",
+          "dependencies": [],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "ceo",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_select_outputs",
+          "type": "DECIDE",
+          "label": "Select Outputs",
+          "stageId": "select",
+          "inputReferences": [
+            "IntentProfile"
+          ],
+          "outputContract": "OutputSelectionDecision",
+          "dependencies": [
+            "n_understand"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "RECOMMENDATION",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "product",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_approve_plan",
+          "type": "APPROVE",
+          "label": "Approve Plan",
+          "stageId": "approve",
+          "inputReferences": [
+            "OutputSelectionDecision",
+            "MissionExecutionPlan"
+          ],
+          "outputContract": "ApprovedPlan",
+          "dependencies": [
+            "n_select_outputs"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "APPROVAL",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "ceo",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateMarketResearch"
+          ],
+          "optional": false,
+          "nodeId": "n_venture",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateMarketResearch",
+          "label": "Generate Venture",
+          "stageId": "generate",
+          "inputReferences": [
+            "ApprovedPlan"
+          ],
+          "outputContract": "VentureArtifact",
+          "dependencies": [
+            "n_approve_plan"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "research",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateBrand"
+          ],
+          "optional": false,
+          "nodeId": "n_brand",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateBrand",
+          "label": "Generate Brand",
+          "stageId": "generate",
+          "inputReferences": [
+            "VentureArtifact"
+          ],
+          "outputContract": "BrandArtifact",
+          "dependencies": [
+            "n_venture"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "brand",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateWebsite"
+          ],
+          "optional": false,
+          "nodeId": "n_website",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateWebsite",
+          "label": "Generate Website",
+          "stageId": "generate",
+          "inputReferences": [
+            "BrandArtifact"
+          ],
+          "outputContract": "WebsiteArtifact",
+          "dependencies": [
+            "n_brand"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "product",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateWebApplication"
+          ],
+          "optional": false,
+          "nodeId": "n_webapp",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateWebApplication",
+          "label": "Generate Web App",
+          "stageId": "generate",
+          "inputReferences": [
+            "BrandArtifact",
+            "VentureArtifact"
+          ],
+          "outputContract": "WebAppArtifact",
+          "dependencies": [
+            "n_brand"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "engineering",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateCodebase"
+          ],
+          "optional": false,
+          "nodeId": "n_codebase",
+          "type": "GENERATE_CODEBASE",
+          "capability": "GenerateCodebase",
+          "label": "Generate Codebase",
+          "stageId": "generate",
+          "inputReferences": [
+            "WebsiteArtifact",
+            "WebAppArtifact"
+          ],
+          "outputContract": "CodebaseArtifact",
+          "dependencies": [
+            "n_website",
+            "n_webapp"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "engineering",
+          "weight": 2,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:BuildCodebase"
+          ],
+          "optional": false,
+          "nodeId": "n_build",
+          "type": "BUILD",
+          "capability": "BuildCodebase",
+          "label": "Build Codebase",
+          "stageId": "build",
+          "inputReferences": [
+            "CodebaseArtifact"
+          ],
+          "outputContract": "BuildArtifact",
+          "dependencies": [
+            "n_codebase"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "build",
+          "weight": 2,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:CreatePreview"
+          ],
+          "optional": false,
+          "nodeId": "n_preview",
+          "type": "CREATE_PREVIEW",
+          "capability": "CreatePreview",
+          "label": "Create Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "BuildArtifact"
+          ],
+          "outputContract": "PreviewArtifact",
+          "dependencies": [
+            "n_build"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "qa",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "logical:n_release"
+          ],
+          "optional": false,
+          "nodeId": "n_release",
+          "type": "CREATE_RELEASE",
+          "label": "Release Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "PreviewArtifact"
+          ],
+          "outputContract": "ReleaseArtifact",
+          "dependencies": [
+            "n_preview"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "ops",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:DeployRelease"
+          ],
+          "optional": false,
+          "nodeId": "n_deploy",
+          "type": "DEPLOY",
+          "capability": "DeployRelease",
+          "label": "Deployment Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "ReleaseArtifact"
+          ],
+          "outputContract": "DeploymentArtifact",
+          "dependencies": [
+            "n_release"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "DEPLOYMENT_APPROVAL",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "ops",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.219Z",
+          "startedAt": "2026-07-27T09:51:13.219Z"
+        }
+      ],
+      "dependencies": [
+        {
+          "from": "n_understand",
+          "to": "n_select_outputs",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_select_outputs",
+          "to": "n_approve_plan",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_approve_plan",
+          "to": "n_venture",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_venture",
+          "to": "n_brand",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_brand",
+          "to": "n_website",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_brand",
+          "to": "n_webapp",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_website",
+          "to": "n_codebase",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_webapp",
+          "to": "n_codebase",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_codebase",
+          "to": "n_build",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_build",
+          "to": "n_preview",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_preview",
+          "to": "n_release",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_release",
+          "to": "n_deploy",
+          "reason": "workflow"
+        }
+      ],
+      "approvals": [
+        {
+          "approvalId": "ap_n_select_outputs",
+          "gate": "RECOMMENDATION",
+          "nodeId": "n_select_outputs",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.219Z",
+          "resolvedAt": "2026-07-27T09:51:13.219Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        },
+        {
+          "approvalId": "ap_n_approve_plan",
+          "gate": "APPROVAL",
+          "nodeId": "n_approve_plan",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.219Z",
+          "resolvedAt": "2026-07-27T09:51:13.219Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        },
+        {
+          "approvalId": "ap_n_deploy",
+          "gate": "DEPLOYMENT_APPROVAL",
+          "nodeId": "n_deploy",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.219Z",
+          "resolvedAt": "2026-07-27T09:51:13.219Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        }
+      ],
+      "policies": {
+        "productionAutoActivate": false,
+        "maxConcurrency": 3,
+        "maxWorkspaceCount": 2,
+        "maxProviderCalls": 20,
+        "maxEstimatedCost": {
+          "amount": 25,
+          "unit": "EUR",
+          "confidence": 0.55,
+          "assumptions": [
+            "Fixture-based estimate; not actual spend"
+          ],
+          "source": "policy-default",
+          "kind": "estimated"
+        },
+        "allowParallelism": true,
+        "cancellationPropagates": true
+      },
+      "estimatedCost": {
+        "amount": 14.4,
+        "unit": "EUR",
+        "confidence": 0.55,
+        "assumptions": [
+          "Sum of node cost weights",
+          "Not billing data"
+        ],
+        "source": "orchestration-estimator",
+        "kind": "estimated"
+      },
+      "estimatedDuration": {
+        "amount": 11.200000000000001,
+        "unit": "min",
+        "confidence": 0.55,
+        "assumptions": [
+          "Sum of node duration weights",
+          "Parallelism not fully subtracted"
+        ],
+        "source": "orchestration-estimator",
+        "kind": "estimated"
+      },
+      "status": "completed",
+      "executionMode": "DRY_RUN",
+      "createdAt": "2026-07-27T09:51:13.219Z",
+      "updatedAt": "2026-07-27T09:51:13.219Z"
+    },
+    "mis-1785145873160-7": {
+      "planId": "plan_mis-1785145873160-7",
+      "missionId": "mis-1785145873160-7",
+      "version": 2,
+      "objective": "AI advisor for local growers — crop planning, demand signals, and co-op distribution.",
+      "stages": [
+        {
+          "stageId": "understand",
+          "label": "Understand Intent",
+          "nodeIds": [
+            "n_understand"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "select",
+          "label": "Select Outputs",
+          "nodeIds": [
+            "n_select_outputs"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "approve",
+          "label": "Approve Plan",
+          "nodeIds": [
+            "n_approve_plan"
+          ],
+          "status": "completed",
+          "progress": 1,
+          "weight": 1
+        },
+        {
+          "stageId": "generate",
+          "label": "Generate Assets",
+          "nodeIds": [
+            "n_venture",
+            "n_brand",
+            "n_website",
+            "n_webapp",
+            "n_codebase"
+          ],
+          "status": "ready",
+          "progress": 0.3333333333333333,
+          "weight": 5
+        },
+        {
+          "stageId": "build",
+          "label": "Build",
+          "nodeIds": [
+            "n_build"
+          ],
+          "status": "pending",
+          "progress": 0,
+          "weight": 2
+        },
+        {
+          "stageId": "preview",
+          "label": "Preview & Release",
+          "nodeIds": [
+            "n_preview",
+            "n_release",
+            "n_deploy"
+          ],
+          "status": "pending",
+          "progress": 0,
+          "weight": 3
+        }
+      ],
+      "nodes": [
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_understand",
+          "type": "UNDERSTAND",
+          "label": "Understand Intent",
+          "stageId": "understand",
+          "inputReferences": [
+            "intent:raw"
+          ],
+          "outputContract": "IntentProfile",
+          "dependencies": [],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "ceo",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_select_outputs",
+          "type": "DECIDE",
+          "label": "Select Outputs",
+          "stageId": "select",
+          "inputReferences": [
+            "IntentProfile"
+          ],
+          "outputContract": "OutputSelectionDecision",
+          "dependencies": [
+            "n_understand"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "RECOMMENDATION",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "product",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_approve_plan",
+          "type": "APPROVE",
+          "label": "Approve Plan",
+          "stageId": "approve",
+          "inputReferences": [
+            "OutputSelectionDecision",
+            "MissionExecutionPlan"
+          ],
+          "outputContract": "ApprovedPlan",
+          "dependencies": [
+            "n_select_outputs"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "APPROVAL",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "ceo",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateMarketResearch"
+          ],
+          "optional": false,
+          "nodeId": "n_venture",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateMarketResearch",
+          "label": "Generate Venture",
+          "stageId": "generate",
+          "inputReferences": [
+            "ApprovedPlan"
+          ],
+          "outputContract": "VentureArtifact",
+          "dependencies": [
+            "n_approve_plan"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "research",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.220Z",
+          "startedAt": "2026-07-27T09:51:13.220Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "completed",
+          "progress": 1,
+          "attempt": 1,
+          "artifactRefs": [
+            "fixture:GenerateBrand"
+          ],
+          "optional": false,
+          "nodeId": "n_brand",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateBrand",
+          "label": "Generate Brand",
+          "stageId": "generate",
+          "inputReferences": [
+            "VentureArtifact"
+          ],
+          "outputContract": "BrandArtifact",
+          "dependencies": [
+            "n_venture"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "brand",
+          "weight": 1,
+          "finishedAt": "2026-07-27T09:51:13.220Z",
+          "startedAt": "2026-07-27T09:51:13.220Z"
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "ready",
+          "progress": 0,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_website",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateWebsite",
+          "label": "Generate Website",
+          "stageId": "generate",
+          "inputReferences": [
+            "BrandArtifact"
+          ],
+          "outputContract": "WebsiteArtifact",
+          "dependencies": [
+            "n_brand"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "product",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "ready",
+          "progress": 0,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_webapp",
+          "type": "GENERATE_OUTPUT",
+          "capability": "GenerateWebApplication",
+          "label": "Generate Web App",
+          "stageId": "generate",
+          "inputReferences": [
+            "BrandArtifact",
+            "VentureArtifact"
+          ],
+          "outputContract": "WebAppArtifact",
+          "dependencies": [
+            "n_brand"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "engineering",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_codebase",
+          "type": "GENERATE_CODEBASE",
+          "capability": "GenerateCodebase",
+          "label": "Generate Codebase",
+          "stageId": "generate",
+          "inputReferences": [
+            "WebsiteArtifact",
+            "WebAppArtifact"
+          ],
+          "outputContract": "CodebaseArtifact",
+          "dependencies": [
+            "n_website",
+            "n_webapp"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "engineering",
+          "weight": 2
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_build",
+          "type": "BUILD",
+          "capability": "BuildCodebase",
+          "label": "Build Codebase",
+          "stageId": "build",
+          "inputReferences": [
+            "CodebaseArtifact"
+          ],
+          "outputContract": "BuildArtifact",
+          "dependencies": [
+            "n_codebase"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "build",
+          "weight": 2
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_preview",
+          "type": "CREATE_PREVIEW",
+          "capability": "CreatePreview",
+          "label": "Create Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "BuildArtifact"
+          ],
+          "outputContract": "PreviewArtifact",
+          "dependencies": [
+            "n_build"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "qa",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_release",
+          "type": "CREATE_RELEASE",
+          "label": "Release Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "PreviewArtifact"
+          ],
+          "outputContract": "ReleaseArtifact",
+          "dependencies": [
+            "n_preview"
+          ],
+          "approvalPolicy": {
+            "required": false,
+            "gate": "INFORMATION"
+          },
+          "assignedDepartment": "ops",
+          "weight": 1
+        },
+        {
+          "retryPolicy": {
+            "maxAttempts": 2,
+            "backoffMs": 250,
+            "retryable": true
+          },
+          "timeoutMs": 30000,
+          "executionMode": "DRY_RUN",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "artifactRefs": [],
+          "optional": false,
+          "nodeId": "n_deploy",
+          "type": "DEPLOY",
+          "capability": "DeployRelease",
+          "label": "Deployment Preview",
+          "stageId": "preview",
+          "inputReferences": [
+            "ReleaseArtifact"
+          ],
+          "outputContract": "DeploymentArtifact",
+          "dependencies": [
+            "n_release"
+          ],
+          "approvalPolicy": {
+            "required": true,
+            "gate": "DEPLOYMENT_APPROVAL",
+            "autoApproveInDryRun": true
+          },
+          "assignedDepartment": "ops",
+          "weight": 1
+        }
+      ],
+      "dependencies": [
+        {
+          "from": "n_understand",
+          "to": "n_select_outputs",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_select_outputs",
+          "to": "n_approve_plan",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_approve_plan",
+          "to": "n_venture",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_venture",
+          "to": "n_brand",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_brand",
+          "to": "n_website",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_brand",
+          "to": "n_webapp",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_website",
+          "to": "n_codebase",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_webapp",
+          "to": "n_codebase",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_codebase",
+          "to": "n_build",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_build",
+          "to": "n_preview",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_preview",
+          "to": "n_release",
+          "reason": "workflow"
+        },
+        {
+          "from": "n_release",
+          "to": "n_deploy",
+          "reason": "workflow"
+        }
+      ],
+      "approvals": [
+        {
+          "approvalId": "ap_n_select_outputs",
+          "gate": "RECOMMENDATION",
+          "nodeId": "n_select_outputs",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.220Z",
+          "resolvedAt": "2026-07-27T09:51:13.220Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        },
+        {
+          "approvalId": "ap_n_approve_plan",
+          "gate": "APPROVAL",
+          "nodeId": "n_approve_plan",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.220Z",
+          "resolvedAt": "2026-07-27T09:51:13.220Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        },
+        {
+          "approvalId": "ap_n_deploy",
+          "gate": "DEPLOYMENT_APPROVAL",
+          "nodeId": "n_deploy",
+          "status": "granted",
+          "requestedAt": "2026-07-27T09:51:13.220Z",
+          "resolvedAt": "2026-07-27T09:51:13.220Z",
+          "resolvedBy": "dry-run-auto",
+          "rationale": "Auto-approved in DRY_RUN/PREVIEW_ONLY"
+        }
+      ],
+      "policies": {
+        "productionAutoActivate": false,
+        "maxConcurrency": 3,
+        "maxWorkspaceCount": 2,
+        "maxProviderCalls": 20,
+        "maxEstimatedCost": {
+          "amount": 25,
+          "unit": "EUR",
+          "confidence": 0.55,
+          "assumptions": [
+            "Fixture-based estimate; not actual spend"
+          ],
+          "source": "policy-default",
+          "kind": "estimated"
+        },
+        "allowParallelism": true,
+        "cancellationPropagates": true
+      },
+      "estimatedCost": {
+        "amount": 14.4,
+        "unit": "EUR",
+        "confidence": 0.55,
+        "assumptions": [
+          "Sum of node cost weights",
+          "Not billing data"
+        ],
+        "source": "orchestration-estimator",
+        "kind": "estimated"
+      },
+      "estimatedDuration": {
+        "amount": 11.200000000000001,
+        "unit": "min",
+        "confidence": 0.55,
+        "assumptions": [
+          "Sum of node duration weights",
+          "Parallelism not fully subtracted"
+        ],
+        "source": "orchestration-estimator",
+        "kind": "estimated"
+      },
+      "status": "executing",
+      "executionMode": "DRY_RUN",
+      "createdAt": "2026-07-27T09:51:13.220Z",
+      "updatedAt": "2026-07-27T09:51:13.222Z"
+    }
+  },
+  "deliverySnapshots": {
+    "mis-1785145873141-3": {
+      "missionId": "mis-1785145873141-3",
+      "artifacts": [
+        {
+          "artifactId": "art-mis-1785145873141-3-0",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "KNOWLEDGE",
+          "title": "TABLEFLOW venture brief",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873141-3-0.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "90b09c7c54874008",
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873141-3-1",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "PRODUCT_SPEC",
+          "title": "TABLEFLOW Website",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873141-3-1.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "0c1084a3f5f8fbc8",
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873141-3-2",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "PRODUCT_SPEC",
+          "title": "TABLEFLOW Web Application",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873141-3-2.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "0c432c8533749e27",
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873141-3-3",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "DOCUMENT",
+          "title": "TABLEFLOW Backend specification",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873141-3-3.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "8312477cbc549b14",
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873141-3-4",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "DOCUMENT",
+          "title": "TABLEFLOW Database schema",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873141-3-4.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "b88ecc5c74f8d6cc",
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873141-3-5",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "DOCUMENT",
+          "title": "TABLEFLOW API contract",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873141-3-5.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "1680e5d3a579c512",
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z",
+          "metadata": {}
+        }
+      ],
+      "outputs": [
+        {
+          "outputId": "out-mis-1785145873141-3-0",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "VENTURE_OUTPUT",
+          "title": "TABLEFLOW venture brief",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873141-3-0"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        },
+        {
+          "outputId": "out-mis-1785145873141-3-1",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "WEBSITE_OUTPUT",
+          "title": "TABLEFLOW Website",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873141-3-1"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        },
+        {
+          "outputId": "out-mis-1785145873141-3-2",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "WEB_APPLICATION_OUTPUT",
+          "title": "TABLEFLOW Web Application",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873141-3-2"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        },
+        {
+          "outputId": "out-mis-1785145873141-3-3",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "BACKEND_OUTPUT",
+          "title": "TABLEFLOW Backend specification",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873141-3-3"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        },
+        {
+          "outputId": "out-mis-1785145873141-3-4",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "BACKEND_OUTPUT",
+          "title": "TABLEFLOW Database schema",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873141-3-4"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        },
+        {
+          "outputId": "out-mis-1785145873141-3-5",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "kind": "BACKEND_OUTPUT",
+          "title": "TABLEFLOW API contract",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873141-3-5"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        }
+      ],
+      "codebases": [
+        {
+          "codebaseId": "cb-mis-1785145873141-3",
+          "missionId": "mis-1785145873141-3",
+          "ventureId": "ven-1785145873137-2",
+          "outputId": "out-mis-1785145873141-3-0",
+          "name": "tableflow-web",
+          "slug": "tableflow-web",
+          "version": "1.0.0",
+          "status": "READY_FOR_PREVIEW",
+          "framework": "nextjs",
+          "language": "typescript",
+          "packageManager": "npm",
+          "templateId": "webapp-nextjs",
+          "files": [
+            {
+              "path": "app/page.tsx",
+              "language": "typescriptreact",
+              "content": "export default function Page(){return <main>TABLEFLOW</main>}",
+              "purpose": "Home",
+              "checksum": "28011f7cd13e47a4",
+              "sourceArtifactIds": [
+                "art-mis-1785145873141-3-0"
+              ]
+            },
+            {
+              "path": "schema/sql/init.sql",
+              "language": "sql",
+              "content": "-- TABLEFLOW schema\nCREATE TABLE tenants (id TEXT PRIMARY KEY);",
+              "purpose": "Database schema",
+              "checksum": "a098ffa49c0cdeb7",
+              "sourceArtifactIds": [
+                "art-mis-1785145873141-3-0"
+              ]
+            },
+            {
+              "path": "openapi/openapi.yaml",
+              "language": "yaml",
+              "content": "openapi: 3.0.3\ninfo:\n  title: TABLEFLOW API\n  version: 1.0.0\npaths: {}",
+              "purpose": "API contract",
+              "checksum": "2ffb26d350970d4e",
+              "sourceArtifactIds": [
+                "art-mis-1785145873141-3-0"
+              ]
+            }
+          ],
+          "directories": [
+            {
+              "path": "app"
+            },
+            {
+              "path": "schema"
+            },
+            {
+              "path": "openapi"
+            }
+          ],
+          "dependencies": [
+            {
+              "name": "next",
+              "version": "15.0.0"
+            }
+          ],
+          "scripts": [
+            {
+              "name": "build",
+              "command": "next build"
+            }
+          ],
+          "environmentVariables": [],
+          "sourceArtifactIds": [],
+          "checksums": {
+            "app/page.tsx": "28011f7cd13e47a4",
+            "schema/sql/init.sql": "a098ffa49c0cdeb7",
+            "openapi/openapi.yaml": "2ffb26d350970d4e"
+          },
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        }
+      ],
+      "builds": [],
+      "previews": [
+        {
+          "previewId": "prv-ms31rfb2-1-r1uxxg",
+          "missionId": "mis-1785145873141-3",
+          "type": "VISUAL",
+          "status": "READY",
+          "visualNonExecutable": true,
+          "createdAt": "2026-07-27T09:51:13.214Z",
+          "updatedAt": "2026-07-27T09:51:13.214Z"
+        }
+      ],
+      "releases": [
+        {
+          "releaseId": "rel-ms31rfb3-2-xv4man",
+          "missionId": "mis-1785145873141-3",
+          "version": "1.0.0-rc.1",
+          "status": "PUBLISHED",
+          "outputIds": [
+            "out-mis-1785145873141-3-0",
+            "out-mis-1785145873141-3-1",
+            "out-mis-1785145873141-3-2",
+            "out-mis-1785145873141-3-3",
+            "out-mis-1785145873141-3-4",
+            "out-mis-1785145873141-3-5"
+          ],
+          "codebaseVersions": [],
+          "buildIds": [],
+          "changelog": [
+            "TABLEFLOW multi-company certification RC"
+          ],
+          "validation": {
+            "passed": true,
+            "checks": [
+              {
+                "id": "gates",
+                "label": "Quality gates",
+                "status": "pass"
+              }
+            ]
+          },
+          "rollbackRefs": [],
+          "createdAt": "2026-07-27T09:51:13.215Z",
+          "immutable": true,
+          "approval": {
+            "id": "apr-rel-ms31rfb3-2-xv4man",
+            "status": "approved",
+            "requestedAt": "2026-07-27T09:51:13.215Z",
+            "resolvedAt": "2026-07-27T09:51:13.215Z",
+            "approvedBy": "cert-actor-6150"
+          },
+          "publishedAt": "2026-07-27T09:51:13.215Z"
+        }
+      ],
+      "deployments": [
+        {
+          "deploymentId": "dep-ms31rfb5-3-qwx2wv",
+          "missionId": "mis-1785145873141-3",
+          "releaseId": "rel-ms31rfb3-2-xv4man",
+          "environment": "PREVIEW",
+          "status": "PLANNED",
+          "dryRun": true,
+          "realExecution": false,
+          "governed": false,
+          "logs": [],
+          "createdAt": "2026-07-27T09:51:13.217Z",
+          "updatedAt": "2026-07-27T09:51:13.217Z"
+        }
+      ],
+      "lineage": {
+        "missionId": "mis-1785145873141-3",
+        "artifacts": [
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873141-3-0",
+            "version": "1.0.0",
+            "label": "TABLEFLOW venture brief",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873141-3-1",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Website",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873141-3-2",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Web Application",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873141-3-3",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Backend specification",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873141-3-4",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Database schema",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873141-3-5",
+            "version": "1.0.0",
+            "label": "TABLEFLOW API contract",
+            "status": "READY"
+          }
+        ],
+        "outputs": [
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873141-3-0",
+            "version": "1.0.0",
+            "label": "TABLEFLOW venture brief",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873141-3-1",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Website",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873141-3-2",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Web Application",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873141-3-3",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Backend specification",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873141-3-4",
+            "version": "1.0.0",
+            "label": "TABLEFLOW Database schema",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873141-3-5",
+            "version": "1.0.0",
+            "label": "TABLEFLOW API contract",
+            "status": "APPROVED"
+          }
+        ],
+        "codebases": [
+          {
+            "stage": "Codebase",
+            "id": "cb-mis-1785145873141-3",
+            "version": "1.0.0",
+            "label": "tableflow-web",
+            "status": "READY_FOR_PREVIEW"
+          }
+        ],
+        "builds": [],
+        "previews": [
+          {
+            "stage": "Preview",
+            "id": "prv-ms31rfb2-1-r1uxxg",
+            "label": "VISUAL",
+            "status": "READY"
+          }
+        ],
+        "releases": [
+          {
+            "stage": "Release",
+            "id": "rel-ms31rfb3-2-xv4man",
+            "version": "1.0.0-rc.1",
+            "status": "PUBLISHED"
+          }
+        ],
+        "deployments": [
+          {
+            "stage": "Deployment",
+            "id": "dep-ms31rfb5-3-qwx2wv",
+            "label": "PREVIEW",
+            "status": "PLANNED"
+          }
+        ],
+        "edges": [
+          {
+            "from": "art-mis-1785145873141-3-0",
+            "to": "out-mis-1785145873141-3-0",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873141-3-1",
+            "to": "out-mis-1785145873141-3-1",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873141-3-2",
+            "to": "out-mis-1785145873141-3-2",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873141-3-3",
+            "to": "out-mis-1785145873141-3-3",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873141-3-4",
+            "to": "out-mis-1785145873141-3-4",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873141-3-5",
+            "to": "out-mis-1785145873141-3-5",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "out-mis-1785145873141-3-0",
+            "to": "cb-mis-1785145873141-3",
+            "relation": "output→codebase"
+          },
+          {
+            "from": "out-mis-1785145873141-3-0",
+            "to": "rel-ms31rfb3-2-xv4man",
+            "relation": "output→release"
+          },
+          {
+            "from": "out-mis-1785145873141-3-1",
+            "to": "rel-ms31rfb3-2-xv4man",
+            "relation": "output→release"
+          },
+          {
+            "from": "out-mis-1785145873141-3-2",
+            "to": "rel-ms31rfb3-2-xv4man",
+            "relation": "output→release"
+          },
+          {
+            "from": "out-mis-1785145873141-3-3",
+            "to": "rel-ms31rfb3-2-xv4man",
+            "relation": "output→release"
+          },
+          {
+            "from": "out-mis-1785145873141-3-4",
+            "to": "rel-ms31rfb3-2-xv4man",
+            "relation": "output→release"
+          },
+          {
+            "from": "out-mis-1785145873141-3-5",
+            "to": "rel-ms31rfb3-2-xv4man",
+            "relation": "output→release"
+          },
+          {
+            "from": "rel-ms31rfb3-2-xv4man",
+            "to": "dep-ms31rfb5-3-qwx2wv",
+            "relation": "release→deployment"
+          }
+        ]
+      }
+    },
+    "mis-1785145873150-5": {
+      "missionId": "mis-1785145873150-5",
+      "artifacts": [
+        {
+          "artifactId": "art-mis-1785145873150-5-0",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "KNOWLEDGE",
+          "title": "LUXORA EYEWEAR venture brief",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873150-5-0.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "a33c0b71a7e72d79",
+          "createdAt": "2026-07-27T09:51:13.219Z",
+          "updatedAt": "2026-07-27T09:51:13.219Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873150-5-1",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "PRODUCT_SPEC",
+          "title": "LUXORA EYEWEAR Website",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873150-5-1.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "573e5963763596c9",
+          "createdAt": "2026-07-27T09:51:13.219Z",
+          "updatedAt": "2026-07-27T09:51:13.219Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873150-5-2",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "DOCUMENT",
+          "title": "LUXORA EYEWEAR Backend specification",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873150-5-2.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "e2b0e5dac8bd5aea",
+          "createdAt": "2026-07-27T09:51:13.219Z",
+          "updatedAt": "2026-07-27T09:51:13.219Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873150-5-3",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "DOCUMENT",
+          "title": "LUXORA EYEWEAR Database schema",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873150-5-3.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "7daee17e64cc15d8",
+          "createdAt": "2026-07-27T09:51:13.220Z",
+          "updatedAt": "2026-07-27T09:51:13.220Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873150-5-4",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "DOCUMENT",
+          "title": "LUXORA EYEWEAR API contract",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873150-5-4.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "2e8fe08e77ee5fa8",
+          "createdAt": "2026-07-27T09:51:13.220Z",
+          "updatedAt": "2026-07-27T09:51:13.220Z",
+          "metadata": {}
+        }
+      ],
+      "outputs": [
+        {
+          "outputId": "out-mis-1785145873150-5-0",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "VENTURE_OUTPUT",
+          "title": "LUXORA EYEWEAR venture brief",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873150-5-0"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.219Z",
+          "updatedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "outputId": "out-mis-1785145873150-5-1",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "WEBSITE_OUTPUT",
+          "title": "LUXORA EYEWEAR Website",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873150-5-1"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.219Z",
+          "updatedAt": "2026-07-27T09:51:13.219Z"
+        },
+        {
+          "outputId": "out-mis-1785145873150-5-2",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "BACKEND_OUTPUT",
+          "title": "LUXORA EYEWEAR Backend specification",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873150-5-2"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.220Z",
+          "updatedAt": "2026-07-27T09:51:13.220Z"
+        },
+        {
+          "outputId": "out-mis-1785145873150-5-3",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "BACKEND_OUTPUT",
+          "title": "LUXORA EYEWEAR Database schema",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873150-5-3"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.220Z",
+          "updatedAt": "2026-07-27T09:51:13.220Z"
+        },
+        {
+          "outputId": "out-mis-1785145873150-5-4",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "kind": "BACKEND_OUTPUT",
+          "title": "LUXORA EYEWEAR API contract",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873150-5-4"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.220Z",
+          "updatedAt": "2026-07-27T09:51:13.220Z"
+        }
+      ],
+      "codebases": [
+        {
+          "codebaseId": "cb-mis-1785145873150-5",
+          "missionId": "mis-1785145873150-5",
+          "ventureId": "ven-1785145873147-4",
+          "outputId": "out-mis-1785145873150-5-0",
+          "name": "luxora-eyewear-web",
+          "slug": "luxora-eyewear-web",
+          "version": "1.0.0",
+          "status": "READY_FOR_PREVIEW",
+          "framework": "nextjs",
+          "language": "typescript",
+          "packageManager": "npm",
+          "templateId": "webapp-nextjs",
+          "files": [
+            {
+              "path": "app/page.tsx",
+              "language": "typescriptreact",
+              "content": "export default function Page(){return <main>LUXORA EYEWEAR</main>}",
+              "purpose": "Home",
+              "checksum": "5979f561511731d9",
+              "sourceArtifactIds": [
+                "art-mis-1785145873150-5-0"
+              ]
+            },
+            {
+              "path": "schema/sql/init.sql",
+              "language": "sql",
+              "content": "-- LUXORA EYEWEAR schema\nCREATE TABLE tenants (id TEXT PRIMARY KEY);",
+              "purpose": "Database schema",
+              "checksum": "4b84f2d1f1971c37",
+              "sourceArtifactIds": [
+                "art-mis-1785145873150-5-0"
+              ]
+            },
+            {
+              "path": "openapi/openapi.yaml",
+              "language": "yaml",
+              "content": "openapi: 3.0.3\ninfo:\n  title: LUXORA EYEWEAR API\n  version: 1.0.0\npaths: {}",
+              "purpose": "API contract",
+              "checksum": "74cf534b563e6f25",
+              "sourceArtifactIds": [
+                "art-mis-1785145873150-5-0"
+              ]
+            }
+          ],
+          "directories": [
+            {
+              "path": "app"
+            },
+            {
+              "path": "schema"
+            },
+            {
+              "path": "openapi"
+            }
+          ],
+          "dependencies": [
+            {
+              "name": "next",
+              "version": "15.0.0"
+            }
+          ],
+          "scripts": [
+            {
+              "name": "build",
+              "command": "next build"
+            }
+          ],
+          "environmentVariables": [],
+          "sourceArtifactIds": [],
+          "checksums": {
+            "app/page.tsx": "5979f561511731d9",
+            "schema/sql/init.sql": "4b84f2d1f1971c37",
+            "openapi/openapi.yaml": "74cf534b563e6f25"
+          },
+          "createdAt": "2026-07-27T09:51:13.220Z",
+          "updatedAt": "2026-07-27T09:51:13.220Z"
+        }
+      ],
+      "builds": [],
+      "previews": [
+        {
+          "previewId": "prv-ms31rfb8-4-i1tlws",
+          "missionId": "mis-1785145873150-5",
+          "type": "VISUAL",
+          "status": "READY",
+          "visualNonExecutable": true,
+          "createdAt": "2026-07-27T09:51:13.220Z",
+          "updatedAt": "2026-07-27T09:51:13.220Z"
+        }
+      ],
+      "releases": [],
+      "deployments": [],
+      "lineage": {
+        "missionId": "mis-1785145873150-5",
+        "artifacts": [
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873150-5-0",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR venture brief",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873150-5-1",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR Website",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873150-5-2",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR Backend specification",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873150-5-3",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR Database schema",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873150-5-4",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR API contract",
+            "status": "READY"
+          }
+        ],
+        "outputs": [
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873150-5-0",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR venture brief",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873150-5-1",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR Website",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873150-5-2",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR Backend specification",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873150-5-3",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR Database schema",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873150-5-4",
+            "version": "1.0.0",
+            "label": "LUXORA EYEWEAR API contract",
+            "status": "APPROVED"
+          }
+        ],
+        "codebases": [
+          {
+            "stage": "Codebase",
+            "id": "cb-mis-1785145873150-5",
+            "version": "1.0.0",
+            "label": "luxora-eyewear-web",
+            "status": "READY_FOR_PREVIEW"
+          }
+        ],
+        "builds": [],
+        "previews": [
+          {
+            "stage": "Preview",
+            "id": "prv-ms31rfb8-4-i1tlws",
+            "label": "VISUAL",
+            "status": "READY"
+          }
+        ],
+        "releases": [],
+        "deployments": [],
+        "edges": [
+          {
+            "from": "art-mis-1785145873150-5-0",
+            "to": "out-mis-1785145873150-5-0",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873150-5-1",
+            "to": "out-mis-1785145873150-5-1",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873150-5-2",
+            "to": "out-mis-1785145873150-5-2",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873150-5-3",
+            "to": "out-mis-1785145873150-5-3",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873150-5-4",
+            "to": "out-mis-1785145873150-5-4",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "out-mis-1785145873150-5-0",
+            "to": "cb-mis-1785145873150-5",
+            "relation": "output→codebase"
+          }
+        ]
+      }
+    },
+    "mis-1785145873160-7": {
+      "missionId": "mis-1785145873160-7",
+      "artifacts": [
+        {
+          "artifactId": "art-mis-1785145873160-7-0",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "KNOWLEDGE",
+          "title": "LOCALGROW AI venture brief",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873160-7-0.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "f0e767e1cfae2152",
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873160-7-1",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "PRODUCT_SPEC",
+          "title": "LOCALGROW AI Web Application",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873160-7-1.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "ad67648301a0c7e6",
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873160-7-2",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "DOCUMENT",
+          "title": "LOCALGROW AI Backend specification",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873160-7-2.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "4ee79b4119c4658d",
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873160-7-3",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "DOCUMENT",
+          "title": "LOCALGROW AI Database schema",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873160-7-3.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "b28fa47474d1bd7c",
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z",
+          "metadata": {}
+        },
+        {
+          "artifactId": "art-mis-1785145873160-7-4",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "DOCUMENT",
+          "title": "LOCALGROW AI API contract",
+          "status": "READY",
+          "version": "1.0.0",
+          "contentRef": ".forgeos/v2-store/artifacts/art-mis-1785145873160-7-4.json",
+          "dependencyIds": [],
+          "sourceKnowledgeIds": [],
+          "checksum": "836c77a229a0db09",
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z",
+          "metadata": {}
+        }
+      ],
+      "outputs": [
+        {
+          "outputId": "out-mis-1785145873160-7-0",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "VENTURE_OUTPUT",
+          "title": "LOCALGROW AI venture brief",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873160-7-0"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z"
+        },
+        {
+          "outputId": "out-mis-1785145873160-7-1",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "WEB_APPLICATION_OUTPUT",
+          "title": "LOCALGROW AI Web Application",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873160-7-1"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z"
+        },
+        {
+          "outputId": "out-mis-1785145873160-7-2",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "BACKEND_OUTPUT",
+          "title": "LOCALGROW AI Backend specification",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873160-7-2"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z"
+        },
+        {
+          "outputId": "out-mis-1785145873160-7-3",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "BACKEND_OUTPUT",
+          "title": "LOCALGROW AI Database schema",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873160-7-3"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z"
+        },
+        {
+          "outputId": "out-mis-1785145873160-7-4",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "kind": "BACKEND_OUTPUT",
+          "title": "LOCALGROW AI API contract",
+          "status": "APPROVED",
+          "version": "1.0.0",
+          "sourceArtifactIds": [
+            "art-mis-1785145873160-7-4"
+          ],
+          "previewMode": "plan",
+          "approvals": [],
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z"
+        }
+      ],
+      "codebases": [
+        {
+          "codebaseId": "cb-mis-1785145873160-7",
+          "missionId": "mis-1785145873160-7",
+          "ventureId": "ven-1785145873158-6",
+          "outputId": "out-mis-1785145873160-7-0",
+          "name": "localgrow-ai-web",
+          "slug": "localgrow-ai-web",
+          "version": "1.0.0",
+          "status": "READY_FOR_PREVIEW",
+          "framework": "nextjs",
+          "language": "typescript",
+          "packageManager": "npm",
+          "templateId": "webapp-nextjs",
+          "files": [
+            {
+              "path": "app/page.tsx",
+              "language": "typescriptreact",
+              "content": "export default function Page(){return <main>LOCALGROW AI</main>}",
+              "purpose": "Home",
+              "checksum": "c5de6686f4a2bd92",
+              "sourceArtifactIds": [
+                "art-mis-1785145873160-7-0"
+              ]
+            },
+            {
+              "path": "schema/sql/init.sql",
+              "language": "sql",
+              "content": "-- LOCALGROW AI schema\nCREATE TABLE tenants (id TEXT PRIMARY KEY);",
+              "purpose": "Database schema",
+              "checksum": "16b94a93416586da",
+              "sourceArtifactIds": [
+                "art-mis-1785145873160-7-0"
+              ]
+            },
+            {
+              "path": "openapi/openapi.yaml",
+              "language": "yaml",
+              "content": "openapi: 3.0.3\ninfo:\n  title: LOCALGROW AI API\n  version: 1.0.0\npaths: {}",
+              "purpose": "API contract",
+              "checksum": "9bc4d0d3f46dabf0",
+              "sourceArtifactIds": [
+                "art-mis-1785145873160-7-0"
+              ]
+            }
+          ],
+          "directories": [
+            {
+              "path": "app"
+            },
+            {
+              "path": "schema"
+            },
+            {
+              "path": "openapi"
+            }
+          ],
+          "dependencies": [
+            {
+              "name": "next",
+              "version": "15.0.0"
+            }
+          ],
+          "scripts": [
+            {
+              "name": "build",
+              "command": "next build"
+            }
+          ],
+          "environmentVariables": [],
+          "sourceArtifactIds": [],
+          "checksums": {
+            "app/page.tsx": "c5de6686f4a2bd92",
+            "schema/sql/init.sql": "16b94a93416586da",
+            "openapi/openapi.yaml": "9bc4d0d3f46dabf0"
+          },
+          "createdAt": "2026-07-27T09:51:13.222Z",
+          "updatedAt": "2026-07-27T09:51:13.222Z"
+        }
+      ],
+      "builds": [],
+      "previews": [
+        {
+          "previewId": "prv-ms31rfbb-5-zlho5t",
+          "missionId": "mis-1785145873160-7",
+          "type": "VISUAL",
+          "status": "READY",
+          "visualNonExecutable": true,
+          "createdAt": "2026-07-27T09:51:13.223Z",
+          "updatedAt": "2026-07-27T09:51:13.223Z"
+        }
+      ],
+      "releases": [],
+      "deployments": [],
+      "lineage": {
+        "missionId": "mis-1785145873160-7",
+        "artifacts": [
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873160-7-0",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI venture brief",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873160-7-1",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI Web Application",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873160-7-2",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI Backend specification",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873160-7-3",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI Database schema",
+            "status": "READY"
+          },
+          {
+            "stage": "Artifact",
+            "id": "art-mis-1785145873160-7-4",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI API contract",
+            "status": "READY"
+          }
+        ],
+        "outputs": [
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873160-7-0",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI venture brief",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873160-7-1",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI Web Application",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873160-7-2",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI Backend specification",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873160-7-3",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI Database schema",
+            "status": "APPROVED"
+          },
+          {
+            "stage": "Output",
+            "id": "out-mis-1785145873160-7-4",
+            "version": "1.0.0",
+            "label": "LOCALGROW AI API contract",
+            "status": "APPROVED"
+          }
+        ],
+        "codebases": [
+          {
+            "stage": "Codebase",
+            "id": "cb-mis-1785145873160-7",
+            "version": "1.0.0",
+            "label": "localgrow-ai-web",
+            "status": "READY_FOR_PREVIEW"
+          }
+        ],
+        "builds": [],
+        "previews": [
+          {
+            "stage": "Preview",
+            "id": "prv-ms31rfbb-5-zlho5t",
+            "label": "VISUAL",
+            "status": "READY"
+          }
+        ],
+        "releases": [],
+        "deployments": [],
+        "edges": [
+          {
+            "from": "art-mis-1785145873160-7-0",
+            "to": "out-mis-1785145873160-7-0",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873160-7-1",
+            "to": "out-mis-1785145873160-7-1",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873160-7-2",
+            "to": "out-mis-1785145873160-7-2",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873160-7-3",
+            "to": "out-mis-1785145873160-7-3",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "art-mis-1785145873160-7-4",
+            "to": "out-mis-1785145873160-7-4",
+            "relation": "artifact→output"
+          },
+          {
+            "from": "out-mis-1785145873160-7-0",
+            "to": "cb-mis-1785145873160-7",
+            "relation": "output→codebase"
+          }
+        ]
+      }
+    }
+  },
+  "lineage": {
+    "mis-1785145873141-3": {
+      "missionId": "mis-1785145873141-3",
+      "artifacts": [
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873141-3-0",
+          "version": "1.0.0",
+          "label": "TABLEFLOW venture brief",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873141-3-1",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Website",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873141-3-2",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Web Application",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873141-3-3",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Backend specification",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873141-3-4",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Database schema",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873141-3-5",
+          "version": "1.0.0",
+          "label": "TABLEFLOW API contract",
+          "status": "READY"
+        }
+      ],
+      "outputs": [
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873141-3-0",
+          "version": "1.0.0",
+          "label": "TABLEFLOW venture brief",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873141-3-1",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Website",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873141-3-2",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Web Application",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873141-3-3",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Backend specification",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873141-3-4",
+          "version": "1.0.0",
+          "label": "TABLEFLOW Database schema",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873141-3-5",
+          "version": "1.0.0",
+          "label": "TABLEFLOW API contract",
+          "status": "APPROVED"
+        }
+      ],
+      "codebases": [
+        {
+          "stage": "Codebase",
+          "id": "cb-mis-1785145873141-3",
+          "version": "1.0.0",
+          "label": "tableflow-web",
+          "status": "READY_FOR_PREVIEW"
+        }
+      ],
+      "builds": [],
+      "previews": [
+        {
+          "stage": "Preview",
+          "id": "prv-ms31rfb2-1-r1uxxg",
+          "label": "VISUAL",
+          "status": "READY"
+        }
+      ],
+      "releases": [
+        {
+          "stage": "Release",
+          "id": "rel-ms31rfb3-2-xv4man",
+          "version": "1.0.0-rc.1",
+          "status": "PUBLISHED"
+        }
+      ],
+      "deployments": [
+        {
+          "stage": "Deployment",
+          "id": "dep-ms31rfb5-3-qwx2wv",
+          "label": "PREVIEW",
+          "status": "PLANNED"
+        }
+      ],
+      "edges": [
+        {
+          "from": "art-mis-1785145873141-3-0",
+          "to": "out-mis-1785145873141-3-0",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873141-3-1",
+          "to": "out-mis-1785145873141-3-1",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873141-3-2",
+          "to": "out-mis-1785145873141-3-2",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873141-3-3",
+          "to": "out-mis-1785145873141-3-3",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873141-3-4",
+          "to": "out-mis-1785145873141-3-4",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873141-3-5",
+          "to": "out-mis-1785145873141-3-5",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "out-mis-1785145873141-3-0",
+          "to": "cb-mis-1785145873141-3",
+          "relation": "output→codebase"
+        },
+        {
+          "from": "out-mis-1785145873141-3-0",
+          "to": "rel-ms31rfb3-2-xv4man",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1785145873141-3-1",
+          "to": "rel-ms31rfb3-2-xv4man",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1785145873141-3-2",
+          "to": "rel-ms31rfb3-2-xv4man",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1785145873141-3-3",
+          "to": "rel-ms31rfb3-2-xv4man",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1785145873141-3-4",
+          "to": "rel-ms31rfb3-2-xv4man",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1785145873141-3-5",
+          "to": "rel-ms31rfb3-2-xv4man",
+          "relation": "output→release"
+        },
+        {
+          "from": "rel-ms31rfb3-2-xv4man",
+          "to": "dep-ms31rfb5-3-qwx2wv",
+          "relation": "release→deployment"
+        }
+      ]
+    },
+    "mis-1785145873150-5": {
+      "missionId": "mis-1785145873150-5",
+      "artifacts": [
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873150-5-0",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR venture brief",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873150-5-1",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR Website",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873150-5-2",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR Backend specification",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873150-5-3",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR Database schema",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873150-5-4",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR API contract",
+          "status": "READY"
+        }
+      ],
+      "outputs": [
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873150-5-0",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR venture brief",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873150-5-1",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR Website",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873150-5-2",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR Backend specification",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873150-5-3",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR Database schema",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873150-5-4",
+          "version": "1.0.0",
+          "label": "LUXORA EYEWEAR API contract",
+          "status": "APPROVED"
+        }
+      ],
+      "codebases": [
+        {
+          "stage": "Codebase",
+          "id": "cb-mis-1785145873150-5",
+          "version": "1.0.0",
+          "label": "luxora-eyewear-web",
+          "status": "READY_FOR_PREVIEW"
+        }
+      ],
+      "builds": [],
+      "previews": [
+        {
+          "stage": "Preview",
+          "id": "prv-ms31rfb8-4-i1tlws",
+          "label": "VISUAL",
+          "status": "READY"
+        }
+      ],
+      "releases": [],
+      "deployments": [],
+      "edges": [
+        {
+          "from": "art-mis-1785145873150-5-0",
+          "to": "out-mis-1785145873150-5-0",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873150-5-1",
+          "to": "out-mis-1785145873150-5-1",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873150-5-2",
+          "to": "out-mis-1785145873150-5-2",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873150-5-3",
+          "to": "out-mis-1785145873150-5-3",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873150-5-4",
+          "to": "out-mis-1785145873150-5-4",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "out-mis-1785145873150-5-0",
+          "to": "cb-mis-1785145873150-5",
+          "relation": "output→codebase"
+        }
+      ]
+    },
+    "mis-1785145873160-7": {
+      "missionId": "mis-1785145873160-7",
+      "artifacts": [
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873160-7-0",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI venture brief",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873160-7-1",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI Web Application",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873160-7-2",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI Backend specification",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873160-7-3",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI Database schema",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1785145873160-7-4",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI API contract",
+          "status": "READY"
+        }
+      ],
+      "outputs": [
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873160-7-0",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI venture brief",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873160-7-1",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI Web Application",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873160-7-2",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI Backend specification",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873160-7-3",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI Database schema",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1785145873160-7-4",
+          "version": "1.0.0",
+          "label": "LOCALGROW AI API contract",
+          "status": "APPROVED"
+        }
+      ],
+      "codebases": [
+        {
+          "stage": "Codebase",
+          "id": "cb-mis-1785145873160-7",
+          "version": "1.0.0",
+          "label": "localgrow-ai-web",
+          "status": "READY_FOR_PREVIEW"
+        }
+      ],
+      "builds": [],
+      "previews": [
+        {
+          "stage": "Preview",
+          "id": "prv-ms31rfbb-5-zlho5t",
+          "label": "VISUAL",
+          "status": "READY"
+        }
+      ],
+      "releases": [],
+      "deployments": [],
+      "edges": [
+        {
+          "from": "art-mis-1785145873160-7-0",
+          "to": "out-mis-1785145873160-7-0",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873160-7-1",
+          "to": "out-mis-1785145873160-7-1",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873160-7-2",
+          "to": "out-mis-1785145873160-7-2",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873160-7-3",
+          "to": "out-mis-1785145873160-7-3",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1785145873160-7-4",
+          "to": "out-mis-1785145873160-7-4",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "out-mis-1785145873160-7-0",
+          "to": "cb-mis-1785145873160-7",
+          "relation": "output→codebase"
+        }
+      ]
+    }
+  },
+  "previewClassifications": {
+    "mis-1785145873141-3": "PLAN_ONLY",
+    "mis-1785145873150-5": "PLAN_ONLY",
+    "mis-1785145873160-7": "PLAN_ONLY"
+  },
+  "meta": {
+    "idSeq": 12,
+    "portfolio6150": {
+      "portfolioId": "portfolio-rafael-ventures-lab",
+      "readModel": {
+        "generatedAt": "2026-07-27T09:51:13.227Z",
+        "freshness": "LIVE",
+        "portfolioId": "portfolio-rafael-ventures-lab",
+        "workspaceId": "ws-1785145873134-1",
+        "name": "RAFAEL VENTURES LAB",
+        "slug": "rafael-ventures-lab",
+        "status": "ACTIVE",
+        "summary": {
+          "portfolioId": "portfolio-rafael-ventures-lab",
+          "workspaceId": "ws-1785145873134-1",
+          "name": "RAFAEL VENTURES LAB",
+          "totalVentures": 5,
+          "activeVentures": 4,
+          "pausedVentures": 1,
+          "closedVentures": 0,
+          "criticalPriority": 0,
+          "atRiskVentures": 0,
+          "activeExecutions": 0,
+          "queuedExecutions": 0
+        },
+        "metrics": {
+          "portfolioId": "portfolio-rafael-ventures-lab",
+          "workspaceId": "ws-1785145873134-1",
+          "name": "RAFAEL VENTURES LAB",
+          "totalVentures": 5,
+          "activeVentures": 4,
+          "pausedVentures": 1,
+          "closedVentures": 0,
+          "criticalPriority": 0,
+          "atRiskVentures": 0,
+          "activeExecutions": 0,
+          "queuedExecutions": 0
+        },
+        "capacity": [
+          {
+            "resourceType": "AI_EXECUTION",
+            "limit": 30,
+            "used": 4,
+            "available": 26,
+            "utilizationPercent": 13
+          },
+          {
+            "resourceType": "BUILD_WORKER",
+            "limit": 6,
+            "used": 0,
+            "available": 6,
+            "utilizationPercent": 0
+          },
+          {
+            "resourceType": "PREVIEW_SANDBOX",
+            "limit": 3,
+            "used": 0,
+            "available": 3,
+            "utilizationPercent": 0
+          },
+          {
+            "resourceType": "TOKEN_BUDGET",
+            "limit": 1000000,
+            "used": 0,
+            "available": 1000000,
+            "utilizationPercent": 0
+          }
+        ],
+        "ventures": [
+          {
+            "ventureId": "ven-1785145873137-2",
+            "name": "TABLEFLOW",
+            "slug": "tableflow",
+            "priority": "HIGH",
+            "lifecycle": "IDEA",
+            "paused": false,
+            "archived": false,
+            "closed": false,
+            "health": "HEALTHY",
+            "valueStatus": "UNKNOWN",
+            "blockers": [],
+            "activeExecutions": 0,
+            "latestActivity": "2026-07-27T09:51:13.180Z",
+            "updatedAt": "2026-07-27T09:51:13.180Z"
+          },
+          {
+            "ventureId": "ven-1785145873147-4",
+            "name": "LUXORA EYEWEAR",
+            "slug": "luxora-eyewear",
+            "priority": "HIGH",
+            "lifecycle": "IDEA",
+            "paused": false,
+            "archived": false,
+            "closed": false,
+            "health": "HEALTHY",
+            "valueStatus": "UNKNOWN",
+            "blockers": [],
+            "activeExecutions": 0,
+            "latestActivity": "2026-07-27T09:51:13.181Z",
+            "updatedAt": "2026-07-27T09:51:13.181Z"
+          },
+          {
+            "ventureId": "ven-1785145873158-6",
+            "name": "LOCALGROW AI",
+            "slug": "localgrow-ai",
+            "priority": "NORMAL",
+            "lifecycle": "IDEA",
+            "paused": false,
+            "archived": false,
+            "closed": false,
+            "health": "HEALTHY",
+            "valueStatus": "UNKNOWN",
+            "blockers": [],
+            "activeExecutions": 0,
+            "latestActivity": "2026-07-27T09:51:13.181Z",
+            "updatedAt": "2026-07-27T09:51:13.181Z"
+          },
+          {
+            "ventureId": "ven-1785145873167-8",
+            "name": "CREATORPULSE",
+            "slug": "creatorpulse",
+            "priority": "NORMAL",
+            "lifecycle": "IDEA",
+            "paused": false,
+            "archived": false,
+            "closed": false,
+            "health": "HEALTHY",
+            "valueStatus": "UNKNOWN",
+            "blockers": [],
+            "activeExecutions": 0,
+            "latestActivity": "2026-07-27T09:51:13.181Z",
+            "updatedAt": "2026-07-27T09:51:13.181Z"
+          },
+          {
+            "ventureId": "ven-1785145873173-10",
+            "name": "ORBITA SPORTS",
+            "slug": "orbita-sports",
+            "priority": "PAUSED",
+            "lifecycle": "PAUSED",
+            "paused": true,
+            "archived": false,
+            "closed": false,
+            "health": "AT_RISK",
+            "valueStatus": "UNKNOWN",
+            "blockers": [],
+            "activeExecutions": 0,
+            "latestActivity": "2026-07-27T09:51:13.181Z",
+            "updatedAt": "2026-07-27T09:51:13.181Z"
+          }
+        ],
+        "risks": [],
+        "activity": [],
+        "allocations": [
+          {
+            "id": "alloc-tableflow-ai",
+            "ventureId": "ven-1785145873137-2",
+            "resourceType": "AI_EXECUTION",
+            "limit": 5,
+            "used": 0,
+            "reserved": 1,
+            "available": 4,
+            "status": "RESERVED",
+            "period": "cert-6150"
+          },
+          {
+            "id": "alloc-luxora-eyewear-ai",
+            "ventureId": "ven-1785145873147-4",
+            "resourceType": "AI_EXECUTION",
+            "limit": 5,
+            "used": 0,
+            "reserved": 1,
+            "available": 4,
+            "status": "RESERVED",
+            "period": "cert-6150"
+          },
+          {
+            "id": "alloc-localgrow-ai-ai",
+            "ventureId": "ven-1785145873158-6",
+            "resourceType": "AI_EXECUTION",
+            "limit": 5,
+            "used": 0,
+            "reserved": 1,
+            "available": 4,
+            "status": "RESERVED",
+            "period": "cert-6150"
+          },
+          {
+            "id": "alloc-creatorpulse-ai",
+            "ventureId": "ven-1785145873167-8",
+            "resourceType": "AI_EXECUTION",
+            "limit": 5,
+            "used": 0,
+            "reserved": 1,
+            "available": 4,
+            "status": "RESERVED",
+            "period": "cert-6150"
+          }
+        ],
+        "dependencies": [],
+        "sharedAssets": [
+          {
+            "id": "sa-design-system",
+            "name": "RVL Shared Design Tokens",
+            "assetType": "DESIGN_SYSTEM",
+            "ownerVentureId": "ven-1785145873137-2",
+            "approvalStatus": "PENDING",
+            "version": "0.1.0"
+          }
+        ],
+        "policies": [
+          {
+            "id": "pol-max-active",
+            "kind": "MAX_ACTIVE_VENTURES",
+            "enabled": true,
+            "config": {
+              "limit": 8
+            }
+          }
+        ],
+        "decisions": []
+      }
+    },
+    "executiveSummary": "RAFAEL VENTURES LAB: 5 ventures certification run."
+  }
+}

@@ -1,0 +1,444 @@
+{
+  "ok": true,
+  "status": "PASSED",
+  "missionId": "mis-1784901131951-63",
+  "workspaceId": "ws-1784901131942-61",
+  "ventureId": "ven-1784901131947-62",
+  "checks": [
+    {
+      "id": "create_workspace",
+      "status": "PASS",
+      "detail": "ws-1784901131942-61"
+    },
+    {
+      "id": "create_venture",
+      "status": "PASS",
+      "detail": "ven-1784901131947-62"
+    },
+    {
+      "id": "create_mission",
+      "status": "PASS",
+      "detail": "mis-1784901131951-63"
+    },
+    {
+      "id": "update_intent",
+      "status": "PASS",
+      "detail": "UpdateMissionIntent"
+    },
+    {
+      "id": "controlled_failure",
+      "status": "PASS",
+      "detail": "n_brand marked FAILED once"
+    },
+    {
+      "id": "retry_after_failure",
+      "status": "PASS",
+      "detail": "recover action=retry"
+    },
+    {
+      "id": "workflow_run",
+      "status": "PASS",
+      "detail": "kernelStatus=completed"
+    },
+    {
+      "id": "artifacts_outputs",
+      "status": "PASS",
+      "detail": "artifacts=9 outputs=9"
+    },
+    {
+      "id": "code_project",
+      "status": "PASS",
+      "detail": "cb-mis-1784901131951-63"
+    },
+    {
+      "id": "static_validation",
+      "status": "PASS",
+      "detail": "static validation recorded; SANDBOX_UNAVAILABLE"
+    },
+    {
+      "id": "preview",
+      "status": "PASS",
+      "detail": "classification=PLAN_ONLY; previewId=prv-mrz01rvw-1-d7177u; no fake READY"
+    },
+    {
+      "id": "change_impact",
+      "status": "PASS",
+      "detail": "impact analyzed for backend artifact"
+    },
+    {
+      "id": "selective_regen",
+      "status": "PASS",
+      "detail": "backend/database/api versions bumped; brand/website unchanged"
+    },
+    {
+      "id": "release_candidate",
+      "status": "PASS",
+      "detail": "releaseId=rel-mrz01rw7-3-j80uu4; status=PUBLISHED"
+    },
+    {
+      "id": "deployment_plan",
+      "status": "PASS",
+      "detail": "status=PLAN_READY; outcome=DRY_RUN — plan only for PREVIEW; not a real deployment; dryRun=true"
+    },
+    {
+      "id": "query_path",
+      "status": "PASS",
+      "detail": "GetMissionOverview/Outputs/Timeline"
+    },
+    {
+      "id": "persistence_recovery",
+      "status": "PASS",
+      "detail": "mission=true; workflow=true; lineage=true"
+    }
+  ],
+  "gaps": [
+    {
+      "severity": "P2",
+      "id": "sandbox_unavailable",
+      "message": "SANDBOX_UNAVAILABLE — Preview Plan only; no fake functional preview"
+    }
+  ],
+  "evidence": {
+    "fixture": "ATLAS CLUBS",
+    "startedAt": "2026-07-24T13:52:11.936Z",
+    "staticValidation": {
+      "status": "PASSED",
+      "sandbox": "SANDBOX_UNAVAILABLE"
+    },
+    "changeImpact": {
+      "planId": "chp-mrz01rw6-2-9k111f",
+      "missionId": "mis-1784901131951-63",
+      "changedArtifactId": "art-mis-1784901131951-63-5",
+      "affectedOutputIds": [
+        "out-mis-1784901131951-63-5"
+      ],
+      "affectedCodebaseIds": [],
+      "invalidate": true,
+      "approvalRequired": true,
+      "rationale": [
+        "Artifact art-mis-1784901131951-63-5 content/metadata changed",
+        "Approved downstream entities affected — approval required"
+      ],
+      "createdAt": "2026-07-24T13:52:12.150Z",
+      "status": "pending_approval"
+    },
+    "missionId": "mis-1784901131951-63",
+    "artifactIds": [
+      "art-mis-1784901131951-63-0",
+      "art-mis-1784901131951-63-1",
+      "art-mis-1784901131951-63-2",
+      "art-mis-1784901131951-63-3",
+      "art-mis-1784901131951-63-4",
+      "art-mis-1784901131951-63-5",
+      "art-mis-1784901131951-63-6",
+      "art-mis-1784901131951-63-7",
+      "art-mis-1784901131951-63-8"
+    ],
+    "outputIds": [
+      "out-mis-1784901131951-63-0",
+      "out-mis-1784901131951-63-1",
+      "out-mis-1784901131951-63-2",
+      "out-mis-1784901131951-63-3",
+      "out-mis-1784901131951-63-4",
+      "out-mis-1784901131951-63-5",
+      "out-mis-1784901131951-63-6",
+      "out-mis-1784901131951-63-7",
+      "out-mis-1784901131951-63-8"
+    ],
+    "lineage": {
+      "missionId": "mis-1784901131951-63",
+      "artifacts": [
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-0",
+          "version": "1.0.0",
+          "label": "Venture brief",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-1",
+          "version": "1.0.0",
+          "label": "Brand kit",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-2",
+          "version": "1.0.0",
+          "label": "Product plan",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-3",
+          "version": "1.0.0",
+          "label": "Website",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-4",
+          "version": "1.0.0",
+          "label": "Web Application",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-5",
+          "version": "1.1.0",
+          "label": "Backend specification",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-6",
+          "version": "1.1.0",
+          "label": "Database schema",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-7",
+          "version": "1.1.0",
+          "label": "API contract",
+          "status": "READY"
+        },
+        {
+          "stage": "Artifact",
+          "id": "art-mis-1784901131951-63-8",
+          "version": "1.0.0",
+          "label": "QA report",
+          "status": "READY"
+        }
+      ],
+      "outputs": [
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-0",
+          "version": "1.0.0",
+          "label": "Venture brief",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-1",
+          "version": "1.0.0",
+          "label": "Brand kit",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-2",
+          "version": "1.0.0",
+          "label": "Product plan",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-3",
+          "version": "1.0.0",
+          "label": "Website",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-4",
+          "version": "1.0.0",
+          "label": "Web Application",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-5",
+          "version": "1.0.0",
+          "label": "Backend specification",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-6",
+          "version": "1.0.0",
+          "label": "Database schema",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-7",
+          "version": "1.0.0",
+          "label": "API contract",
+          "status": "APPROVED"
+        },
+        {
+          "stage": "Output",
+          "id": "out-mis-1784901131951-63-8",
+          "version": "1.0.0",
+          "label": "QA report",
+          "status": "APPROVED"
+        }
+      ],
+      "codebases": [
+        {
+          "stage": "Codebase",
+          "id": "cb-mis-1784901131951-63",
+          "version": "1.0.0",
+          "label": "atlas-clubs-web",
+          "status": "READY_FOR_PREVIEW"
+        }
+      ],
+      "builds": [],
+      "previews": [
+        {
+          "stage": "Preview",
+          "id": "prv-mrz01rvw-1-d7177u",
+          "label": "VISUAL",
+          "status": "READY"
+        }
+      ],
+      "releases": [
+        {
+          "stage": "Release",
+          "id": "rel-mrz01rw7-3-j80uu4",
+          "version": "1.1.0-rc.1",
+          "status": "PUBLISHED"
+        }
+      ],
+      "deployments": [
+        {
+          "stage": "Deployment",
+          "id": "dep-mrz01rwc-4-iwf1mw",
+          "label": "PREVIEW",
+          "status": "PLANNED"
+        }
+      ],
+      "edges": [
+        {
+          "from": "art-mis-1784901131951-63-0",
+          "to": "out-mis-1784901131951-63-0",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-1",
+          "to": "out-mis-1784901131951-63-1",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-2",
+          "to": "out-mis-1784901131951-63-2",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-3",
+          "to": "out-mis-1784901131951-63-3",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-4",
+          "to": "out-mis-1784901131951-63-4",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-5",
+          "to": "out-mis-1784901131951-63-5",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-6",
+          "to": "out-mis-1784901131951-63-6",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-7",
+          "to": "out-mis-1784901131951-63-7",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "art-mis-1784901131951-63-8",
+          "to": "out-mis-1784901131951-63-8",
+          "relation": "artifact→output"
+        },
+        {
+          "from": "out-mis-1784901131951-63-4",
+          "to": "cb-mis-1784901131951-63",
+          "relation": "output→codebase"
+        },
+        {
+          "from": "out-mis-1784901131951-63-0",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-1",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-2",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-3",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-4",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-5",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-6",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-7",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "out-mis-1784901131951-63-8",
+          "to": "rel-mrz01rw7-3-j80uu4",
+          "relation": "output→release"
+        },
+        {
+          "from": "rel-mrz01rw7-3-j80uu4",
+          "to": "dep-mrz01rwc-4-iwf1mw",
+          "relation": "release→deployment"
+        }
+      ]
+    },
+    "release": {
+      "id": "rel-mrz01rw7-3-j80uu4",
+      "version": "1.1.0-rc.1",
+      "status": "PUBLISHED"
+    },
+    "deployment": {
+      "id": "dep-mrz01rwc-4-iwf1mw",
+      "status": "PLAN_READY",
+      "outcome": "DRY_RUN — plan only for PREVIEW; not a real deployment",
+      "dryRun": true
+    },
+    "previewClassification": "PLAN_ONLY",
+    "flags": {
+      "ENABLE_V2_DOMAIN": false,
+      "ENABLE_V2_COMMANDS": false,
+      "ENABLE_V2_QUERIES": false,
+      "ENABLE_V2_ORCHESTRATION": false,
+      "ENABLE_V2_EVENTS": false,
+      "ENABLE_V2_STUDIO": false,
+      "ENABLE_V2_COMPANY_OS": false
+    },
+    "endedAt": "2026-07-24T13:52:12.188Z"
+  },
+  "previewClassification": "PLAN_ONLY",
+  "deploymentStatus": "PLAN_READY",
+  "releaseId": "rel-mrz01rw7-3-j80uu4",
+  "flagsRestored": true
+}

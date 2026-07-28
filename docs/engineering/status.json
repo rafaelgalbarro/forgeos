@@ -1,0 +1,111 @@
+{
+  "program": 4290,
+  "name": "Engineering Governance & Parallel Execution",
+  "status": "COMPLETADO",
+  "version": "2026.07.13",
+  "architectureOwner": "ForgeOS Architecture Owner",
+  "zones": [
+    {
+      "id": "runtime",
+      "label": "Runtime",
+      "owner": "Runtime Team",
+      "paths": ["lib/runtime/", "lib/workers/"],
+      "programs": ["RC1", "RC2"],
+      "parallelSafe": false
+    },
+    {
+      "id": "ai",
+      "label": "AI Runtime",
+      "owner": "AI Team",
+      "paths": ["lib/ai-runtime/", "lib/ai-control/", "lib/ai-gateway/", "lib/ai-orchestration/"],
+      "programs": ["RC6"],
+      "parallelSafe": false
+    },
+    {
+      "id": "executive",
+      "label": "Executive Mesh",
+      "owner": "Executive Team",
+      "paths": ["lib/executive-mesh/", "lib/board/", "lib/fos/", "lib/ceo/", "lib/autonomous-organization/"],
+      "programs": ["RC4", "RC6.5"],
+      "parallelSafe": false
+    },
+    {
+      "id": "skills",
+      "label": "Skills",
+      "owner": "Skills Team",
+      "paths": ["lib/skills/", "lib/skills-governance/", "lib/skills-store/", "lib/capabilities/"],
+      "programs": ["RC4.x"],
+      "parallelSafe": false
+    },
+    {
+      "id": "factories",
+      "label": "Factories",
+      "owner": "Build Team",
+      "paths": ["lib/build-platform/", "lib/build-engine/", "lib/build-pipeline/", "lib/real-build-flow/", "lib/real-execution/", "lib/venture-factory/"],
+      "programs": ["RC5", "RC7"],
+      "parallelSafe": false
+    },
+    {
+      "id": "ux",
+      "label": "UX & Navigation",
+      "owner": "UX Team",
+      "paths": ["lib/navigation/", "lib/home/", "components/home/", "components/layout/", "components/os/"],
+      "programs": ["4100", "4255"],
+      "parallelSafe": true
+    },
+    {
+      "id": "platform",
+      "label": "Platform",
+      "owner": "Platform Team",
+      "paths": ["lib/platform/", "lib/programs/", "lib/delivery/", "lib/persistence/", "lib/auth/"],
+      "programs": ["2030"],
+      "parallelSafe": true
+    },
+    {
+      "id": "docs",
+      "label": "Docs & Governance",
+      "owner": "Architecture Owner",
+      "paths": ["docs/"],
+      "programs": ["4290"],
+      "parallelSafe": true
+    },
+    {
+      "id": "labs",
+      "label": "Labs",
+      "owner": "Validation Team",
+      "paths": ["app/lab/", "lib/lab/"],
+      "programs": ["4000", "4500", "10000"],
+      "parallelSafe": true
+    },
+    {
+      "id": "integrations",
+      "label": "Integrations",
+      "owner": "Connections Team",
+      "paths": ["lib/connections/", "lib/real-execution/providers/"],
+      "programs": ["RC5"],
+      "parallelSafe": false
+    },
+    {
+      "id": "cloud",
+      "label": "Cloud & Production",
+      "owner": "Production Team",
+      "paths": ["lib/production-readiness/", "app/production/"],
+      "programs": ["6500"],
+      "parallelSafe": true
+    }
+  ],
+  "completedPrograms": [
+    { "id": 4000, "name": "Founder Zero", "status": "COMPLETADO" },
+    { "id": 4100, "name": "Product Cleanup & UX", "status": "COMPLETADO" },
+    { "id": 4200, "name": "Stabilization", "status": "COMPLETADO" },
+    { "id": 4250, "name": "Localhost Performance", "status": "COMPLETADO" },
+    { "id": 4255, "name": "First Experience", "status": "COMPLETADO" },
+    { "id": 4290, "name": "Engineering Governance", "status": "COMPLETADO" },
+    { "id": 4500, "name": "Command Center", "status": "ACTIVE" },
+    { "id": 6000, "name": "Commercial Readiness", "status": "ACTIVE" },
+    { "id": 6500, "name": "Production Readiness", "status": "ACTIVE" },
+    { "id": 8000, "name": "Customer Success", "status": "ACTIVE" },
+    { "id": 9000, "name": "Intelligence Network", "status": "ACTIVE" },
+    { "id": 10000, "name": "Venture E2E", "status": "ACTIVE" }
+  ]
+}

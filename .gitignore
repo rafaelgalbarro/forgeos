@@ -1,0 +1,70 @@
+# dependencies
+node_modules/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+coverage/
+.nyc_output/
+
+# next.js
+.next/
+out/
+.turbo/
+.vercel/
+
+# production / build
+dist/
+build/
+
+# misc
+.DS_Store
+Thumbs.db
+*.pem
+*.key
+
+# databases
+*.sqlite
+*.sqlite3
+*.db
+
+# ForgeOS runtime locks / local V2 store (evidence JSON under artifacts/ may be committed)
+.forgeos/locks/
+.forgeos/registry/
+.forgeos/v2-store/
+
+# debug / logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# env files
+.env
+.env.*
+!.env.example
+
+# editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

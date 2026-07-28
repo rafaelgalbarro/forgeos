@@ -1,0 +1,49 @@
+﻿Ô£ô delivery file types.ts
+Ô£ô delivery file pipeline.ts
+Ô£ô delivery file kernel.ts
+Ô£ô delivery file index.ts
+Ô£ô delivery file artifact/registry.ts
+Ô£ô delivery file output/registry.ts
+Ô£ô delivery file output/adapters.ts
+Ô£ô delivery file codebase/registry.ts
+Ô£ô delivery file codebase/adapters.ts
+Ô£ô delivery file build/registry.ts
+Ô£ô delivery file preview/registry.ts
+Ô£ô delivery file preview/adapters.ts
+Ô£ô delivery file release/registry.ts
+Ô£ô delivery file deployment/registry.ts
+Ô£ô delivery file deployment/adapters.ts
+Ô£ô delivery file lineage/version-graph.ts
+Ô£ô delivery file lineage/change-impact.ts
+Ô£ô delivery file migration/migrator.ts
+Ô£ô delivery file fixtures/e2e-pipeline.ts
+Ô£ô delivery file __tests__/delivery-model-6050.test.ts
+Ô£ô doc docs/architecture-v2/delivery-model/README.md
+Ô£ô doc docs/architecture-v2/delivery-model/artifact.md
+Ô£ô doc docs/architecture-v2/delivery-model/output.md
+Ô£ô doc docs/architecture-v2/delivery-model/codebase.md
+Ô£ô doc docs/architecture-v2/delivery-model/build.md
+Ô£ô doc docs/architecture-v2/delivery-model/preview.md
+Ô£ô doc docs/architecture-v2/delivery-model/release.md
+Ô£ô doc docs/architecture-v2/delivery-model/deployment.md
+Ô£ô doc docs/architecture-v2/delivery-model/lineage.md
+Ô£ô doc docs/architecture-v2/delivery-model/migration.md
+Ô£ô Studio tabs component
+Ô£ô snapshot API
+Ô£ô migrate script
+Ô£ô delivery-commands
+Ô£ô zero React in core delivery ÔÇö 20 files scanned
+Ô£ô CanonicalArtifact distinct
+Ô£ô CanonicalOutput distinct
+Ô£ô CanonicalCodebase distinct
+Ô£ô CanonicalBuild distinct
+Ô£ô CanonicalPreview distinct
+Ô£ô CanonicalRelease distinct
+Ô£ô CanonicalDeployment distinct
+Ô£ô pipeline stages listed
+Ô£ô build immutability error
+Ô£ô visual non-executable gate
+Ô£ô dry-run Ôëá real
+
+architecture:check 6050 ÔÇö 46/46
+EXIT=0

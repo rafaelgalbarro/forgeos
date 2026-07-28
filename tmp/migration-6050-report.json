@@ -1,0 +1,50 @@
+{
+  "report": {
+    "program": "PROGRAM 6050 — ARTIFACT OUTPUT CODEBASE UNIFICATION",
+    "startedAt": "2026-07-24T11:13:27.033Z",
+    "finishedAt": "2026-07-24T11:13:27.033Z",
+    "counts": {
+      "migrated": 5,
+      "compatible": 0,
+      "incomplete": 0,
+      "conflict": 0,
+      "orphaned": 0,
+      "manual_review": 0
+    },
+    "items": [
+      {
+        "legacyId": "out-website-mryudjh2-amlmmx",
+        "legacySystem": "creation-output",
+        "disposition": "migrated",
+        "canonicalId": "can-out-out-website-mryudjh2-amlmmx"
+      },
+      {
+        "legacyId": "out-web_application-mryudjjg-tsjkwm",
+        "legacySystem": "creation-output",
+        "disposition": "migrated",
+        "canonicalId": "can-out-out-web_application-mryudjjg-tsjkwm"
+      },
+      {
+        "legacyId": "out-mobile_application-mryudjlb-c4a0s3",
+        "legacySystem": "creation-output",
+        "disposition": "migrated",
+        "canonicalId": "can-out-out-mobile_application-mryudjlb-c4a0s3"
+      },
+      {
+        "legacyId": "out-backend-mryudjli-3sjv3t",
+        "legacySystem": "creation-output",
+        "disposition": "migrated",
+        "canonicalId": "can-out-out-backend-mryudjli-3sjv3t"
+      },
+      {
+        "legacyId": "out-deployment-mryudm9k-1r45b2",
+        "legacySystem": "creation-output",
+        "disposition": "migrated",
+        "canonicalId": "can-out-out-deployment-mryudm9k-1r45b2"
+      }
+    ]
+  },
+  "artifactCount": 5,
+  "outputCount": 5,
+  "codebaseCount": 0
+}

@@ -1,0 +1,946 @@
+<timestamp>Monday, Jul 27, 2026, 11:01 AM (UTC+2)</timestamp>
+<user_query>
+####################################################################################################
+######################################## FORGEOS ####################################################
+##################################### PROGRAM 6100 ##################################################
+########################## PERFORMANCE & SCALABILITY FOUNDATION #####################################
+####################################################################################################
+
+CONTEXTO
+
+ForgeOS ya dispone de:
+
+- arquitectura V2;
+- dominio canÃ³nico;
+- CQRS;
+- workflow engine;
+- capability registry;
+- artifacts y outputs;
+- projects y code generation;
+- previews;
+- releases;
+- Mission Control;
+- Company Creation Command Center;
+- migraciÃ³n V1/V2.
+
+El siguiente objetivo estratÃ©gico es convertir ForgeOS en un creador y operador de mÃºltiples empresas simultÃ¡neamente.
+
+Antes de implementar el Portfolio Engine, debe estabilizarse el rendimiento para evitar que cada nueva empresa multiplique linealmente:
+
+- renders;
+- queries;
+- carga de artifacts;
+- inicializaciÃ³n de engines;
+- suscripciones;
+- uso de memoria;
+- llamadas de IA;
+- ejecuciÃ³n de workflows;
+- procesos de preview;
+- carga del navegador.
+
+OBJETIVO
+
+Conseguir que ForgeOS:
+
+1. cargue visualmente mÃ¡s rÃ¡pido;
+2. reduzca el JavaScript inicial;
+3. consulte Ãºnicamente los datos necesarios;
+4. soporte mÃºltiples empresas sin bloquear la aplicaciÃ³n;
+5. ejecute workflows en segundo plano;
+6. aÃ­sle recursos por empresa;
+7. priorice tareas;
+8. limite concurrencia;
+9. mantenga Mission Control y Company Command Center fluidos;
+10. pueda escalar hacia un Venture Portfolio Engine.
+
+NO aÃ±adir todavÃ­a el Portfolio Command Center completo.
+NO crear nuevas factories.
+NO duplicar Runtime, Scheduler, Event Bus o Queue.
+NO rediseÃ±ar toda la interfaz.
+NO aplicar optimizaciones sin mediciÃ³n.
+NO ocultar lentitud con loaders artificiales.
+NO cargar todos los artifacts, outputs o archivos al abrir una pÃ¡gina.
+NO ejecutar mÃºltiples previews pesadas simultÃ¡neamente sin lÃ­mites.
+NO modificar el Canonical Domain Model salvo que exista un bloqueo probado.
+
+====================================================================================================
+1. PERFORMANCE BASELINE
+====================================================================================================
+
+Medir antes de optimizar:
+
+- tiempo hasta primer byte;
+- First Contentful Paint;
+- Largest Contentful Paint;
+- interacciÃ³n;
+- JavaScript inicial;
+- nÃºmero de requests;
+- tamaÃ±o de responses;
+- consultas por ruta;
+- tiempo de composition root;
+- uso de memoria;
+- duraciÃ³n de queries;
+- duraciÃ³n de workflows;
+- tiempo de carga de Mission Control;
+- tiempo de carga de Company Command Center;
+- tiempo de carga de Studio;
+- tiempo de apertura de preview.
+
+Rutas principales:
+
+/
+ /mission-control
+ /missions/[missionId]
+ /company/[ventureId]
+ /studio/[missionId]
+ /studio/[missionId]/code
+ /studio/[missionId]/preview
+ /deployments
+
+Crear:
+
+scripts/performance/
+- measure-routes.ts
+- measure-bundles.ts
+- measure-queries.ts
+- measure-memory.ts
+- measure-v2-container.ts
+- performance-report.ts
+
+Crear baseline:
+
+artifacts/performance/baseline.json
+
+No declarar una mejora sin comparaciÃ³n antes/despuÃ©s.
+
+====================================================================================================
+2. PERFORMANCE BUDGETS
+====================================================================================================
+
+Definir presupuestos iniciales razonables.
+
+Ejemplo orientativo, adaptado al proyecto real:
+
+- navegaciÃ³n inicial interactiva: objetivo inferior a 2,5 segundos en entorno local controlado;
+- respuesta del read model principal: inferior a 300 ms cuando estÃ¡ cacheado;
+- payload inicial del dashboard: inferior a 250 KB JSON;
+- JavaScript cliente inicial: reducir al menos un 30 % desde baseline;
+- ninguna factory pesada en bundle cliente;
+- ninguna lista ilimitada en primera carga;
+- mÃ¡ximo de previews activas configurables;
+- mÃ¡ximo de workflows simultÃ¡neos configurables.
+
+No fijar como Ã©xito valores imposibles para el entorno.
+
+Documentar los presupuestos reales adoptados.
+
+====================================================================================================
+3. SERVER-FIRST RENDERING
+====================================================================================================
+
+Auditar pÃ¡ginas y componentes.
+
+Aplicar:
+
+- Server Components por defecto;
+- componentes cliente solo para interacciÃ³n;
+- DTOs ligeros;
+- queries server-side;
+- Suspense;
+- streaming;
+- lazy loading;
+- dynamic imports;
+- partial rendering;
+- pagination.
+
+No enviar al navegador:
+
+- repositories;
+- factories;
+- workflow engine;
+- capability executor;
+- graph completo;
+- archivos de cÃ³digo completos;
+- logs completos;
+- manifests completos;
+- artifacts no visibles.
+
+Crear un inventario:
+
+COMPONENT
+â†’ SERVER/CLIENT
+â†’ BUNDLE COST
+â†’ DATA REQUIRED
+â†’ OPTIMIZATION
+
+====================================================================================================
+4. COMPOSITION ROOT PERFORMANCE
+====================================================================================================
+
+Auditar el tiempo y coste de inicializaciÃ³n del composition root.
+
+Separar:
+
+A. Core services:
+- command bus;
+- query bus;
+- event bus;
+- repositories esenciales;
+- feature flags;
+- clock.
+
+B. Lazy services:
+- factories;
+- AI providers;
+- preview runtime;
+- deployment adapters;
+- heavy graph services;
+- export engines;
+- code generation engines.
+
+No inicializar todas las capabilities al abrir una pÃ¡gina.
+
+Implementar carga bajo demanda server-side.
+
+No crear mÃºltiples containers incompatibles por request.
+
+Evitar globales con side effects.
+
+Medir:
+
+- cold initialization;
+- warm initialization;
+- memory;
+- registrations;
+- unused services.
+
+====================================================================================================
+5. QUERY OPTIMIZATION
+====================================================================================================
+
+Auditar todos los query handlers usados por:
+
+- Mission Control;
+- Company Command Center;
+- Studio;
+- Portfolio futuro.
+
+Crear queries diferenciadas:
+
+GetMissionCard
+GetMissionSummary
+GetMissionDetail
+
+GetVentureCard
+GetVentureSummary
+GetCompanyDashboard
+GetCompanySectionDetail
+
+GetOutputSummary
+GetOutputDetail
+
+GetProjectSummary
+GetProjectManifest
+GetProjectFile
+
+No usar una Ãºnica query gigante para todas las vistas.
+
+Implementar:
+
+- field selection;
+- pagination;
+- cursor pagination cuando aplique;
+- batching;
+- deduplicaciÃ³n;
+- request-level cache;
+- invalidaciÃ³n explÃ­cita;
+- indexes en persistencia cuando sean necesarios.
+
+Detectar problemas N+1.
+
+No recuperar archivos o logs para construir tarjetas.
+
+====================================================================================================
+6. READ MODEL PROJECTIONS
+====================================================================================================
+
+Crear o consolidar proyecciones optimizadas para lectura:
+
+- MissionCardProjection;
+- VentureCardProjection;
+- CompanyHealthProjection;
+- OutputStatusProjection;
+- PortfolioSummaryProjection;
+- WorkflowProgressProjection;
+- ReleaseStatusProjection.
+
+Las proyecciones deben actualizarse mediante eventos.
+
+No recalcular toda la empresa en cada render.
+
+Registrar:
+
+- source events;
+- version;
+- updatedAt;
+- freshness;
+- rebuild capability.
+
+Si una proyecciÃ³n queda desactualizada:
+
+- marcar STALE;
+- permitir rebuild;
+- no inventar estado actualizado.
+
+====================================================================================================
+7. CACHE STRATEGY
+====================================================================================================
+
+Definir tres niveles:
+
+A. Request Cache
+Evitar repetir la misma consulta durante un render.
+
+B. Read Model Cache
+Para summaries y cards.
+
+C. Artifact Cache
+Para metadata, no para almacenar todo indiscriminadamente.
+
+Toda cache debe tener:
+
+- key;
+- scope;
+- ventureId;
+- workspaceId;
+- version;
+- TTL cuando corresponda;
+- invalidation events;
+- freshness.
+
+No mezclar informaciÃ³n entre empresas.
+
+No cachear approvals, security status o blockers sensibles sin invalidaciÃ³n correcta.
+
+====================================================================================================
+8. MULTI-VENTURE RESOURCE ISOLATION
+====================================================================================================
+
+Preparar aislamiento por:
+
+- workspaceId;
+- ventureId;
+- missionId;
+- projectId;
+- sandboxId;
+- executionId.
+
+Cada proceso o recurso debe declarar propietario.
+
+Aplicar el contexto en:
+
+- queries;
+- commands;
+- artifacts;
+- logs;
+- previews;
+- queues;
+- caches;
+- telemetry;
+- storage;
+- temporary files.
+
+Bloquear acceso cruzado accidental entre empresas.
+
+Crear pruebas:
+
+- Venture A no puede consultar artifacts privados de Venture B.
+- Mission A no puede actualizar Workflow B.
+- Preview A no reutiliza variables de Preview B.
+- Cache A no responde con datos de B.
+
+====================================================================================================
+9. EXECUTION QUEUE
+====================================================================================================
+
+Reutilizar Runtime, Scheduler y Task Queue existentes.
+
+Crear una capa de planificaciÃ³n de carga, no un scheduler paralelo.
+
+Tipos de tareas:
+
+INTERACTIVE
+HIGH_PRIORITY
+STANDARD
+BACKGROUND
+LOW_PRIORITY
+MAINTENANCE
+
+Ejemplos:
+
+INTERACTIVE:
+- cargar summary;
+- resolver decisiÃ³n;
+- aprobar acciÃ³n.
+
+HIGH_PRIORITY:
+- build solicitado;
+- preview solicitado;
+- retry manual.
+
+STANDARD:
+- generar output.
+
+BACKGROUND:
+- research;
+- QA extensa;
+- impact analysis;
+- generaciÃ³n de documentos secundarios.
+
+LOW_PRIORITY:
+- recomputar scores;
+- actualizar analytics;
+- crear screenshots.
+
+Implementar:
+
+- priority;
+- concurrency limit;
+- workspace limit;
+- venture limit;
+- capability limit;
+- timeout;
+- retry;
+- cancellation;
+- pause;
+- fairness.
+
+Una empresa no debe monopolizar todos los workers.
+
+====================================================================================================
+10. CONCURRENCY CONTROL
+====================================================================================================
+
+Definir lÃ­mites configurables:
+
+MAX_GLOBAL_EXECUTIONS
+MAX_WORKSPACE_EXECUTIONS
+MAX_VENTURE_EXECUTIONS
+MAX_AI_EXECUTIONS
+MAX_CODE_BUILDS
+MAX_PREVIEW_SANDBOXES
+MAX_DEPLOYMENT_EXECUTIONS
+
+Valores conservadores por defecto.
+
+No iniciar:
+
+- cinco builds pesados simultÃ¡neos;
+- varias previews en los mismos puertos;
+- varias ejecuciones sobre la misma versiÃ³n de proyecto;
+- dos cambios incompatibles en el mismo venture.
+
+Crear locks de recursos:
+
+venture;
+project;
+release;
+sandbox;
+deployment.
+
+Permitir paralelismo Ãºnicamente cuando no exista conflicto.
+
+====================================================================================================
+11. BACKGROUND JOBS
+====================================================================================================
+
+Mover fuera del request principal:
+
+- generaciÃ³n de assets;
+- screenshots;
+- informes;
+- anÃ¡lisis extensos;
+- QA no crÃ­tica;
+- compilaciones;
+- previews;
+- actualizaciones de graph;
+- recomputaciones.
+
+El request debe:
+
+1. validar;
+2. crear Execution;
+3. encolar;
+4. devolver estado;
+5. actualizar UI mediante polling, events o mecanismo existente.
+
+No mantener requests HTTP abiertos durante procesos largos.
+
+====================================================================================================
+12. EVENT STREAM OPTIMIZATION
+====================================================================================================
+
+Auditar suscripciones.
+
+Evitar:
+
+- una suscripciÃ³n por tarjeta;
+- mÃºltiples listeners duplicados;
+- refetch global por cualquier evento;
+- reconstrucciÃ³n del dashboard completo.
+
+Implementar eventos especÃ­ficos:
+
+MissionSummaryChanged
+VentureCardChanged
+CompanyHealthChanged
+OutputStatusChanged
+WorkflowProgressChanged
+ReleaseStatusChanged
+
+La UI debe actualizar Ãºnicamente las secciones afectadas.
+
+====================================================================================================
+13. LIST VIRTUALIZATION
+====================================================================================================
+
+Preparar listas grandes:
+
+- ventures;
+- missions;
+- artifacts;
+- executions;
+- activity;
+- files;
+- releases.
+
+Aplicar:
+
+- pagination;
+- virtualization cuando aporte valor;
+- incremental loading;
+- filters server-side;
+- search server-side.
+
+No renderizar cientos de cards ocultas.
+
+====================================================================================================
+14. ASSET AND IMAGE OPTIMIZATION
+====================================================================================================
+
+Auditar:
+
+- screenshots;
+- logos;
+- previews;
+- thumbnails;
+- generated images.
+
+Crear variantes:
+
+thumbnail;
+card;
+preview;
+full.
+
+Usar:
+
+- formatos optimizados;
+- lazy loading;
+- dimensiones correctas;
+- placeholders claramente identificados;
+- cache segura.
+
+No cargar un screenshot completo para una miniatura.
+
+====================================================================================================
+15. CODE EXPLORER PERFORMANCE
+====================================================================================================
+
+Studio Code debe cargar:
+
+1. manifest;
+2. directory tree;
+3. archivo seleccionado.
+
+No cargar todos los contenidos de archivos inicialmente.
+
+Implementar:
+
+- metadata first;
+- file on demand;
+- diff on demand;
+- syntax highlighter lazy;
+- file size limits;
+- search index opcional server-side.
+
+====================================================================================================
+16. PREVIEW LIFECYCLE
+====================================================================================================
+
+Las previews consumen muchos recursos.
+
+Implementar lifecycle:
+
+PENDING
+STARTING
+READY
+IDLE
+HIBERNATED
+STOPPED
+EXPIRED
+FAILED
+
+Cuando una preview no se utilice:
+
+- marcar IDLE;
+- hibernar o detener;
+- liberar puerto;
+- conservar build y logs.
+
+Al abrirla:
+
+- reactivar;
+- health check;
+- mostrar estado real.
+
+No mantener todas las previews de todas las empresas activas.
+
+====================================================================================================
+17. PERFORMANCE UI
+====================================================================================================
+
+Evitar loaders globales prolongados.
+
+Aplicar:
+
+- shell inmediato;
+- skeleton por secciÃ³n;
+- content streaming;
+- estados parciales;
+- optimistic UI solo en operaciones seguras;
+- progress basado en eventos reales.
+
+El usuario debe poder navegar mientras otras empresas siguen construyÃ©ndose.
+
+No bloquear todo ForgeOS por un workflow activo.
+
+====================================================================================================
+18. PORTFOLIO-READY CONTRACTS
+====================================================================================================
+
+Preparar contratos para la siguiente fase:
+
+type VenturePortfolioCard = {
+  ventureId: VentureId;
+  workspaceId: WorkspaceId;
+  name: string;
+  tagline: string;
+  lifecycle: VentureLifecycle;
+  missionStatus: MissionStatus | null;
+  creationHealth: Status;
+  valueStatus: Status;
+  activeExecutions: number;
+  blockers: number;
+  approvals: number;
+  latestRelease: string | null;
+  latestPreview: string | null;
+  updatedAt: string;
+};
+
+Crear query:
+
+ListPortfolioVentures
+
+Debe soportar:
+
+- pagination;
+- search;
+- sorting;
+- filters;
+- lifecycle;
+- health;
+- activity;
+- value status.
+
+No crear todavÃ­a toda la interfaz Portfolio.
+
+Validar que cien cards puedan consultarse sin cargar cien dashboards completos.
+
+====================================================================================================
+19. MULTI-VENTURE SIMULATION
+====================================================================================================
+
+Crear fixtures genÃ©ricos para probar carga:
+
+- 1 empresa;
+- 5 empresas;
+- 10 empresas;
+- 25 empresas;
+- 100 summaries.
+
+No generar cien proyectos completos.
+
+Usar summaries realistas para medir listado.
+
+Para prueba operativa, ejecutar simultÃ¡neamente:
+
+- 3 misiones;
+- outputs independientes;
+- prioridades diferentes;
+- un fallo controlado;
+- una misiÃ³n pausada;
+- una preview activa.
+
+Validar que:
+
+- la UI sigue respondiendo;
+- las tareas mantienen aislamiento;
+- no se mezclan IDs;
+- existe fairness;
+- los recursos quedan dentro de lÃ­mites;
+- un fallo no bloquea las demÃ¡s empresas.
+
+====================================================================================================
+20. VALUE-READY DATA
+====================================================================================================
+
+Preparar, sin implementar todavÃ­a el Value Engine completo, campos y proyecciones para medir:
+
+- opportunity score;
+- validation status;
+- customer evidence;
+- revenue model;
+- expected value;
+- current value;
+- cost to next milestone;
+- risk;
+- confidence;
+- time to market;
+- next value milestone.
+
+No inventar datos.
+
+Estados cuando falten datos:
+
+UNKNOWN
+NOT_MEASURED
+INSUFFICIENT_EVIDENCE
+
+El Value Engine se implementarÃ¡ en el siguiente programa.
+
+====================================================================================================
+21. OBSERVABILITY
+====================================================================================================
+
+Registrar por empresa:
+
+- executions;
+- queue wait;
+- duration;
+- tokens;
+- estimated costs;
+- errors;
+- retries;
+- build time;
+- preview uptime;
+- query latency;
+- cache hit;
+- memory;
+- active resources.
+
+Crear vista interna:
+
+/lab/v2-performance
+
+Mostrar:
+
+- route performance;
+- slow queries;
+- queue;
+- active executions;
+- concurrency;
+- previews;
+- memory;
+- cache;
+- venture isolation;
+- performance budgets.
+
+No exponer datos internos sensibles fuera del lab.
+
+====================================================================================================
+22. PERFORMANCE REGRESSIONS
+====================================================================================================
+
+Crear:
+
+scripts/check-performance-budgets.ts
+
+Debe comparar:
+
+baseline
+vs
+current
+
+Y detectar:
+
+- bundle regression;
+- route latency regression;
+- query regression;
+- payload regression;
+- memory regression.
+
+No bloquear por fluctuaciones mÃ­nimas.
+
+Usar tolerancias documentadas.
+
+Exit code no cero ante regresiones crÃ­ticas.
+
+====================================================================================================
+23. TESTS
+====================================================================================================
+
+Crear pruebas para:
+
+- request cache;
+- read model cache;
+- invalidation;
+- venture isolation;
+- pagination;
+- list portfolio ventures;
+- queue priorities;
+- concurrency limits;
+- fairness;
+- cancellation;
+- preview hibernation;
+- lazy service initialization;
+- no heavy client imports;
+- 100 venture summaries;
+- 3 concurrent missions;
+- failure isolation.
+
+====================================================================================================
+24. VALIDACIÃ“N SECUENCIAL
+====================================================================================================
+
+Ejecutar exclusivamente y en orden:
+
+npm run kill:ports
+npm run clean
+npm run check:v2-boundaries
+npm run test
+npm run build
+npm run reset:dev
+
+Esperar readiness.
+
+DespuÃ©s:
+
+- route performance measurement;
+- bundle measurement;
+- query measurement;
+- 100 venture summary test;
+- 3 concurrent mission test;
+- isolation test;
+- performance budget check;
+- process cleanup;
+- port cleanup.
+
+No ejecutar clean, build y dev concurrentemente.
+
+No ejecutar dos builds simultÃ¡neos.
+
+====================================================================================================
+25. DOCUMENTACIÃ“N
+====================================================================================================
+
+Crear:
+
+docs/v2/performance/
+- README.md
+- baseline.md
+- budgets.md
+- rendering-strategy.md
+- composition-root.md
+- query-optimization.md
+- projections.md
+- caching.md
+- venture-isolation.md
+- execution-queue.md
+- concurrency.md
+- background-jobs.md
+- preview-lifecycle.md
+- portfolio-contracts.md
+- multi-venture-simulation.md
+- observability.md
+- final-report.md
+
+====================================================================================================
+26. ACCEPTANCE CRITERIA
+====================================================================================================
+
+Program 6100 solo puede declararse verificado si:
+
+- existe baseline antes/despuÃ©s;
+- Mission Control carga mÃ¡s rÃ¡pido;
+- Company Command Center carga mÃ¡s rÃ¡pido;
+- Studio no carga archivos completos inicialmente;
+- no existen factories pesadas en cliente;
+- queries estÃ¡n segmentadas;
+- existe paginaciÃ³n;
+- existen projections ligeras;
+- cache estÃ¡ aislada por workspace y venture;
+- existe invalidaciÃ³n;
+- Runtime soporta prioridades;
+- existen lÃ­mites de concurrencia;
+- existe fairness;
+- tres misiones pueden avanzar sin bloquear la UI;
+- una misiÃ³n fallida no detiene las demÃ¡s;
+- previews tienen lifecycle;
+- recursos se liberan;
+- cien VenturePortfolioCard pueden listarse eficientemente;
+- tests de aislamiento pasan;
+- performance budgets no presentan regresiones crÃ­ticas;
+- build exit 0;
+- no quedan gaps P0/P1 del alcance.
+
+====================================================================================================
+27. FINAL REPORT
+====================================================================================================
+
+Entregar:
+
+1. Baseline inicial.
+2. MÃ©tricas finales.
+3. Diferencia porcentual por ruta.
+4. ReducciÃ³n de JavaScript.
+5. Queries optimizadas.
+6. Projections creadas.
+7. Estrategia de cache.
+8. Estrategia de invalidaciÃ³n.
+9. Aislamiento multiempresa.
+10. Queue y prioridades.
+11. LÃ­mites de concurrencia.
+12. Prueba de tres misiones simultÃ¡neas.
+13. Prueba de cien venture summaries.
+14. Fallo aislado.
+15. Preview lifecycle.
+16. Recursos al finalizar.
+17. Archivos modificados.
+18. Tests.
+19. Build.
+20. Host.
+21. Rutas.
+22. Gaps restantes.
+23. RecomendaciÃ³n para Program 6110.
+
+No iniciar el siguiente programa.
+
+DECLARAR SOLO CON EVIDENCIA:
+
+PROGRAM 6100 â€” PERFORMANCE & SCALABILITY FOUNDATION VERIFICADO.
+
+Y Ãºnicamente si las pruebas multiempresa y de rendimiento pasan:
+
+FORGEOS â€” BASE MULTI-VENTURE ESCALABLE VERIFICADA.
+</user_query>

@@ -1,0 +1,226 @@
+{
+  "program": "6085",
+  "title": "ForgeOS V2 Integration Closure Certification",
+  "status": "CERTIFIED",
+  "declaration": "FORGEOS V2 — END-TO-END CERTIFIED",
+  "certified": true,
+  "missionId": "mis-1784901131951-63",
+  "ranAt": "2026-07-24T13:52:14.655Z",
+  "durationMs": 5258,
+  "checks": [
+    {
+      "id": "build_pipeline",
+      "status": "SKIP",
+      "exitCode": 0,
+      "notes": "--skip-build",
+      "durationMs": 0
+    },
+    {
+      "id": "atlas_live_integration",
+      "command": "npx --yes tsx scripts/run-atlas-integration.ts",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 2850,
+      "notes": "{\n  \"status\": \"PASSED\",\n  \"missionId\": \"mis-1784901131951-63\",\n  \"checks\": [\n    {\n      \"id\": \"create_workspace\",\n      \"status\": \"PASS\",\n      \"detail\": \"ws-1784901131942-61\"\n    },\n    {\n      \"id\": \"create_venture\",\n      \"status\": \"PASS\",\n      \"detail\": \"ven-1784901131947-62\"\n    },\n    {\n      \"id\": \"create_mission\",\n      \"status\": \"PASS\",\n      \"detail\": \"mis-1784901131951-63\"\n    },\n    {\n      \"id\": \"update_intent\",\n      \"status\": \"PASS\",\n      \"detail\": \"UpdateMissionIntent\"\n    },\n    {\n      \"id\": \"controlled_failure\",\n      \"status\": \"PASS\",\n      \"detail\": \"n_brand marked FAILED once\"\n    },\n    {\n      \"id\": \"retry_after_failure\",\n      \"status\": \"PASS\",\n      \"detail\": \"recover action=retry\"\n    },\n    {\n      \"id\": \"workflow_run\",\n      \"status\": \"PASS\",\n      \"detail\": \"kernelStatus=completed\"\n    },\n    {\n      \"id\": \"artifacts_outputs\",\n      \"status\": \"PASS\",\n      \"detail\": \"artifacts=9 outputs=9\"\n    },\n    {\n      \"id\": \"code_project\",\n      \"status\": \"PASS\",\n      \"detail\": \"cb-mis-1784901131951-63\"\n    },\n    {\n      \"id\": \"static_validation\",\n      \"status\": \"PASS\",\n      \"detail\": \"static validation recorded; SANDBOX_UNAVAILABLE\"\n    },\n    {\n      \"id\": \"preview\",\n      \"status\": \"PASS\",\n      \"detail\": \"classification=PLAN_ONLY; previewId=prv-mrz01rvw-1-d7177u; no fake READY\"\n    },\n    {\n      \"id\": \"change_impact\",\n      \"status\": \"PASS\",\n      \"detail\": \"impact analyzed for backend artifact\"\n    },\n    {\n      \"id\": \"selective_regen\",\n      \"status\": \"PASS\",\n      \"detail\": \"backend/database/api versions bumped; brand/website unchanged\"\n    },\n    {\n      \"id\": \"release_candidate\",\n      \"status\": \"PASS\",\n      \"detail\": \"releaseId=rel-mrz01rw7-3-j80uu4; status=PUBLISHED\"\n    },\n    {\n      \"id\": \"deployment_plan\",\n      \"status\": \"PASS\",\n      \"detail\": \"status=PLAN_READY; outcome=DRY_RUN — plan only for PREVIEW; not a real deployment; dryRun=true\"\n    },\n    {\n      \"id\": \"query_path\",\n      \"status\": \"PASS\",\n      \"detail\": \"GetMissionOverview/Outputs/Timeline\"\n    },\n    {\n      \"id\": \"persistence_recovery\",\n      \"status\": \"PASS\",\n      \"detail\": \"mission=true; workflow=true; lineage=true\"\n    }\n  ]\n}"
+    },
+    {
+      "id": "lineage_check",
+      "command": "node scripts/check-v2-lineage.js",
+      "exitCode": 0,
+      "status": "PASS",
+      "durationMs": 2404,
+      "notes": "{\n  \"ok\": true,\n  \"critical\": [],\n  \"warnings\": [],\n  \"storePath\": \"C:\\\\Users\\\\RafaelGalbarroBarba\\\\Projects\\\\ForgeOS_App_Factory\\\\ForgeOS_App_Factory_v0_1\\\\.forgeos\\\\v2-store\\\\application-state.json\",\n  \"ranAt\": \"2026-07-24T13:52:14.638Z\"\n}"
+    },
+    {
+      "id": "file:app/api/health/route.ts",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "present"
+    },
+    {
+      "id": "file:app/api/ready/route.ts",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "present"
+    },
+    {
+      "id": "file:app/api/v2/health/route.ts",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "present"
+    },
+    {
+      "id": "file:src/core/composition/root.ts",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "present"
+    },
+    {
+      "id": "file:scripts/lib/exclusive-execution-lock.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "present"
+    },
+    {
+      "id": "file:scripts/lib/process-registry.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "present"
+    },
+    {
+      "id": "file:scripts/lib/port-registry.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "present"
+    },
+    {
+      "id": "atlas:create_workspace",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "ws-1784901131942-61"
+    },
+    {
+      "id": "atlas:create_venture",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "ven-1784901131947-62"
+    },
+    {
+      "id": "atlas:create_mission",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "mis-1784901131951-63"
+    },
+    {
+      "id": "atlas:update_intent",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "UpdateMissionIntent"
+    },
+    {
+      "id": "atlas:controlled_failure",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "n_brand marked FAILED once"
+    },
+    {
+      "id": "atlas:retry_after_failure",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "recover action=retry"
+    },
+    {
+      "id": "atlas:workflow_run",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "kernelStatus=completed"
+    },
+    {
+      "id": "atlas:artifacts_outputs",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "artifacts=9 outputs=9"
+    },
+    {
+      "id": "atlas:code_project",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "cb-mis-1784901131951-63"
+    },
+    {
+      "id": "atlas:static_validation",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "static validation recorded; SANDBOX_UNAVAILABLE"
+    },
+    {
+      "id": "atlas:preview",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "classification=PLAN_ONLY; previewId=prv-mrz01rvw-1-d7177u; no fake READY"
+    },
+    {
+      "id": "atlas:change_impact",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "impact analyzed for backend artifact"
+    },
+    {
+      "id": "atlas:selective_regen",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "backend/database/api versions bumped; brand/website unchanged"
+    },
+    {
+      "id": "atlas:release_candidate",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "releaseId=rel-mrz01rw7-3-j80uu4; status=PUBLISHED"
+    },
+    {
+      "id": "atlas:deployment_plan",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "status=PLAN_READY; outcome=DRY_RUN — plan only for PREVIEW; not a real deployment; dryRun=true"
+    },
+    {
+      "id": "atlas:query_path",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "GetMissionOverview/Outputs/Timeline"
+    },
+    {
+      "id": "atlas:persistence_recovery",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 0,
+      "notes": "mission=true; workflow=true; lineage=true"
+    }
+  ],
+  "gaps": [
+    {
+      "severity": "P2",
+      "id": "sandbox_unavailable",
+      "message": "SANDBOX_UNAVAILABLE — Preview Plan only; no fake functional preview"
+    }
+  ],
+  "evidence": {
+    "atlas": "artifacts\\v2-certification\\atlas-clubs-run.json",
+    "lineage": "artifacts\\v2-certification\\lineage-check.json",
+    "previewClassification": "PLAN_ONLY",
+    "deploymentStatus": "PLAN_READY",
+    "releaseId": "rel-mrz01rw7-3-j80uu4",
+    "flags": {
+      "ENABLE_V2_DOMAIN": false,
+      "ENABLE_V2_COMMANDS": false,
+      "ENABLE_V2_QUERIES": false,
+      "ENABLE_V2_ORCHESTRATION": false,
+      "ENABLE_V2_EVENTS": false,
+      "ENABLE_V2_STUDIO": false,
+      "ENABLE_V2_COMPANY_OS": false
+    }
+  }
+}

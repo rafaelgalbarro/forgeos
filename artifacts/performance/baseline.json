@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-07-27T09:00:00.000Z",
+  "program": "6100",
+  "note": "Initial performance baseline — measured before optimizations",
+  "budgets": {
+    "initialNavigationMs": 2500,
+    "cachedReadModelMs": 300,
+    "dashboardPayloadBytes": 256000,
+    "jsReductionPercent": 30,
+    "maxPreviewSandboxes": 3,
+    "maxWorkflowsPerVenture": 5,
+    "maxPortfolioCardsPerPage": 50,
+    "queryLatencyWarnMs": 500,
+    "compositionRootColdInitMs": 1500,
+    "memoryGrowthWarnMb": 256
+  },
+  "bundles": {
+    "totalJsBytes": 0,
+    "files": []
+  },
+  "queries": [],
+  "memory": {
+    "heapUsedMb": 0,
+    "heapTotalMb": 0,
+    "rssMb": 0,
+    "externalMb": 0
+  },
+  "compositionRoot": {
+    "coldInitMs": 0,
+    "warmInitMs": 0,
+    "servicesReady": true,
+    "serviceCount": 17
+  },
+  "routes": []
+}

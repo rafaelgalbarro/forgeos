@@ -1,0 +1,38 @@
+﻿
+> forgeos-app-factory@0.1.0 build
+> next build
+
+   Ôû▓ Next.js 15.5.19
+   - Experiments (use with caution):
+     Ô¿» webpackBuildWorker
+
+   Creating an optimized production build ...
+node.exe : <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or 
+directory, open 'C:\Users\RafaelGalbarroBarba\Projects\ForgeOS_App_Factory\ForgeOS_App_Factory_v0_1\.next\cache\webpack
+\server-production\0.pack_'
+En C:\Users\RafaelGalbarroBarba\AppData\Local\forgeos-node\npm.ps1: 29 Carácter: 3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (<w> [webpack.ca...uction\0.pack_':String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ Ô£ô Compiled successfully in 41s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/108) ...
+   Generating static pages (27/108) 
+   Generating static pages (54/108) 
+   Generating static pages (81/108) 
+ Ô£ô Generating static pages (108/108)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+> Build error occurred
+[Error: ENOENT: no such file or directory, open 'C:\Users\RafaelGalbarroBarba\Projects\ForgeOS_App_Factory\ForgeOS_App_
+Factory_v0_1\.next\static\L3A9hGreSLnHJ1DfjDWd3\_ssgManifest.js'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\RafaelGalbarroBarba\\Projects\\ForgeOS_App_Factory\\ForgeOS_App_Factory_v0_1\\.next\\static\\L3A9hG
+reSLnHJ1DfjDWd3\\_ssgManifest.js'
+}

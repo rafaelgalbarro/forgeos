@@ -1,0 +1,1 @@
+self.__SSG_MANIFEST=new Set(["\u002Fdocs\u002F[slug]","\u002Fmarketplace\u002Fagents\u002F[agentId]"]);self.__SSG_MANIFEST_CB&&self.__SSG_MANIFEST_CB()

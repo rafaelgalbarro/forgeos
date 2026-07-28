@@ -1,0 +1,510 @@
+<timestamp>Monday, Jul 27, 2026, 11:05 AM (UTC+2)</timestamp>
+<user_query>
+####################################################################################################
+######################################## FORGEOS ####################################################
+##################################### PROGRAM 6120 ##################################################
+############################ VENTURE VALUE CREATION ENGINE ##########################################
+####################################################################################################
+
+CONTEXTO
+
+ForgeOS ya puede:
+
+- crear ventures;
+- ejecutar varias empresas;
+- asignar recursos;
+- gestionar prioridades;
+- controlar capacidad;
+- aislar ejecuciones;
+- mantener un portfolio.
+
+Ahora debe distinguir entre:
+
+- empresas que Ãºnicamente generan entregables;
+- empresas que avanzan hacia validaciÃ³n;
+- empresas que estÃ¡n preparadas para lanzar;
+- empresas que generan tracciÃ³n;
+- empresas que generan ingresos;
+- empresas que destruyen recursos sin evidencia.
+
+OBJETIVO
+
+Implementar un motor de creaciÃ³n y mediciÃ³n de valor que:
+
+1. defina quÃ© significa crear valor para cada venture;
+2. identifique el siguiente hito de valor;
+3. mida evidencia, progreso, riesgo y confianza;
+4. evite construir sin validaciÃ³n;
+5. recomiende continuar, pivotar, pausar o cerrar;
+6. permita comparar ventures;
+7. conecte inversiÃ³n con resultados;
+8. mantenga trazabilidad de todas las mÃ©tricas.
+
+NO inventar ingresos.
+NO inventar clientes.
+NO inventar mÃ©tricas.
+NO utilizar vanity metrics como valor probado.
+NO convertir una estimaciÃ³n en un hecho.
+NO utilizar un Ãºnico score opaco.
+NO tomar decisiones irreversibles automÃ¡ticamente.
+
+====================================================================================================
+1. VALUE MODEL
+====================================================================================================
+
+Crear entidades:
+
+ValueHypothesis
+ValueMetric
+ValueEvidence
+ValueMilestone
+ValueExperiment
+ValueAssessment
+ValueRisk
+ValueOpportunity
+ValueRecommendation
+ValueSnapshot
+VentureEconomics
+VentureTraction
+CustomerEvidence
+
+====================================================================================================
+2. VALUE DIMENSIONS
+====================================================================================================
+
+Medir dimensiones independientes:
+
+MARKET_OPPORTUNITY
+PROBLEM_EVIDENCE
+CUSTOMER_EVIDENCE
+SOLUTION_EVIDENCE
+PRODUCT_READINESS
+GO_TO_MARKET_READINESS
+TRACTION
+REVENUE
+UNIT_ECONOMICS
+OPERATING_READINESS
+SCALABILITY
+DEFENSIBILITY
+RISK
+EXECUTION_CONFIDENCE
+
+Estados:
+
+UNKNOWN
+NOT_MEASURED
+INSUFFICIENT_EVIDENCE
+HYPOTHESIS
+WEAK
+MODERATE
+STRONG
+VALIDATED
+INVALIDATED
+BLOCKED
+NOT_APPLICABLE
+
+====================================================================================================
+3. VALUE STAGES
+====================================================================================================
+
+Crear stages:
+
+IDEA_VALUE
+PROBLEM_VALIDATION
+SOLUTION_VALIDATION
+PRODUCT_VALIDATION
+MARKET_VALIDATION
+LAUNCH_READINESS
+TRACTION
+REVENUE
+PROFITABILITY
+SCALE
+
+Cada stage debe tener:
+
+- entry criteria;
+- required evidence;
+- exit criteria;
+- blocking risks;
+- recommended experiments;
+- confidence.
+
+====================================================================================================
+4. EVIDENCE SYSTEM
+====================================================================================================
+
+Tipos de evidencia:
+
+RESEARCH_SOURCE
+CUSTOMER_INTERVIEW
+SURVEY
+WAITLIST
+LANDING_CONVERSION
+DEMO_REQUEST
+LETTER_OF_INTENT
+PILOT
+ACTIVE_USER
+PAYING_CUSTOMER
+REVENUE_EVENT
+RETENTION_EVENT
+COST_EVENT
+EXPERIMENT_RESULT
+OPERATIONAL_RESULT
+EXTERNAL_VALIDATION
+
+Cada evidencia debe incluir:
+
+- source;
+- date;
+- reliability;
+- direct or inferred;
+- related hypothesis;
+- affected metric;
+- provenance;
+- attachment or artifact;
+- verification status.
+
+No aceptar evidencia sin origen.
+
+====================================================================================================
+5. VALUE METRICS
+====================================================================================================
+
+Soportar mÃ©tricas:
+
+- entrevistas realizadas;
+- problema confirmado;
+- intenciÃ³n de compra;
+- waitlist;
+- conversion rate;
+- demos solicitadas;
+- pilotos;
+- usuarios activos;
+- clientes de pago;
+- MRR;
+- ARR;
+- churn;
+- retention;
+- CAC;
+- LTV;
+- gross margin;
+- burn;
+- runway;
+- payback period;
+- activation;
+- engagement;
+- NPS;
+- time to value;
+- operating cost.
+
+Todas deben distinguir:
+
+ACTUAL
+ESTIMATED
+PROJECTED
+TARGET
+UNKNOWN
+
+====================================================================================================
+6. VALUE MILESTONES
+====================================================================================================
+
+Ejemplos:
+
+- 10 entrevistas de cliente;
+- 5 problemas confirmados;
+- landing publicada;
+- 100 registros;
+- 10 demos;
+- primer piloto;
+- primer cliente;
+- 1.000 â‚¬ MRR;
+- 10.000 â‚¬ MRR;
+- margen bruto validado;
+- retenciÃ³n de 90 dÃ­as;
+- operaciÃ³n repetible.
+
+Cada milestone:
+
+- target;
+- current;
+- due date opcional;
+- evidence requirements;
+- status;
+- confidence;
+- blocker;
+- owner;
+- cost to milestone.
+
+====================================================================================================
+7. EXPERIMENT ENGINE
+====================================================================================================
+
+Crear experiments para validar hipÃ³tesis.
+
+Estados:
+
+DRAFT
+PLANNED
+RUNNING
+COMPLETED
+INVALID
+CANCELLED
+
+Tipos:
+
+INTERVIEW
+LANDING_PAGE
+WAITLIST
+PRICING_TEST
+PAID_CAMPAIGN
+OUTREACH
+DEMO
+PILOT
+CONCIERGE_MVP
+PRODUCT_TEST
+RETENTION_TEST
+UNIT_ECONOMICS_TEST
+
+Cada experimento debe tener:
+
+- hypothesis;
+- audience;
+- method;
+- budget;
+- duration;
+- success criteria;
+- failure criteria;
+- evidence;
+- result;
+- learning;
+- next action.
+
+====================================================================================================
+8. VALUE ASSESSMENT
+====================================================================================================
+
+Crear evaluaciÃ³n transparente.
+
+No utilizar una caja negra.
+
+Cada assessment debe explicar:
+
+- dimensiÃ³n;
+- evidence considered;
+- missing evidence;
+- confidence;
+- score opcional;
+- status;
+- risk;
+- recommendation.
+
+Si se usa score:
+
+- mostrar fÃ³rmula;
+- mostrar pesos;
+- mostrar datos faltantes;
+- no superar confianza disponible.
+
+====================================================================================================
+9. VALUE RECOMMENDATIONS
+====================================================================================================
+
+Tipos:
+
+CONTINUE
+VALIDATE_FIRST
+BUILD_LESS
+LAUNCH
+INVEST_MORE
+REDUCE_INVESTMENT
+PIVOT
+PAUSE
+MERGE
+REUSE_ASSET
+CLOSE
+ESCALATE_FOR_REVIEW
+
+Cada recomendaciÃ³n debe incluir:
+
+- reason;
+- evidence;
+- confidence;
+- expected benefit;
+- cost;
+- risk;
+- reversibility;
+- approval requirement.
+
+No ejecutar automÃ¡ticamente PAUSE, PIVOT, MERGE o CLOSE.
+
+====================================================================================================
+10. ECONOMICS
+====================================================================================================
+
+Crear VentureEconomics:
+
+- actual revenue;
+- projected revenue;
+- recurring revenue;
+- gross margin;
+- operating cost;
+- AI cost;
+- infrastructure cost;
+- acquisition cost;
+- human cost;
+- total invested;
+- cost to next milestone;
+- runway;
+- expected value range.
+
+Todos los valores deben incluir:
+
+- currency;
+- period;
+- source;
+- type ACTUAL/ESTIMATED/PROJECTED;
+- confidence;
+- updatedAt.
+
+No asumir euros si el venture tiene otra moneda configurada.
+
+====================================================================================================
+11. VALUE SNAPSHOTS
+====================================================================================================
+
+Crear snapshots inmutables.
+
+Cada snapshot debe mostrar:
+
+- stage;
+- dimensions;
+- metrics;
+- evidence;
+- economics;
+- risks;
+- next milestone;
+- recommendation;
+- confidence;
+- timestamp.
+
+Permitir comparar evoluciÃ³n.
+
+====================================================================================================
+12. PORTFOLIO COMPARISON
+====================================================================================================
+
+Crear query:
+
+ComparePortfolioVentures
+
+Debe comparar:
+
+- stage;
+- opportunity;
+- evidence;
+- readiness;
+- traction;
+- economics;
+- risk;
+- confidence;
+- cost to next milestone;
+- expected time to milestone.
+
+No crear un ranking definitivo sin mostrar incertidumbre.
+
+====================================================================================================
+13. VALUE COMMANDS
+====================================================================================================
+
+Crear:
+
+CreateValueHypothesis
+RegisterValueEvidence
+CreateValueMetric
+UpdateValueMetric
+CreateValueMilestone
+StartValueExperiment
+CompleteValueExperiment
+CreateValueAssessment
+CreateValueSnapshot
+RequestValueReview
+ApproveValueRecommendation
+RejectValueRecommendation
+
+====================================================================================================
+14. VALUE QUERIES
+====================================================================================================
+
+Crear:
+
+GetVentureValueSummary
+GetVentureValueDetail
+GetValueEvidence
+GetValueMilestones
+GetValueExperiments
+GetVentureEconomics
+GetValueRecommendations
+ComparePortfolioVentures
+GetPortfolioValueSummary
+
+====================================================================================================
+15. CERTIFICATION
+====================================================================================================
+
+Aplicar a los cinco ventures del portfolio de certificaciÃ³n.
+
+Asignar estados distintos y evidencia explÃ­cita:
+
+- uno con oportunidad fuerte pero sin validaciÃ³n;
+- uno con entrevistas;
+- uno con landing y registros;
+- uno con piloto;
+- uno bloqueado por falta de evidencia.
+
+No inventar facturaciÃ³n.
+
+====================================================================================================
+16. TESTS
+====================================================================================================
+
+Probar:
+
+- evidence provenance;
+- actual vs projected;
+- missing evidence;
+- confidence;
+- milestone completion;
+- invalid experiment;
+- recommendation generation;
+- no automatic closure;
+- economics calculations;
+- snapshots;
+- portfolio comparison;
+- uncertainty display.
+
+====================================================================================================
+17. ACCEPTANCE CRITERIA
+====================================================================================================
+
+Program 6120 solo puede declararse verificado si:
+
+- existe Value Model;
+- existe evidence system;
+- existen metrics;
+- existen milestones;
+- existen experiments;
+- existe assessment transparente;
+- existe economics model;
+- existen recommendations;
+- existen snapshots;
+- se pueden comparar ventures;
+- no se inventan datos;
+- se distingue actual de estimado;
+- build exit 0;
+- tests pasan.
+
+DECLARAR SOLO CON EVIDENCIA:
+
+PROGRAM 6120 â€” VENTURE VALUE CREATION ENGINE VERIFICADO.
+</user_query>

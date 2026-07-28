@@ -1,0 +1,32 @@
+﻿
+> forgeos-app-factory@0.1.0 build
+> next build
+
+   Ôû▓ Next.js 15.5.19
+
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully in 45s
+   Linting and checking validity of types ...
+node.exe : Failed to compile.
+En C:\Users\RafaelGalbarroBarba\AppData\Local\forgeos-node\npm.ps1: 29 Carácter: 3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Failed to compile.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+./src/core/application/commands/definitions.ts:4:69
+Type error: Cannot find module '../../compat-domain' or its corresponding type declarations.
+
+[0m [90m 2 |[39m
+ [90m 3 |[39m [36mimport[39m type { [33mCommand[39m } [36mfrom[39m [32m"./types"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 4 |[39m [36mimport[39m type { [33mDeploymentTarget[39m[33m,[39m 
+[33mMissionIntent[39m[33m,[39m [33mMissionStatus[39m } [36mfrom[39m [32m"../../compat-domain"[39m[33m;[39m
+ [90m   |[39m                                                                     [31m[1m^[22m[39m
+ [90m 5 |[39m
+ [90m 6 |[39m type [33mBase[39m[33m<[39m[33mTType[39m [36mextends[39m string[33m,[39m 
+[33mTPayload[39m[33m>[39m [33m=[39m [33mCommand[39m[33m<[39m[33mTType[39m[33m,[39m 
+[33mTPayload[39m[33m>[39m[33m;[39m
+ [90m 7 |[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+EXIT=1

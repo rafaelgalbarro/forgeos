@@ -1,0 +1,1 @@
+"use strict";exports.id=662,exports.ids=[662],exports.modules={40662:(a,b,c)=>{function d(a){let b=a.match(/```(?:json)?\s*([\s\S]*?)```/);if(b)return b[1].trim();let c=a.indexOf("{"),d=a.lastIndexOf("}");return c>=0&&d>c?a.slice(c,d+1):a.trim()}function e(a){return Math.ceil(a.length/4)}function f(a,b,c){return(a+b)/1e3*c}c.d(b,{O:()=>d,a3:()=>f,bP:()=>e})}};

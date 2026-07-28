@@ -1,0 +1,1247 @@
+[
+  {
+    "id": "vs-tableflow-1785145873225",
+    "ventureId": "ven-1785145873137-2",
+    "stage": "IDEA_VALUE",
+    "dimensions": [
+      {
+        "dimension": "MARKET_OPPORTUNITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-tableflow-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "PROBLEM_EVIDENCE",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-tableflow-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "CUSTOMER_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: WAITLIST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "SOLUTION_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: DEMO_REQUEST",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: EXPERIMENT_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: DEMO_REQUEST"
+      },
+      {
+        "dimension": "PRODUCT_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: PILOT",
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: PILOT"
+      },
+      {
+        "dimension": "GO_TO_MARKET_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: LANDING_CONVERSION",
+          "Missing evidence type: WAITLIST",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: LANDING_CONVERSION"
+      },
+      {
+        "dimension": "TRACTION",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: RETENTION_EVENT",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: ACTIVE_USER"
+      },
+      {
+        "dimension": "REVENUE",
+        "state": "NOT_MEASURED",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "No ACTUAL revenue or paying-customer evidence"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: No ACTUAL revenue or paying-customer evidence"
+      },
+      {
+        "dimension": "UNIT_ECONOMICS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: REVENUE_EVENT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: REVENUE_EVENT"
+      },
+      {
+        "dimension": "OPERATING_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "SCALABILITY",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: RETENTION_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "DEFENSIBILITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-tableflow-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "RISK",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "EXECUTION_CONFIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: EXPERIMENT_RESULT",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: EXPERIMENT_RESULT"
+      }
+    ],
+    "metrics": [],
+    "evidence": [
+      {
+        "id": "ve-tableflow-research",
+        "ventureId": "ven-1785145873137-2",
+        "type": "RESEARCH_SOURCE",
+        "source": "fixture:tableflow",
+        "observedAt": "2026-07-27T09:51:13.223Z",
+        "reliability": "MEDIUM",
+        "derivation": "DIRECT",
+        "provenance": "cert-6150/tableflow/research",
+        "artifactRef": "art-mis-1785145873141-3-0",
+        "verificationStatus": "UNVERIFIED",
+        "summary": "Desk research registered for TABLEFLOW (fixture origin only — not market proof).",
+        "createdAt": "2026-07-27T09:51:13.223Z",
+        "schemaVersion": 1
+      }
+    ],
+    "risks": [],
+    "nextMilestone": {
+      "id": "vm-tableflow-m1",
+      "ventureId": "ven-1785145873137-2",
+      "name": "TABLEFLOW evidence milestone",
+      "target": 2,
+      "current": 1,
+      "unit": "evidence-items",
+      "evidenceRequirements": [
+        "RESEARCH_SOURCE"
+      ],
+      "evidenceIds": [],
+      "status": "IN_PROGRESS",
+      "confidence": 0.4,
+      "owner": "cert-actor-6150",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "recommendation": {
+      "id": "vr-tableflow-next",
+      "ventureId": "ven-1785145873137-2",
+      "type": "CONTINUE",
+      "reason": "Continue TABLEFLOW with provenance-backed evidence only; no invented traction.",
+      "evidenceIds": [
+        "ve-tableflow-research"
+      ],
+      "confidence": 0.45,
+      "expectedBenefit": "Advance validation without claiming unproven revenue.",
+      "risk": "Over-investing before customer proof",
+      "reversibility": "REVERSIBLE",
+      "requiresApproval": false,
+      "approvalStatus": "DRAFT",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "confidence": 0.13214285714285717,
+    "timestamp": "2026-07-27T09:51:13.225Z",
+    "schemaVersion": 1
+  },
+  {
+    "id": "vs-luxora-eyewear-1785145873225",
+    "ventureId": "ven-1785145873147-4",
+    "stage": "IDEA_VALUE",
+    "dimensions": [
+      {
+        "dimension": "MARKET_OPPORTUNITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-luxora-eyewear-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "PROBLEM_EVIDENCE",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-luxora-eyewear-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "CUSTOMER_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: WAITLIST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "SOLUTION_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: DEMO_REQUEST",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: EXPERIMENT_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: DEMO_REQUEST"
+      },
+      {
+        "dimension": "PRODUCT_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: PILOT",
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: PILOT"
+      },
+      {
+        "dimension": "GO_TO_MARKET_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: LANDING_CONVERSION",
+          "Missing evidence type: WAITLIST",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: LANDING_CONVERSION"
+      },
+      {
+        "dimension": "TRACTION",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: RETENTION_EVENT",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: ACTIVE_USER"
+      },
+      {
+        "dimension": "REVENUE",
+        "state": "NOT_MEASURED",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "No ACTUAL revenue or paying-customer evidence"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: No ACTUAL revenue or paying-customer evidence"
+      },
+      {
+        "dimension": "UNIT_ECONOMICS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: REVENUE_EVENT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: REVENUE_EVENT"
+      },
+      {
+        "dimension": "OPERATING_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "SCALABILITY",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: RETENTION_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "DEFENSIBILITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-luxora-eyewear-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "RISK",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "EXECUTION_CONFIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: EXPERIMENT_RESULT",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: EXPERIMENT_RESULT"
+      }
+    ],
+    "metrics": [],
+    "evidence": [
+      {
+        "id": "ve-luxora-eyewear-research",
+        "ventureId": "ven-1785145873147-4",
+        "type": "RESEARCH_SOURCE",
+        "source": "fixture:luxora-eyewear",
+        "observedAt": "2026-07-27T09:51:13.225Z",
+        "reliability": "MEDIUM",
+        "derivation": "DIRECT",
+        "provenance": "cert-6150/luxora-eyewear/research",
+        "artifactRef": "art-mis-1785145873150-5-0",
+        "verificationStatus": "UNVERIFIED",
+        "summary": "Desk research registered for LUXORA EYEWEAR (fixture origin only — not market proof).",
+        "createdAt": "2026-07-27T09:51:13.225Z",
+        "schemaVersion": 1
+      }
+    ],
+    "risks": [],
+    "nextMilestone": {
+      "id": "vm-luxora-eyewear-m1",
+      "ventureId": "ven-1785145873147-4",
+      "name": "LUXORA EYEWEAR evidence milestone",
+      "target": 2,
+      "current": 1,
+      "unit": "evidence-items",
+      "evidenceRequirements": [
+        "RESEARCH_SOURCE"
+      ],
+      "evidenceIds": [],
+      "status": "IN_PROGRESS",
+      "confidence": 0.4,
+      "owner": "cert-actor-6150",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "recommendation": {
+      "id": "vr-luxora-eyewear-next",
+      "ventureId": "ven-1785145873147-4",
+      "type": "CONTINUE",
+      "reason": "Continue LUXORA EYEWEAR with provenance-backed evidence only; no invented traction.",
+      "evidenceIds": [
+        "ve-luxora-eyewear-research"
+      ],
+      "confidence": 0.45,
+      "expectedBenefit": "Advance validation without claiming unproven revenue.",
+      "risk": "Over-investing before customer proof",
+      "reversibility": "REVERSIBLE",
+      "requiresApproval": false,
+      "approvalStatus": "DRAFT",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "confidence": 0.13214285714285717,
+    "timestamp": "2026-07-27T09:51:13.225Z",
+    "schemaVersion": 1
+  },
+  {
+    "id": "vs-localgrow-ai-1785145873225",
+    "ventureId": "ven-1785145873158-6",
+    "stage": "IDEA_VALUE",
+    "dimensions": [
+      {
+        "dimension": "MARKET_OPPORTUNITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-localgrow-ai-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "PROBLEM_EVIDENCE",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-localgrow-ai-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "CUSTOMER_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: WAITLIST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "SOLUTION_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: DEMO_REQUEST",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: EXPERIMENT_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: DEMO_REQUEST"
+      },
+      {
+        "dimension": "PRODUCT_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: PILOT",
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: PILOT"
+      },
+      {
+        "dimension": "GO_TO_MARKET_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: LANDING_CONVERSION",
+          "Missing evidence type: WAITLIST",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: LANDING_CONVERSION"
+      },
+      {
+        "dimension": "TRACTION",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: RETENTION_EVENT",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: ACTIVE_USER"
+      },
+      {
+        "dimension": "REVENUE",
+        "state": "NOT_MEASURED",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "No ACTUAL revenue or paying-customer evidence"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: No ACTUAL revenue or paying-customer evidence"
+      },
+      {
+        "dimension": "UNIT_ECONOMICS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: REVENUE_EVENT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: REVENUE_EVENT"
+      },
+      {
+        "dimension": "OPERATING_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "SCALABILITY",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: RETENTION_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "DEFENSIBILITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-localgrow-ai-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "RISK",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "EXECUTION_CONFIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: EXPERIMENT_RESULT",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: EXPERIMENT_RESULT"
+      }
+    ],
+    "metrics": [],
+    "evidence": [
+      {
+        "id": "ve-localgrow-ai-research",
+        "ventureId": "ven-1785145873158-6",
+        "type": "RESEARCH_SOURCE",
+        "source": "fixture:localgrow-ai",
+        "observedAt": "2026-07-27T09:51:13.225Z",
+        "reliability": "MEDIUM",
+        "derivation": "DIRECT",
+        "provenance": "cert-6150/localgrow-ai/research",
+        "artifactRef": "art-mis-1785145873160-7-0",
+        "verificationStatus": "UNVERIFIED",
+        "summary": "Desk research registered for LOCALGROW AI (fixture origin only — not market proof).",
+        "createdAt": "2026-07-27T09:51:13.225Z",
+        "schemaVersion": 1
+      }
+    ],
+    "risks": [],
+    "nextMilestone": {
+      "id": "vm-localgrow-ai-m1",
+      "ventureId": "ven-1785145873158-6",
+      "name": "LOCALGROW AI evidence milestone",
+      "target": 2,
+      "current": 1,
+      "unit": "evidence-items",
+      "evidenceRequirements": [
+        "RESEARCH_SOURCE"
+      ],
+      "evidenceIds": [],
+      "status": "IN_PROGRESS",
+      "confidence": 0.4,
+      "owner": "cert-actor-6150",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "recommendation": {
+      "id": "vr-localgrow-ai-next",
+      "ventureId": "ven-1785145873158-6",
+      "type": "CONTINUE",
+      "reason": "Continue LOCALGROW AI with provenance-backed evidence only; no invented traction.",
+      "evidenceIds": [
+        "ve-localgrow-ai-research"
+      ],
+      "confidence": 0.45,
+      "expectedBenefit": "Advance validation without claiming unproven revenue.",
+      "risk": "Over-investing before customer proof",
+      "reversibility": "REVERSIBLE",
+      "requiresApproval": false,
+      "approvalStatus": "DRAFT",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "confidence": 0.13214285714285717,
+    "timestamp": "2026-07-27T09:51:13.225Z",
+    "schemaVersion": 1
+  },
+  {
+    "id": "vs-creatorpulse-1785145873225",
+    "ventureId": "ven-1785145873167-8",
+    "stage": "PROBLEM_VALIDATION",
+    "dimensions": [
+      {
+        "dimension": "MARKET_OPPORTUNITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-creatorpulse-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.4,
+        "optionalScore": 40,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.4
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "PROBLEM_EVIDENCE",
+        "state": "MODERATE",
+        "evidenceIds": [
+          "ve-creatorpulse-research",
+          "ve-creatorpulse-interview"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: SURVEY"
+        ],
+        "confidence": 0.4,
+        "optionalScore": 40,
+        "scoreFormula": "min(stateRank(MODERATE)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.6666666666666666,
+          "confidenceCeiling": 0.4
+        },
+        "recommendationNote": "Address: Missing evidence type: SURVEY"
+      },
+      {
+        "dimension": "CUSTOMER_EVIDENCE",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-creatorpulse-interview"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: SURVEY",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: WAITLIST"
+        ],
+        "confidence": 0.4,
+        "optionalScore": 40,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.4
+        },
+        "recommendationNote": "Address: Missing evidence type: SURVEY"
+      },
+      {
+        "dimension": "SOLUTION_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: DEMO_REQUEST",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: EXPERIMENT_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: DEMO_REQUEST"
+      },
+      {
+        "dimension": "PRODUCT_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: PILOT",
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: PILOT"
+      },
+      {
+        "dimension": "GO_TO_MARKET_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: LANDING_CONVERSION",
+          "Missing evidence type: WAITLIST",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: LANDING_CONVERSION"
+      },
+      {
+        "dimension": "TRACTION",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: RETENTION_EVENT",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: ACTIVE_USER"
+      },
+      {
+        "dimension": "REVENUE",
+        "state": "NOT_MEASURED",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "No ACTUAL revenue or paying-customer evidence"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: No ACTUAL revenue or paying-customer evidence"
+      },
+      {
+        "dimension": "UNIT_ECONOMICS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: REVENUE_EVENT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: REVENUE_EVENT"
+      },
+      {
+        "dimension": "OPERATING_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "SCALABILITY",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: RETENTION_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "DEFENSIBILITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-creatorpulse-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.4,
+        "optionalScore": 40,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.4
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "RISK",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "EXECUTION_CONFIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: EXPERIMENT_RESULT",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: EXPERIMENT_RESULT"
+      }
+    ],
+    "metrics": [],
+    "evidence": [
+      {
+        "id": "ve-creatorpulse-research",
+        "ventureId": "ven-1785145873167-8",
+        "type": "RESEARCH_SOURCE",
+        "source": "fixture:creatorpulse",
+        "observedAt": "2026-07-27T09:51:13.225Z",
+        "reliability": "MEDIUM",
+        "derivation": "DIRECT",
+        "provenance": "cert-6150/creatorpulse/research",
+        "verificationStatus": "UNVERIFIED",
+        "summary": "Desk research registered for CREATORPULSE (fixture origin only — not market proof).",
+        "createdAt": "2026-07-27T09:51:13.225Z",
+        "schemaVersion": 1
+      },
+      {
+        "id": "ve-creatorpulse-interview",
+        "ventureId": "ven-1785145873167-8",
+        "type": "CUSTOMER_INTERVIEW",
+        "source": "fixture:creatorpulse/interview-notes",
+        "observedAt": "2026-07-27T09:51:13.225Z",
+        "reliability": "MEDIUM",
+        "derivation": "DIRECT",
+        "provenance": "cert-6150/creatorpulse/interview",
+        "verificationStatus": "UNVERIFIED",
+        "summary": "Validation interview notes registered for CREATORPULSE.",
+        "createdAt": "2026-07-27T09:51:13.225Z",
+        "schemaVersion": 1
+      }
+    ],
+    "risks": [],
+    "nextMilestone": {
+      "id": "vm-creatorpulse-m1",
+      "ventureId": "ven-1785145873167-8",
+      "name": "CREATORPULSE evidence milestone",
+      "target": 2,
+      "current": 2,
+      "unit": "evidence-items",
+      "evidenceRequirements": [
+        "RESEARCH_SOURCE"
+      ],
+      "evidenceIds": [],
+      "status": "COMPLETED",
+      "confidence": 0.4,
+      "owner": "cert-actor-6150",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "recommendation": {
+      "id": "vr-creatorpulse-next",
+      "ventureId": "ven-1785145873167-8",
+      "type": "CONTINUE",
+      "reason": "Continue CREATORPULSE with provenance-backed evidence only; no invented traction.",
+      "evidenceIds": [
+        "ve-creatorpulse-research",
+        "ve-creatorpulse-interview"
+      ],
+      "confidence": 0.45,
+      "expectedBenefit": "Advance validation without claiming unproven revenue.",
+      "risk": "Over-investing before customer proof",
+      "reversibility": "REVERSIBLE",
+      "requiresApproval": false,
+      "approvalStatus": "DRAFT",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "confidence": 0.18571428571428578,
+    "timestamp": "2026-07-27T09:51:13.225Z",
+    "schemaVersion": 1
+  },
+  {
+    "id": "vs-orbita-sports-1785145873226",
+    "ventureId": "ven-1785145873173-10",
+    "stage": "IDEA_VALUE",
+    "dimensions": [
+      {
+        "dimension": "MARKET_OPPORTUNITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-orbita-sports-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "PROBLEM_EVIDENCE",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-orbita-sports-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "CUSTOMER_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: CUSTOMER_INTERVIEW",
+          "Missing evidence type: SURVEY",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: WAITLIST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: CUSTOMER_INTERVIEW"
+      },
+      {
+        "dimension": "SOLUTION_EVIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: DEMO_REQUEST",
+          "Missing evidence type: LETTER_OF_INTENT",
+          "Missing evidence type: EXPERIMENT_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: DEMO_REQUEST"
+      },
+      {
+        "dimension": "PRODUCT_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: PILOT",
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: PILOT"
+      },
+      {
+        "dimension": "GO_TO_MARKET_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: LANDING_CONVERSION",
+          "Missing evidence type: WAITLIST",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: LANDING_CONVERSION"
+      },
+      {
+        "dimension": "TRACTION",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: ACTIVE_USER",
+          "Missing evidence type: RETENTION_EVENT",
+          "Missing evidence type: DEMO_REQUEST"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: ACTIVE_USER"
+      },
+      {
+        "dimension": "REVENUE",
+        "state": "NOT_MEASURED",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "No ACTUAL revenue or paying-customer evidence"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: No ACTUAL revenue or paying-customer evidence"
+      },
+      {
+        "dimension": "UNIT_ECONOMICS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: REVENUE_EVENT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: REVENUE_EVENT"
+      },
+      {
+        "dimension": "OPERATING_READINESS",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "SCALABILITY",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: RETENTION_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "DEFENSIBILITY",
+        "state": "WEAK",
+        "evidenceIds": [
+          "ve-orbita-sports-research"
+        ],
+        "missingEvidence": [
+          "Missing evidence type: EXTERNAL_VALIDATION"
+        ],
+        "confidence": 0.25,
+        "optionalScore": 25,
+        "scoreFormula": "min(stateRank(WEAK)/6*100, confidence*100)",
+        "scoreWeights": {
+          "stateRank": 0.5,
+          "confidenceCeiling": 0.25
+        },
+        "recommendationNote": "Address: Missing evidence type: EXTERNAL_VALIDATION"
+      },
+      {
+        "dimension": "RISK",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: OPERATIONAL_RESULT",
+          "Missing evidence type: COST_EVENT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: OPERATIONAL_RESULT"
+      },
+      {
+        "dimension": "EXECUTION_CONFIDENCE",
+        "state": "UNKNOWN",
+        "evidenceIds": [],
+        "missingEvidence": [
+          "Missing evidence type: EXPERIMENT_RESULT",
+          "Missing evidence type: OPERATIONAL_RESULT"
+        ],
+        "confidence": 0.1,
+        "recommendationNote": "Address: Missing evidence type: EXPERIMENT_RESULT"
+      }
+    ],
+    "metrics": [],
+    "evidence": [
+      {
+        "id": "ve-orbita-sports-research",
+        "ventureId": "ven-1785145873173-10",
+        "type": "RESEARCH_SOURCE",
+        "source": "fixture:orbita-sports",
+        "observedAt": "2026-07-27T09:51:13.225Z",
+        "reliability": "MEDIUM",
+        "derivation": "DIRECT",
+        "provenance": "cert-6150/orbita-sports/research",
+        "verificationStatus": "UNVERIFIED",
+        "summary": "Desk research registered for ORBITA SPORTS (fixture origin only — not market proof).",
+        "createdAt": "2026-07-27T09:51:13.225Z",
+        "schemaVersion": 1
+      }
+    ],
+    "risks": [],
+    "nextMilestone": {
+      "id": "vm-orbita-sports-m1",
+      "ventureId": "ven-1785145873173-10",
+      "name": "ORBITA SPORTS evidence milestone",
+      "target": 2,
+      "current": 1,
+      "unit": "evidence-items",
+      "evidenceRequirements": [
+        "RESEARCH_SOURCE"
+      ],
+      "evidenceIds": [],
+      "status": "IN_PROGRESS",
+      "confidence": 0.4,
+      "owner": "cert-actor-6150",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "recommendation": {
+      "id": "vr-orbita-sports-next",
+      "ventureId": "ven-1785145873173-10",
+      "type": "CONTINUE",
+      "reason": "Continue ORBITA SPORTS with provenance-backed evidence only; no invented traction.",
+      "evidenceIds": [
+        "ve-orbita-sports-research"
+      ],
+      "confidence": 0.45,
+      "expectedBenefit": "Advance validation without claiming unproven revenue.",
+      "risk": "Over-investing before customer proof",
+      "reversibility": "REVERSIBLE",
+      "requiresApproval": false,
+      "approvalStatus": "DRAFT",
+      "createdAt": "2026-07-27T09:51:13.225Z",
+      "updatedAt": "2026-07-27T09:51:13.225Z",
+      "schemaVersion": 1
+    },
+    "confidence": 0.13214285714285717,
+    "timestamp": "2026-07-27T09:51:13.226Z",
+    "schemaVersion": 1
+  }
+]

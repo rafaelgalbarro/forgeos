@@ -1,0 +1,42 @@
+/** Program 10000 — Generic E2E pipeline stage definitions. */
+
+import type { E2EStageId } from "./types";
+
+export interface E2EStageDefinition {
+  id: E2EStageId;
+  label: string;
+  order: number;
+  moduleUsed: string;
+}
+
+export const E2E_PIPELINE: E2EStageDefinition[] = [
+  { id: "idea", label: "Idea", order: 1, moduleUsed: "Venture Factory" },
+  { id: "research", label: "Research", order: 2, moduleUsed: "AI Runtime + Venture Intelligence" },
+  { id: "market", label: "Mercado", order: 3, moduleUsed: "Venture Intelligence / market-score" },
+  { id: "competitors", label: "Competidores", order: 4, moduleUsed: "Research Report + Intelligence" },
+  { id: "business-model", label: "Business Model", order: 5, moduleUsed: "Discovery + Intelligence" },
+  { id: "pricing", label: "Pricing", order: 6, moduleUsed: "Venture sections + Intelligence" },
+  { id: "brand", label: "Brand", order: 7, moduleUsed: "Venture Factory + Intelligence tags" },
+  { id: "landing", label: "Landing", order: 8, moduleUsed: "lib/launch + Venture sections" },
+  { id: "prd", label: "PRD", order: 9, moduleUsed: "AI Runtime Prompt Compiler" },
+  { id: "architecture", label: "Architecture", order: 10, moduleUsed: "Build Platform / Architecture" },
+  { id: "build-context", label: "Build Context", order: 11, moduleUsed: "lib/build-platform/build-context" },
+  { id: "build-dna", label: "Build DNA", order: 12, moduleUsed: "lib/build-platform/build-dna" },
+  { id: "deployment-preview", label: "Deploy Preview Plan", order: 13, moduleUsed: "lib/build-pipeline" },
+  { id: "investor-readiness", label: "Investor Readiness", order: 14, moduleUsed: "Venture Intelligence / due-diligence" },
+  { id: "go-to-market", label: "GTM", order: 15, moduleUsed: "Founder Journey + GTM sections" },
+  { id: "launch-checklist", label: "Launch Checklist", order: 16, moduleUsed: "lib/launch + Self Evolution" },
+];
+
+export const E2E_DEPARTMENT_IDS = [
+  "research",
+  "product",
+  "finance",
+  "cmo",
+  "legal",
+  "architecture",
+  "backend",
+  "qa",
+  "growth",
+  "capital",
+] as const;

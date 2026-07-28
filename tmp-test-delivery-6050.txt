@@ -1,0 +1,54 @@
+﻿
+> forgeos-app-factory@0.1.0 test:delivery-6050
+> npx --yes tsx src/core/delivery/__tests__/delivery-model-6050.test.ts
+
+
+Ôû© Pipeline separation
+  Ô£ô 7 stages
+  Ô£ô 6 transitions
+  Ô£ô concepts distinct labels
+
+Ôû© Build immutability
+  Ô£ô failed recorded
+  Ô£ô cannot overwrite failedÔåÆsuccess
+  Ô£ô new build can succeed
+
+Ôû© Preview / Build relation
+  Ô£ô preview with success build
+  Ô£ô blocks preview without build
+  Ô£ô allows VISUAL non-executable
+
+Ôû© Release immutability
+  Ô£ô published immutable
+  Ô£ô cannot mutate published
+
+Ôû© Deployment / Release relation + dry-run
+  Ô£ô dry-run outcome marked
+  Ô£ô dry-run not real
+  Ô£ô production requires governance
+
+Ôû© Change impact
+  Ô£ô checksum match ÔåÆ no invalidate
+  Ô£ô change invalidates
+  Ô£ô approval required for approved downstream
+
+Ôû© Migration
+  Ô£ô migrated outputs
+  Ô£ô orphaned counted
+  Ô£ô canonical output adapted
+  Ô£ô canonical codebase adapted
+  Ô£ô adapter preserves legacy id
+  Ô£ô code adapter preserves files
+  Ô£ô reuse valid codebase
+
+Ôû© Versioning + lineage E2E
+  Ô£ô e2e ok
+  Ô£ô version string
+  Ô£ô path artifactÔåÆdeployment
+  Ô£ô dry-run not real
+  Ô£ô builds include failed+success
+  Ô£ô version bumped
+  Ô£ô previous superseded
+
+Ô£ô PROGRAM 6050 tests ÔÇö failures=0
+EXIT=0

@@ -1,0 +1,101 @@
+{
+  "program": "6085",
+  "base": "http://127.0.0.1:3000",
+  "missionId": "smoke-placeholder",
+  "passed": 0,
+  "failed": 15,
+  "blocked": 0,
+  "results": [
+    {
+      "path": "/",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/mission-control",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/missions/smoke-placeholder",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/studio/smoke-placeholder",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/studio/smoke-placeholder/code",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/studio/smoke-placeholder/preview",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/deployments",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/lab/v2-architecture",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/lab/v2-workflows",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/lab/v2-graph",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/lab/v2-capabilities",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/lab/v2-migration",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/api/health",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/api/ready",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    },
+    {
+      "path": "/api/v2/health",
+      "status": 0,
+      "ok": false,
+      "detail": "fetch failed"
+    }
+  ],
+  "ranAt": "2026-07-27T08:33:43.978Z"
+}

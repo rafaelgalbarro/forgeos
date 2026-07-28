@@ -1,0 +1,6 @@
+ID,Sector,Nicho,Solucion,Probabilidad,Competidores
+ADMIN-001,Administración,Ayudas públicas,Buscador personalizado de ayudas según perfil y ubicación,92%,No referente claro
+SAFE-001,Seguridad,Phishing y estafas,"Detector de SMS, llamadas, emails y webs fraudulentas",88%,Truecaller; Norton Genie
+FOOD-001,Alimentación,Desperdicio doméstico,Control de caducidades por foto y recetas IA,84%,NoWaste; Kitche
+HEALTH-001,Salud,Cuidado de mayores,"Agenda de medicación, citas y alertas familiares",86%,Medisafe; Carely
+FIN-001,Finanzas,Suscripciones olvidadas,Detector y cancelador de pagos recurrentes,82%,Rocket Money; Bobby

@@ -1,0 +1,110 @@
+﻿package scripts: typecheck=False test=False architecture:check=False reset:dev=True
+scripts/dev-reset.js exists=True
+
+=== node_npm_versions ===
+CMD: node -v && npm -v
+EXIT: 0
+node: v22.16.0
+npm: 10.9.2
+
+
+=== kill_ports ===
+CMD: npm run kill:ports
+EXIT: 0
+
+> forgeos-app-factory@0.1.0 kill:ports
+> node scripts/kill-ports.js
+
+
+Ôû© Liberando puertos 3000 y 3001ÔÇª
+  Ô£ô Puerto 3000: proceso 15608 terminado
+  ┬À Puerto 3001: libre
+
+Ô£ô 1 proceso(s) terminado(s).
+
+
+
+=== clean ===
+CMD: npm run clean
+EXIT: 0
+
+> forgeos-app-factory@0.1.0 clean
+> node scripts/clean.js
+
+
+Ôû© Limpiando cach├®s de Next.jsÔÇª
+  Ô£ô Eliminado .next/
+
+Ô£ô Limpieza completada.
+
+
+
+=== architecture_check ===
+MISSING
+
+=== typecheck ===
+CMD: npx tsc --noEmit
+EXIT: 2
+src/core/application/commands/definitions.ts(4,15): error TS2724: '"../../domain"' has no exported member named 'DeploymentTarget'. Did you mean 'DeploymentStatus'?
+src/core/application/handlers/shared/pipeline.ts(3,30): error TS2307: Cannot find module '../commands/types' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(4,42): error TS2307: Cannot find module '../errors' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(5,39): error TS2307: Cannot find module '../ports' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(6,44): error TS2307: Cannot find module '../policies' or its corresponding type declarations.
+src/core/application/handlers/shared/pipeline.ts(7,30): error TS2307: Cannot find module '../policies' or its corresponding type declarations.
+src/core/application/mappers/index.ts(125,24): error TS2339: Property 'missionId' does not exist on type 'Preview'.
+src/core/application/mappers/index.ts(126,21): error TS2339: Property 'status' does not exist on type 'Preview'.
+src/core/application/mappers/index.ts(127,18): error TS2339: Property 'url' does not exist on type 'Preview'.
+src/core/application/mappers/index.ts(128,24): error TS2339: Property 'updatedAt' does not exist on type 'Preview'.
+src/core/application/mappers/index.ts(135,24): error TS2339: Property 'missionId' does not exist on type 'Release'.
+src/core/application/mappers/index.ts(136,22): error TS2339: Property 'version' does not exist on type 'Release'.
+src/core/application/mappers/index.ts(137,21): error TS2339: Property 'status' does not exist on type 'Release'.
+src/core/application/mappers/index.ts(138,25): error TS2339: Property 'approvalId' does not exist on type 'Release'.
+src/core/application/mappers/index.ts(139,24): error TS2339: Property 'updatedAt' does not exist on type 'Release'.
+src/core/application/mappers/index.ts(146,27): error TS2339: Property 'missionId' does not exist on type 'Deployment'.
+src/core/application/mappers/index.ts(147,24): error TS2339: Property 'target' does not exist on type 'Deployment'.
+src/core/application/mappers/index.ts(148,24): error TS2339: Property 'status' does not exist on type 'Deployment'.
+src/core/application/mappers/index.ts(149,27): error TS2339: Property 'releaseId' does not exist on type 'Deployment'.
+src/core/application/mappers/index.ts(150,27): error TS2339: Property 'updatedAt' does not exist on type 'Deployment'.
+src/core/application/testing/in-memory.ts(20,3): error TS2305: Module '"../ports"' has no exported member 'ApplicationPorts'.
+src/core/application/testing/in-memory.ts(21,3): error TS2305: Module '"../ports"' has no exported member 'BuildRepositoryPort'.
+src/core/application/testing/in-memory.ts(22,3): error TS2305: Module '"../ports"' has no exported member 'ClockPort'.
+src/core/application/testing/in-memory.ts(23,3): error TS2305: Module '"../ports"' has no exported mem
+...[truncated]
+
+=== test ===
+MISSING
+
+=== build ===
+CMD: npm run build
+EXIT: 1
+
+> forgeos-app-factory@0.1.0 build
+> next build
+
+   Ôû▓ Next.js 15.5.19
+
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully in 38.6s
+   Linting and checking validity of types ...
+node.exe : Failed to compile.
+En C:\Users\RafaelGalbarroBarba\AppData\Local\forgeos-node\npm.ps1: 29 Carácter: 3
++   & $NODE_EXE $NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Failed to compile.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+./src/core/application/handlers/command/index.ts:74:15
+Type error: Module '"../../ports"' has no exported member 'ApplicationPorts'.
+
+[0m [90m 72 |[39m   [33mCanStartBuild[39m[33m,[39m
+ [90m 73 |[39m } [36mfrom[39m [32m"../../policies"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 74 |[39m [36mimport[39m type { [33mApplicationPorts[39m } [36mfrom[39m 
+[32m"../../ports"[39m[33m;[39m
+ [90m    |[39m               [31m[1m^[22m[39m
+ [90m 75 |[39m [36mimport[39m {
+ [90m 76 |[39m   toBuildStatus[33m,[39m
+ [90m 77 |[39m   toCodebaseSummary[33m,[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+
+

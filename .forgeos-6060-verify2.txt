@@ -1,0 +1,52 @@
+﻿
+> forgeos-app-factory@0.1.0 architecture:check
+> node scripts/architecture-check.js && node scripts/architecture-check-6040.js && node scripts/architecture-check-6050.js && node scripts/architecture-check-6060.js
+
+
+Ôû© PROGRAM 6070 ÔÇö architecture:check
+  Ô£ô src/core/migration/index.ts
+  Ô£ô src/core/migration/types.ts
+  Ô£ô src/core/migration/feature-flags.ts
+  Ô£ô src/core/migration/registry.ts
+  Ô£ô src/core/migration/dual-read.ts
+  Ô£ô src/core/migration/dual-write.ts
+  Ô£ô src/core/migration/rollback.ts
+  Ô£ô src/core/migration/deprecation.ts
+  Ô£ô src/core/migration/adapters/mission-reads.ts
+  Ô£ô src/core/migration/adapters/mission-commands.ts
+  Ô£ô src/core/migration/adapters/decisions.ts
+  Ô£ô src/core/migration/adapters/artifacts.ts
+  Ô£ô src/core/migration/adapters/outputs.ts
+  Ô£ô src/core/migration/adapters/codebases.ts
+  Ô£ô src/core/migration/adapters/builds.ts
+  Ô£ô src/core/migration/adapters/previews.ts
+  Ô£ô src/core/migration/adapters/deployments.ts
+  Ô£ô src/core/migration/adapters/company-overview.ts
+  Ô£ô src/core/migration/runners/migrate-v2-missions.ts
+  Ô£ô src/core/migration/dashboard/summary.ts
+  Ô£ô app/admin/migration-v2/page.tsx
+  Ô£ô components/admin/MigrationV2Dashboard.tsx
+  Ô£ô docs/architecture-v2/README.md
+  Ô£ô docs/architecture-v2/migration/strategy.md
+  Ô£ô docs/architecture-v2/migration/registry.md
+  Ô£ô docs/architecture-v2/migration/dual-read.md
+  Ô£ô docs/architecture-v2/migration/dual-write.md
+  Ô£ô docs/architecture-v2/migration/data-migration.md
+  Ô£ô docs/architecture-v2/migration/feature-flags.md
+  Ô£ô docs/architecture-v2/migration/rollback.md
+  Ô£ô docs/architecture-v2/migration/deprecation.md
+  Ô£ô DEPRECATION.md
+  Ô£ô tests/migration/migration-6070.test.ts
+  Ô£ô registry seed entries ÔëÑ 10 (10)
+  Ô£ô .env.example ENABLE_V2_DOMAIN=false
+  Ô£ô .env.example ENABLE_V2_COMMANDS=false
+  Ô£ô .env.example ENABLE_V2_QUERIES=false
+  Ô£ô .env.example ENABLE_V2_ORCHESTRATION=false
+  Ô£ô .env.example ENABLE_V2_EVENTS=false
+  Ô£ô .env.example ENABLE_V2_STUDIO=false
+  Ô£ô .env.example ENABLE_V2_COMPANY_OS=false
+  Ô£ù architecture-v2 README missing migration links
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  RESULTADO: FAIL ÔÇö 1 issue(s)
+FULL_ARCH_EXIT=1

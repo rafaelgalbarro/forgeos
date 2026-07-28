@@ -1,0 +1,121 @@
+﻿{
+    "program":  6090,
+    "buildGreen":  true,
+    "timestamp":  "2026-07-27T09:09:57.314Z",
+    "program6090VerificadoJustified":  true,
+    "overallNotes":  "FULL Program 6090 sequential validation completed (strict order, no parallel build+dev).",
+    "overallOk":  true,
+    "pathPrepended":  "C:\\Users\\RafaelGalbarroBarba\\AppData\\Local\\forgeos-node",
+    "orbita":  {
+                   "deploymentStatus":  "PLAN_READY",
+                   "previewClassification":  "PLAN_ONLY",
+                   "missionId":  "mis-1785143265377-130",
+                   "status":  "PASSED",
+                   "companyDashboardDeploymentDetail":  "PLAN_READY",
+                   "checksPass":  9,
+                   "ventureId":  "ven-1785143265371-129",
+                   "checksTotal":  9
+               },
+    "smoke":  [
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/mission-control"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/company"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/studio"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/deployments"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "notes":  "ventureId from orbita-sports-run.json at smoke time (pre-certify run).",
+                      "route":  "/company/ven-1785140811303-116"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "notes":  "missionId from orbita-sports-run.json at smoke time (pre-certify run).",
+                      "route":  "/missions/mis-1785140811313-117"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/studio/mis-1785140811313-117"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/studio/mis-1785140811313-117/code"
+                  },
+                  {
+                      "ok":  true,
+                      "status":  200,
+                      "route":  "/studio/mis-1785140811313-117/preview"
+                  }
+              ],
+    "smokeAllOk":  true,
+    "steps":  [
+                  {
+                      "ok":  true,
+                      "exitCode":  0,
+                      "name":  "kill:ports",
+                      "notes":  "Terminated 2 ForgeOS processes (registered PID 12268 + orphan workspace reclaim on port 3000); ports 3000/3001 free."
+                  },
+                  {
+                      "ok":  true,
+                      "exitCode":  0,
+                      "name":  "clean",
+                      "notes":  "Eliminado .next/; limpieza completada."
+                  },
+                  {
+                      "ok":  true,
+                      "exitCode":  0,
+                      "name":  "check:v2-boundaries",
+                      "notes":  "canonical-redefinition OK (4 legacy WARN); architecture:check 6000/6020/6040/6050/6060/6070 passed; V2 boundaries OK."
+                  },
+                  {
+                      "ok":  true,
+                      "exitCode":  0,
+                      "name":  "test",
+                      "notes":  "vitest 3.2.7: 6 files, 60 tests passed."
+                  },
+                  {
+                      "ok":  true,
+                      "exitCode":  0,
+                      "name":  "build",
+                      "notes":  "next build 15.5.19: compiled ~3min, 180 static pages, exit 0 (no concurrent dev during build)."
+                  },
+                  {
+                      "ok":  true,
+                      "exitCode":  0,
+                      "name":  "reset:dev",
+                      "notes":  "Dev server ready at http://localhost:3000 (api/health 200) for HTTP smoke."
+                  },
+                  {
+                      "ok":  true,
+                      "exitCode":  0,
+                      "name":  "certify:orbita-sports",
+                      "notes":  "status=PASSED; deploymentStatus=PLAN_READY; previewClassification=PLAN_ONLY; 9/9 checks PASS; company_dashboard detail deployment=PLAN_READY (venture ven-1785143265371-129)."
+                  }
+              ],
+    "verificadoRationale":  "All pipeline steps exit 0; HTTP smoke 10/10 routes returned 200; certify:orbita-sports PASSED with company_dashboard check detail deployment=PLAN_READY and deploymentStatus=PLAN_READY.",
+    "program6090Verificado":  true,
+    "nodeVersion":  "v22.16.0"
+}

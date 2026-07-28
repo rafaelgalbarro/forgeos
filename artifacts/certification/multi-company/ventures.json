@@ -1,0 +1,78 @@
+[
+  {
+    "name": "TABLEFLOW",
+    "slug": "tableflow",
+    "ventureId": "ven-1785145873137-2",
+    "missionId": "mis-1785145873141-3",
+    "role": "SIMULTANEOUS_A",
+    "lifecycle": "IDEA",
+    "priority": "HIGH",
+    "paused": false,
+    "outputs": [
+      "out-mis-1785145873141-3-0",
+      "out-mis-1785145873141-3-1",
+      "out-mis-1785145873141-3-2",
+      "out-mis-1785145873141-3-3",
+      "out-mis-1785145873141-3-4",
+      "out-mis-1785145873141-3-5"
+    ],
+    "releaseId": "rel-ms31rfb3-2-xv4man"
+  },
+  {
+    "name": "LUXORA EYEWEAR",
+    "slug": "luxora-eyewear",
+    "ventureId": "ven-1785145873147-4",
+    "missionId": "mis-1785145873150-5",
+    "role": "SIMULTANEOUS_B",
+    "lifecycle": "IDEA",
+    "priority": "HIGH",
+    "paused": false,
+    "outputs": [
+      "out-mis-1785145873150-5-0",
+      "out-mis-1785145873150-5-1",
+      "out-mis-1785145873150-5-2",
+      "out-mis-1785145873150-5-3",
+      "out-mis-1785145873150-5-4"
+    ],
+    "failure": "CONTROLLED_FAILURE: injected build worker timeout"
+  },
+  {
+    "name": "LOCALGROW AI",
+    "slug": "localgrow-ai",
+    "ventureId": "ven-1785145873158-6",
+    "missionId": "mis-1785145873160-7",
+    "role": "SIMULTANEOUS_C",
+    "lifecycle": "IDEA",
+    "priority": "NORMAL",
+    "paused": false,
+    "outputs": [
+      "out-mis-1785145873160-7-0",
+      "out-mis-1785145873160-7-1",
+      "out-mis-1785145873160-7-2",
+      "out-mis-1785145873160-7-3",
+      "out-mis-1785145873160-7-4"
+    ]
+  },
+  {
+    "name": "CREATORPULSE",
+    "slug": "creatorpulse",
+    "ventureId": "ven-1785145873167-8",
+    "missionId": "mis-1785145873169-9",
+    "role": "VALIDATION",
+    "lifecycle": "IDEA",
+    "priority": "NORMAL",
+    "paused": false,
+    "outputs": []
+  },
+  {
+    "name": "ORBITA SPORTS",
+    "slug": "orbita-sports",
+    "ventureId": "ven-1785145873173-10",
+    "missionId": "mis-1785145873175-11",
+    "role": "PAUSED",
+    "lifecycle": "PAUSED",
+    "priority": "PAUSED",
+    "paused": true,
+    "outputs": []
+  }
+]

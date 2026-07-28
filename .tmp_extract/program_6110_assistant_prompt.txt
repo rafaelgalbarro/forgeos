@@ -1,0 +1,136 @@
+Delegating Program 6100 to a background worker to implement the performance and scalability foundation.
+
+[REDACTED]
+TOOL_PROMPT:
+Implement PROGRAM 6100 â€” PERFORMANCE & SCALABILITY FOUNDATION for ForgeOS.
+
+Workspace: C:\Users\RafaelGalbarroBarba\Projects\ForgeOS_App_Factory\ForgeOS_App_Factory_v0_1
+
+## Context
+ForgeOS V2 is complete with canonical domain, CQRS, workflow engine, Mission Control, Company Command Center, Studio, etc. Now optimize for multi-venture scalability WITHOUT creating Portfolio UI, new factories, duplicating Runtime/Scheduler/Event Bus/Queue, or redesigning the whole UI.
+
+## CRITICAL RULES
+- NO Portfolio Command Center UI yet
+- NO new factories
+- NO duplicate Runtime, Scheduler, Event Bus, or Queue
+- NO full UI redesign
+- NO optimizations without measurement first
+- NO fake loaders hiding slowness
+- NO loading all artifacts/outputs/files on page open
+- NO unlimited heavy previews simultaneously
+- NO Canonical Domain Model changes unless proven blocker
+- Follow Parallel Execution Governance - register changes in docs/architecture-v2/agent-change-log.md
+- Build/clean/dev MUST be sequential: kill:ports â†’ clean â†’ check:v2-boundaries â†’ test â†’ build â†’ reset:dev
+- NEVER parallel build + dev
+
+## IMPLEMENTATION SCOPE (all 27 sections)
+
+### 1. Performance Baseline
+Create scripts/performance/:
+- measure-routes.ts
+- measure-bundles.ts
+- measure-queries.ts
+- measure-memory.ts
+- measure-v2-container.ts
+- performance-report.ts
+Create artifacts/performance/baseline.json
+Measure: TTFB, FCP, LCP, JS size, requests, response sizes, queries per route, composition root time, memory, query duration, workflow duration, load times for key routes.
+
+Routes: /, /mission-control, /missions/[missionId], /company/[ventureId], /studio/[missionId], /studio/[missionId]/code, /studio/[missionId]/preview, /deployments
+
+### 2. Performance Budgets
+Define realistic budgets in docs. Example targets: initial navigation <2.5s local, cached read model <300ms, dashboard payload <250KB JSON, 30% JS reduction from baseline, no heavy factories in client bundle, no unlimited lists, configurable max previews/workflows.
+
+### 3. Server-First Rendering
+Audit pages/components. Apply Server Components default, client only for interaction, light DTOs, server-side queries, Suspense, streaming, dynamic imports, pagination. Create inventory: COMPONENT â†’ SERVER/CLIENT â†’ BUNDLE COST â†’ DATA REQUIRED â†’ OPTIMIZATION
+
+### 4. Composition Root Performance
+Audit src/core/composition/. Separate Core services (command bus, query bus, event bus, essential repos, feature flags, clock) vs Lazy services (factories, AI, preview runtime, deployment adapters, heavy graph, export, code gen). Lazy load on demand server-side. Measure cold/warm init.
+
+### 5. Query Optimization
+Audit query handlers for Mission Control, Company Command Center, Studio. Create differentiated queries:
+- GetMissionCard, GetMissionSummary, GetMissionDetail
+- GetVentureCard, GetVentureSummary, GetCompanyDashboard, GetCompanySectionDetail
+- GetOutputSummary, GetOutputDetail
+- GetProjectSummary, GetProjectManifest, GetProjectFile
+Implement field selection, pagination, cursor pagination, batching, deduplication, request-level cache, explicit invalidation. Detect N+1.
+
+### 6. Read Model Projections
+Create/consolidate: MissionCardProjection, VentureCardProjection, CompanyHealthProjection, OutputStatusProjection, PortfolioSummaryProjection, WorkflowProgressProjection, ReleaseStatusProjection. Event-updated, with source events, version, updatedAt, freshness, rebuild capability. Mark STALE when outdated.
+
+### 7. Cache Strategy
+Three levels: Request Cache, Read Model Cache, Artifact Cache (metadata only). Keys with scope, ventureId, workspaceId, version, TTL, invalidation events, freshness. No cross-venture mixing. No caching sensitive approvals/security without proper invalidation.
+
+### 8. Multi-Venture Resource Isolation
+Isolation by workspaceId, ventureId, missionId, projectId, sandboxId, executionId. Apply in queries, commands, artifacts, logs, previews, queues, caches, telemetry, storage, temp files. Tests: Venture A can't access Venture B artifacts, Mission A can't update Workflow B, Preview isolation, Cache isolation.
+
+### 9. Execution Queue
+Reuse existing Runtime/Scheduler/Task Queue. Add load planning layer (NOT parallel scheduler). Task types: INTERACTIVE, HIGH_PRIORITY, STANDARD, BACKGROUND, LOW_PRIORITY, MAINTENANCE. Implement priority, concurrency limits, workspace/venture limits, capability limits, timeout, retry, cancellation, pause, fairness.
+
+### 10. Concurrency Control
+Configurable limits: MAX_GLOBAL_EXECUTIONS, MAX_WORKSPACE_EXECUTIONS, MAX_VENTURE_EXECUTIONS, MAX_AI_EXECUTIONS, MAX_CODE_BUILDS, MAX_PREVIEW_SANDBOXES, MAX_DEPLOYMENT_EXECUTIONS. Resource locks for venture, project, release, sandbox, deployment.
+
+### 11. Background Jobs
+Move off main request: asset generation, screenshots, reports, extensive analysis, non-critical QA, compilations, previews, graph updates, recomputations. Request: validate â†’ create Execution â†’ enqueue â†’ return status â†’ UI updates via polling/events.
+
+### 12. Event Stream Optimization
+Avoid per-card subscriptions, duplicate listeners, global refetch. Implement specific events: MissionSummaryChanged, VentureCardChanged, CompanyHealthChanged, OutputStatusChanged, WorkflowProgressChanged, ReleaseStatusChanged. Update only affected UI sections.
+
+### 13. List Virtualization
+Prepare large lists (ventures, missions, artifacts, executions, activity, files, releases) with pagination, virtualization where valuable, incremental loading, server-side filters/search.
+
+### 14. Asset/Image Optimization
+Audit screenshots, logos, previews, thumbnails. Create variants: thumbnail, card, preview, full. Optimized formats, lazy loading, correct dimensions, placeholders, safe cache.
+
+### 15. Code Explorer Performance
+Studio Code: load manifest â†’ directory tree â†’ selected file only. Metadata first, file on demand, diff on demand, lazy syntax highlighter, file size limits, optional server-side search index.
+
+### 16. Preview Lifecycle
+States: PENDING, STARTING, READY, IDLE, HIBERNATED, STOPPED, EXPIRED, FAILED. Hibernate/stop idle previews, release ports, preserve build/logs. Reactivate on open with health check.
+
+### 17. Performance UI
+Immediate shell, per-section skeletons, content streaming, partial states, optimistic UI only for safe ops, real event-based progress. User can navigate while other ventures build.
+
+### 18. Portfolio-Ready Contracts
+Create VenturePortfolioCard type and ListPortfolioVentures query with pagination, search, sorting, filters (lifecycle, health, activity, value status). Validate 100 cards without loading 100 full dashboards.
+
+### 19. Multi-Venture Simulation
+Fixtures for 1, 5, 10, 25, 100 venture summaries (not full projects). Operational test: 3 concurrent missions, independent outputs, different priorities, controlled failure, paused mission, active preview. Validate UI responsiveness, isolation, fairness, resource limits, failure doesn't block others.
+
+### 20. Value-Ready Data
+Prepare fields/projections for future Value Engine: opportunity score, validation status, customer evidence, revenue model, expected/current value, cost to next milestone, risk, confidence, time to market, next value milestone. Use UNKNOWN/NOT_MEASURED/INSUFFICIENT_EVIDENCE when data missing. Don't invent data.
+
+### 21. Observability
+Per-venture telemetry: executions, queue wait, duration, tokens, costs, errors, retries, build time, preview uptime, query latency, cache hit, memory, active resources. Create /lab/v2-performance internal view showing route performance, slow queries, queue, executions, concurrency, previews, memory, cache, venture isolation, budgets.
+
+### 22. Performance Regressions
+Create scripts/check-performance-budgets.ts comparing baseline vs current. Detect bundle, route latency, query, payload, memory regressions with documented tolerances. Non-zero exit on critical regressions.
+
+### 23. Tests
+Tests for: request cache, read model cache, invalidation, venture isolation, pagination, list portfolio ventures, queue priorities, concurrency limits, fairness, cancellation, preview hibernation, lazy service init, no heavy client imports, 100 venture summaries, 3 concurrent missions, failure isolation.
+
+### 24. Sequential Validation
+Run in order: npm run kill:ports â†’ clean â†’ check:v2-boundaries â†’ test â†’ build â†’ reset:dev â†’ wait readiness â†’ route/bundle/query measurements â†’ 100 venture test â†’ 3 concurrent mission test â†’ isolation test â†’ budget check â†’ cleanup.
+
+### 25. Documentation
+Create docs/v2/performance/ with all specified files: README.md, baseline.md, budgets.md, rendering-strategy.md, composition-root.md, query-optimization.md, projections.md, caching.md, venture-isolation.md, execution-queue.md, concurrency.md, background-jobs.md, preview-lifecycle.md, portfolio-contracts.md, multi-venture-simulation.md, observability.md, final-report.md
+
+### 26. Acceptance Criteria
+Must verify: baseline before/after exists, MC and Company CC load faster, Studio doesn't load full files initially, no heavy factories in client, segmented queries, pagination, light projections, venture-isolated cache with invalidation, Runtime priorities, concurrency limits, fairness, 3 missions without blocking UI, failed mission doesn't stop others, preview lifecycle, resource release, 100 VenturePortfolioCards efficient, isolation tests pass, no critical budget regressions, build exit 0.
+
+## EXISTING CODE TO REUSE
+- src/core/composition/ - composition root
+- src/core/application/ - CQRS layer (extend with new queries)
+- src/core/domain/ - domain model (don't modify unless blocker)
+- src/core/orchestration/ - workflow kernel
+- src/core/events/ - event system
+- src/core/application/company-dashboard/ - Company Command Center read model (6090)
+- scripts/lib/exclusive-execution-lock.ts, process-registry.ts, port-registry.ts
+- scripts/run-sequential-v2-validation.ts
+- lib/command-center/summary-loader.ts, lib/ventures/venture-page-summary-loader.ts (light loaders from prior crash fix)
+- app/company/[ventureId]/page.tsx, components/experience/CompanyCommandCenterView.tsx
+
+## DELIVERABLE
+Return final report with all 23 items from section 27. Only declare "PROGRAM 6100 â€” PERFORMANCE & SCALABILITY FOUNDATION VERIFICADO" and "FORGEOS â€” BASE MULTI-VENTURE ESCALABLE VERIFICADA" if evidence supports it. Do NOT start Program 6110.
+
+Read transcript for context if needed: C:\Users\RafaelGalbarroBarba\.cursor\projects\c-Users-RafaelGalbarroBarba-Projects-ForgeOS-App-Factory-ForgeOS-App-Factory-v0-1/agent-transcripts/c9e4520d-d974-4662-91a6-b7a04ead5cce/c9e4520d-d974-4662-91a6-b7a04ead5cce.jsonl

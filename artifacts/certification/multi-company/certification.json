@@ -1,0 +1,315 @@
+{
+  "program": "6150",
+  "result": "BLOCKED",
+  "declarations": [
+    "PROGRAM 6150 — MULTI-COMPANY OPERATIONAL CERTIFICATION BLOCKED.",
+    "FORGEOS — MULTI-COMPANY SCENARIO EXECUTED WITH REMAINING P0/P1 GAPS."
+  ],
+  "startedAt": "2026-07-27T09:51:13.109Z",
+  "endedAt": "2026-07-27T09:51:13.241Z",
+  "durationMs": 130,
+  "gaps": [
+    {
+      "severity": "P0",
+      "id": "missing_portfolio_command_center",
+      "message": "Program 6130 route app/portfolio/[portfolioId]/page.tsx not present"
+    },
+    {
+      "severity": "P0",
+      "id": "missing_ai_venture_ceo",
+      "message": "Program 6140 AI Venture CEO not present in V2 application/components"
+    },
+    {
+      "severity": "P1",
+      "id": "portfolio_handlers_unwired",
+      "message": "CreatePortfolio/CreateVentureBatch not registered on command bus — cert uses Portfolio aggregate in-process"
+    }
+  ],
+  "checks": [
+    {
+      "id": "prereq_portfolio_domain",
+      "status": "PASS",
+      "detail": "Portfolio aggregate present (6110)"
+    },
+    {
+      "id": "prereq_value_engine",
+      "status": "PASS",
+      "detail": "Value assessment engine present (6120)"
+    },
+    {
+      "id": "prereq_performance",
+      "status": "PASS",
+      "detail": "Performance budgets present (6100)"
+    },
+    {
+      "id": "prereq_company_cc",
+      "status": "PASS",
+      "detail": "/company/[ventureId] present (6090)"
+    },
+    {
+      "id": "prereq_portfolio_cc",
+      "status": "BLOCKED",
+      "detail": "Portfolio Command Center route missing (6130)"
+    },
+    {
+      "id": "prereq_ai_venture_ceo",
+      "status": "BLOCKED",
+      "detail": "AI Venture CEO V2 (6140) not found — advisory brief unavailable"
+    },
+    {
+      "id": "prereq_portfolio_handlers",
+      "status": "BLOCKED",
+      "detail": "Portfolio commands not on bus — cert uses domain aggregate directly (6110 partial)"
+    },
+    {
+      "id": "create_workspace",
+      "status": "PASS",
+      "detail": "ws-1785145873134-1"
+    },
+    {
+      "id": "five_companies",
+      "status": "PASS",
+      "detail": "count=5; ids=ven-1785145873137-2,ven-1785145873147-4,ven-1785145873158-6,ven-1785145873167-8,ven-1785145873173-10"
+    },
+    {
+      "id": "create_portfolio",
+      "status": "PASS",
+      "detail": "portfolioId=portfolio-rafael-ventures-lab; ventures=5"
+    },
+    {
+      "id": "company_command_center",
+      "status": "PASS",
+      "detail": "dashboardsBuilt=3"
+    },
+    {
+      "id": "portfolio_command_center_ui",
+      "status": "BLOCKED",
+      "detail": "UI route missing — read model computed in cert only"
+    }
+  ],
+  "tests": [
+    {
+      "id": "5_ventures",
+      "status": "PASS",
+      "detail": "5/5 ventures created"
+    },
+    {
+      "id": "resource_allocation",
+      "status": "PASS",
+      "detail": "4 allocations registered"
+    },
+    {
+      "id": "pause_resume",
+      "status": "PASS",
+      "detail": "ORBITA SPORTS paused=true"
+    },
+    {
+      "id": "concurrency",
+      "status": "PASS",
+      "detail": "acceptedOrQueued=3; results=ACCEPTED,ACCEPTED,ACCEPTED"
+    },
+    {
+      "id": "fairness",
+      "status": "PASS",
+      "detail": "order=ven-1785145873137-2:HIGH > ven-1785145873147-4:HIGH > ven-1785145873158-6:NORMAL"
+    },
+    {
+      "id": "preview_lifecycle",
+      "status": "PASS",
+      "detail": "previewClassification=PLAN_ONLY; no fake READY"
+    },
+    {
+      "id": "value_calculation",
+      "status": "PASS",
+      "detail": "assessVentureValue + ValueSnapshot; estimates not promoted to ACTUAL"
+    },
+    {
+      "id": "evidence_provenance",
+      "status": "PASS",
+      "detail": "every ValueEvidence has provenance + source"
+    },
+    {
+      "id": "failure_isolation",
+      "status": "PASS",
+      "detail": "failed=luxora-eyewear; peersHealthy=true"
+    },
+    {
+      "id": "isolation",
+      "status": "PASS",
+      "detail": "{\"sameVentureAccess\":\"ok\",\"crossVentureBlocked\":true,\"crossVentureMessage\":\"Venture isolation: resource belongs to ven-1785145873137-2, context is ven-1785145873147-4\",\"canAccessOwn\":true,\"cannotAccessForeign\":true,\"cacheCrossRequestLeak\":false}"
+    },
+    {
+      "id": "cache_isolation",
+      "status": "PASS",
+      "detail": "request-scoped caches do not leak across request objects / venture keys"
+    },
+    {
+      "id": "release",
+      "status": "PASS",
+      "detail": "1 release candidate(s)"
+    },
+    {
+      "id": "approvals",
+      "status": "PASS",
+      "detail": "ValueRecommendation exposes requiresApproval; irreversible types stay PENDING_APPROVAL"
+    },
+    {
+      "id": "navigation",
+      "status": "BLOCKED",
+      "detail": "companyCc=true; portfolioCc=false"
+    },
+    {
+      "id": "responsive",
+      "status": "PASS",
+      "detail": "Company CC CSS present from 6090; Portfolio CC responsive N/A until 6130"
+    },
+    {
+      "id": "accessibility",
+      "status": "PASS",
+      "detail": "Reuses 6090 company CC a11y baseline; Portfolio CC a11y blocked without 6130"
+    },
+    {
+      "id": "performance",
+      "status": "PASS",
+      "detail": "concurrentSubmitMs=58; limits loaded from 6100"
+    },
+    {
+      "id": "no_orphan_processes",
+      "status": "PASS",
+      "detail": "activeExecutions=0; allocationsReleased=4"
+    },
+    {
+      "id": "no_occupied_ports",
+      "status": "PASS",
+      "detail": "cert runtime uses DRY_RUN/PLAN_ONLY — no preview ports bound by this script"
+    }
+  ],
+  "scenarioSteps": [
+    {
+      "id": "1_create_five",
+      "title": "Create five companies in batch",
+      "status": "COMPLETED",
+      "detail": "Created 5 ventures via sequential CreateVenture (CreateVentureBatch handler absent)"
+    },
+    {
+      "id": "resource_allocations",
+      "title": "Manage resources / allocations",
+      "status": "COMPLETED",
+      "detail": "allocations=4"
+    },
+    {
+      "id": "2_start_three",
+      "title": "Start three simultaneously",
+      "status": "COMPLETED",
+      "detail": "TABLEFLOW, LUXORA EYEWEAR, LOCALGROW AI"
+    },
+    {
+      "id": "3_keep_validation",
+      "title": "Keep one in validation",
+      "status": "COMPLETED",
+      "detail": "CREATORPULSE"
+    },
+    {
+      "id": "4_pause_one",
+      "title": "Pause one",
+      "status": "COMPLETED",
+      "detail": "ORBITA SPORTS"
+    },
+    {
+      "id": "5_execute_outputs",
+      "title": "Execute outputs",
+      "status": "COMPLETED",
+      "detail": "tableflow:outputs=6; luxora-eyewear:outputs=5; localgrow-ai:outputs=5"
+    },
+    {
+      "id": "6_real_web",
+      "title": "Generate at least one real web",
+      "status": "COMPLETED",
+      "detail": "WEBSITE_OUTPUT registered via delivery registry (canonical codebase files)"
+    },
+    {
+      "id": "7_real_application",
+      "title": "Generate at least one real application",
+      "status": "COMPLETED",
+      "detail": "WEB_APPLICATION_OUTPUT + codebase registered"
+    },
+    {
+      "id": "8_backend",
+      "title": "Generate backend",
+      "status": "COMPLETED",
+      "detail": "BACKEND_OUTPUT registered"
+    },
+    {
+      "id": "9_database_schema",
+      "title": "Generate database schema",
+      "status": "COMPLETED",
+      "detail": "schema artifact + init.sql in codebase"
+    },
+    {
+      "id": "10_api_contract",
+      "title": "Generate API contract",
+      "status": "COMPLETED",
+      "detail": "API contract artifact + openapi.yaml"
+    },
+    {
+      "id": "11_previews",
+      "title": "Generate previews",
+      "status": "COMPLETED",
+      "detail": "PLAN_ONLY preview (sandbox unavailable — honest classification)"
+    },
+    {
+      "id": "12_register_evidence",
+      "title": "Register evidence",
+      "status": "COMPLETED",
+      "detail": "evidenceRecords=6"
+    },
+    {
+      "id": "13_milestones",
+      "title": "Create milestones",
+      "status": "COMPLETED",
+      "detail": "ValueMilestone per venture with evidence requirements"
+    },
+    {
+      "id": "14_value_snapshots",
+      "title": "Generate value snapshots",
+      "status": "COMPLETED",
+      "detail": "snapshots=5"
+    },
+    {
+      "id": "15_controlled_failure",
+      "title": "Register one controlled failure",
+      "status": "COMPLETED",
+      "detail": "LUXORA EYEWEAR: CONTROLLED_FAILURE: injected build worker timeout"
+    },
+    {
+      "id": "16_failure_isolation",
+      "title": "Demonstrate failure isolation",
+      "status": "COMPLETED",
+      "detail": "peer ventures retained executed outputs; failure map scoped to one ventureId"
+    },
+    {
+      "id": "17_release_candidate",
+      "title": "Create release candidate",
+      "status": "COMPLETED",
+      "detail": "releases=1"
+    },
+    {
+      "id": "18_deployment_plan",
+      "title": "Create deployment plan",
+      "status": "COMPLETED",
+      "detail": "dryRun PREVIEW plan via delivery.planDeployment"
+    },
+    {
+      "id": "19_ceo_brief",
+      "title": "Generate CEO Brief",
+      "status": "SKIPPED",
+      "detail": "CEO Brief not generated — Program 6140 missing; ValueRecommendation ADVISORY records present from 6120"
+    },
+    {
+      "id": "20_recommendations",
+      "title": "Generate recommendations",
+      "status": "COMPLETED",
+      "detail": "ValueRecommendation count=5 (6120); CEO layer absent"
+    }
+  ]
+}

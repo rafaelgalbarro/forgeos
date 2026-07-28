@@ -1,0 +1,49 @@
+/** Program 4000 — Pipeline stage definitions. */
+
+import type { ValidationStageId } from "./types";
+
+export interface StageDefinition {
+  id: ValidationStageId;
+  label: string;
+  order: number;
+  moduleUsed: string;
+}
+
+export const VALIDATION_PIPELINE: StageDefinition[] = [
+  { id: "idea", label: "Idea", order: 1, moduleUsed: "lib/domain/venture" },
+  { id: "research", label: "Research", order: 2, moduleUsed: "lib/ai-runtime + Venture Intelligence" },
+  { id: "competitors", label: "Competidores", order: 3, moduleUsed: "lib/intelligence + Research Report" },
+  { id: "market", label: "Mercado", order: 4, moduleUsed: "lib/venture-intelligence/market-score" },
+  { id: "business-model", label: "Business Model", order: 5, moduleUsed: "lib/intelligence + Discovery" },
+  { id: "pricing", label: "Pricing", order: 6, moduleUsed: "Venture sections + Intelligence" },
+  { id: "naming", label: "Naming", order: 7, moduleUsed: "Venture Factory" },
+  { id: "brand", label: "Brand", order: 8, moduleUsed: "Venture sections + Intelligence tags" },
+  { id: "logo", label: "Logo", order: 9, moduleUsed: "Capability Layer (design stub)" },
+  { id: "landing", label: "Landing", order: 10, moduleUsed: "lib/launch + Venture sections" },
+  { id: "prd", label: "PRD", order: 11, moduleUsed: "lib/ai-runtime Prompt Compiler + Product PRD" },
+  { id: "architecture", label: "Architecture", order: 12, moduleUsed: "Build Platform / Architecture" },
+  { id: "frontend-plan", label: "Frontend Plan", order: 13, moduleUsed: "Build Platform / Frontend" },
+  { id: "backend-plan", label: "Backend Plan", order: 14, moduleUsed: "Build Platform / Backend" },
+  { id: "database-plan", label: "Database Plan", order: 15, moduleUsed: "Build Platform / Database" },
+  { id: "build-context", label: "Build Context", order: 16, moduleUsed: "lib/build-platform/build-context" },
+  { id: "build-dna", label: "Build DNA", order: 17, moduleUsed: "lib/build-platform/build-dna" },
+  { id: "deployment-preview", label: "Deployment Preview", order: 18, moduleUsed: "lib/build-pipeline" },
+  { id: "investor-readiness", label: "Investor Readiness", order: 19, moduleUsed: "lib/venture-intelligence/due-diligence" },
+  { id: "go-to-market", label: "Go To Market", order: 20, moduleUsed: "lib/founder-journey + GTM sections" },
+  { id: "launch-checklist", label: "Launch Checklist", order: 21, moduleUsed: "lib/launch + Self Evolution checklist" },
+];
+
+export const FOUNDER_ZERO_DEPARTMENT_IDS = [
+  "research",
+  "product",
+  "finance",
+  "cmo",
+  "legal",
+  "architecture",
+  "backend",
+  "qa",
+  "growth",
+  "capital",
+] as const;
+
+export type FounderZeroDepartmentId = (typeof FOUNDER_ZERO_DEPARTMENT_IDS)[number];

@@ -1,0 +1,1 @@
+"use strict";exports.id=9176,exports.ids=[9176],exports.modules={69176:(a,b,c)=>{c.d(b,{createApplicationMission:()=>d});async function d(a){let{createAppProject:b}=await c.e(5530).then(c.bind(c,75530)),d=b(a,a.slice(0,40));return{projectId:d.id,href:`/application-factory/${d.id}`}}}};

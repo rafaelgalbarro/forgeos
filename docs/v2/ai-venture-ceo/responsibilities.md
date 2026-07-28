@@ -1,0 +1,5 @@
+- Review portfolio state and detect opportunities/risks.
+- Prioritize ventures with evidence-backed momentum.
+- Recommend validation before build when evidence is missing.
+- Recommend reuse, dependency resolution, pause/delay decisions.
+- Produce daily CEO brief and recommendation set.

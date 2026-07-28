@@ -1,0 +1,644 @@
+{
+  "program": "6080",
+  "ranAt": "2026-07-24T11:20:16.927Z",
+  "declaration": "FORGEOS V2 — CERTIFICATION BLOCKED",
+  "fixture": {
+    "path": "docs/architecture-v2/certification/fixtures/cert-6080-mission.json",
+    "missionId": "mission-cert-6080-aurora-ops",
+    "requestedOutputs": [
+      "COMPANY_CREATION",
+      "BRAND",
+      "WEBSITE",
+      "WEB_APP",
+      "BACKEND",
+      "DATABASE",
+      "PREVIEW",
+      "RELEASE",
+      "PREVIEW_DEPLOYMENT",
+      "OPERATIONAL_PLAN"
+    ]
+  },
+  "flow": {
+    "summary": {
+      "pass": 0,
+      "fail": 1,
+      "partial": 17,
+      "skipped": 0
+    },
+    "steps": [
+      {
+        "id": "intent",
+        "label": "Intent",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/mission-control/intention-engine.ts",
+          "C:\\Users\\RafaelGalbarroBarba\\Projects\\ForgeOS_App_Factory\\ForgeOS_App_Factory_v0_1\\docs\\architecture-v2\\certification\\fixtures\\cert-6080-mission.json"
+        ],
+        "notes": "Keyword/HEURISTIC classifyMissionIntent exists (legacy 5150). V2 CreateMission action exists but application layer typecheck/build currently FAIL.",
+        "markers": []
+      },
+      {
+        "id": "mission",
+        "label": "Mission",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/mission-control/mission-session.ts",
+          "src/presentation/actions/create-mission-action.ts",
+          "docs/architecture-v2/certification/fixtures/cert-6080-mission.json"
+        ],
+        "notes": "Generic fixture missionId=mission-cert-6080-aurora-ops. Runtime still primarily localStorage / legacy Mission Control; V2 presentation depends on broken ApplicationPorts export path.",
+        "markers": [
+          "HEURISTIC"
+        ]
+      },
+      {
+        "id": "decisions",
+        "label": "Decisions",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/mission-control/decision-center.ts"
+        ],
+        "notes": "Decision center present; seeded/heuristic options documented in 5150 gaps.",
+        "markers": []
+      },
+      {
+        "id": "plan",
+        "label": "Plan",
+        "status": "PARTIAL",
+        "evidence": [
+          "src/core/orchestration/planning/mission-execution-plan.ts"
+        ],
+        "notes": "6030 buildCanonicalMissionPlan exists with ESTIMATED costs and default DRY_RUN mode. Not proven wired end-to-end through UI for this fixture.",
+        "markers": [
+          "DRY_RUN",
+          "ESTIMATED"
+        ]
+      },
+      {
+        "id": "artifacts",
+        "label": "Artifacts",
+        "status": "PARTIAL",
+        "evidence": [
+          "src/core/delivery/artifact/registry.ts",
+          "src/core/delivery/types.ts"
+        ],
+        "notes": "6050 CanonicalArtifact + in-memory registry exist. Live mission→artifact persistence not certified.",
+        "markers": [
+          "DRY_RUN"
+        ]
+      },
+      {
+        "id": "outputs",
+        "label": "Outputs",
+        "status": "PARTIAL",
+        "evidence": [
+          "src/core/delivery/output/registry.ts",
+          "lib/creation-output/types.ts"
+        ],
+        "notes": "Dual surface: V2 delivery output registry + legacy creation-output. Dual-write not proven live.",
+        "markers": []
+      },
+      {
+        "id": "codebases",
+        "label": "Codebases",
+        "status": "PARTIAL",
+        "evidence": [
+          "src/core/delivery/codebase/registry.ts",
+          "lib/code-generation"
+        ],
+        "notes": "Canonical codebase model present; real generator path is legacy lib/code-generation.",
+        "markers": []
+      },
+      {
+        "id": "builds",
+        "label": "Builds",
+        "status": "PARTIAL",
+        "evidence": [
+          "src/core/delivery/build/registry.ts",
+          "lib/build-platform"
+        ],
+        "notes": "Build registry contracts exist. Product build of ForgeOS itself FAILED during certification (see build-procedure-evidence.json).",
+        "markers": []
+      },
+      {
+        "id": "previews",
+        "label": "Previews",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/preview-runtime",
+          "app/studio/[missionId]/preview"
+        ],
+        "notes": "Preview runtime module + studio routes exist. Live smoke NOT_RUN (build fail / port conflict).",
+        "markers": []
+      },
+      {
+        "id": "release",
+        "label": "Release",
+        "status": "PARTIAL",
+        "evidence": [
+          "src/core/delivery/types.ts",
+          "lib/build-platform/release-manager"
+        ],
+        "notes": "CanonicalRelease types exist. Release managers are local/stub — not production deployers.",
+        "markers": [
+          "STUB"
+        ]
+      },
+      {
+        "id": "preview_deployment",
+        "label": "Preview Deployment",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/preview-deployment/config.ts",
+          "lib/preview-deployment/deployment-orchestrator.ts"
+        ],
+        "notes": "ENABLE_PREVIEW_DEPLOYMENT defaults false; dry-run / plan-only is the safe default. allowProduction defaults false.",
+        "markers": [
+          "DRY_RUN"
+        ]
+      },
+      {
+        "id": "company_os",
+        "label": "Company OS",
+        "status": "PARTIAL",
+        "evidence": [
+          "app/company/page.tsx",
+          "src/presentation",
+          "app/os"
+        ],
+        "notes": "Company routes + presentation layer + /os shell exist. Named 'Company OS' change-loop product path is not fully certified as a single V2 experience.",
+        "markers": []
+      },
+      {
+        "id": "change_request",
+        "label": "Change Request",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/creation-output/change-requests.ts",
+          "src/core/delivery/lineage/change-impact.ts"
+        ],
+        "notes": "Change requests implemented in creation-output (local persistence). V2 ChangePlan analysis exists in delivery lineage.",
+        "markers": []
+      },
+      {
+        "id": "impact_analysis",
+        "label": "Impact Analysis",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/multi-output/output-impact-analysis.ts",
+          "src/core/delivery/lineage/change-impact.ts"
+        ],
+        "notes": "Legacy impact analysis uses fixed SCENARIO_MAP (not live AST). V2 analyzeArtifactChange exists for delivery kernel.",
+        "markers": [
+          "HEURISTIC",
+          "ESTIMATED"
+        ]
+      },
+      {
+        "id": "new_version",
+        "label": "New Version",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/creation-output/output-versioning.ts",
+          "src/core/delivery/types.ts"
+        ],
+        "notes": "previousVersionId / createNewVersion exist. Full approve→new version→rebuild→preview loop not smoke-tested live.",
+        "markers": []
+      },
+      {
+        "id": "new_build",
+        "label": "New Build",
+        "status": "PARTIAL",
+        "evidence": [
+          "src/core/delivery/build/registry.ts"
+        ],
+        "notes": "Contract present; live rebuild after change request NOT AUTOMATED in this certification run.",
+        "markers": [
+          "NOT_AUTOMATED"
+        ]
+      },
+      {
+        "id": "updated_preview",
+        "label": "Updated Preview",
+        "status": "PARTIAL",
+        "evidence": [
+          "lib/preview-runtime",
+          "app/studio/[missionId]/preview"
+        ],
+        "notes": "Preview surfaces exist; updated preview after new build NOT AUTOMATED / NOT_RUN.",
+        "markers": [
+          "NOT_AUTOMATED"
+        ]
+      },
+      {
+        "id": "application_ports_split",
+        "label": "Application Ports Export Coherence (6020)",
+        "status": "FAIL",
+        "evidence": [
+          "src/core/application/ports.ts",
+          "src/core/application/ports/index.ts",
+          "src/core/application/handlers/command/index.ts",
+          "docs/architecture-v2/certification/build-procedure-evidence.json"
+        ],
+        "notes": "handlers import ApplicationPorts from ../../ports (ports.ts stub) while ApplicationPorts lives in ports/index.ts — evidenced by next build type error.",
+        "markers": [
+          "STUB"
+        ]
+      }
+    ]
+  },
+  "lineage": {
+    "status": "PARTIAL",
+    "evidence": [
+      "src/core/delivery/lineage/version-graph.ts",
+      "src/core/delivery/fixtures/e2e-pipeline.ts",
+      "src/core/delivery/types.ts",
+      "docs/architecture-v2/delivery-model/lineage.md"
+    ],
+    "notes": "6050 VersionLineage + buildVersionLineage + runDeliveryPipelineE2E fixture exist (in-memory / DRY_RUN). Not proven against live remote deployments.",
+    "markers": [
+      "DRY_RUN"
+    ],
+    "demonstratedLinks": [
+      "decision/artifact → CanonicalArtifact",
+      "artifact → CanonicalOutput.sourceArtifactIds",
+      "output → CanonicalCodebase.outputId / sourceArtifactIds",
+      "codebase → CanonicalBuild.codebaseId",
+      "build → CanonicalPreview.buildId",
+      "preview/outputs/builds → CanonicalRelease",
+      "release → CanonicalDeployment.releaseId (dryRun must stay true for dry-run)"
+    ]
+  },
+  "deliveryFixtureAttempt": {
+    "status": "SKIPPED",
+    "notes": "NOT AUTOMATED in default run. Set FORGEOS_CERT_TRY_TSX=1 to attempt npx tsx delivery E2E.",
+    "markers": [
+      "DRY_RUN"
+    ]
+  },
+  "failureScenarios": [
+    {
+      "id": "provider_unavailable",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "lib/connections",
+        "docs/real-connections/dry-run.md"
+      ],
+      "notes": "Connections/real-build dry-run paths exist; no automated provider-down harness in 6080 run."
+    },
+    {
+      "id": "ai_disabled",
+      "status": "PARTIAL",
+      "automation": "SCRIPTABLE",
+      "evidence": [
+        "src/core/orchestration/planning/mission-execution-plan.ts"
+      ],
+      "notes": "Plan builder defaults DRY_RUN and fixture estimates when AI off — structural support present.",
+      "markers": [
+        "DRY_RUN",
+        "ESTIMATED"
+      ]
+    },
+    {
+      "id": "build_failure",
+      "status": "PASS",
+      "automation": "OBSERVED",
+      "evidence": [
+        "docs/architecture-v2/certification/build-procedure-evidence.json"
+      ],
+      "notes": "ForgeOS itself failed npm run build during certification — real failure evidence captured."
+    },
+    {
+      "id": "approval_rejected",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "src/core/orchestration/policies/approval-gates.ts",
+        "lib/preview-deployment",
+        "lib/mission-control/autonomous-build/approval-gates.ts"
+      ],
+      "notes": "Approval types/gates exist across layers; rejected-path E2E not executed live."
+    },
+    {
+      "id": "sandbox_timeout",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "lib/preview-runtime/sandbox-runner.ts",
+        "lib/preview-runtime/sandbox-manager.ts"
+      ],
+      "notes": "Sandbox runner exists; timeout scenario not exercised in this run."
+    },
+    {
+      "id": "deployment_failure",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "lib/preview-deployment/deployment-runner.ts",
+        "lib/preview-deployment/config.ts"
+      ],
+      "notes": "Deployment runner + dry-run defaults; failure path not live-tested. No invented remote URLs."
+    },
+    {
+      "id": "persistence_retry",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "docs/architecture-v2/persistence-audit.md",
+        "lib/mission-control/mission-repository.ts"
+      ],
+      "notes": "Persistence largely localStorage/in-memory; retry semantics not certified product-wide."
+    },
+    {
+      "id": "event_duplication",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "src/core/events/envelope.ts",
+        "docs/architecture-v2/events"
+      ],
+      "notes": "6040 event envelope/catalog present; duplication handling not E2E proven."
+    },
+    {
+      "id": "stale_version",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "src/core/delivery/types.ts",
+        "lib/creation-output/output-versioning.ts"
+      ],
+      "notes": "previousVersionId / immutability rules documented; stale-version conflict test not run."
+    },
+    {
+      "id": "user_pause_resume",
+      "status": "PARTIAL",
+      "automation": "NOT AUTOMATED",
+      "evidence": [
+        "lib/mission-control/autonomous-build/mission-pause.ts",
+        "src/core/application/commands.ts"
+      ],
+      "notes": "PauseMission/ResumeMission command names + mission-pause module exist; UX loop not smoke-tested."
+    }
+  ],
+  "security": [
+    {
+      "id": "no_secrets_in_client",
+      "status": "PARTIAL",
+      "evidence": [
+        "lib/connections/security/secret-redaction.ts",
+        "lib/code-generation/security/secret-scanner.ts",
+        "lib/preview-runtime/security/network-policy.ts"
+      ],
+      "notes": "Scanners/redaction exist. Full client bundle secret scan not completed (build failed)."
+    },
+    {
+      "id": "no_production_deploy",
+      "status": "PASS",
+      "evidence": [
+        "lib/preview-deployment/config.ts"
+      ],
+      "notes": "allowProduction defaults false; ENABLE_PREVIEW_DEPLOYMENT defaults false.",
+      "markers": [
+        "DRY_RUN"
+      ]
+    },
+    {
+      "id": "command_authorization",
+      "status": "PARTIAL",
+      "evidence": [
+        "lib/preview-runtime/security/command-allowlist.ts",
+        "src/core/application/ports/index.ts"
+      ],
+      "notes": "Sandbox command allowlist is real. Application AuthorizationPort exists but layer does not build."
+    },
+    {
+      "id": "workspace_isolation",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/core/domain/workspace",
+        "src/core/application/ports/index.ts"
+      ],
+      "notes": "Workspace contracts + canAccessWorkspace port exist; multi-tenant isolation not live-certified."
+    },
+    {
+      "id": "sandbox_isolation",
+      "status": "PARTIAL",
+      "evidence": [
+        "lib/preview-runtime/sandbox-manager.ts",
+        "docs/preview-runtime/security.md"
+      ],
+      "notes": "Process sandbox present; not full multi-tenant product isolation certification."
+    },
+    {
+      "id": "approval_enforcement",
+      "status": "PARTIAL",
+      "evidence": [
+        "lib/preview-deployment/config.ts",
+        "src/core/orchestration/policies/approval-gates.ts"
+      ],
+      "notes": "requireApproval defaults true for preview deployment policy. Fragmented across legacy + V2."
+    },
+    {
+      "id": "audit_trail",
+      "status": "PARTIAL",
+      "evidence": [
+        "lib/preview-deployment/deployment-audit.ts",
+        "src/core/events"
+      ],
+      "notes": "Deployment audit + event catalogs exist; global mission audit bus not certified."
+    },
+    {
+      "id": "safe_error_messages",
+      "status": "SKIPPED",
+      "evidence": [],
+      "notes": "NOT AUTOMATED — no live UI error-path review in this run (smoke NOT_RUN).",
+      "markers": [
+        "NOT_AUTOMATED"
+      ]
+    }
+  ],
+  "uxPath": [
+    {
+      "route": "/mission-control",
+      "purpose": "Start mission",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    },
+    {
+      "route": "/mission-control/[missionId]",
+      "purpose": "Mission detail / decisions",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    },
+    {
+      "route": "/studio/[missionId]",
+      "purpose": "See creations / outputs",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    },
+    {
+      "route": "/studio/[missionId]/preview",
+      "purpose": "Try preview",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    },
+    {
+      "route": "/studio/[missionId]/code",
+      "purpose": "Code / version surfaces",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    },
+    {
+      "route": "/company",
+      "purpose": "Company OS overview",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    },
+    {
+      "route": "/os/creator",
+      "purpose": "Creator without Factory lab",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    },
+    {
+      "route": "/deployments",
+      "purpose": "Publish preview / deployment history",
+      "status": "EXISTS_ROUTE",
+      "verifiedLive": false
+    }
+  ],
+  "legacyCompatibility": {
+    "evidence": [
+      "docs/architecture-v2/experience-map.md",
+      "lib/navigation/sidebar-items.ts"
+    ],
+    "notes": "Experience map inventories Core/Legacy/Lab routes. Live HTTP status not verified (smoke NOT_RUN). Legacy routes not claimed broken without evidence; not claimed healthy without HTTP checks.",
+    "status": "PARTIAL"
+  },
+  "programs": [
+    {
+      "program": "6000",
+      "status": "PARTIAL",
+      "evidence": [
+        "docs/architecture-v2"
+      ]
+    },
+    {
+      "program": "6010",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/core/domain",
+        "src/core/domain/README.md"
+      ],
+      "markers": [
+        "STUB"
+      ]
+    },
+    {
+      "program": "6020",
+      "status": "FAIL",
+      "evidence": [
+        "src/core/application",
+        "build-procedure-evidence.json"
+      ],
+      "notes": "ApplicationPorts export split breaks build"
+    },
+    {
+      "program": "6030",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/core/orchestration"
+      ],
+      "markers": [
+        "ESTIMATED",
+        "DRY_RUN"
+      ]
+    },
+    {
+      "program": "6040",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/core/events"
+      ]
+    },
+    {
+      "program": "6050",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/core/delivery",
+        "docs/architecture-v2/delivery-model"
+      ]
+    },
+    {
+      "program": "6060",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/presentation",
+        "app/company"
+      ]
+    },
+    {
+      "program": "6070",
+      "status": "PARTIAL",
+      "evidence": [
+        "src/core/migration",
+        "docs/architecture-v2/migration"
+      ]
+    },
+    {
+      "program": "6080",
+      "status": "IN_PROGRESS",
+      "evidence": [
+        "docs/architecture-v2/certification",
+        "scripts/certify-v2-e2e.js"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "id": "flow_fail_steps",
+      "severity": "HIGH",
+      "technicalOwner": "application + integration",
+      "repair": "Resolve FAIL steps in e2e-evidence.json (notably ApplicationPorts export coherence and any missing modules).",
+      "closureCriteria": "All critical flow steps PASS or justified SKIPPED with owner sign-off; zero unexplained FAIL."
+    },
+    {
+      "id": "product_build_fail",
+      "severity": "CRITICAL",
+      "technicalOwner": "integration (package.json/tsconfig) + application (ports exports)",
+      "repair": "Fix ApplicationPorts export so handlers import from ports/index; restore npm run build green.",
+      "closureCriteria": "npm run build exit 0 after clean; typecheck exit 0.",
+      "evidence": [
+        "docs/architecture-v2/certification/build-procedure-evidence.json"
+      ]
+    },
+    {
+      "id": "missing_npm_scripts",
+      "severity": "HIGH",
+      "technicalOwner": "integration",
+      "repair": "Add architecture:check, typecheck, and test scripts; wire package tests.",
+      "closureCriteria": "package.json scripts exist and exit 0 on clean tree."
+    },
+    {
+      "id": "live_smoke_not_run",
+      "severity": "HIGH",
+      "technicalOwner": "certification + platform",
+      "repair": "After green build, sequential reset:dev and smoke Mission Control / Studio / Company / Deployments.",
+      "closureCriteria": "HTTP 200 evidence for UX route checklist recorded in build-procedure-evidence.json."
+    },
+    {
+      "id": "unbroken_live_lineage",
+      "severity": "HIGH",
+      "technicalOwner": "delivery + mission-control",
+      "repair": "Wire generic mission fixture through live Intent→Deployment with VersionLineage snapshot persisted.",
+      "closureCriteria": "Artifact→Deployment path recorded for mission-cert-6080-aurora-ops without DEMO-only markers on critical links."
+    }
+  ],
+  "honestyNotes": [
+    "No remote URLs invented.",
+    "No live provider credentials assumed.",
+    "PARTIAL means contracts/modules exist but live E2E proof is incomplete.",
+    "Prefer BLOCKED over false CERTIFIED."
+  ]
+}

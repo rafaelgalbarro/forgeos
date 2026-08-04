@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import sqlite3
+import sys
 import threading
 import time
 import uuid
@@ -14,6 +16,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+
+# Prefer official IBKR TWS API pythonclient when available.
+# Set IBKR_TWS_API_PYTHONPATH to e.g. C:\\TWS API\\source\\pythonclient
+# so ibapi is imported from the official desktop installation.
+official_api_path = os.getenv("IBKR_TWS_API_PYTHONPATH", "").strip()
+if official_api_path and Path(official_api_path).exists():
+    if official_api_path not in sys.path:
+        sys.path.insert(0, official_api_path)
+
 from ibapi.client import EClient
 from ibapi.contract import Contract
 from ibapi.order import Order
@@ -146,7 +157,11 @@ class IBKRClient(EWrapper, EClient):
         self.account_done = threading.Event()
         self.positions_done = threading.Event()
         self.orders_done = threading.Event()
+        self.history_done = threading.Event()
+        self.history_bars: dict[int, list[dict[str, Any]]] = {}
+        self.history_meta: dict[str, Any] = {}
         self.reader_thread: threading.Thread | None = None
+        self._history_lock = threading.Lock()
 
     def nextValidId(self, orderId: int) -> None:
         self.next_order_id = orderId
@@ -156,6 +171,9 @@ class IBKRClient(EWrapper, EClient):
 
     def error(self, reqId, errorCode, errorString, advancedOrderRejectJson="") -> None:
         self.errors.append({"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson})
+        # Hard historical-data failures should unblock waiters (never invent bars).
+        if reqId in self.history_bars and int(errorCode) in {162, 200, 354, 366, 420, 10168}:
+            self.history_done.set()
 
     def accountSummary(self, reqId, account, tag, value, currency) -> None:
         self.account_data.setdefault(account, {})[tag] = {"value": value, "currency": currency}
@@ -192,6 +210,22 @@ class IBKRClient(EWrapper, EClient):
     def openOrderEnd(self) -> None:
         self.orders_done.set()
 
+    def historicalData(self, reqId, bar) -> None:
+        self.history_bars.setdefault(reqId, []).append({
+            "date": bar.date,
+            "open": float(bar.open),
+            "high": float(bar.high),
+            "low": float(bar.low),
+            "close": float(bar.close),
+            "volume": float(bar.volume) if bar.volume is not None else None,
+            "barCount": int(bar.barCount) if getattr(bar, "barCount", None) is not None else None,
+            "average": float(bar.average) if getattr(bar, "average", None) is not None else None,
+        })
+
+    def historicalDataEnd(self, reqId: int, start: str, end: str) -> None:
+        self.history_meta = {"reqId": reqId, "start": start, "end": end}
+        self.history_done.set()
+
     def connect_gateway(self) -> dict[str, Any]:
         if not self.isConnected():
             self.connect(settings.ibkr_host, settings.ibkr_port, clientId=settings.ibkr_client_id)
@@ -212,8 +246,11 @@ class IBKRClient(EWrapper, EClient):
         return {
             "connected": self.isConnected(),
             "nextOrderIdReady": self.next_order_id is not None,
+            "nextValidId": self.next_order_id,
             "managedAccounts": self.accounts,
             "recentErrors": self.errors[-10:],
+            "ibkrReadOnly": settings.ibkr_read_only,
+            "liveTradingEnabled": settings.live_trading_enabled,
         }
 
     def account_summary(self) -> dict[str, Any]:
@@ -241,10 +278,84 @@ class IBKRClient(EWrapper, EClient):
         self.ensure_connected()
         self.orders_data = []
         self.orders_done.clear()
-        self.reqOpenOrders()
-        if not self.orders_done.wait(10):
-            raise TimeoutError("Timeout leyendo órdenes")
+        # reqAllOpenOrders reliably ends with openOrderEnd even when empty.
+        self.reqAllOpenOrders()
+        if not self.orders_done.wait(15):
+            # Empty book often still returns []; treat soft timeout as empty snapshot.
+            return list(self.orders_data)
         return self.orders_data
+
+    def historical_bars(
+        self,
+        symbol: str,
+        *,
+        duration: str = "1 M",
+        bar_size: str = "1 day",
+        what_to_show: str = "TRADES",
+        currency: str = "USD",
+        exchange: str = "SMART",
+        use_rth: int = 1,
+    ) -> dict[str, Any]:
+        """
+        READ_ONLY historical bars via reqHistoricalData.
+        Never calls placeOrder. Does not flip IBKR_READ_ONLY / LIVE_TRADING_ENABLED.
+        Empty bars are returned as-is when TWS lacks market-data permissions — never invented.
+        """
+        with self._history_lock:
+            self.ensure_connected()
+            req_id = 9201
+            self.history_bars = {req_id: []}
+            self.history_meta = {}
+            self.history_done.clear()
+            before_errors = len(self.errors)
+            contract = Contract()
+            contract.symbol = symbol.upper().strip()
+            contract.secType = "STK"
+            contract.currency = currency.upper().strip() or "USD"
+            contract.exchange = exchange.upper().strip() or "SMART"
+            self.reqHistoricalData(
+                req_id,
+                contract,
+                "",
+                duration,
+                bar_size,
+                what_to_show,
+                use_rth,
+                1,
+                False,
+                [],
+            )
+            finished = self.history_done.wait(20)
+            bars = list(self.history_bars.get(req_id, []))
+            recent_errors = self.errors[before_errors:]
+            note = (
+                f"READ_ONLY historical bars via reqHistoricalData ({len(bars)} bars). "
+                "Flags unchanged: IBKR_READ_ONLY / LIVE_TRADING_ENABLED not flipped. Zero orders."
+            )
+            if not bars:
+                note = (
+                    "NO_DATA — empty historical bars (timeout, pacing, or TWS market-data subscription). "
+                    "Bars are never invented. Route is read-only."
+                )
+            if not finished and not bars:
+                note = "NO_DATA — historicalDataEnd timeout; bars not invented."
+            return {
+                "symbol": contract.symbol,
+                "duration": duration,
+                "barSize": bar_size,
+                "whatToShow": what_to_show,
+                "currency": contract.currency,
+                "exchange": contract.exchange,
+                "bars": bars,
+                "count": len(bars),
+                "meta": self.history_meta,
+                "recentErrors": recent_errors[-5:],
+                "ibkrReadOnly": settings.ibkr_read_only,
+                "liveTradingEnabled": settings.live_trading_enabled,
+                "orderExecution": "disabled" if settings.ibkr_read_only or not settings.live_trading_enabled else "gated",
+                "mode": "READ_ONLY",
+                "note": note,
+            }
 
     def place_limit_order(self, proposal: dict[str, Any]) -> int:
         self.ensure_connected()
@@ -387,6 +498,44 @@ def orders():
     try:
         return ibkr.open_orders()
     except Exception as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.get("/api/ibkr/history", dependencies=auth)
+def history(
+    symbol: str = "AAPL",
+    duration: str = "1 M",
+    barSize: str = "1 day",
+    whatToShow: str = "TRADES",
+    currency: str = "USD",
+    exchange: str = "SMART",
+):
+    """
+    READ_ONLY historical bars (reqHistoricalData).
+    Does not place orders and does not change LIVE_TRADING_ENABLED / IBKR_READ_ONLY.
+    """
+    cleaned = symbol.strip().upper()
+    if not cleaned or len(cleaned) > 20:
+        raise HTTPException(400, "symbol inválido")
+    allowed_durations = {"1 D", "5 D", "1 W", "2 W", "1 M", "3 M", "6 M", "1 Y"}
+    allowed_bars = {"1 min", "5 mins", "15 mins", "1 hour", "1 day"}
+    if duration not in allowed_durations:
+        raise HTTPException(400, f"duration no permitida; use una de {sorted(allowed_durations)}")
+    if barSize not in allowed_bars:
+        raise HTTPException(400, f"barSize no permitida; use una de {sorted(allowed_bars)}")
+    try:
+        result = ibkr.historical_bars(
+            cleaned,
+            duration=duration,
+            bar_size=barSize,
+            what_to_show=whatToShow,
+            currency=currency,
+            exchange=exchange,
+        )
+        audit("IBKR_HISTORY_READ", cleaned, {"count": result.get("count", 0), "duration": duration, "barSize": barSize})
+        return result
+    except Exception as exc:
+        audit("IBKR_HISTORY_FAILED", cleaned, {"error": str(exc)})
         raise HTTPException(503, str(exc)) from exc
 
 

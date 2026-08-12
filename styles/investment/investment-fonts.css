@@ -1,0 +1,5 @@
+/* Investment routes — system font stack (no external font requests) */
+[data-product="forgeos-investment"],
+[data-product="forgeos-investment"] * {
+  font-family: system-ui, -apple-system, sans-serif;
+}

@@ -1,0 +1,106 @@
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(4, 8, 14, 0.55);
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 70vh;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0));
+  border-top: 1px solid #2a3d53;
+  background: linear-gradient(180deg, #0e1622, #090d12);
+  border-radius: 16px 16px 0 0;
+  color: #dde9f7;
+}
+
+.sheetHandle {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 2px;
+  background: #3a5068;
+}
+
+.sheetKicker {
+  margin: 0;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f8b84e;
+}
+
+.sheetTitle {
+  margin: 4px 0 8px;
+  font-size: 1.1rem;
+}
+
+.sheetReason {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: #9fb4c9;
+  line-height: 1.4;
+}
+
+.sheetMeta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 0.75rem;
+}
+
+.sheetMeta dt {
+  color: #7a92a8;
+  margin: 0;
+}
+
+.sheetMeta dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheetActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btnApprove,
+.btnReject {
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnApprove {
+  background: rgba(89, 196, 142, 0.2);
+  color: #59c48e;
+  border: 1px solid rgba(89, 196, 142, 0.45);
+}
+
+.btnReject {
+  background: rgba(226, 91, 106, 0.15);
+  color: #e25b6a;
+  border: 1px solid rgba(226, 91, 106, 0.4);
+}
+
+.sheetMore {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: #7a92a8;
+}
+
+@media (min-width: 768px) {
+  .sheetOverlay {
+    display: none;
+  }
+}

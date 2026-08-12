@@ -18,6 +18,11 @@ out/
 # production / build
 dist/
 build/
+# Keep domain/delivery Build aggregates (source modules, not compile output)
+!src/core/delivery/build/
+!src/core/delivery/build/**
+!src/core/domain/build/
+!src/core/domain/build/**
 
 # misc
 .DS_Store
@@ -34,6 +39,15 @@ Thumbs.db
 .forgeos/locks/
 .forgeos/registry/
 .forgeos/v2-store/
+.forgeos/reports/
+.forgeos/research/
+.forgeos/investment/
+.forgeos-trading-state.json
+.forgeos-trading-state.json.tmp
+
+# Local runtime snapshots / caches (outside Next watch graph)
+.runtime/
+var/
 
 # debug / logs
 npm-debug.log*

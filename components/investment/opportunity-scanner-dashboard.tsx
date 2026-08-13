@@ -29,7 +29,16 @@ type CenterApiResponse = OpportunityCenterSnapshot & {
       takeProfit: number;
       side: "BUY" | "SELL" | "HOLD";
       news: Array<{ title: string; source: string; sentiment: string; hoursAgo: number }>;
-      badges?: Array<"INSIDER BUY" | "SHORT SQUEEZE" | "OPTIONS FLOW" | "CATALYST" | "MACRO CAUTION">;
+      badges?: Array<
+        | "INSIDER BUY"
+        | "SHORT SQUEEZE"
+        | "OPTIONS FLOW"
+        | "CATALYST"
+        | "MACRO CAUTION"
+        | "GAP UP"
+        | "GAP DOWN"
+        | "MOMENTUM"
+      >;
       macroCaution24h?: boolean;
       confluenceLabel?: string;
       confluenceRatio?: string;
@@ -42,6 +51,36 @@ type CenterApiResponse = OpportunityCenterSnapshot & {
 };
 
 const POLL_MS = 8_000;
+
+function badgeLabel(badge: string): string {
+  switch (badge) {
+    case "INSIDER BUY":
+      return "🔴 INSIDER BUY";
+    case "SHORT SQUEEZE":
+      return "🟡 SHORT SQUEEZE";
+    case "OPTIONS FLOW":
+      return "🟣 OPTIONS FLOW";
+    case "CATALYST":
+      return "🟢 CATALYST";
+    case "GAP UP":
+      return "⚡ GAP UP";
+    case "GAP DOWN":
+      return "⚡ GAP DOWN";
+    case "MOMENTUM":
+      return "📈 MOMENTUM";
+    default:
+      return badge;
+  }
+}
+
+function badgeClassName(badge: string): string {
+  if (badge === "MACRO CAUTION" || badge === "GAP DOWN") return styles.oppInstBadgeCaution;
+  if (badge === "INSIDER BUY" || badge === "CATALYST" || badge === "GAP UP") return styles.oppInstBadgeBull;
+  if (badge === "SHORT SQUEEZE") return styles.oppInstBadgeSqueeze;
+  if (badge === "OPTIONS FLOW") return styles.oppInstBadgeFlow;
+  if (badge === "MOMENTUM") return styles.oppInstBadgeMomentum;
+  return styles.oppInstBadgeNeutral;
+}
 
 function isToday(iso: string): boolean {
   const d = new Date(iso);
@@ -217,17 +256,8 @@ export function OpportunityScannerDashboard() {
                     ) : null}
                     {(opp.badges?.length ?? 0) > 0
                       ? opp.badges!.map((badge) => (
-                          <span
-                            key={badge}
-                            className={
-                              badge === "MACRO CAUTION"
-                                ? styles.oppInstBadgeCaution
-                                : badge === "INSIDER BUY" || badge === "CATALYST"
-                                  ? styles.oppInstBadgeBull
-                                  : styles.oppInstBadgeNeutral
-                            }
-                          >
-                            {badge}
+                          <span key={badge} className={badgeClassName(badge)}>
+                            {badgeLabel(badge)}
                           </span>
                         ))
                       : null}

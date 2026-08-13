@@ -1,12 +1,14 @@
 import "server-only";
 
 import { getFullMarketAnalysis } from "@/lib/market-data/full-analysis";
-import type { EnhancedOpportunity } from "@/lib/market-data/types";
+import type { EnhancedOpportunity, InstitutionalBadge } from "@/lib/market-data/types";
 import { getTickerUniverse, getScannerConfig } from "@/lib/market-data/ticker-universe";
+import { getActiveCandidateTickers } from "@/lib/market-data/candidate-store";
 import {
   computeRsi,
   getBatchPrices,
   getDailyBars,
+  getTickerInfo,
   type YahooQuote,
 } from "@/lib/market-data/yahoo-finance";
 import { GroqAgent, isGroqConfigured, runGroqConcurrent } from "@/lib/ai/groq-agent";
@@ -27,6 +29,11 @@ import {
   applyConfluenceToScore,
   mtfToAgentContext,
 } from "@/lib/market-data/multi-timeframe";
+import {
+  applyMlScannerScoreMultiplier,
+  hourEtFromIso,
+  recordMlSignal,
+} from "@/lib/ml/signal-trainer";
 
 export type Phase1Candidate = {
   ticker: string;
@@ -48,17 +55,22 @@ function notAt52WeekExtreme(q: YahooQuote): boolean {
   return true;
 }
 
-/** FASE 1 — filtro matemático sobre universo completo. */
-export async function runPhase1MathFilter(tickers: readonly string[]): Promise<Phase1Candidate[]> {
+/** FASE 1 — filtro matemático sobre universo o pool diario. */
+export async function runPhase1MathFilter(
+  tickers: readonly string[],
+  opts?: { minChangePct?: number; minRelVol?: number; skipRsiMidBand?: boolean },
+): Promise<Phase1Candidate[]> {
   const started = Date.now();
   const quotes = await getBatchPrices(tickers);
   const preFiltered: Phase1Candidate[] = [];
+  const minChange = opts?.minChangePct ?? 1.5;
+  const minRel = opts?.minRelVol ?? 1.5;
 
   for (const [ticker, quote] of quotes) {
-    if (Math.abs(quote.changePct) < 1.5) continue;
+    if (Math.abs(quote.changePct) < minChange) continue;
     const rel = relativeVolume(quote);
-    if (rel < 1.5) continue;
-    if (!notAt52WeekExtreme(quote)) continue;
+    if (rel < minRel) continue;
+    if (minChange >= 1.5 && !notAt52WeekExtreme(quote)) continue;
     preFiltered.push({ ticker, quote, rsi: null, relativeVolume: rel });
   }
 
@@ -72,7 +84,8 @@ export async function runPhase1MathFilter(tickers: readonly string[]): Promise<P
     const closes = bars.map((b) => b.close);
     const rsi = computeRsi(closes);
     if (rsi == null) continue;
-    if (rsi >= 35 && rsi <= 65) continue;
+    // Keep RSI 30–40 (oversold at support). Drop only the mid-band on full-universe scans.
+    if (!opts?.skipRsiMidBand && rsi > 40 && rsi < 60) continue;
     withRsi.push({ ...c, rsi });
     if (withRsi.length >= cap) break;
   }
@@ -89,7 +102,11 @@ export async function runPhase2GroqScoring(candidates: readonly Phase1Candidate[
     console.warn("[MarketScanner] Fase 2 omitida — GROQ_API_KEY no configurada");
     return candidates.map((c) => ({
       ticker: c.ticker,
-      score: Math.min(100, Math.abs(c.quote.changePct) * 10 + (c.rsi != null && (c.rsi < 35 || c.rsi > 65) ? 15 : 0)),
+      score: Math.min(
+        100,
+        Math.abs(c.quote.changePct) * 10 +
+          (c.rsi != null && c.rsi >= 30 && c.rsi <= 40 ? 15 : c.rsi != null && (c.rsi < 30 || c.rsi > 70) ? 10 : 0),
+      ),
       direction: (c.rsi != null && c.rsi < 35 ? "BUY" : c.rsi != null && c.rsi > 65 ? "SELL" : "HOLD") as "BUY" | "SELL" | "HOLD",
       reasoning: `Math fallback RSI=${c.rsi?.toFixed(0) ?? "N/A"}`,
       patternName: undefined,
@@ -250,7 +267,23 @@ export async function runPhase3Confirmation(
       const baseScore = Math.round(
         item.score + (sentimentAgg ? Math.min(15, Math.max(-10, sentimentAgg.compositeScore / 5)) : 0),
       );
-      const score = applyConfluenceToScore(baseScore, mtf);
+      let score = applyConfluenceToScore(baseScore, mtf);
+
+      const rsiVal = analysis.technicals.momentum.rsi;
+      const nowIso = new Date().toISOString();
+      score = applyMlScannerScoreMultiplier({
+        baseScore: score,
+        hourEt: hourEtFromIso(nowIso),
+        vix: macroCtx?.vix.price ?? null,
+        flags: {
+          rsiOversold: rsiVal != null && rsiVal < 30,
+          rsiOverbought: rsiVal != null && rsiVal > 70,
+          squeeze: !!analysis.technicals.volatility.squeeze?.active,
+          goldenCross: /golden/i.test(item.patternName ?? ""),
+          deathCross: /death/i.test(item.patternName ?? ""),
+          volumeSpike: (analysis.technicals.volume.relativeVolume ?? 0) > 2,
+        },
+      });
 
       const opp: EnhancedOpportunity = {
         ticker: item.ticker,
@@ -277,6 +310,29 @@ export async function runPhase3Confirmation(
         mtfWeakSignal: mtf?.weakSignal,
       };
       opportunities.push(opp);
+
+      if (side === "BUY" || side === "SELL") {
+        void getTickerInfo(item.ticker)
+          .then((info) => {
+            recordMlSignal({
+              ticker: item.ticker,
+              direction: side,
+              confidence: signal.confidence,
+              pattern: item.patternName ?? null,
+              sector: info?.sector ?? null,
+              vix: macroCtx?.vix.price ?? null,
+              source: "market-scanner",
+              indicators: {
+                rsi: rsiVal,
+                squeezeActive: !!analysis.technicals.volatility.squeeze?.active,
+                relativeVolume: analysis.technicals.volume.relativeVolume ?? null,
+                goldenCross: /golden/i.test(item.patternName ?? ""),
+                deathCross: /death/i.test(item.patternName ?? ""),
+              },
+            });
+          })
+          .catch(() => undefined);
+      }
 
       phases.push({
         phase: 3,
@@ -311,6 +367,58 @@ export async function runPhase3Confirmation(
   return { opportunities, phases };
 }
 
+function applyTapeAndRsiScoring<
+  T extends {
+    ticker: string;
+    score: number;
+    signals: readonly string[];
+    badges?: readonly InstitutionalBadge[];
+  },
+>(opps: T[], phase1: readonly Phase1Candidate[]): T[] {
+  const byTicker = new Map(phase1.map((c) => [c.ticker, c]));
+  return opps.map((opp) => {
+    const c = byTicker.get(opp.ticker);
+    if (!c) return opp;
+    const extraBadges: InstitutionalBadge[] = [];
+    const extraSignals: string[] = [];
+    let delta = 0;
+    const gap = Math.abs(c.quote.changePct);
+    if (gap >= 3 && c.relativeVolume >= 1.5) {
+      extraBadges.push(c.quote.changePct >= 0 ? "GAP UP" : "GAP DOWN");
+      delta += 20;
+      extraSignals.push(`Gap ${c.quote.changePct.toFixed(1)}% vol ${c.relativeVolume.toFixed(1)}x`);
+    }
+    if (c.relativeVolume >= 3) {
+      extraBadges.push("MOMENTUM");
+      extraSignals.push(`Volumen ${c.relativeVolume.toFixed(1)}x media`);
+    }
+    if (c.rsi != null && c.rsi >= 30 && c.rsi <= 40) {
+      delta += 15;
+      extraSignals.push(`RSI oversold ${c.rsi.toFixed(0)} en soporte`);
+    }
+    if (delta === 0 && extraBadges.length === 0) return opp;
+    return {
+      ...opp,
+      score: Math.max(0, Math.min(100, Math.round(opp.score + delta))),
+      signals: [...opp.signals, ...extraSignals],
+      badges: [...new Set([...(opp.badges ?? []), ...extraBadges])],
+    };
+  });
+}
+
+async function applyVixGlobalPenalty<T extends { score: number; signals: readonly string[] }>(
+  opps: T[],
+): Promise<T[]> {
+  const macro = await getMacroContext().catch(() => null);
+  const vix = macro?.vix.price ?? null;
+  if (vix == null || vix <= 30) return opps;
+  return opps.map((opp) => ({
+    ...opp,
+    score: Math.max(0, Math.round(opp.score - 10)),
+    signals: [...opp.signals, `VIX ${vix.toFixed(0)} > 30`],
+  }));
+}
+
 /** Pipeline completo 3 fases. */
 export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
   const started = Date.now();
@@ -321,9 +429,19 @@ export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
   let phase1: Phase1Candidate[] = [];
 
   try {
-    const universe = await getTickerUniverse();
-    universeSize = universe.tickers.length;
-    phase1 = await runPhase1MathFilter(universe.tickers);
+    const pool = getActiveCandidateTickers();
+    const universe = pool.length >= 10 ? null : await getTickerUniverse();
+    const tickers = pool.length >= 10 ? pool : universe!.tickers;
+    universeSize = universe?.tickers.length ?? pool.length;
+    phase1 = await runPhase1MathFilter(
+      tickers,
+      pool.length >= 10
+        ? { minChangePct: 0.3, minRelVol: 0.8, skipRsiMidBand: true }
+        : undefined,
+    );
+    console.log(
+      `[MarketScanner] pool=${pool.length} scanning=${tickers.length} (daily candidates ${pool.length >= 10 ? "ON" : "fallback universe"})`,
+    );
     for (const c of phase1) {
       phases.push({
         phase: 1,
@@ -355,7 +473,11 @@ export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
 
   opportunities.sort((a, b) => b.score - a.score);
 
-  const enriched = await enrichOpportunitiesWithInstitutional(opportunities);
+  const enriched = applyTapeAndRsiScoring(
+    await enrichOpportunitiesWithInstitutional(opportunities),
+    phase1,
+  );
+  const withVix = await applyVixGlobalPenalty(enriched);
 
   const snapshot: MultiScannerSnapshot = {
     scannedAt: new Date().toISOString(),
@@ -363,8 +485,8 @@ export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
     universeSize,
     phase1Count: phase1.length,
     phase2Count: Math.min(phase2.length, getScannerConfig().maxPhase2),
-    phase3Count: enriched.length,
-    opportunities: enriched,
+    phase3Count: withVix.length,
+    opportunities: withVix,
     phases,
     errors,
   };

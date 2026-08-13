@@ -139,7 +139,10 @@ export type InstitutionalBadge =
   | "SHORT SQUEEZE"
   | "OPTIONS FLOW"
   | "CATALYST"
-  | "MACRO CAUTION";
+  | "MACRO CAUTION"
+  | "GAP UP"
+  | "GAP DOWN"
+  | "MOMENTUM";
 
 export type EnhancedOpportunity = {
   readonly ticker: string;

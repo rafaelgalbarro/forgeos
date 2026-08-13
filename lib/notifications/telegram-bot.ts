@@ -290,6 +290,21 @@ export async function notifyPortfolioDefensiveMode(params: {
   await sendTelegramMessage(lines.join("\n"));
 }
 
+/** Scanner session briefing (Europe open / US premarket / close). */
+export async function notifyScannerBriefing(params: {
+  title: string;
+  lines: string[];
+}): Promise<void> {
+  if (!notifyEnabled("signal") && !notifyEnabled("alert")) return;
+  const body = params.lines.slice(0, 12).join("\n") || "NO_DATA";
+  await sendTelegramMessage(`${params.title}\n${body}`, [
+    [
+      { text: "📊 VER DASHBOARD", callback_data: "report_dashboard" },
+      { text: "📈 OPPORTUNITIES", callback_data: "report_portfolio" },
+    ],
+  ]);
+}
+
 /** Poll updates (long polling) — used by background poller. */
 export async function getTelegramUpdates(offset?: number): Promise<
   Array<{

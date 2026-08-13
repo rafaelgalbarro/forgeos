@@ -3,11 +3,18 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { getBatchPrices } from "@/lib/market-data/yahoo-finance";
+import { allEuropeTickers, isEuropeTicker } from "@/lib/market-data/europe-indices";
 
 const CACHE_DIR = path.resolve(process.cwd(), ".forgeos", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "ticker-universe.json");
 
-export type UniverseSource = "SP500" | "NASDAQ" | "NYSE" | "MERGED";
+export type UniverseSource =
+  | "SP500"
+  | "NASDAQ"
+  | "NYSE"
+  | "RUSSELL2000"
+  | "EUROPE"
+  | "MERGED";
 
 export type TickerUniverseCache = {
   updatedAt: string;
@@ -29,8 +36,9 @@ function scannerNum(name: string, fallback: number): number {
 export function getScannerConfig() {
   return {
     universe: scannerEnv("SCAN_UNIVERSE", "ALL").toUpperCase(),
-    minPrice: scannerNum("MIN_PRICE", 1),
-    minVolume: scannerNum("MIN_VOLUME", 500_000),
+    minPrice: scannerNum("MIN_PRICE", 0.1),
+    minVolume: scannerNum("MIN_VOLUME", 100_000),
+    maxSpreadPct: scannerNum("MAX_SPREAD_PCT", 1),
     maxPhase2: scannerNum("MAX_TICKERS_PHASE2", 50),
     maxPhase3: scannerNum("MAX_TICKERS_PHASE3", 10),
   };
@@ -41,6 +49,13 @@ function isUsTickerSymbol(symbol: string): boolean {
   if (symbol.includes(".")) return false;
   if (symbol.endsWith("F") && symbol.length > 4) return false;
   return true;
+}
+
+function isValidUniverseSymbol(symbol: string): boolean {
+  const upper = symbol.trim().toUpperCase();
+  if (isEuropeTicker(upper)) return true;
+  if (/\.(VI|OL|IR|AT)$/.test(upper)) return true;
+  return isUsTickerSymbol(upper);
 }
 
 async function fetchSp500(): Promise<string[]> {
@@ -76,6 +91,97 @@ async function fetchNasdaqScreener(exchange?: "nasdaq" | "nyse"): Promise<string
   return (data.data?.rows ?? [])
     .map((r) => String(r.symbol ?? "").trim().toUpperCase())
     .filter(isUsTickerSymbol);
+}
+
+async function fetchRussell2000(): Promise<string[]> {
+  const url =
+    "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/1467271812596.ajax?fileType=csv&fileName=IWM_holdings&dataType=fund";
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (ForgeOS Investment Scanner)", Accept: "text/csv" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!res.ok) return [];
+    const text = await res.text();
+    const out: string[] = [];
+    for (const line of text.split(/\r?\n/)) {
+      const cols = line.split(",");
+      const raw = (cols[0] ?? "").replace(/"/g, "").trim().toUpperCase();
+      if (isUsTickerSymbol(raw)) out.push(raw);
+    }
+    return [...new Set(out)];
+  } catch {
+    return [];
+  }
+}
+
+const ISHARES_EXCHANGE_SUFFIX: Record<string, string> = {
+  XETRA: ".DE",
+  "DEUTSCHE BOERSE AG": ".DE",
+  "LONDON STOCK EXCHANGE": ".L",
+  "EURONEXT PARIS": ".PA",
+  "BOLSA DE MADRID": ".MC",
+  "MADRID STOCK EXCHANGE": ".MC",
+  "SIX SWISS EXCHANGE": ".SW",
+  "EURONEXT AMSTERDAM": ".AS",
+  "BORSA ITALIANA": ".MI",
+  "NASDAQ COPENHAGEN": ".CO",
+  "NASDAQ STOCKHOLM": ".ST",
+  "NASDAQ HELSINKI": ".HE",
+  "EURONEXT BRUSSELS": ".BR",
+  "EURONEXT LISBON": ".LS",
+  "WIENER BOERSE": ".VI",
+  "OSLO BORS": ".OL",
+  "IRISH STOCK EXCHANGE": ".IR",
+  "ATHENS STOCK EXCHANGE": ".AT",
+};
+
+function mapIsharesEuropeTicker(ticker: string, exchange: string): string | null {
+  const t = ticker.replace(/\s+/g, "-").replace(/\./g, "-").toUpperCase();
+  if (!t || t === "TICKER" || t.includes("ISIN")) return null;
+  const ex = exchange.replace(/"/g, "").trim().toUpperCase();
+  const suffix = ISHARES_EXCHANGE_SUFFIX[ex];
+  if (!suffix) return null;
+  const yahoo = `${t}${suffix}`;
+  return isEuropeTicker(yahoo) || /\.(VI|OL|IR|AT)$/.test(yahoo) ? yahoo : null;
+}
+
+async function fetchStoxx600(): Promise<string[]> {
+  const url =
+    "https://www.ishares.com/uk/individual/en/products/251931/ishares-stoxx-europe-600-ucits-etf/1506575573208.ajax?fileType=csv&fileName=EXSA_holdings&dataType=fund";
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (ForgeOS Investment Scanner)", Accept: "text/csv" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!res.ok) return [...allEuropeTickers()];
+    const text = await res.text();
+    const lines = text.split(/\r?\n/);
+    const headerIdx = lines.findIndex((l) => /ticker/i.test(l.split(",")[0] ?? "") && /exchange/i.test(l));
+    const start = headerIdx >= 0 ? headerIdx + 1 : 0;
+    const header = (headerIdx >= 0 ? lines[headerIdx] : "").split(",").map((c) => c.replace(/"/g, "").trim().toLowerCase());
+    const tickerIdx = Math.max(0, header.indexOf("ticker"));
+    const exchIdx = header.indexOf("exchange") >= 0 ? header.indexOf("exchange") : 10;
+    const out: string[] = [];
+    for (const line of lines.slice(start)) {
+      const cols = line.split(",").map((c) => c.replace(/"/g, "").trim());
+      const mapped = mapIsharesEuropeTicker(cols[tickerIdx] ?? "", cols[exchIdx] ?? "");
+      if (mapped) out.push(mapped);
+    }
+    const merged = [...new Set([...allEuropeTickers(), ...out])];
+    return merged.length ? merged : allEuropeTickers();
+  } catch {
+    return allEuropeTickers();
+  }
+}
+
+function spreadPct(q: { price: number; bid: number; ask: number }): number {
+  if (q.price <= 0) return 99;
+  const bid = q.bid > 0 ? q.bid : q.price;
+  const ask = q.ask > 0 ? q.ask : q.price;
+  return (Math.abs(ask - bid) / q.price) * 100;
 }
 
 async function fetchNyseFallback(): Promise<string[]> {
@@ -144,8 +250,9 @@ async function filterByLiquidity(tickers: string[]): Promise<string[]> {
       if (!q) continue;
       if (q.price < cfg.minPrice) continue;
       if (q.volume < cfg.minVolume && q.avgVolume < cfg.minVolume) continue;
+      if (spreadPct(q) > cfg.maxSpreadPct) continue;
       const ex = (q.exchange ?? "").toUpperCase();
-      if (ex.includes("OTC") || ex.includes("PINK")) continue;
+      if (!isEuropeTicker(sym) && (ex.includes("OTC") || ex.includes("PINK"))) continue;
       passed.push(sym);
     }
   }
@@ -162,7 +269,14 @@ export async function getTickerUniverse(force = false): Promise<TickerUniverseCa
   const cfg = getScannerConfig();
   console.log(`[TickerUniverse] Refreshing universe mode=${cfg.universe}…`);
 
-  const sources: Record<UniverseSource, number> = { SP500: 0, NASDAQ: 0, NYSE: 0, MERGED: 0 };
+  const sources: Record<UniverseSource, number> = {
+    SP500: 0,
+    NASDAQ: 0,
+    NYSE: 0,
+    RUSSELL2000: 0,
+    EUROPE: 0,
+    MERGED: 0,
+  };
   let raw: string[] = [];
 
   if (cfg.universe === "SP500") {
@@ -174,19 +288,26 @@ export async function getTickerUniverse(force = false): Promise<TickerUniverseCa
   } else if (cfg.universe === "NYSE") {
     raw = await fetchNyseFallback();
     sources.NYSE = raw.length;
+  } else if (cfg.universe === "EUROPE") {
+    raw = await fetchStoxx600();
+    sources.EUROPE = raw.length;
   } else {
-    const [sp500, nasdaq, nyse] = await Promise.all([
+    const [sp500, nasdaq, nyse, russell, europe] = await Promise.all([
       fetchSp500().catch(() => [] as string[]),
       fetchNasdaqScreener("nasdaq").catch(() => [] as string[]),
       fetchNyseFallback().catch(() => [] as string[]),
+      fetchRussell2000().catch(() => [] as string[]),
+      fetchStoxx600().catch(() => allEuropeTickers()),
     ]);
     sources.SP500 = sp500.length;
     sources.NASDAQ = nasdaq.length;
     sources.NYSE = nyse.length;
-    raw = [...sp500, ...nasdaq, ...nyse];
+    sources.RUSSELL2000 = russell.length;
+    sources.EUROPE = europe.length;
+    raw = [...sp500, ...nasdaq, ...nyse, ...russell, ...europe];
   }
 
-  const merged = [...new Set(raw.filter(isUsTickerSymbol))];
+  const merged = [...new Set(raw.map((s) => s.trim().toUpperCase()).filter(isValidUniverseSymbol))];
   sources.MERGED = merged.length;
 
   const filtered = await filterByLiquidity(merged);

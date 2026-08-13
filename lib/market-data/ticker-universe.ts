@@ -242,9 +242,11 @@ async function filterByLiquidity(tickers: string[]): Promise<string[]> {
   const cfg = getScannerConfig();
   const unique = [...new Set(tickers)];
   const passed: string[] = [];
+  let quotesOk = 0;
   for (let i = 0; i < unique.length; i += 200) {
     const chunk = unique.slice(i, i + 200);
     const quotes = await getBatchPrices(chunk);
+    quotesOk += quotes.size;
     for (const sym of chunk) {
       const q = quotes.get(sym);
       if (!q) continue;
@@ -256,14 +258,31 @@ async function filterByLiquidity(tickers: string[]): Promise<string[]> {
       passed.push(sym);
     }
   }
+
+  // Yahoo quote batches often 401/empty — never wipe a downloaded universe to [].
+  if (passed.length === 0 && unique.length > 0) {
+    console.warn(
+      `[TickerUniverse] liquidity filter returned 0 (quotesOk=${quotesOk}/${unique.length}) — keeping raw symbols`,
+    );
+    return unique;
+  }
   return passed;
 }
 
 /** Returns cached universe or refreshes if stale (daily 8:00 AM Madrid). */
 export async function getTickerUniverse(force = false): Promise<TickerUniverseCache> {
   const cached = readCache();
-  if (!force && cached && new Date(cached.nextRefreshAt).getTime() > Date.now()) {
+  if (
+    !force &&
+    cached &&
+    cached.tickers.length > 0 &&
+    new Date(cached.nextRefreshAt).getTime() > Date.now()
+  ) {
     return cached;
+  }
+  // Stale empty cache must not block refresh forever.
+  if (!force && cached && cached.tickers.length === 0) {
+    console.warn("[TickerUniverse] Ignoring empty cached universe — forcing refresh");
   }
 
   const cfg = getScannerConfig();
@@ -311,6 +330,15 @@ export async function getTickerUniverse(force = false): Promise<TickerUniverseCa
   sources.MERGED = merged.length;
 
   const filtered = await filterByLiquidity(merged);
+
+  // Never persist an empty universe when we had symbols — keep prior good cache if any.
+  if (filtered.length === 0 && merged.length === 0 && cached?.tickers?.length) {
+    console.warn(
+      `[TickerUniverse] Refresh produced 0 tickers — reusing previous cache (${cached.tickers.length})`,
+    );
+    return cached;
+  }
+
   const payload: TickerUniverseCache = {
     updatedAt: new Date().toISOString(),
     nextRefreshAt: nextRefreshIso(),
@@ -318,7 +346,9 @@ export async function getTickerUniverse(force = false): Promise<TickerUniverseCa
     tickers: filtered,
     filteredCount: filtered.length,
   };
-  writeCache(payload);
+  if (payload.tickers.length > 0 || !cached?.tickers?.length) {
+    writeCache(payload);
+  }
   console.log(
     `[TickerUniverse] OK ${filtered.length} tickers (raw ${merged.length}) — next refresh ${payload.nextRefreshAt}`,
   );

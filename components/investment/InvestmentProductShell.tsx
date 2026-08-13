@@ -68,22 +68,26 @@ export function InvestmentProductShell({ children }: { children: React.ReactNode
 
   const broker = snapshot?.brokerStatus;
   const account = snapshot?.accountSummary?.data;
+  const rawConnected = Boolean(broker?.data?.connected);
   const sessionConnected =
-    Boolean(broker?.data?.connected) && broker?.state === "CONNECTED" && !broker?.stale;
+    rawConnected && (broker?.state === "CONNECTED" || broker?.state == null) && !broker?.stale;
   const dataSource = honestBrokerDataSource(
     broker?.data?.dataSource ?? broker?.dataSource,
-    sessionConnected,
+    rawConnected,
   );
-  const connected = sessionConnected && dataSource === "IBKR_LIVE_READ_ONLY";
+  // Header "Broker status" follows IBKR connected flag (not the stricter LIVE dataSource gate).
+  const connected = rawConnected;
   const lastSync = snapshot?.generatedAt ?? broker?.updatedAt ?? null;
   const dataFreshness =
-    dataSource === "IBKR_LIVE_READ_ONLY" && connected
+    dataSource === "IBKR_LIVE_READ_ONLY" && sessionConnected
       ? "LIVE"
       : dataSource === "DEMO"
         ? "DEMO"
         : broker?.stale
           ? "DELAYED"
-          : "UNAVAILABLE";
+          : rawConnected
+            ? "CONNECTED"
+            : "UNAVAILABLE";
 
   function runEmergencyStop() {
     setConfirmHalt(false);

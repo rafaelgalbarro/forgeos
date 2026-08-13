@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { InvestmentProductShell } from "@/components/investment/InvestmentProductShell";
+import { RegisterInvestmentServiceWorker } from "@/components/investment/RegisterInvestmentServiceWorker";
 import "@/styles/investment/investment-fonts.css";
 
 // Temporary build detection — confirms Next includes /investment in production compile
@@ -17,6 +18,13 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "ForgeOS",
   },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -27,5 +35,10 @@ export const viewport: Viewport = {
 };
 
 export default function InvestmentLayout({ children }: { children: React.ReactNode }) {
-  return <InvestmentProductShell>{children}</InvestmentProductShell>;
+  return (
+    <InvestmentProductShell>
+      <RegisterInvestmentServiceWorker />
+      {children}
+    </InvestmentProductShell>
+  );
 }

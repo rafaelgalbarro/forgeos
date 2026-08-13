@@ -108,6 +108,60 @@ export async function sendTelegramMessage(
   return result?.message_id ?? null;
 }
 
+/** Sends a document (PDF, etc.) via Telegram sendDocument (multipart). */
+export async function sendTelegramDocument(params: {
+  buffer: Buffer;
+  filename: string;
+  caption?: string;
+  mimeType?: string;
+}): Promise<number | null> {
+  const { chatId, enabled, token } = cfg();
+  if (!enabled || !token || !chatId) {
+    console.warn("[Telegram] sendDocument omitido — bot no configurado");
+    return null;
+  }
+
+  try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    if (params.caption) {
+      form.append("caption", params.caption.slice(0, 1024));
+      form.append("parse_mode", "HTML");
+    }
+    const blob = new Blob([new Uint8Array(params.buffer)], {
+      type: params.mimeType ?? "application/pdf",
+    });
+    form.append("document", blob, params.filename);
+
+    console.log(
+      `[Telegram] sendDocument intento chatId=${chatId} file=${params.filename} bytes=${params.buffer.length}`,
+    );
+
+    const res = await fetch(apiUrl("sendDocument"), {
+      method: "POST",
+      body: form,
+      cache: "no-store",
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.warn(`[Telegram] sendDocument HTTP ${res.status}: ${err}`);
+      return null;
+    }
+    const data = (await res.json()) as { ok?: boolean; result?: { message_id?: number } };
+    const messageId = data.result?.message_id ?? null;
+    if (messageId != null) {
+      console.log(`[Telegram] sendDocument OK message_id=${messageId}`);
+    } else {
+      console.warn("[Telegram] sendDocument falló — sin message_id");
+    }
+    return messageId;
+  } catch (err) {
+    console.warn("[Telegram] sendDocument failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 /** Signal alert — logs every attempt; alias público para el motor de trading. */
 export async function sendSignalAlert(payload: SignalTelegramPayload): Promise<void> {
   const { enabled } = cfg();

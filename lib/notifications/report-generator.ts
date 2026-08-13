@@ -3,28 +3,36 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 
+import { readDailyCandidates } from "@/lib/market-data/candidate-store";
 import { readMultiScannerResults } from "@/lib/market-data/scanner-store";
 import { getBatchPrices, getDailyBars, getTickerInfo } from "@/lib/market-data/yahoo-finance";
-import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
+import { buildReportPdfBuffer, type ReportPdfSection } from "@/lib/notifications/report-pdf";
+import { sendTelegramDocument, sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
-import { loadTradingState } from "@/src/core/trading/trading-state-store";
+import {
+  loadTradingState,
+  type PendingOrderRecord,
+} from "@/src/core/trading/trading-state-store";
 import { maybeRetrainWeekly } from "@/lib/ml/signal-trainer";
 
 const TZ = "Europe/Madrid";
 const MARKERS_DIR = path.resolve(process.cwd(), ".forgeos", "reports");
 const DAILY_MARKER = path.join(MARKERS_DIR, "telegram-daily-last.json");
+const MORNING_MARKER = path.join(MARKERS_DIR, "telegram-morning-last.json");
 const WEEKLY_MARKER = path.join(MARKERS_DIR, "telegram-weekly-last.json");
 const LAST_PREVIEW = path.join(MARKERS_DIR, "telegram-last-preview.json");
 
 const NO_DATA = "NO_DATA";
 
-export type TelegramReportKind = "daily" | "weekly";
+export type TelegramReportKind = "daily" | "morning" | "weekly";
 
 export type TelegramReportResult = {
   kind: TelegramReportKind;
   text: string;
   sent: boolean;
   messageId: number | null;
+  documentMessageId?: number | null;
+  pdfAttached?: boolean;
   skippedReason?: string;
   generatedAt: string;
   mode: "ANALYSIS_ONLY";
@@ -34,8 +42,11 @@ export type TelegramReportsStatus = {
   mode: "ANALYSIS_ONLY";
   timezone: typeof TZ;
   notifyOnReport: boolean;
+  morningHour: number;
+  morningMinute: number;
   dailyHour: number;
   weeklyHour: number;
+  lastMorning: SentMarker | null;
   lastDaily: SentMarker | null;
   lastWeekly: SentMarker | null;
   lastPreview: TelegramReportResult | null;
@@ -58,8 +69,37 @@ type MadridClock = {
   isSunday: boolean;
 };
 
+type OperationRow = {
+  ticker: string;
+  direction: string;
+  shares: number;
+  price: number;
+  orderValueUSD: number;
+  status: string;
+  reasoning: string;
+  estimatedPnlUSD: number | null;
+  estimatedPnlPct: number | null;
+};
+
+type SignalRow = {
+  ticker: string;
+  side: string;
+  score: number;
+  reasoning: string;
+};
+
 function notifyOnReport(): boolean {
   return process.env.NOTIFY_ON_REPORT !== "false";
+}
+
+function morningHour(): number {
+  const n = Number(process.env.REPORT_MORNING_HOUR ?? 8);
+  return Number.isFinite(n) && n >= 0 && n <= 23 ? Math.floor(n) : 8;
+}
+
+function morningMinute(): number {
+  const n = Number(process.env.REPORT_MORNING_MINUTE ?? 30);
+  return Number.isFinite(n) && n >= 0 && n <= 59 ? Math.floor(n) : 30;
 }
 
 function dailyHour(): number {
@@ -298,7 +338,156 @@ function scannerSignalMoves(): {
   };
 }
 
-async function sectorOpportunityCounts(tickers: string[]): Promise<Array<{ sector: string; count: number }>> {
+function collectSignalRows(): SignalRow[] {
+  const snap = readMultiScannerResults();
+  const rows: SignalRow[] = [];
+  if (snap?.opportunities?.length) {
+    for (const opp of snap.opportunities.slice(0, 20)) {
+      rows.push({
+        ticker: opp.ticker,
+        side: opp.side,
+        score: opp.score,
+        reasoning: (opp.signals ?? []).slice(0, 3).join(" | ") || "NO_DATA",
+      });
+    }
+  }
+  if (!rows.length && snap?.phases?.length) {
+    for (const p of snap.phases.filter((x) => x.phase === 2 || x.phase === 3).slice(0, 20)) {
+      rows.push({
+        ticker: p.ticker,
+        side: p.direction ?? "HOLD",
+        score: p.score ?? 0,
+        reasoning: p.reasoning?.trim() || "NO_DATA",
+      });
+    }
+  }
+  return rows;
+}
+
+function topOpportunitiesTomorrow(): Array<{ ticker: string; score: number; reason: string }> {
+  const candidates = readDailyCandidates();
+  const fromPool = [
+    ...candidates.europeTop30,
+    ...candidates.usTop30,
+    ...candidates.overnightTop200,
+  ];
+  if (fromPool.length) {
+    const dedup = new Map<string, { ticker: string; score: number; reason: string }>();
+    for (const c of fromPool) {
+      const prev = dedup.get(c.ticker);
+      if (!prev || c.score > prev.score) {
+        dedup.set(c.ticker, {
+          ticker: c.ticker,
+          score: c.score,
+          reason: c.reason || c.badges.join(", ") || "candidate",
+        });
+      }
+    }
+    return [...dedup.values()].sort((a, b) => b.score - a.score).slice(0, 10);
+  }
+  return scannerSignalMoves().top5.map((t) => ({
+    ticker: t.ticker,
+    score: t.score,
+    reason: `scanner score ${t.score.toFixed(0)}`,
+  }));
+}
+
+function todayOrders(): PendingOrderRecord[] {
+  const state = loadTradingState();
+  const today = getMadridClock().dateKey;
+  return state.pendingOrders.filter((o) => {
+    try {
+      return getMadridClock(new Date(o.updatedAt || o.createdAt)).dateKey === today;
+    } catch {
+      return false;
+    }
+  });
+}
+
+async function buildOperationRows(): Promise<OperationRow[]> {
+  const orders = todayOrders().filter((o) => o.status === "EXECUTED" || o.status === "APPROVED");
+  const state = loadTradingState();
+  const tickers = [
+    ...new Set([
+      ...orders.map((o) => o.ticker.toUpperCase()),
+      ...state.monitoredPositions.map((p) => p.ticker.toUpperCase()),
+    ]),
+  ];
+  const quotes = tickers.length ? await getBatchPrices(tickers) : new Map();
+
+  const fromOrders: OperationRow[] = orders.map((o) => {
+    const q = quotes.get(o.ticker.toUpperCase());
+    const mark = q?.price ?? null;
+    let estimatedPnlUSD: number | null = null;
+    let estimatedPnlPct: number | null = null;
+    if (mark != null && o.price > 0 && o.shares > 0) {
+      const dir = o.direction === "SELL" ? -1 : 1;
+      estimatedPnlUSD = (mark - o.price) * o.shares * dir;
+      estimatedPnlPct = ((mark - o.price) / o.price) * 100 * dir;
+    }
+    return {
+      ticker: o.ticker,
+      direction: o.direction,
+      shares: o.shares,
+      price: o.price,
+      orderValueUSD: o.orderValueUSD,
+      status: o.status,
+      reasoning: o.signal?.reasoning || o.reason || NO_DATA,
+      estimatedPnlUSD,
+      estimatedPnlPct,
+    };
+  });
+
+  if (fromOrders.length) return fromOrders;
+
+  // Fallback: open monitored positions as "open ops" with mark-to-market (not invented ledger).
+  return state.monitoredPositions.slice(0, 20).map((p) => {
+    const q = quotes.get(p.ticker.toUpperCase());
+    const mark = q?.price ?? null;
+    let estimatedPnlUSD: number | null = null;
+    let estimatedPnlPct: number | null = null;
+    if (mark != null && p.entryPrice > 0 && p.shares > 0) {
+      estimatedPnlUSD = (mark - p.entryPrice) * p.shares;
+      estimatedPnlPct = ((mark - p.entryPrice) / p.entryPrice) * 100;
+    }
+    return {
+      ticker: p.ticker,
+      direction: "BUY",
+      shares: p.shares,
+      price: p.entryPrice,
+      orderValueUSD: p.entryPrice * p.shares,
+      status: "OPEN",
+      reasoning: `Monitored position SL=${p.stopLoss} TP=${p.takeProfit}`,
+      estimatedPnlUSD,
+      estimatedPnlPct,
+    };
+  });
+}
+
+function todayExecutedStats(ops: OperationRow[]): {
+  executed: number;
+  winners: number;
+  losers: number;
+} {
+  const executed = ops.filter((o) => o.status === "EXECUTED" || o.status === "OPEN").length;
+  let winners = 0;
+  let losers = 0;
+  for (const o of ops) {
+    if (o.estimatedPnlUSD == null) continue;
+    if (o.estimatedPnlUSD > 0) winners += 1;
+    else if (o.estimatedPnlUSD < 0) losers += 1;
+  }
+  const state = loadTradingState();
+  return {
+    executed: executed || state.risk.dailyTradeCount || 0,
+    winners,
+    losers,
+  };
+}
+
+async function sectorOpportunityCounts(
+  tickers: string[],
+): Promise<Array<{ sector: string; count: number }>> {
   const counts = new Map<string, number>();
   const sample = tickers.slice(0, 12);
   await Promise.all(
@@ -317,23 +506,6 @@ async function sectorOpportunityCounts(tickers: string[]): Promise<Array<{ secto
     .sort((a, b) => b.count - a.count);
 }
 
-function todayExecutedStats(): { executed: number; winners: number; losers: number } {
-  const state = loadTradingState();
-  const executedToday = state.pendingOrders.filter((o) => {
-    if (o.status !== "EXECUTED") return false;
-    try {
-      const clock = getMadridClock(new Date(o.updatedAt || o.createdAt));
-      return clock.dateKey === getMadridClock().dateKey;
-    } catch {
-      return false;
-    }
-  });
-
-  // Without realized P&L ledger we do not invent winners/losers.
-  const executed = executedToday.length || state.risk.dailyTradeCount || 0;
-  return { executed, winners: 0, losers: 0 };
-}
-
 function reportButtons() {
   return [
     [
@@ -343,6 +515,228 @@ function reportButtons() {
   ];
 }
 
+function pdfSectionsFromPayload(params: {
+  navLine: string;
+  pnlLine: string;
+  forgeToday: number | null;
+  spyToday: number | null;
+  ops: OperationRow[];
+  signals: SignalRow[];
+  topTomorrow: Array<{ ticker: string; score: number; reason: string }>;
+  trades: { executed: number; winners: number; losers: number };
+}): ReportPdfSection[] {
+  const opLines =
+    params.ops.length > 0
+      ? params.ops.slice(0, 25).map((o) => {
+          const pnl =
+            o.estimatedPnlUSD != null
+              ? `${fmtMoney(o.estimatedPnlUSD)} (${fmtSignedPct(o.estimatedPnlPct)})`
+              : NO_DATA;
+          return `${o.ticker} ${o.direction} x${o.shares} @ ${o.price.toFixed(2)} | P&L ${pnl} | ${o.status}`;
+        })
+      : [NO_DATA];
+
+  const signalLines =
+    params.signals.length > 0
+      ? params.signals.slice(0, 20).map(
+          (s) =>
+            `${s.ticker} ${s.side} score=${s.score.toFixed(0)} — ${s.reasoning.slice(0, 120)}`,
+        )
+      : [NO_DATA];
+
+  const topLines =
+    params.topTomorrow.length > 0
+      ? params.topTomorrow.map(
+          (t, i) => `${i + 1}. ${t.ticker} score ${t.score.toFixed(0)} — ${t.reason.slice(0, 80)}`,
+        )
+      : [NO_DATA];
+
+  return [
+    {
+      title: "Account",
+      lines: [
+        `NAV: ${params.navLine}`,
+        `P&L today: ${params.pnlLine}`,
+        `Operations: ${params.trades.executed} | Winners: ${params.trades.winners || NO_DATA} | Losers: ${params.trades.losers || NO_DATA}`,
+      ],
+    },
+    {
+      title: "Benchmark",
+      lines: [
+        `ForgeOS vs S&P 500 today: ${fmtPctPlain(params.forgeToday)} vs ${fmtPctPlain(params.spyToday)}`,
+      ],
+    },
+    { title: "Operations P&L", lines: opLines },
+    { title: "Signals (BUY/SELL/HOLD)", lines: signalLines },
+    { title: "Top opportunities tomorrow", lines: topLines },
+  ];
+}
+
+async function sendReportBundle(params: {
+  text: string;
+  pdfTitle: string;
+  pdfSubtitle: string;
+  filename: string;
+  sections: ReportPdfSection[];
+  generatedAt: string;
+}): Promise<{ messageId: number | null; documentMessageId: number | null; pdfAttached: boolean }> {
+  const messageId = await sendTelegramMessage(params.text, reportButtons());
+  const pdf = buildReportPdfBuffer({
+    title: params.pdfTitle,
+    subtitle: params.pdfSubtitle,
+    generatedAtIso: params.generatedAt,
+    sections: params.sections,
+  });
+  const documentMessageId = await sendTelegramDocument({
+    buffer: pdf,
+    filename: params.filename,
+    caption: `📎 <b>${params.pdfTitle}</b>\nResumen completo ForgeOS`,
+    mimeType: "application/pdf",
+  });
+  return {
+    messageId,
+    documentMessageId,
+    pdfAttached: documentMessageId != null,
+  };
+}
+
+/** Morning market briefing — default 08:30 Europe/Madrid. */
+export async function generateMorningTelegramReport(opts?: {
+  send?: boolean;
+  force?: boolean;
+}): Promise<TelegramReportResult> {
+  const send = opts?.send ?? false;
+  const force = opts?.force ?? false;
+  const clock = getMadridClock();
+  const generatedAt = new Date().toISOString();
+
+  if (send && !force) {
+    const marker = readMarker(MORNING_MARKER);
+    if (marker?.dateKey === clock.dateKey) {
+      return {
+        kind: "morning",
+        text: "",
+        sent: false,
+        messageId: marker.messageId,
+        skippedReason: `already_sent_${clock.dateKey}`,
+        generatedAt,
+        mode: "ANALYSIS_ONLY",
+      };
+    }
+  }
+
+  const [acct, bm, ops] = await Promise.all([
+    safeAccount(),
+    spyQqqChanges(),
+    buildOperationRows(),
+  ]);
+  const signals = collectSignalRows();
+  const topTomorrow = topOpportunitiesTomorrow();
+  const trades = todayExecutedStats(ops);
+  const scanner = scannerSignalMoves();
+
+  const navLine = acct.available
+    ? `${fmtMoney(acct.navUSD)} (${fmtSignedPct(acct.dailyPnlPct)} vs ayer)`
+    : `${NO_DATA} (${NO_DATA} vs ayer)`;
+  const pnlLine = acct.available
+    ? `${fmtMoney(acct.dailyPnlUSD)} (${fmtSignedPct(acct.dailyPnlPct)})`
+    : `${NO_DATA} (${NO_DATA})`;
+
+  const topLines =
+    topTomorrow.length > 0
+      ? topTomorrow
+          .slice(0, 5)
+          .map((t, i) => `${i + 1}. <b>${t.ticker}</b> ${t.score.toFixed(0)}`)
+          .join("\n")
+      : NO_DATA;
+
+  const signalPreview =
+    signals.length > 0
+      ? signals
+          .slice(0, 5)
+          .map((s) => `· ${s.ticker} ${s.side} (${s.score.toFixed(0)})`)
+          .join("\n")
+      : NO_DATA;
+
+  const text = [
+    "🌅 <b>REPORTE MERCADO FORGEOS</b>",
+    `Fecha: ${clock.dateKey} · 08:30 Madrid`,
+    "─────────────────",
+    `💰 NAV: ${navLine}`,
+    `📈 P&amp;L: ${pnlLine}`,
+    `📊 vs S&amp;P 500: ${fmtPctPlain(acct.dailyPnlPct)} vs ${fmtPctPlain(bm.spyToday)}`,
+    "─────────────────",
+    `🔍 Scanner: ${scanner.analyzed} | señales: ${signals.length}`,
+    signalPreview,
+    "─────────────────",
+    "⚡ Top oportunidades hoy:",
+    topLines,
+    "",
+    `🔗 ${publicBaseUrl()}/investment`,
+  ].join("\n");
+
+  const sections = pdfSectionsFromPayload({
+    navLine,
+    pnlLine,
+    forgeToday: acct.dailyPnlPct,
+    spyToday: bm.spyToday,
+    ops,
+    signals,
+    topTomorrow,
+    trades,
+  });
+
+  let messageId: number | null = null;
+  let documentMessageId: number | null = null;
+  let pdfAttached = false;
+  let sent = false;
+  let skippedReason: string | undefined;
+
+  if (send) {
+    if (!notifyOnReport()) {
+      skippedReason = "NOTIFY_ON_REPORT=false";
+    } else {
+      const bundle = await sendReportBundle({
+        text,
+        pdfTitle: "ForgeOS Morning Market Report",
+        pdfSubtitle: `Madrid ${clock.dateKey} 08:30`,
+        filename: `forgeos-morning-${clock.dateKey}.pdf`,
+        sections,
+        generatedAt,
+      });
+      messageId = bundle.messageId;
+      documentMessageId = bundle.documentMessageId;
+      pdfAttached = bundle.pdfAttached;
+      sent = messageId != null || documentMessageId != null;
+      if (sent) {
+        writeMarker(MORNING_MARKER, {
+          dateKey: clock.dateKey,
+          sentAt: generatedAt,
+          messageId: messageId ?? documentMessageId,
+          kind: "morning",
+        });
+      } else {
+        skippedReason = "telegram_send_failed";
+      }
+    }
+  }
+
+  const result: TelegramReportResult = {
+    kind: "morning",
+    text,
+    sent,
+    messageId,
+    documentMessageId,
+    pdfAttached,
+    skippedReason,
+    generatedAt,
+    mode: "ANALYSIS_ONLY",
+  };
+  writePreview(result);
+  return result;
+}
+
+/** Evening operations report — default 22:00 Europe/Madrid. */
 export async function generateDailyTelegramReport(opts?: {
   send?: boolean;
   force?: boolean;
@@ -355,7 +749,7 @@ export async function generateDailyTelegramReport(opts?: {
   if (send && !force) {
     const marker = readMarker(DAILY_MARKER);
     if (marker?.dateKey === clock.dateKey) {
-      const result: TelegramReportResult = {
+      return {
         kind: "daily",
         text: "",
         sent: false,
@@ -364,16 +758,18 @@ export async function generateDailyTelegramReport(opts?: {
         generatedAt,
         mode: "ANALYSIS_ONLY",
       };
-      return result;
     }
   }
 
-  const [acct, bm, signals] = await Promise.all([
+  const [acct, bm, ops] = await Promise.all([
     safeAccount(),
     spyQqqChanges(),
-    Promise.resolve(scannerSignalMoves()),
+    buildOperationRows(),
   ]);
-  const trades = todayExecutedStats();
+  const signals = collectSignalRows();
+  const topTomorrow = topOpportunitiesTomorrow();
+  const trades = todayExecutedStats(ops);
+  const scannerMoves = scannerSignalMoves();
 
   const fecha = clock.dateKey;
   const navLine = acct.available
@@ -383,19 +779,14 @@ export async function generateDailyTelegramReport(opts?: {
     ? `${fmtMoney(acct.dailyPnlUSD)} (${fmtSignedPct(acct.dailyPnlPct)})`
     : `${NO_DATA} (${NO_DATA})`;
 
-  const bestLine = signals.best
-    ? `${signals.best.ticker} ${fmtSignedPct(signals.best.changePct)}`
+  const bestLine = scannerMoves.best
+    ? `${scannerMoves.best.ticker} ${fmtSignedPct(scannerMoves.best.changePct)}`
     : NO_DATA;
-  const worstLine = signals.worst
-    ? `${signals.worst.ticker} ${fmtSignedPct(signals.worst.changePct)}`
-    : NO_DATA;
-  const topLine = signals.topCandidate
-    ? `${signals.topCandidate.ticker} (score ${signals.topCandidate.score.toFixed(0)})`
-    : NO_DATA;
-
-  // ForgeOS YTD / vs-SPX requires historical NAV — never invent.
-  const forgeToday = acct.dailyPnlPct;
-  const forgeYtd: number | null = null;
+  const topLine = topTomorrow[0]
+    ? `${topTomorrow[0].ticker} (score ${topTomorrow[0].score.toFixed(0)})`
+    : scannerMoves.topCandidate
+      ? `${scannerMoves.topCandidate.ticker} (score ${scannerMoves.topCandidate.score.toFixed(0)})`
+      : NO_DATA;
 
   const winnersLabel =
     trades.executed > 0 && trades.winners + trades.losers === 0
@@ -406,28 +797,54 @@ export async function generateDailyTelegramReport(opts?: {
       ? NO_DATA
       : String(trades.losers);
 
+  const opPreview =
+    ops.length > 0
+      ? ops
+          .slice(0, 5)
+          .map((o) => {
+            const pnl =
+              o.estimatedPnlUSD != null
+                ? `${fmtMoney(o.estimatedPnlUSD)}`
+                : NO_DATA;
+            return `· ${o.ticker} ${o.direction} P&amp;L ${pnl}`;
+          })
+          .join("\n")
+      : `· ${NO_DATA}`;
+
   const text = [
     "📊 <b>REPORTE DIARIO FORGEOS</b>",
-    `Fecha: ${fecha}`,
+    `Fecha: ${fecha} · 22:00 Madrid`,
     "─────────────────",
     `💰 NAV: ${navLine}`,
     `📈 P&amp;L hoy: ${pnlLine}`,
     `🎯 Operaciones: ${trades.executed} ejecutadas`,
     `✅ Ganadoras: ${winnersLabel} | ❌ Perdedoras: ${losersLabel}`,
+    opPreview,
     "─────────────────",
     `🏆 Mejor señal: ${bestLine}`,
-    `💩 Peor señal: ${worstLine}`,
     "─────────────────",
-    `📊 vs S&amp;P 500 hoy: ${fmtPctPlain(forgeToday)} vs ${fmtPctPlain(bm.spyToday)}`,
-    `📊 vs S&amp;P 500 YTD: ${fmtPctPlain(forgeYtd)} vs ${fmtPctPlain(bm.spyYtd)}`,
+    `📊 vs S&amp;P 500 hoy: ${fmtPctPlain(acct.dailyPnlPct)} vs ${fmtPctPlain(bm.spyToday)}`,
     "─────────────────",
-    `🔍 Scanner: ${signals.analyzed} oportunidades analizadas`,
+    `🔍 Scanner: ${scannerMoves.analyzed} oportunidades`,
     `⚡ Top candidato mañana: ${topLine}`,
     "",
     `🔗 ${publicBaseUrl()}/investment`,
   ].join("\n");
 
+  const sections = pdfSectionsFromPayload({
+    navLine,
+    pnlLine,
+    forgeToday: acct.dailyPnlPct,
+    spyToday: bm.spyToday,
+    ops,
+    signals,
+    topTomorrow,
+    trades,
+  });
+
   let messageId: number | null = null;
+  let documentMessageId: number | null = null;
+  let pdfAttached = false;
   let sent = false;
   let skippedReason: string | undefined;
 
@@ -435,13 +852,23 @@ export async function generateDailyTelegramReport(opts?: {
     if (!notifyOnReport()) {
       skippedReason = "NOTIFY_ON_REPORT=false";
     } else {
-      messageId = await sendTelegramMessage(text, reportButtons());
-      sent = messageId != null;
+      const bundle = await sendReportBundle({
+        text,
+        pdfTitle: "ForgeOS Daily Operations Report",
+        pdfSubtitle: `Madrid ${fecha} 22:00`,
+        filename: `forgeos-daily-${fecha}.pdf`,
+        sections,
+        generatedAt,
+      });
+      messageId = bundle.messageId;
+      documentMessageId = bundle.documentMessageId;
+      pdfAttached = bundle.pdfAttached;
+      sent = messageId != null || documentMessageId != null;
       if (sent) {
         writeMarker(DAILY_MARKER, {
           dateKey: clock.dateKey,
           sentAt: generatedAt,
-          messageId,
+          messageId: messageId ?? documentMessageId,
           kind: "daily",
         });
       } else {
@@ -455,6 +882,8 @@ export async function generateDailyTelegramReport(opts?: {
     text,
     sent,
     messageId,
+    documentMessageId,
+    pdfAttached,
     skippedReason,
     generatedAt,
     mode: "ANALYSIS_ONLY",
@@ -471,10 +900,7 @@ export async function generateWeeklyTelegramReport(opts?: {
   const force = opts?.force ?? false;
   const clock = getMadridClock();
   const generatedAt = new Date().toISOString();
-  const weekKey = (() => {
-    // ISO-ish week key from Madrid date (YYYY-Www approx via dateKey Sunday)
-    return `week-${clock.dateKey}`;
-  })();
+  const weekKey = `week-${clock.dateKey}`;
 
   if (send && !force) {
     const marker = readMarker(WEEKLY_MARKER);
@@ -491,21 +917,25 @@ export async function generateWeeklyTelegramReport(opts?: {
     }
   }
 
-  const [acct, bm, signals] = await Promise.all([
+  const [acct, bm, ops] = await Promise.all([
     safeAccount(),
     spyQqqChanges(),
-    Promise.resolve(scannerSignalMoves()),
+    buildOperationRows(),
   ]);
+  const signals = collectSignalRows();
+  const topTomorrow = topOpportunitiesTomorrow();
+  const scannerMoves = scannerSignalMoves();
+  const topTickers = scannerMoves.top5.map((t) => t.ticker);
+  const sectors = await sectorOpportunityCounts(
+    topTickers.length ? topTickers : topTomorrow.map((t) => t.ticker),
+  );
+  const trades = todayExecutedStats(ops);
 
-  const topTickers = signals.top5.map((t) => t.ticker);
-  const sectors = await sectorOpportunityCounts(topTickers.length ? topTickers : signals.top5.map((t) => t.ticker));
-
-  // Strategy P&L ledger not available in ANALYSIS_ONLY — report scanner score leaders as strategy proxies.
-  const bestStrategy = signals.topCandidate
-    ? `${signals.topCandidate.ticker} (score ${signals.topCandidate.score.toFixed(0)})`
+  const bestStrategy = scannerMoves.topCandidate
+    ? `${scannerMoves.topCandidate.ticker} (score ${scannerMoves.topCandidate.score.toFixed(0)})`
     : NO_DATA;
-  const worstStrategy = signals.worst
-    ? `${signals.worst.ticker} (${fmtSignedPct(signals.worst.changePct)})`
+  const worstStrategy = scannerMoves.worst
+    ? `${scannerMoves.worst.ticker} (${fmtSignedPct(scannerMoves.worst.changePct)})`
     : NO_DATA;
 
   const sectorLines =
@@ -517,19 +947,26 @@ export async function generateWeeklyTelegramReport(opts?: {
       : `  · ${NO_DATA}`;
 
   const top5Lines =
-    signals.top5.length > 0
-      ? signals.top5
+    scannerMoves.top5.length > 0
+      ? scannerMoves.top5
           .map((t, i) => `  ${i + 1}. ${t.ticker} (score ${t.score.toFixed(0)})`)
           .join("\n")
-      : `  · ${NO_DATA}`;
+      : topTomorrow
+          .slice(0, 5)
+          .map((t, i) => `  ${i + 1}. ${t.ticker} (score ${t.score.toFixed(0)})`)
+          .join("\n") || `  · ${NO_DATA}`;
 
   const forgeWeek: number | null = null;
+  const navLine = acct.available ? fmtMoney(acct.navUSD) : NO_DATA;
+  const pnlLine = acct.available
+    ? `${fmtMoney(acct.dailyPnlUSD)} (${fmtSignedPct(acct.dailyPnlPct)})`
+    : NO_DATA;
 
   const text = [
     "📅 <b>REPORTE SEMANAL FORGEOS</b>",
     `Semana (Madrid): ${clock.dateKey}`,
     "─────────────────",
-    `💰 NAV: ${acct.available ? fmtMoney(acct.navUSD) : NO_DATA}`,
+    `💰 NAV: ${navLine}`,
     `📈 ForgeOS semana: ${fmtPctPlain(forgeWeek)}`,
     `📊 vs S&amp;P 500: ${fmtPctPlain(forgeWeek)} vs ${fmtPctPlain(bm.spyWeek)}`,
     `📊 vs NASDAQ (QQQ): ${fmtPctPlain(forgeWeek)} vs ${fmtPctPlain(bm.qqqWeek)}`,
@@ -546,7 +983,26 @@ export async function generateWeeklyTelegramReport(opts?: {
     `🔗 ${publicBaseUrl()}/investment`,
   ].join("\n");
 
+  const sections = pdfSectionsFromPayload({
+    navLine,
+    pnlLine,
+    forgeToday: acct.dailyPnlPct,
+    spyToday: bm.spyToday,
+    ops,
+    signals,
+    topTomorrow: topTomorrow.length
+      ? topTomorrow
+      : scannerMoves.top5.map((t) => ({
+          ticker: t.ticker,
+          score: t.score,
+          reason: "weekly top",
+        })),
+    trades,
+  });
+
   let messageId: number | null = null;
+  let documentMessageId: number | null = null;
+  let pdfAttached = false;
   let sent = false;
   let skippedReason: string | undefined;
 
@@ -554,13 +1010,23 @@ export async function generateWeeklyTelegramReport(opts?: {
     if (!notifyOnReport()) {
       skippedReason = "NOTIFY_ON_REPORT=false";
     } else {
-      messageId = await sendTelegramMessage(text, reportButtons());
-      sent = messageId != null;
+      const bundle = await sendReportBundle({
+        text,
+        pdfTitle: "ForgeOS Weekly Report",
+        pdfSubtitle: `Madrid week ${clock.dateKey}`,
+        filename: `forgeos-weekly-${clock.dateKey}.pdf`,
+        sections,
+        generatedAt,
+      });
+      messageId = bundle.messageId;
+      documentMessageId = bundle.documentMessageId;
+      pdfAttached = bundle.pdfAttached;
+      sent = messageId != null || documentMessageId != null;
       if (sent) {
         writeMarker(WEEKLY_MARKER, {
           dateKey: weekKey,
           sentAt: generatedAt,
-          messageId,
+          messageId: messageId ?? documentMessageId,
           kind: "weekly",
         });
       } else {
@@ -574,6 +1040,8 @@ export async function generateWeeklyTelegramReport(opts?: {
     text,
     sent,
     messageId,
+    documentMessageId,
+    pdfAttached,
     skippedReason,
     generatedAt,
     mode: "ANALYSIS_ONLY",
@@ -583,22 +1051,50 @@ export async function generateWeeklyTelegramReport(opts?: {
 }
 
 /**
- * Checks Europe/Madrid schedule and sends at most once per day/week.
- * Daily: market days at REPORT_DAILY_HOUR (default 22).
- * Weekly: Sundays at REPORT_WEEKLY_HOUR (default 20).
+ * Europe/Madrid schedule (at most once per day/week):
+ * - Morning market: weekdays at REPORT_MORNING_HOUR:MINUTE (default 08:30)
+ * - Daily ops: weekdays at REPORT_DAILY_HOUR (default 22)
+ * - Weekly: Sundays at REPORT_WEEKLY_HOUR (default 20)
  */
 export async function maybeSendScheduledReports(): Promise<{
   mode: "ANALYSIS_ONLY";
   madridNow: MadridClock;
+  morning: TelegramReportResult | null;
   daily: TelegramReportResult | null;
   weekly: TelegramReportResult | null;
 }> {
   const clock = getMadridClock();
+  const mHour = morningHour();
+  const mMin = morningMinute();
   const dHour = dailyHour();
   const wHour = weeklyHour();
 
+  let morning: TelegramReportResult | null = null;
   let daily: TelegramReportResult | null = null;
   let weekly: TelegramReportResult | null = null;
+
+  const inMorningWindow =
+    clock.isMarketDay &&
+    clock.hour === mHour &&
+    clock.minute >= mMin &&
+    clock.minute < mMin + 15;
+
+  if (inMorningWindow) {
+    const marker = readMarker(MORNING_MARKER);
+    if (marker?.dateKey !== clock.dateKey) {
+      morning = await generateMorningTelegramReport({ send: true });
+    } else {
+      morning = {
+        kind: "morning",
+        text: "",
+        sent: false,
+        messageId: marker.messageId,
+        skippedReason: `already_sent_${clock.dateKey}`,
+        generatedAt: new Date().toISOString(),
+        mode: "ANALYSIS_ONLY",
+      };
+    }
+  }
 
   if (clock.isMarketDay && clock.hour === dHour) {
     const marker = readMarker(DAILY_MARKER);
@@ -635,7 +1131,6 @@ export async function maybeSendScheduledReports(): Promise<{
     }
   }
 
-  // Phase H — weekly ML retrain (ANALYSIS_ONLY; never places orders)
   try {
     const ml = maybeRetrainWeekly();
     if (ml.trained) {
@@ -648,7 +1143,7 @@ export async function maybeSendScheduledReports(): Promise<{
     );
   }
 
-  return { mode: "ANALYSIS_ONLY", madridNow: clock, daily, weekly };
+  return { mode: "ANALYSIS_ONLY", madridNow: clock, morning, daily, weekly };
 }
 
 export function getTelegramReportsStatus(): TelegramReportsStatus {
@@ -656,8 +1151,11 @@ export function getTelegramReportsStatus(): TelegramReportsStatus {
     mode: "ANALYSIS_ONLY",
     timezone: TZ,
     notifyOnReport: notifyOnReport(),
+    morningHour: morningHour(),
+    morningMinute: morningMinute(),
     dailyHour: dailyHour(),
     weeklyHour: weeklyHour(),
+    lastMorning: readMarker(MORNING_MARKER),
     lastDaily: readMarker(DAILY_MARKER),
     lastWeekly: readMarker(WEEKLY_MARKER),
     lastPreview: readPreview(),

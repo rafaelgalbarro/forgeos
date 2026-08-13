@@ -14,6 +14,7 @@ import { RiskManager } from '@/src/core/trading/risk/risk-manager'
 import { OrderApprovalGate } from '@/src/core/trading/order-approval'
 import { TRADING_CONFIG } from '@/src/core/trading/trading.config'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
+import { popCycleQueue } from '@/lib/alerts/alert-manager'
 
 const engine = new TradingEngine()
 
@@ -69,9 +70,11 @@ export async function POST(req: NextRequest) {
   // Ciclo de trading — queues PENDING_APPROVAL; does not auto-execute
   try {
     const body = await req.json().catch(() => ({}))
-    const tickers: string[] = body.tickers ?? TRADING_CONFIG.allowedTickers.slice(0, 10)
+    const requested: string[] = body.tickers ?? TRADING_CONFIG.allowedTickers.slice(0, 10)
+    const queued = popCycleQueue()
+    const tickers = [...new Set([...queued, ...requested])]
 
-    console.log(`[TradingCycle] 🚀 Iniciando ciclo con ${tickers.length} tickers:`, tickers)
+    console.log(`[TradingCycle] 🚀 Iniciando ciclo con ${tickers.length} tickers:`, tickers, queued.length ? `(cola Telegram ${queued.join(",")})` : "")
 
     const result = await engine.runCycle(tickers)
 
@@ -83,6 +86,17 @@ export async function POST(req: NextRequest) {
       at: new Date().toISOString(),
       payload: result,
     })
+
+    // Direct export (also covered by instrumentation listener when configured).
+    void import('@/lib/integrations/webhook-export')
+      .then(({ exportToWebhook }) =>
+        exportToWebhook('cycle_complete', {
+          tickers,
+          systemHalted: result.systemHalted,
+          orderCount: result.orders?.length ?? 0,
+        }),
+      )
+      .catch(() => undefined)
 
     if (result.systemHalted) {
       publishInvestmentEvent({

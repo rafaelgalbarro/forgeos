@@ -13,6 +13,7 @@ import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import {
   disableAlertById,
   queueTickerForCycle,
+  removeWatchlistTicker,
 } from "@/lib/alerts/alert-manager";
 import {
   loadTradingState,
@@ -214,7 +215,9 @@ export async function handleTelegramCallback(
 
   if (action === "alert_disable" || action === "watch_disable") {
     if (payload.startsWith("watch_")) {
-      await sendTelegramMessage(`🔕 Watchlist alert silenciada (${payload})`);
+      const ticker = payload.replace(/^watch_/, "").toUpperCase();
+      removeWatchlistTicker(ticker);
+      await sendTelegramMessage(`🔕 Watchlist ${ticker} quitada`);
     } else {
       disableAlertById(payload);
       await sendTelegramMessage(`🔕 Alerta desactivada: ${payload}`);

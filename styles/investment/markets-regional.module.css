@@ -48,6 +48,8 @@
   background: rgba(248, 184, 78, 0.12);
   color: var(--investment-title, #dde9f7);
   padding: 8px 12px;
+  min-height: 44px;
+  min-width: 44px;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -632,6 +634,7 @@
 .marketsTab,
 .marketsTabActive {
   padding: 8px 16px;
+  min-height: 44px;
   border: 1px solid transparent;
   border-bottom: none;
   background: transparent;
@@ -700,6 +703,7 @@
 
 .watchlistSelect {
   min-width: 140px;
+  min-height: 44px;
   padding: 9px 11px;
   border: 1px solid var(--investment-border-strong, #2a3d53);
   background: #0b111a;
@@ -750,6 +754,8 @@
   background: transparent;
   color: #e25b6a;
   padding: 4px 10px;
+  min-height: 44px;
+  min-width: 44px;
   font-size: 0.68rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;

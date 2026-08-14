@@ -1,16 +1,11 @@
 /**
  * FOREX macro calendar — HIGH-impact blackout window (±30m).
- * Server-only (fs cache); do not import from client components or the forex barrel.
+ * Server-only. No node:fs / node:path (in-memory cache + fetch only).
  */
 
 import "server-only";
 
-import fs from "node:fs";
-import path from "node:path";
 import { FOREX_RISK_POLICY } from "./config";
-
-const CACHE_DIR = path.join(process.cwd(), ".forgeos", "cache");
-const CACHE_FILE = path.join(CACHE_DIR, "forex-macro-calendar.json");
 
 const HIGH_KEYWORDS =
   /\b(NFP|non[- ]?farm|CPI|FOMC|Fed\b|ECB|BCE|interest rate|payroll|GDP|unemployment|PPI|ISM)\b/i;
@@ -29,6 +24,14 @@ export type ForexMacroSnapshot = {
   readonly minutesToNextHigh: number | null;
 };
 
+type DayCache = {
+  dateKey: string;
+  events: ForexMacroEvent[];
+};
+
+/** Process-local cache — avoids filesystem in any bundling path. */
+let memoryCache: DayCache | null = null;
+
 async function fetchJson<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(12_000) });
@@ -43,18 +46,8 @@ export async function getForexMacroSnapshot(now = new Date()): Promise<ForexMacr
   const today = now.toISOString().slice(0, 10);
   let events: ForexMacroEvent[] = [];
 
-  try {
-    if (fs.existsSync(CACHE_FILE)) {
-      const cached = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8")) as {
-        dateKey?: string;
-        events?: ForexMacroEvent[];
-      };
-      if (cached.dateKey === today && Array.isArray(cached.events)) {
-        events = cached.events;
-      }
-    }
-  } catch {
-    /* refresh */
+  if (memoryCache?.dateKey === today && Array.isArray(memoryCache.events)) {
+    events = memoryCache.events;
   }
 
   if (events.length === 0) {
@@ -67,16 +60,7 @@ export async function getForexMacroSnapshot(now = new Date()): Promise<ForexMacr
         return { title, at, highImpact: HIGH_KEYWORDS.test(title) };
       })
       .slice(0, 40);
-    try {
-      fs.mkdirSync(CACHE_DIR, { recursive: true });
-      fs.writeFileSync(
-        CACHE_FILE,
-        JSON.stringify({ dateKey: today, updatedAt: now.toISOString(), events }, null, 2),
-        "utf8",
-      );
-    } catch {
-      /* ignore cache write */
-    }
+    memoryCache = { dateKey: today, events };
   }
 
   const blackoutMs = FOREX_RISK_POLICY.newsBlackoutMinutes * 60_000;

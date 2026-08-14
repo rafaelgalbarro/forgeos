@@ -1,3 +1,8 @@
+/**
+ * Client-safe FOREX barrel (config + indicators only).
+ * Never re-export macro-calendar / runtime (server-only).
+ */
+
 export {
   FOREX_PAIRS,
   FOREX_PAIR_IDS,
@@ -39,5 +44,3 @@ export {
 } from "./indicators";
 
 export type { ForexBar, ForexIndicators, ForexSignalSide } from "./indicators";
-
-// macro-calendar uses node:fs — import from "@/lib/investment/forex/macro-calendar" on the server only.

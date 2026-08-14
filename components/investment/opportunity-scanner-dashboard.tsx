@@ -13,6 +13,13 @@ import {
   type OpportunityCenterSortId,
   type OpportunitySide,
 } from "@/lib/investment/opportunity-center";
+import {
+  DEFAULT_OPPORTUNITY_FILTERS,
+  filterEnhancedOpportunities,
+  filterOpportunityItems,
+  OpportunityFilterBar,
+  type OpportunityFiltersState,
+} from "@/components/investment/OpportunityFilterBar";
 import styles from "@/styles/investment/workspace.module.css";
 
 type CenterApiResponse = OpportunityCenterSnapshot & {
@@ -126,6 +133,7 @@ export function OpportunityScannerDashboard() {
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [sortId, setSortId] = useState<OpportunityCenterSortId>("mayor_score");
+  const [filters, setFilters] = useState<OpportunityFiltersState>(DEFAULT_OPPORTUNITY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [, setTimeTick] = useState(0);
 
@@ -174,10 +182,28 @@ export function OpportunityScannerDashboard() {
     };
   }, []);
 
+  const totalOpportunities = payload?.opportunities?.length ?? 0;
+
   const sorted = useMemo(() => {
-    const items = payload?.opportunities ?? [];
-    return sortOpportunityCenterItems(items, sortId);
-  }, [payload?.opportunities, sortId]);
+    const filtered = filterOpportunityItems(payload?.opportunities ?? [], filters);
+    return sortOpportunityCenterItems(filtered, sortId);
+  }, [payload?.opportunities, filters, sortId]);
+
+  const enhancedFiltered = useMemo(() => {
+    const raw = payload?.enhancedScan?.opportunities ?? [];
+    return filterEnhancedOpportunities(raw, filters).slice(0, 6);
+  }, [payload?.enhancedScan?.opportunities, filters]);
+
+  const tickerSuggestions = useMemo(() => {
+    const tickers = new Set<string>();
+    for (const item of payload?.opportunities ?? []) tickers.add(item.activo);
+    for (const item of payload?.enhancedScan?.opportunities ?? []) tickers.add(item.ticker);
+    for (const candidate of payload?.candidates ?? []) {
+      const symbol = candidate.instrument?.symbol;
+      if (symbol) tickers.add(symbol);
+    }
+    return Array.from(tickers).sort((a, b) => a.localeCompare(b));
+  }, [payload?.opportunities, payload?.enhancedScan?.opportunities, payload?.candidates]);
 
   const selected = useMemo(
     () => sorted.find((o) => o.id === selectedId) ?? sorted[0] ?? null,
@@ -189,7 +215,7 @@ export function OpportunityScannerDashboard() {
 
   const systemActive = loaded && !error && payload != null;
   const opportunitiesToday =
-    payload?.scannedAt && isToday(payload.scannedAt) ? (payload.count ?? sorted.length) : 0;
+    payload?.scannedAt && isToday(payload.scannedAt) ? (payload.count ?? totalOpportunities) : 0;
   const lastSearchLabel = formatMinutesAgo(payload?.scannedAt);
 
   return (
@@ -219,11 +245,11 @@ export function OpportunityScannerDashboard() {
         Filtro: {quality.label} — {quality.description}
       </p>
 
-      {(payload?.enhancedScan?.opportunities?.length ?? 0) > 0 ? (
+      {enhancedFiltered.length > 0 ? (
         <div className={styles.oppEnhancedSection}>
           <h2 className={styles.oppEnhancedTitle}>Scanner multi-fuente (confluencia técnica + noticias)</h2>
           <div className={styles.oppEnhancedGrid}>
-            {payload!.enhancedScan!.opportunities.slice(0, 6).map((opp) => (
+            {enhancedFiltered.map((opp) => (
               <article key={opp.ticker} className={styles.oppEnhancedCard}>
                 <header className={styles.oppEnhancedHead}>
                   <strong>{opp.ticker}</strong>
@@ -282,28 +308,36 @@ export function OpportunityScannerDashboard() {
 
       {error ? <p className={styles.oppError}>{error}</p> : null}
 
-      <div className={styles.oppControls}>
-        <label>
-          Ordenar por
-          <select
-            value={sortId}
-            onChange={(e) => setSortId(e.target.value as OpportunityCenterSortId)}
-          >
-            {sortOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <OpportunityFilterBar
+        filters={filters}
+        onChange={setFilters}
+        shown={sorted.length}
+        total={totalOpportunities}
+        tickerSuggestions={tickerSuggestions}
+        sortControl={
+          <label className={styles.oppSortLabel}>
+            Ordenar
+            <select
+              value={sortId}
+              onChange={(e) => setSortId(e.target.value as OpportunityCenterSortId)}
+            >
+              {sortOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+      />
 
       <div className={styles.oppLayout}>
         <div className={styles.oppTableWrap}>
           {sorted.length === 0 ? (
             <p className={styles.oppEmpty}>
-              No high-quality (A+/A) opportunities right now. Scanner candidates:{" "}
-              {payload?.candidates?.length ?? 0}. Auto-refresh every {POLL_MS / 1000}s.
+              {totalOpportunities === 0
+                ? `No high-quality (A+/A) opportunities right now. Scanner candidates: ${payload?.candidates?.length ?? 0}. Auto-refresh every ${POLL_MS / 1000}s.`
+                : `Ninguna oportunidad coincide con los filtros (${totalOpportunities} en total). Ajusta side, score, mercado o ticker.`}
             </p>
           ) : (
             <table className={styles.oppTable}>

@@ -1361,6 +1361,167 @@
   font-size: 0.75rem;
 }
 
+.oppFilterBar {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--inv-border, var(--investment-border, #1f2937));
+  background: var(--inv-surface, #111827);
+  margin-bottom: 10px;
+}
+
+.oppFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.oppFilterLabel {
+  flex: 0 0 64px;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-muted, var(--investment-text, #9fb4c9));
+}
+
+.oppPillGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.oppPill {
+  appearance: none;
+  border: 1px solid var(--inv-border, #1f2937);
+  background: rgba(10, 14, 23, 0.85);
+  color: var(--inv-text, #cbd5e1);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.oppPill:hover {
+  border-color: #374151;
+  color: #f1f5f9;
+}
+
+.oppPillActive {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.oppPillBuy.oppPillActive {
+  background: rgba(0, 208, 132, 0.14);
+  color: var(--inv-buy, #00d084);
+  border-color: rgba(0, 208, 132, 0.55);
+}
+
+.oppPillSell.oppPillActive {
+  background: rgba(255, 71, 87, 0.14);
+  color: var(--inv-sell, #ff4757);
+  border-color: rgba(255, 71, 87, 0.55);
+}
+
+.oppPillHold.oppPillActive {
+  background: rgba(107, 114, 128, 0.2);
+  color: var(--inv-hold, #9ca3af);
+  border-color: rgba(156, 163, 175, 0.45);
+}
+
+.oppPillNeutral.oppPillActive {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.oppSearchWrap {
+  position: relative;
+  min-width: min(220px, 100%);
+}
+
+.oppSearchInput {
+  width: 100%;
+  min-width: 180px;
+  padding: 6px 10px;
+  border: 1px solid var(--inv-border, #1f2937);
+  border-radius: 6px;
+  background: #0a0e17;
+  color: var(--inv-title, #f1f5f9);
+  font-family: var(--inv-font-mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.oppSuggestList {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--inv-border, #1f2937);
+  border-radius: 6px;
+  background: #0f172a;
+  max-height: 220px;
+  overflow: auto;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.oppSuggestItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: #e2e8f0;
+  font-family: var(--inv-font-mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+  padding: 7px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.oppSuggestItem:hover {
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.oppSortLabel {
+  display: grid;
+  gap: 3px;
+  font-size: 0.68rem;
+  color: var(--inv-muted, #9fb4c9);
+}
+
+.oppSortLabel select {
+  min-width: 150px;
+  padding: 5px 7px;
+  border: 1px solid var(--inv-border, #1f2937);
+  border-radius: 6px;
+  background: #0a0e17;
+  color: var(--inv-title, #f1f5f9);
+  font-size: 0.75rem;
+}
+
+.oppFilterCount {
+  margin: 0;
+  margin-left: auto;
+  font-size: 0.74rem;
+  color: var(--inv-muted, #9fb4c9);
+}
+
+.oppFilterCount strong {
+  color: var(--inv-title, #f1f5f9);
+  font-variant-numeric: tabular-nums;
+}
+
 .oppFilterDoc {
   margin: 0;
   font-size: 0.72rem;
@@ -1781,7 +1942,11 @@
 }
 
 .oppControls select:focus-visible,
-.oppControls button:focus-visible {
+.oppControls button:focus-visible,
+.oppPill:focus-visible,
+.oppSearchInput:focus-visible,
+.oppSortLabel select:focus-visible,
+.oppSuggestItem:focus-visible {
   outline: 2px solid var(--investment-accent, #f8b84e);
   outline-offset: 1px;
 }

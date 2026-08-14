@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
 import {
   OPPORTUNITY_CENTER_NO_DATA,
@@ -20,6 +20,10 @@ import {
   OpportunityFilterBar,
   type OpportunityFiltersState,
 } from "@/components/investment/OpportunityFilterBar";
+import {
+  OpportunitySignalCard,
+  type OpportunityCardModel,
+} from "@/components/investment/OpportunitySignalCard";
 import styles from "@/styles/investment/workspace.module.css";
 
 type CenterApiResponse = OpportunityCenterSnapshot & {
@@ -59,36 +63,6 @@ type CenterApiResponse = OpportunityCenterSnapshot & {
 
 const POLL_MS = 8_000;
 
-function badgeLabel(badge: string): string {
-  switch (badge) {
-    case "INSIDER BUY":
-      return "🔴 INSIDER BUY";
-    case "SHORT SQUEEZE":
-      return "🟡 SHORT SQUEEZE";
-    case "OPTIONS FLOW":
-      return "🟣 OPTIONS FLOW";
-    case "CATALYST":
-      return "🟢 CATALYST";
-    case "GAP UP":
-      return "⚡ GAP UP";
-    case "GAP DOWN":
-      return "⚡ GAP DOWN";
-    case "MOMENTUM":
-      return "📈 MOMENTUM";
-    default:
-      return badge;
-  }
-}
-
-function badgeClassName(badge: string): string {
-  if (badge === "MACRO CAUTION" || badge === "GAP DOWN") return styles.oppInstBadgeCaution;
-  if (badge === "INSIDER BUY" || badge === "CATALYST" || badge === "GAP UP") return styles.oppInstBadgeBull;
-  if (badge === "SHORT SQUEEZE") return styles.oppInstBadgeSqueeze;
-  if (badge === "OPTIONS FLOW") return styles.oppInstBadgeFlow;
-  if (badge === "MOMENTUM") return styles.oppInstBadgeMomentum;
-  return styles.oppInstBadgeNeutral;
-}
-
 function isToday(iso: string): boolean {
   const d = new Date(iso);
   const now = new Date();
@@ -120,12 +94,31 @@ function sideClass(side: OpportunitySide): string {
   return styles.oppSideHold;
 }
 
-function FieldValue({ value, digits }: { value: number | string; digits?: number }) {
-  const text = fmtField(value, digits);
-  if (text === OPPORTUNITY_CENTER_NO_DATA) {
-    return <span className={styles.oppNoData}>{OPPORTUNITY_CENTER_NO_DATA}</span>;
-  }
-  return <>{text}</>;
+function numField(value: number | string | typeof OPPORTUNITY_CENTER_NO_DATA): number | null {
+  if (value === OPPORTUNITY_CENTER_NO_DATA || value == null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function toCenterCard(item: OpportunityCenterItem, isNew: boolean): OpportunityCardModel {
+  return {
+    id: item.id,
+    ticker: item.activo,
+    side: item.side,
+    score: item.score,
+    confidence: item.confianza,
+    entry: null,
+    stopLoss: numField(item.stopLoss),
+    takeProfit: numField(item.takeProfit),
+    grade: item.grade,
+    mercado: item.mercado,
+    researchHref: item.researchHref,
+    signals: item.details
+      .filter((d) => d.status !== "NO_DATA")
+      .flatMap((d) => d.bullets.slice(0, 2))
+      .slice(0, 4),
+    isNew,
+  };
 }
 
 export function OpportunityScannerDashboard() {
@@ -136,6 +129,9 @@ export function OpportunityScannerDashboard() {
   const [filters, setFilters] = useState<OpportunityFiltersState>(DEFAULT_OPPORTUNITY_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [, setTimeTick] = useState(0);
+  const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const bootstrappedRef = useRef(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTimeTick((n) => n + 1), 60_000);
@@ -155,8 +151,41 @@ export function OpportunityScannerDashboard() {
         setPayload(result.data);
         setError(result.data.error ?? "");
         setLoaded(true);
+        const list = result.data?.opportunities ?? [];
+        const enhanced = result.data?.enhancedScan?.opportunities ?? [];
+        const seen = seenIdsRef.current;
+        if (!bootstrappedRef.current) {
+          for (const o of list) seen.add(o.id);
+          for (const o of enhanced) seen.add(`enh:${o.ticker}`);
+          bootstrappedRef.current = true;
+        } else {
+          const fresh = new Set<string>();
+          for (const o of list) {
+            if (!seen.has(o.id)) {
+              seen.add(o.id);
+              fresh.add(o.id);
+            }
+          }
+          for (const o of enhanced) {
+            const key = `enh:${o.ticker}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              fresh.add(key);
+            }
+          }
+          if (fresh.size > 0) {
+            setFreshIds(fresh);
+            window.setTimeout(() => {
+              setFreshIds((prev) => {
+                if (prev.size === 0) return prev;
+                const next = new Set(prev);
+                for (const id of fresh) next.delete(id);
+                return next;
+              });
+            }, 1200);
+          }
+        }
         setSelectedId((prev) => {
-          const list = result.data?.opportunities ?? [];
           if (prev && list.some((o) => o.id === prev)) return prev;
           return list[0]?.id ?? null;
         });
@@ -248,59 +277,26 @@ export function OpportunityScannerDashboard() {
       {enhancedFiltered.length > 0 ? (
         <div className={styles.oppEnhancedSection}>
           <h2 className={styles.oppEnhancedTitle}>Scanner multi-fuente (confluencia técnica + noticias)</h2>
-          <div className={styles.oppEnhancedGrid}>
+          <div className={styles.oppCardGrid}>
             {enhancedFiltered.map((opp) => (
-              <article key={opp.ticker} className={styles.oppEnhancedCard}>
-                <header className={styles.oppEnhancedHead}>
-                  <strong>{opp.ticker}</strong>
-                  <span className={sideClass(opp.side)}>{opp.side}</span>
-                  <span className={styles.oppEnhancedScore}>Score {opp.score}</span>
-                </header>
-                {(opp.confluenceLabel ||
-                opp.primaryTimeframe ||
-                opp.higherTfConfirmation ||
-                (opp.badges?.length ?? 0) > 0) ? (
-                  <div className={styles.oppInstitutionalBadges}>
-                    {opp.confluenceLabel ? (
-                      <span
-                        className={
-                          opp.mtfHighConfidence
-                            ? styles.oppInstBadgeBull
-                            : opp.mtfWeakSignal
-                              ? styles.oppInstBadgeCaution
-                              : styles.oppInstBadgeNeutral
-                        }
-                      >
-                        {opp.confluenceLabel}
-                      </span>
-                    ) : null}
-                    {opp.primaryTimeframe ? (
-                      <span className={styles.oppInstBadgeNeutral}>TF {opp.primaryTimeframe}</span>
-                    ) : null}
-                    {opp.higherTfConfirmation ? (
-                      <span className={styles.oppInstBadgeBull}>TF↑ confirm</span>
-                    ) : null}
-                    {(opp.badges?.length ?? 0) > 0
-                      ? opp.badges!.map((badge) => (
-                          <span key={badge} className={badgeClassName(badge)}>
-                            {badgeLabel(badge)}
-                          </span>
-                        ))
-                      : null}
-                  </div>
-                ) : null}
-                <ul className={styles.oppEnhancedSignals}>
-                  {opp.signals.map((s) => (
-                    <li key={s}>{s}</li>
-                  ))}
-                </ul>
-                <p className={styles.oppEnhancedLevels}>
-                  Entry ${opp.entry.toFixed(2)} · SL ${opp.stopLoss.toFixed(2)} · TP ${opp.takeProfit.toFixed(2)}
-                </p>
-                {opp.news.length > 0 ? (
-                  <p className={styles.oppEnhancedNews}>{opp.news[0]!.title}</p>
-                ) : null}
-              </article>
+              <OpportunitySignalCard
+                key={opp.ticker}
+                model={{
+                  id: `enh:${opp.ticker}`,
+                  ticker: opp.ticker,
+                  side: opp.side,
+                  score: opp.score,
+                  entry: opp.entry,
+                  stopLoss: opp.stopLoss,
+                  takeProfit: opp.takeProfit,
+                  signals: opp.signals,
+                  badges: opp.badges,
+                  newsTitle: opp.news[0]?.title,
+                  confluenceLabel: opp.confluenceLabel,
+                  isNew: freshIds.has(`enh:${opp.ticker}`),
+                }}
+                onSelect={() => setSelectedId(null)}
+              />
             ))}
           </div>
         </div>
@@ -340,90 +336,17 @@ export function OpportunityScannerDashboard() {
                 : `Ninguna oportunidad coincide con los filtros (${totalOpportunities} en total). Ajusta side, score, mercado o ticker.`}
             </p>
           ) : (
-            <table className={styles.oppTable}>
-              <thead>
-                <tr>
-                  <th>Activo</th>
-                  <th>Research</th>
-                  <th>Mercado</th>
-                  <th>Tipo</th>
-                  <th>Side</th>
-                  <th>Confianza</th>
-                  <th>Score</th>
-                  <th>Rentab.</th>
-                  <th>Riesgo</th>
-                  <th>Horizonte</th>
-                  <th>Prob.</th>
-                  <th>Capital</th>
-                  <th>SL</th>
-                  <th>TP</th>
-                  <th>R:R</th>
-                  <th>Liquidez</th>
-                  <th>Vol</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((row) => (
-                  <tr
-                    key={row.id}
-                    data-active={selected?.id === row.id ? "true" : "false"}
-                    onClick={() => setSelectedId(row.id)}
-                  >
-                    <td>
-                      <strong>{row.activo}</strong>{" "}
-                      <span className={styles.oppNoData}>{row.grade}</span>
-                    </td>
-                    <td>
-                      <Link
-                        href={row.researchHref}
-                        className={styles.labInlineLink}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Dossier
-                      </Link>
-                    </td>
-                    <td>{row.mercado}</td>
-                    <td>{row.tipo}</td>
-                    <td className={sideClass(row.side)}>{row.side}</td>
-                    <td>{fmtField(row.confianza, 2)}</td>
-                    <td>{fmtField(row.score, 1)}</td>
-                    <td>
-                      <FieldValue value={row.rentabilidadEsperada} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.riesgo} />
-                      {row.riesgoPct !== OPPORTUNITY_CENTER_NO_DATA ? (
-                        <span className={styles.oppNoData}> ({fmtField(row.riesgoPct)}%)</span>
-                      ) : null}
-                    </td>
-                    <td>
-                      <FieldValue value={row.horizonteTemporal} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.probabilidad} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.capitalRecomendado} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.stopLoss} digits={4} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.takeProfit} digits={4} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.ratioRiesgoBeneficio} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.liquidez} />
-                    </td>
-                    <td>
-                      <FieldValue value={row.volatilidad} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className={styles.oppCardGrid}>
+              {sorted.map((row) => (
+                <OpportunitySignalCard
+                  key={row.id}
+                  model={toCenterCard(row, freshIds.has(row.id))}
+                  selected={selected?.id === row.id}
+                  onSelect={() => setSelectedId(row.id)}
+                  onExpandAnalysis={() => setSelectedId(row.id)}
+                />
+              ))}
+            </div>
           )}
         </div>
 

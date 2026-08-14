@@ -54,6 +54,14 @@ export function InvestmentProductShell({ children }: { children: React.ReactNode
     void refreshStatus();
   }, [refreshStatus]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.forgeosSurface = "investment";
+    return () => {
+      delete root.dataset.forgeosSurface;
+    };
+  }, []);
+
   const { connected: streamConnected } = useInvestmentStream((event) => {
     if (
       event.type === "signal" ||
@@ -167,7 +175,7 @@ export function InvestmentProductShell({ children }: { children: React.ReactNode
         </div>
         <div className={styles.statusItem}>
           <span className={styles.hubLabel}>Portfolio value</span>
-          <strong className={styles.hubValue}>
+          <strong className={styles.hubValue} data-numeric="true">
             {fmtMoney(
               snapshot?.portfolioSummary?.data?.totalValue ?? account?.netLiquidation,
               account?.currency ?? snapshot?.portfolioSummary?.data?.baseCurrency ?? "USD",

@@ -36,12 +36,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/labs" ||
     pathname.startsWith("/ventures/");
   const isDashboard = pathname === "/dashboard" || pathname === "/founder";
+  const isInvestment = pathname === "/investment" || pathname.startsWith("/investment/");
   const immersive =
     pathname === "/" ||
     IMMERSIVE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (isOs) {
     return <ForgeOSShell>{children}</ForgeOSShell>;
+  }
+
+  if (isInvestment) {
+    return <div className="investment-app-root">{children}</div>;
   }
 
   if (immersive) {

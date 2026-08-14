@@ -1,9 +1,22 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { InvestmentProductShell } from "@/components/investment/InvestmentProductShell";
 import { RegisterInvestmentServiceWorker } from "@/components/investment/RegisterInvestmentServiceWorker";
 import "@/styles/investment/investment-fonts.css";
+import "@/styles/investment/terminal-theme.css";
 
-// Temporary build detection — confirms Next includes /investment in production compile
+const investmentSans = Inter({
+  subsets: ["latin"],
+  variable: "--font-investment-sans",
+  display: "swap",
+});
+
+const investmentMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-investment-mono",
+  display: "swap",
+});
+
 console.log("[ForgeOS build] app/investment/layout.tsx registered — /investment route active");
 
 export const metadata: Metadata = {
@@ -16,7 +29,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "ForgeOS",
+    title: "ForgeOS Investment",
   },
   icons: {
     icon: [
@@ -31,14 +44,16 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0a0a0a",
+  themeColor: "#0a0e17",
 };
 
 export default function InvestmentLayout({ children }: { children: React.ReactNode }) {
   return (
-    <InvestmentProductShell>
-      <RegisterInvestmentServiceWorker />
-      {children}
-    </InvestmentProductShell>
+    <div className={`${investmentSans.variable} ${investmentMono.variable}`}>
+      <InvestmentProductShell>
+        <RegisterInvestmentServiceWorker />
+        {children}
+      </InvestmentProductShell>
+    </div>
   );
 }

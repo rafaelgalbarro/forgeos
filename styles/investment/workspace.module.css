@@ -211,33 +211,47 @@
 }
 
 .productRoot {
-  --investment-bg: #090d12;
-  --investment-bg-elevated: #101720;
-  --investment-border: #1f2d3d;
-  --investment-border-strong: #2a3d53;
-  --investment-title: #dde9f7;
-  --investment-text: #9fb4c9;
-  --investment-accent: #f8b84e;
-  --investment-good: #59c48e;
-  --investment-warn: #f28e2b;
-  --investment-danger: #e25b6a;
+  --investment-bg: #0a0e17;
+  --investment-bg-elevated: #111827;
+  --investment-card: #111827;
+  --investment-border: #1f2937;
+  --investment-border-strong: #334155;
+  --investment-title: #e5e7eb;
+  --investment-text: #9ca3af;
+  --investment-accent: #93c5fd;
+  --investment-good: #00d084;
+  --investment-warn: #f59e0b;
+  --investment-danger: #ff4757;
+  --investment-buy: #00d084;
+  --investment-sell: #ff4757;
+  --investment-hold: #6b7280;
 
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
-  background: radial-gradient(circle at 18% 0%, #152233 0%, #090d12 42%, #06090f 100%);
-  padding: clamp(10px, 2vw, 18px);
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--investment-bg);
   color: var(--investment-text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-investment-sans, Inter, ui-sans-serif, system-ui, sans-serif);
 }
 
 .productHeader {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  margin-bottom: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--investment-border);
-  background: rgba(11, 17, 26, 0.92);
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--investment-border);
+  background: var(--investment-bg-elevated);
 }
 
 .productBrand {
@@ -255,9 +269,10 @@
 .productTitle {
   margin: 0;
   color: var(--investment-title);
-  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
-  letter-spacing: 0.1em;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  font-weight: 700;
 }
 
 .productTagline {
@@ -320,10 +335,11 @@
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--investment-border-strong);
-  background: rgba(12, 20, 30, 0.92);
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--investment-border);
+  background: #0d1320;
 }
 
 .statusItem {
@@ -334,6 +350,9 @@
 
 .productBody {
   min-width: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 12px 14px 16px;
 }
 
 .shellPage {
@@ -506,18 +525,19 @@
 
 .workspaceNav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--investment-border);
-  background: rgba(11, 17, 26, 0.9);
+  flex-wrap: nowrap;
+  gap: 2px;
+  margin: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--investment-border);
+  background: var(--investment-bg-elevated);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .navSwipeWrap {
-  margin-bottom: 12px;
+  flex-shrink: 0;
+  margin: 0;
 }
 
 .navSwipeHint {
@@ -551,8 +571,9 @@
 
 .workspaceNavActive {
   color: var(--investment-title);
-  border-color: var(--investment-border-strong);
-  background: rgba(248, 184, 78, 0.08);
+  border-color: transparent;
+  border-bottom: 2px solid var(--investment-buy);
+  background: transparent;
 }
 
 .header {
@@ -610,6 +631,8 @@
 .hubValue {
   color: var(--investment-title);
   font-size: 0.82rem;
+  font-family: var(--font-investment-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
 }
 
 .hubList {
@@ -848,7 +871,7 @@
 
 @media (max-width: 560px) {
   .productRoot {
-    padding: 8px;
+    padding: 0;
   }
 
   .panel:nth-child(n) {

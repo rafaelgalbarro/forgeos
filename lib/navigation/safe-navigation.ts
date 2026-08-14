@@ -23,6 +23,7 @@ const KNOWN_HREFS = new Set([
   "/investment/markets",
   "/investment/forex",
   "/investment/crypto",
+  "/api/investment/forex",
   "/investment/opportunities",
   "/investment/portfolio",
   "/investment/orders",

@@ -1,7 +1,7 @@
 "use client";
 
-import { AssetClassModuleWorkspace } from "@/components/investment/AssetClassModuleWorkspace";
+import { ForexDashboard } from "@/components/investment/ForexDashboard";
 
 export default function InvestmentForexPage() {
-  return <AssetClassModuleWorkspace module="forex" />;
+  return <ForexDashboard />;
 }

@@ -28,3 +28,17 @@ export type {
   ForexSessionSnapshot,
   ForexCorrelationHint,
 } from "./config";
+
+export {
+  computeForexIndicators,
+  computeRsi,
+  computeMacd,
+  computeBollinger,
+  computeAtr,
+  inferForexSignal,
+} from "./indicators";
+
+export type { ForexBar, ForexIndicators, ForexSignalSide } from "./indicators";
+
+export { getForexMacroSnapshot } from "./macro-calendar";
+export type { ForexMacroEvent, ForexMacroSnapshot } from "./macro-calendar";

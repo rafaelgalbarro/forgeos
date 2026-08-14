@@ -5,12 +5,14 @@ import hmac
 import json
 import os
 import secrets
+import socket
 import sqlite3
 import sys
 import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
+from decimal import Decimal, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -39,7 +41,7 @@ class Settings(BaseSettings):
     internal_api_key: str = Field(min_length=24)
     approval_secret: str = Field(min_length=24)
     ibkr_host: str = "127.0.0.1"
-    ibkr_port: int = 4001
+    ibkr_port: int = 7497
     ibkr_client_id: int = 41
     ibkr_account_id: str = ""
     ibkr_connect_timeout_seconds: int = 12
@@ -52,12 +54,34 @@ class Settings(BaseSettings):
     allowed_currencies: str = "EUR,USD"
     allowed_exchanges: str = "SMART"
     database_path: str = "./forgeos_ibkr.sqlite3"
+    allow_outside_rth: bool = False
+    forex_enabled: bool = False
+    forex_max_spread_pips: float = 3
+    forex_max_positions: int = 3
+    forex_risk_pct: float = 2
+    forex_stop_pips: float = 20
+    forex_tp_pips: float = 40
+    forex_min_confidence: float = 0.75
+    forex_min_units: float = 25_000
+    forex_allowed_pairs: str = "EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,USDCAD,EURGBP,EURJPY,GBPJPY"
+    max_forex_order_units: float = 500_000
 
     def csv_set(self, value: str) -> set[str]:
         return {item.strip().upper() for item in value.split(",") if item.strip()}
 
 
 settings = Settings()
+
+
+def apply_whatif_legacy_attr_compat(order: Order) -> None:
+    """Scope-limited compat for FX What-If on legacy TWS/API combos.
+
+    Keeps legacy optional attrs effectively omitted on this specific order
+    path without patching global ibapi encoder behavior.
+    """
+    order.eTradeOnly = ""
+    order.firmQuoteOnly = ""
+    order.nbboPriceCap = ""
 
 
 def utcnow() -> datetime:
@@ -127,11 +151,13 @@ class ProposalCreate(BaseModel):
     quantity: float = Field(gt=0)
     order_type: Literal["LMT"] = "LMT"
     limit_price: float = Field(gt=0)
+    sec_type: str = Field(default="STK", min_length=1, max_length=10)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     exchange: str = Field(default="SMART", min_length=1, max_length=20)
     primary_exchange: str | None = None
     rationale: str = Field(min_length=10, max_length=4000)
     strategy_id: str = "manual-supervised"
+    outside_rth: bool = False
 
 
 class DecisionRequest(BaseModel):
@@ -162,6 +188,17 @@ class IBKRClient(EWrapper, EClient):
         self.history_meta: dict[str, Any] = {}
         self.reader_thread: threading.Thread | None = None
         self._history_lock = threading.Lock()
+        self.contract_details_data: dict[int, Any] = {}
+        self.contract_details_done: dict[int, threading.Event] = {}
+        self.market_rules_data: dict[int, list[dict[str, float]]] = {}
+        self.market_rules_done: dict[int, threading.Event] = {}
+        self.place_ack_events: dict[int, threading.Event] = {}
+        self.place_ack_status: dict[int, str] = {}
+        self.place_ack_errors: dict[int, list[dict[str, Any]]] = {}
+        self.tick_data: dict[int, dict[str, Any]] = {}
+        self.tick_done: dict[int, threading.Event] = {}
+        self._tick_lock = threading.Lock()
+        self._forex_req_seq = 9300
 
     def nextValidId(self, orderId: int) -> None:
         self.next_order_id = orderId
@@ -171,6 +208,11 @@ class IBKRClient(EWrapper, EClient):
 
     def error(self, reqId, errorCode, errorString, advancedOrderRejectJson="") -> None:
         self.errors.append({"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson})
+        if isinstance(reqId, int) and reqId in self.place_ack_events:
+            self.place_ack_errors.setdefault(reqId, []).append(
+                {"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson}
+            )
+            self.place_ack_events[reqId].set()
         # Hard historical-data failures should unblock waiters (never invent bars).
         if reqId in self.history_bars and int(errorCode) in {162, 200, 354, 366, 420, 10168}:
             self.history_done.set()
@@ -206,6 +248,9 @@ class IBKRClient(EWrapper, EClient):
             "limitPrice": float(order.lmtPrice) if order.lmtPrice else None,
             "status": orderState.status,
         })
+        if orderId in self.place_ack_events:
+            self.place_ack_status[orderId] = orderState.status
+            self.place_ack_events[orderId].set()
 
     def openOrderEnd(self) -> None:
         self.orders_done.set()
@@ -226,16 +271,91 @@ class IBKRClient(EWrapper, EClient):
         self.history_meta = {"reqId": reqId, "start": start, "end": end}
         self.history_done.set()
 
+    def tickPrice(self, reqId, tickType, price, attrib) -> None:
+        with self._tick_lock:
+            bucket = self.tick_data.setdefault(reqId, {"bid": None, "ask": None, "last": None})
+            if tickType == 1:
+                bucket["bid"] = price
+            elif tickType == 2:
+                bucket["ask"] = price
+            elif tickType in (4, 9):
+                bucket["last"] = price
+            if bucket.get("bid") is not None and bucket.get("ask") is not None:
+                done = self.tick_done.get(reqId)
+                if done:
+                    done.set()
+
+    def tickSize(self, reqId, tickType, size) -> None:
+        return
+
+    def contractDetails(self, reqId: int, contractDetails) -> None:
+        self.contract_details_data[reqId] = contractDetails
+
+    def contractDetailsEnd(self, reqId: int) -> None:
+        event = self.contract_details_done.get(reqId)
+        if event:
+            event.set()
+
+    def marketRule(self, marketRuleId: int, priceIncrements) -> None:
+        self.market_rules_data[marketRuleId] = [
+            {"lowEdge": float(price_increment.lowEdge), "increment": float(price_increment.increment)}
+            for price_increment in priceIncrements
+        ]
+        event = self.market_rules_done.get(marketRuleId)
+        if event:
+            event.set()
+
+    def _tws_reachable(self, timeout_seconds: float = 0.6) -> bool:
+        try:
+            with socket.create_connection(
+                (settings.ibkr_host, settings.ibkr_port),
+                timeout=timeout_seconds,
+            ):
+                return True
+        except OSError:
+            return False
+
+    def _reset_socket_state(self) -> None:
+        """Clear half-open ibapi sockets so reconnect does not hit settimeout(None)."""
+        try:
+            if getattr(self, "conn", None) is not None:
+                self.disconnect()
+        except Exception:
+            pass
+        try:
+            self.conn = None
+        except Exception:
+            pass
+        self.next_order_id = None
+
     def connect_gateway(self) -> dict[str, Any]:
-        if not self.isConnected():
-            self.connect(settings.ibkr_host, settings.ibkr_port, clientId=settings.ibkr_client_id)
-            self.reader_thread = threading.Thread(target=self.run, daemon=True, name="ibkr-reader")
-            self.reader_thread.start()
+        if self.isConnected() and self.next_order_id is not None:
+            return self.status()
+
+        if not self._tws_reachable():
+            self._reset_socket_state()
+            raise ConnectionError(
+                f"TWS/Gateway offline — nothing listening on {settings.ibkr_host}:{settings.ibkr_port}"
+            )
+
+        try:
+            if not self.isConnected():
+                # Avoid ibapi settimeout on a dead conn from a prior failed attempt.
+                if getattr(self, "conn", None) is not None and not self.isConnected():
+                    self._reset_socket_state()
+                self.connect(settings.ibkr_host, settings.ibkr_port, clientId=settings.ibkr_client_id)
+                self.reader_thread = threading.Thread(target=self.run, daemon=True, name="ibkr-reader")
+                self.reader_thread.start()
+        except Exception as exc:
+            self._reset_socket_state()
+            raise ConnectionError(f"IBKR connect failed: {exc}") from exc
+
         deadline = time.time() + settings.ibkr_connect_timeout_seconds
         while time.time() < deadline:
             if self.isConnected() and self.next_order_id is not None:
                 return self.status()
             time.sleep(0.1)
+        self._reset_socket_state()
         raise TimeoutError("No se recibió nextValidId desde IB Gateway")
 
     def ensure_connected(self) -> None:
@@ -243,14 +363,19 @@ class IBKRClient(EWrapper, EClient):
             self.connect_gateway()
 
     def status(self) -> dict[str, Any]:
+        reachable = self._tws_reachable()
         return {
             "connected": self.isConnected(),
+            "twsReachable": reachable,
+            "state": "CONNECTED" if self.isConnected() else ("TWS_OFFLINE" if not reachable else "DISCONNECTED"),
             "nextOrderIdReady": self.next_order_id is not None,
             "nextValidId": self.next_order_id,
             "managedAccounts": self.accounts,
             "recentErrors": self.errors[-10:],
             "ibkrReadOnly": settings.ibkr_read_only,
             "liveTradingEnabled": settings.live_trading_enabled,
+            "host": settings.ibkr_host,
+            "port": settings.ibkr_port,
         }
 
     def account_summary(self) -> dict[str, Any]:
@@ -358,6 +483,214 @@ class IBKRClient(EWrapper, EClient):
             }
 
     def place_limit_order(self, proposal: dict[str, Any]) -> int:
+        return self.place_limit_order_validated(proposal, transmit=True, what_if=False)
+
+    def _next_forex_req_id(self) -> int:
+        self._forex_req_seq += 1
+        return self._forex_req_seq
+
+    def forex_quote(self, pair: dict[str, Any], *, timeout: float = 8.0) -> dict[str, Any]:
+        """READ_ONLY bid/ask for IDEALPRO CASH via reqMktData."""
+        try:
+            from .forex_pairs import build_cash_contract, pip_size
+        except ImportError:
+            from forex_pairs import build_cash_contract, pip_size  # type: ignore
+
+        with self._tick_lock:
+            self.ensure_connected()
+            req_id = self._next_forex_req_id()
+            done = threading.Event()
+            self.tick_done[req_id] = done
+            self.tick_data[req_id] = {"bid": None, "ask": None, "last": None}
+            contract = build_cash_contract(pair)
+            before_errors = len(self.errors)
+            self.reqMktData(req_id, contract, "", False, False, [])
+            done.wait(timeout)
+            try:
+                self.cancelMktData(req_id)
+            except Exception:
+                pass
+            ticks = dict(self.tick_data.get(req_id, {}))
+            self.tick_done.pop(req_id, None)
+            self.tick_data.pop(req_id, None)
+            bid = ticks.get("bid")
+            ask = ticks.get("ask")
+            last = ticks.get("last")
+            mid = None
+            spread = None
+            spread_pips = None
+            size = pip_size(pair)
+            if isinstance(bid, (int, float)) and isinstance(ask, (int, float)) and ask >= bid:
+                mid = (bid + ask) / 2.0
+                spread = ask - bid
+                spread_pips = spread / size if size else None
+            return {
+                "pairId": pair["pair_id"],
+                "display": pair["display"],
+                "symbol": pair["symbol"],
+                "currency": pair["currency"],
+                "secType": "CASH",
+                "exchange": "IDEALPRO",
+                "bid": bid,
+                "ask": ask,
+                "last": last,
+                "mid": mid,
+                "spread": spread,
+                "spreadPips": spread_pips,
+                "pipSize": size,
+                "recentErrors": self.errors[before_errors:][-3:],
+                "mode": "READ_ONLY",
+            }
+
+    def forex_history(
+        self,
+        pair: dict[str, Any],
+        *,
+        duration: str = "5 D",
+        bar_size: str = "5 mins",
+        what_to_show: str = "MIDPOINT",
+    ) -> dict[str, Any]:
+        """READ_ONLY FX bars — MIDPOINT on IDEALPRO CASH (not equity TRADES)."""
+        try:
+            from .forex_pairs import build_cash_contract
+        except ImportError:
+            from forex_pairs import build_cash_contract  # type: ignore
+
+        with self._history_lock:
+            self.ensure_connected()
+            req_id = self._next_forex_req_id()
+            self.history_bars = {req_id: []}
+            self.history_meta = {}
+            self.history_done.clear()
+            before_errors = len(self.errors)
+            contract = build_cash_contract(pair)
+            self.reqHistoricalData(
+                req_id,
+                contract,
+                "",
+                duration,
+                bar_size,
+                what_to_show,
+                0,
+                1,
+                False,
+                [],
+            )
+            finished = self.history_done.wait(25)
+            bars = list(self.history_bars.get(req_id, []))
+            return {
+                "pairId": pair["pair_id"],
+                "display": pair["display"],
+                "symbol": contract.symbol,
+                "currency": contract.currency,
+                "secType": "CASH",
+                "exchange": "IDEALPRO",
+                "duration": duration,
+                "barSize": bar_size,
+                "whatToShow": what_to_show,
+                "bars": bars,
+                "count": len(bars),
+                "finished": finished,
+                "recentErrors": self.errors[before_errors:][-5:],
+                "mode": "READ_ONLY",
+                "note": (
+                    f"{len(bars)} FX bars"
+                    if bars
+                    else "NO_DATA — empty FX history (subscription/pacing/timeout); never invented"
+                ),
+            }
+
+    def _resolve_contract_details(self, contract: Contract):
+        self.ensure_connected()
+        req_id = (self.next_order_id or 1000) + 100_000
+        done = threading.Event()
+        self.contract_details_done[req_id] = done
+        self.contract_details_data.pop(req_id, None)
+        self.reqContractDetails(req_id, contract)
+        if not done.wait(10):
+            self.contract_details_done.pop(req_id, None)
+            raise TimeoutError("Timeout en reqContractDetails")
+        details = self.contract_details_data.get(req_id)
+        self.contract_details_done.pop(req_id, None)
+        self.contract_details_data.pop(req_id, None)
+        if details is None:
+            raise RuntimeError("ContractDetails vacío")
+        return details
+
+    def _resolve_market_rules(self, market_rule_ids: str) -> dict[int, list[dict[str, float]]]:
+        rules: dict[int, list[dict[str, float]]] = {}
+        for part in (market_rule_ids or "").split(","):
+            value = part.strip()
+            if not value:
+                continue
+            rule_id = int(value)
+            done = threading.Event()
+            self.market_rules_done[rule_id] = done
+            self.market_rules_data.pop(rule_id, None)
+            self.reqMarketRule(rule_id)
+            if done.wait(10):
+                rules[rule_id] = self.market_rules_data.get(rule_id, [])
+            self.market_rules_done.pop(rule_id, None)
+        return rules
+
+    @staticmethod
+    def _pick_price_increment(price: Decimal, details, rules: dict[int, list[dict[str, float]]]) -> Decimal:
+        candidates: list[Decimal] = []
+        for entries in rules.values():
+            active: Decimal | None = None
+            for row in entries:
+                low_edge = Decimal(str(row["lowEdge"]))
+                increment = Decimal(str(row["increment"]))
+                if price >= low_edge:
+                    active = increment
+            if active is not None and active > 0:
+                candidates.append(active)
+        min_tick = getattr(details, "minTick", None)
+        if min_tick not in (None, ""):
+            tick = Decimal(str(min_tick))
+            if tick > 0:
+                candidates.append(tick)
+        if not candidates:
+            raise RuntimeError("No se pudo resolver minTick/marketRule increment")
+        # Use the strictest increment among active constraints.
+        return max(candidates)
+
+    @staticmethod
+    def _normalize_price(price: float, details, rules: dict[int, list[dict[str, float]]]) -> float:
+        value = Decimal(str(price))
+        increment = IBKRClient._pick_price_increment(value, details, rules)
+        normalized = (value / increment).to_integral_value(rounding=ROUND_DOWN) * increment
+        return float(normalized)
+
+    @staticmethod
+    def _normalize_quantity(quantity: float, details) -> float:
+        qty = Decimal(str(quantity))
+        min_size = getattr(details, "minSize", None)
+        size_increment = getattr(details, "sizeIncrement", None)
+
+        normalized = qty
+        if min_size not in (None, ""):
+            min_value = Decimal(str(min_size))
+            if min_value > 0 and normalized < min_value:
+                normalized = min_value
+        if size_increment not in (None, ""):
+            step = Decimal(str(size_increment))
+            if step > 0:
+                base = Decimal("0")
+                if min_size not in (None, ""):
+                    min_value = Decimal(str(min_size))
+                    if min_value > 0:
+                        base = min_value
+                if normalized < base:
+                    normalized = base
+                else:
+                    steps = ((normalized - base) / step).to_integral_value(rounding=ROUND_DOWN)
+                    normalized = base + (steps * step)
+        if normalized <= 0:
+            raise RuntimeError("Cantidad inválida tras normalización")
+        return float(normalized)
+
+    def place_limit_order_validated(self, proposal: dict[str, Any], *, transmit: bool, what_if: bool) -> int:
         self.ensure_connected()
         if self.next_order_id is None:
             raise RuntimeError("No existe un identificador de orden válido")
@@ -365,20 +698,38 @@ class IBKRClient(EWrapper, EClient):
         self.next_order_id += 1
         contract = Contract()
         contract.symbol = proposal["symbol"]
-        contract.secType = "STK"
+        contract.secType = proposal.get("sec_type", "STK")
         contract.currency = proposal["currency"]
         contract.exchange = proposal["exchange"]
         if proposal.get("primary_exchange"):
             contract.primaryExchange = proposal["primary_exchange"]
+        details = self._resolve_contract_details(contract)
+        market_rules = self._resolve_market_rules(getattr(details, "marketRuleIds", "") or "")
+        normalized_qty = self._normalize_quantity(float(proposal["quantity"]), details)
+        normalized_price = self._normalize_price(float(proposal["limit_price"]), details, market_rules)
         order = Order()
         order.action = proposal["side"]
         order.orderType = "LMT"
-        order.totalQuantity = proposal["quantity"]
-        order.lmtPrice = proposal["limit_price"]
+        order.totalQuantity = normalized_qty
+        order.lmtPrice = normalized_price
         order.tif = "DAY"
-        order.outsideRth = False
-        order.transmit = True
+        order.outsideRth = bool(proposal.get("outside_rth")) and settings.allow_outside_rth
+        order.whatIf = what_if
+        order.transmit = transmit
+        account = (proposal.get("account") or settings.ibkr_account_id or "").strip()
+        if account:
+            order.account = account
+        apply_whatif_legacy_attr_compat(order)
+        ack = threading.Event()
+        self.place_ack_events[order_id] = ack
+        self.place_ack_status.pop(order_id, None)
+        self.place_ack_errors.pop(order_id, None)
         self.placeOrder(order_id, contract, order)
+        ack.wait(6)
+        errors = self.place_ack_errors.get(order_id, [])
+        reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
+        if any(int(err["code"]) in reject_codes for err in errors):
+            raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
         return order_id
 
 
@@ -477,12 +828,27 @@ def status():
     return ibkr.status()
 
 
+def _offline_read_error(exc: Exception) -> dict[str, Any]:
+    """Structured offline-safe payload when TWS is down — never invents account data."""
+    message = str(exc)
+    state = "TWS_OFFLINE" if "offline" in message.lower() or "nothing listening" in message.lower() else "UNAVAILABLE"
+    return {
+        "connected": False,
+        "state": state,
+        "error": message,
+        "twsReachable": ibkr._tws_reachable(),
+        "ibkrReadOnly": settings.ibkr_read_only,
+        "liveTradingEnabled": settings.live_trading_enabled,
+    }
+
+
 @app.get("/api/ibkr/account", dependencies=auth)
 def account():
     try:
         return ibkr.account_summary()
     except Exception as exc:
-        raise HTTPException(503, str(exc)) from exc
+        # Offline-safe JSON (not empty 503) so UIs can show TWS_OFFLINE honestly.
+        raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
 
 
 @app.get("/api/ibkr/positions", dependencies=auth)
@@ -490,7 +856,7 @@ def positions():
     try:
         return ibkr.positions()
     except Exception as exc:
-        raise HTTPException(503, str(exc)) from exc
+        raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
 
 
 @app.get("/api/ibkr/orders", dependencies=auth)
@@ -498,7 +864,7 @@ def orders():
     try:
         return ibkr.open_orders()
     except Exception as exc:
-        raise HTTPException(503, str(exc)) from exc
+        raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
 
 
 @app.get("/api/ibkr/history", dependencies=auth)
@@ -548,7 +914,14 @@ def list_proposals():
 
 @app.post("/api/proposals", dependencies=auth)
 def create_proposal(payload: ProposalCreate):
-    normalized = payload.model_copy(update={"symbol": payload.symbol.upper(), "currency": payload.currency.upper(), "exchange": payload.exchange.upper()})
+    normalized = payload.model_copy(
+        update={
+            "symbol": payload.symbol.upper(),
+            "sec_type": payload.sec_type.upper(),
+            "currency": payload.currency.upper(),
+            "exchange": payload.exchange.upper(),
+        }
+    )
     checks = evaluate_risk(normalized)
     status_value = "PENDING" if all(check["passed"] for check in checks) else "BLOCKED"
     proposal_id = str(uuid.uuid4())
@@ -629,3 +1002,178 @@ def set_emergency_stop(enabled: bool):
         connection.execute("UPDATE control_state SET value=?,updated_at=? WHERE key='emergency_stop'", ("true" if enabled else "false", utcnow().isoformat()))
     audit("EMERGENCY_STOP_CHANGED", None, {"enabled": enabled})
     return {"enabled": enabled}
+
+
+class ForexOrderRequest(BaseModel):
+    pair_id: str = Field(min_length=6, max_length=12)
+    side: Literal["BUY", "SELL"]
+    quantity: float = Field(gt=0)
+    limit_price: float = Field(gt=0)
+    rationale: str = Field(default="FOREX LMT supervised", min_length=5, max_length=4000)
+    transmit: bool = False
+    outside_rth: bool = False
+
+
+def _forex_pair_or_404(pair_id: str) -> dict[str, Any]:
+    try:
+        from .forex_pairs import get_pair
+    except ImportError:
+        from forex_pairs import get_pair  # type: ignore
+    pair = get_pair(pair_id)
+    if not pair:
+        raise HTTPException(404, f"Par FOREX desconocido: {pair_id}")
+    allowed = settings.csv_set(settings.forex_allowed_pairs)
+    if allowed and pair["pair_id"] not in allowed:
+        raise HTTPException(403, f"Par no permitido: {pair['pair_id']}")
+    return pair
+
+
+@app.get("/api/forex/quotes", dependencies=auth)
+def forex_quotes(pair: str | None = None):
+    """READ_ONLY bid/ask for configured FOREX pairs (IDEALPRO CASH)."""
+    try:
+        from .forex_pairs import FOREX_PAIRS
+    except ImportError:
+        from forex_pairs import FOREX_PAIRS  # type: ignore
+
+    allowed = settings.csv_set(settings.forex_allowed_pairs)
+    universe = [p for p in FOREX_PAIRS if not allowed or p["pair_id"] in allowed]
+    if pair:
+        selected = _forex_pair_or_404(pair)
+        universe = [selected]
+    quotes: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for item in universe:
+        try:
+            quotes.append(ibkr.forex_quote(item))
+        except Exception as exc:
+            errors.append(f"{item['pair_id']}: {exc}")
+            quotes.append(
+                {
+                    "pairId": item["pair_id"],
+                    "display": item["display"],
+                    "symbol": item["symbol"],
+                    "currency": item["currency"],
+                    "secType": "CASH",
+                    "exchange": "IDEALPRO",
+                    "bid": None,
+                    "ask": None,
+                    "mid": None,
+                    "spreadPips": None,
+                    "error": str(exc),
+                    "mode": "READ_ONLY",
+                }
+            )
+    return {
+        "generatedAt": utcnow().isoformat(),
+        "forexEnabled": settings.forex_enabled,
+        "count": len(quotes),
+        "quotes": quotes,
+        "errors": errors,
+        "ibkrReadOnly": settings.ibkr_read_only,
+        "liveTradingEnabled": settings.live_trading_enabled,
+        "mode": "READ_ONLY",
+    }
+
+
+@app.get("/api/forex/positions", dependencies=auth)
+def forex_positions():
+    """Open IDEALPRO/CASH positions only."""
+    try:
+        rows = ibkr.positions()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
+    fx = [
+        row
+        for row in rows
+        if str(row.get("secType", "")).upper() == "CASH"
+        or str(row.get("exchange", "")).upper() == "IDEALPRO"
+    ]
+    return {
+        "generatedAt": utcnow().isoformat(),
+        "count": len(fx),
+        "positions": fx,
+        "maxPositions": settings.forex_max_positions,
+        "mode": "READ_ONLY",
+    }
+
+
+@app.get("/api/forex/history", dependencies=auth)
+def forex_history(
+    pair: str = "EURUSD",
+    duration: str = "5 D",
+    barSize: str = "5 mins",
+    whatToShow: str = "MIDPOINT",
+):
+    selected = _forex_pair_or_404(pair)
+    try:
+        return ibkr.forex_history(selected, duration=duration, bar_size=barSize, what_to_show=whatToShow)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
+
+
+@app.post("/api/forex/order", dependencies=auth)
+def forex_order(payload: ForexOrderRequest):
+    """
+    Stage or (when fully unlocked) transmit FOREX LMT on IDEALPRO.
+    Default transmit=false. Live transmit requires FOREX_ENABLED + LIVE_TRADING + not READ_ONLY.
+    """
+    if emergency_stop():
+        raise HTTPException(423, "Emergency stop activo")
+    selected = _forex_pair_or_404(payload.pair_id)
+    if payload.quantity < settings.forex_min_units:
+        raise HTTPException(400, f"Cantidad mínima FOREX {settings.forex_min_units}")
+    if payload.quantity > settings.max_forex_order_units:
+        raise HTTPException(400, f"Cantidad máxima FOREX {settings.max_forex_order_units}")
+
+    transmit = bool(payload.transmit)
+    if transmit:
+        if not settings.forex_enabled:
+            raise HTTPException(423, "FOREX_ENABLED=false — solo stage permitido")
+        if not settings.live_trading_enabled:
+            raise HTTPException(423, "LIVE_TRADING_ENABLED=false")
+        if settings.ibkr_read_only:
+            raise HTTPException(423, "IBKR_READ_ONLY=true — no transmit")
+
+    try:
+        open_fx = [
+            row
+            for row in ibkr.positions()
+            if str(row.get("secType", "")).upper() == "CASH"
+        ]
+    except Exception:
+        open_fx = []
+    if len(open_fx) >= settings.forex_max_positions and transmit:
+        raise HTTPException(409, f"Máximo {settings.forex_max_positions} posiciones FOREX")
+
+    proposal = {
+        "symbol": selected["symbol"],
+        "sec_type": "CASH",
+        "currency": selected["currency"],
+        "exchange": "IDEALPRO",
+        "side": payload.side,
+        "quantity": float(payload.quantity),
+        "limit_price": float(payload.limit_price),
+        "outside_rth": payload.outside_rth,
+        "account": settings.ibkr_account_id,
+        "rationale": payload.rationale,
+    }
+    try:
+        order_id = ibkr.place_limit_order_validated(proposal, transmit=transmit, what_if=False)
+        audit(
+            "FOREX_ORDER_STAGED" if not transmit else "FOREX_ORDER_SUBMITTED",
+            selected["pair_id"],
+            {"orderId": order_id, "transmit": transmit, **proposal},
+        )
+        return {
+            "ok": True,
+            "pairId": selected["pair_id"],
+            "ibkrOrderId": order_id,
+            "transmit": transmit,
+            "staged": not transmit,
+            "proposal": proposal,
+            "mode": "STAGED" if not transmit else "LIVE_GATED",
+        }
+    except Exception as exc:
+        audit("FOREX_ORDER_FAILED", selected["pair_id"], {"error": str(exc), **proposal})
+        raise HTTPException(503, str(exc)) from exc

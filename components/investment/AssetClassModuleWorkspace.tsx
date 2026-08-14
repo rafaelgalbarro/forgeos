@@ -10,6 +10,12 @@ import {
   type OpportunityCardModel,
 } from "@/components/investment/OpportunitySignalCard";
 import type { OpportunitySide } from "@/lib/investment/opportunity-center";
+import {
+  FOREX_PAIRS,
+  FOREX_RISK_POLICY,
+  getForexSessionSnapshot,
+  type ForexSessionSnapshot,
+} from "@/lib/investment/forex";
 
 type AssetModule = "forex" | "crypto";
 
@@ -39,7 +45,12 @@ function isAssetMatch(tipo: string, symbol: string, module: AssetModule): boolea
   const t = tipo.toLowerCase();
   const s = symbol.toUpperCase();
   if (module === "forex") {
-    return t.includes("forex") || t.includes("fx") || /^(EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY)/.test(s);
+    return (
+      t.includes("forex") ||
+      t.includes("fx") ||
+      FOREX_PAIRS.some((p) => p.pairId === s) ||
+      /^(EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY)/.test(s)
+    );
   }
   return t.includes("crypto") || s.includes("BTC") || s.includes("ETH") || s.includes("-USD");
 }
@@ -55,13 +66,33 @@ function fmtMoney(n: number | null | undefined): string {
  */
 export function AssetClassModuleWorkspace({ module }: { module: AssetModule }) {
   const title = module === "forex" ? "FOREX" : "Crypto";
-  const catalog = useMemo(
-    () => MARKETS_CATALOG.filter((c) => c.assetClass === module),
-    [module],
-  );
+  const catalog = useMemo(() => {
+    if (module === "forex") {
+      return FOREX_PAIRS.map((p) => ({
+        symbol: p.pairId,
+        name: p.display,
+        market: p.exchange,
+        currency: p.currency,
+      }));
+    }
+    return MARKETS_CATALOG.filter((c) => c.assetClass === module).map((c) => ({
+      symbol: c.symbol,
+      name: c.name,
+      market: c.market,
+      currency: c.currency ?? "",
+    }));
+  }, [module]);
   const [quotes, setQuotes] = useState<HeaderQuotes | null>(null);
   const [cards, setCards] = useState<OpportunityCardModel[]>([]);
   const [error, setError] = useState("");
+  const [session, setSession] = useState<ForexSessionSnapshot | null>(null);
+
+  useEffect(() => {
+    if (module !== "forex") return;
+    setSession(getForexSessionSnapshot());
+    const t = setInterval(() => setSession(getForexSessionSnapshot()), 30_000);
+    return () => clearInterval(t);
+  }, [module]);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,8 +151,16 @@ export function AssetClassModuleWorkspace({ module }: { module: AssetModule }) {
             {module === "forex" ? "💱 FOREX" : "₿ Crypto"}
           </h1>
           <p className={styles.hubNote}>
-            Scanner · señales · P&amp;L de cuenta (compartido) · ANALYSIS_ONLY
+            {module === "forex"
+              ? `IBKR IDEALPRO · CASH · max ${FOREX_RISK_POLICY.maxConcurrentPairs} pares · SL≤${FOREX_RISK_POLICY.maxStopPips}p · TP≥${FOREX_RISK_POLICY.minTakeProfitPips}p · ANALYSIS_ONLY`
+              : "Scanner · señales · P&L de cuenta (compartido) · ANALYSIS_ONLY"}
           </p>
+          {module === "forex" && session ? (
+            <p className={styles.hubNote}>
+              {session.label}
+              {session.highLiquidity ? " · overlap/liquidez alta" : ""}
+            </p>
+          ) : null}
         </div>
         <div className={styles.assetModulePnl}>
           <span className={styles.overviewLabel}>NAV</span>
@@ -134,12 +173,19 @@ export function AssetClassModuleWorkspace({ module }: { module: AssetModule }) {
       </header>
 
       <div className={styles.assetUniverse}>
-        <h2 className={styles.oppEnhancedTitle}>Universo {title}</h2>
+        <h2 className={styles.oppEnhancedTitle}>
+          Universo {title}
+          {module === "forex" ? " (9 pares IDEALPRO)" : ""}
+        </h2>
         <ul className={styles.assetUniverseList}>
           {catalog.map((c) => (
             <li key={c.symbol}>
               <strong>{c.symbol}</strong>
-              <span>{c.name}</span>
+              <span>
+                {c.name}
+                {c.market ? ` · ${c.market}` : ""}
+                {c.currency ? ` · ${c.currency}` : ""}
+              </span>
             </li>
           ))}
         </ul>

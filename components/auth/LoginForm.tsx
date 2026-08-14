@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/fhis/Input";
 import { Button } from "@/components/ui/fhis/Button";
 import { login } from "@/lib/auth";
 import { useAuthOptional } from "./AuthProvider";
 
-export function LoginForm() {
+/** Allow only same-origin relative paths (open-redirect safe). */
+function safeRedirectPath(raw: string | null | undefined): string {
+  if (!raw) return "/workspace";
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) return "/workspace";
+  return raw;
+}
+
+function LoginFormInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuthOptional();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,7 +35,8 @@ export function LoginForm() {
       return;
     }
     await auth?.refresh();
-    router.push("/workspace");
+    const redirect = searchParams ? searchParams.get("redirect") : null;
+    router.push(safeRedirectPath(redirect));
   }
 
   return (
@@ -58,5 +67,13 @@ export function LoginForm() {
         <Link href="/register">Crear cuenta</Link>
       </p>
     </form>
+  );
+}
+
+export function LoginForm() {
+  return (
+    <Suspense fallback={<p className="fhis-auth-links">Cargando…</p>}>
+      <LoginFormInner />
+    </Suspense>
   );
 }

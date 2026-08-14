@@ -14,6 +14,8 @@ export {
 } from "./auth-service";
 export { getAuthProvider } from "./auth-factory";
 export { readSession, clearSession, updateSession } from "./session-store";
+export { AUTH_COOKIE_NAME, isAuthCookieValid } from "./session-cookie";
+
 export { mergeWorkspaceIntoAiContext, workspaceContextFromActive } from "./ai-context-bridge";
 export type {
   AuthUser,

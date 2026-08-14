@@ -62,6 +62,9 @@ type CenterApiResponse = OpportunityCenterSnapshot & {
 };
 
 const POLL_MS = 8_000;
+const DENSITY_KEY = "forgeos-opp-density";
+
+type DensityMode = "compact" | "expanded";
 
 function isToday(iso: string): boolean {
   const d = new Date(iso);
@@ -130,8 +133,27 @@ export function OpportunityScannerDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [, setTimeTick] = useState(0);
   const [freshIds, setFreshIds] = useState<Set<string>>(() => new Set());
+  const [density, setDensity] = useState<DensityMode>("expanded");
   const seenIdsRef = useRef<Set<string>>(new Set());
   const bootstrappedRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(DENSITY_KEY);
+      if (raw === "compact" || raw === "expanded") setDensity(raw);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function setDensityPersist(next: DensityMode) {
+    setDensity(next);
+    try {
+      window.localStorage.setItem(DENSITY_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     const timer = setInterval(() => setTimeTick((n) => n + 1), 60_000);
@@ -311,31 +333,51 @@ export function OpportunityScannerDashboard() {
         total={totalOpportunities}
         tickerSuggestions={tickerSuggestions}
         sortControl={
-          <label className={styles.oppSortLabel}>
-            Ordenar
-            <select
-              value={sortId}
-              onChange={(e) => setSortId(e.target.value as OpportunityCenterSortId)}
-            >
-              {sortOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <>
+            <div className={styles.oppDensityToggle} role="group" aria-label="Densidad de vista">
+              <button
+                type="button"
+                className={density === "compact" ? styles.oppDensityActive : styles.oppDensityBtn}
+                aria-pressed={density === "compact"}
+                onClick={() => setDensityPersist("compact")}
+              >
+                Compacto
+              </button>
+              <button
+                type="button"
+                className={density === "expanded" ? styles.oppDensityActive : styles.oppDensityBtn}
+                aria-pressed={density === "expanded"}
+                onClick={() => setDensityPersist("expanded")}
+              >
+                Expandido
+              </button>
+            </div>
+            <label className={styles.oppSortLabel}>
+              Ordenar
+              <select
+                value={sortId}
+                onChange={(e) => setSortId(e.target.value as OpportunityCenterSortId)}
+              >
+                {sortOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
         }
       />
 
       <div className={styles.oppLayout}>
-        <div className={styles.oppTableWrap}>
+        <div className={styles.oppTableWrap} data-density={density}>
           {sorted.length === 0 ? (
             <p className={styles.oppEmpty}>
               {totalOpportunities === 0
                 ? `No high-quality (A+/A) opportunities right now. Scanner candidates: ${payload?.candidates?.length ?? 0}. Auto-refresh every ${POLL_MS / 1000}s.`
                 : `Ninguna oportunidad coincide con los filtros (${totalOpportunities} en total). Ajusta side, score, mercado o ticker.`}
             </p>
-          ) : (
+          ) : density === "expanded" ? (
             <div className={styles.oppCardGrid}>
               {sorted.map((row) => (
                 <OpportunitySignalCard
@@ -347,6 +389,42 @@ export function OpportunityScannerDashboard() {
                 />
               ))}
             </div>
+          ) : (
+            <table className={styles.oppTable}>
+              <thead>
+                <tr>
+                  <th>Activo</th>
+                  <th>Side</th>
+                  <th>Score</th>
+                  <th>Conf.</th>
+                  <th>Mercado</th>
+                  <th>SL</th>
+                  <th>TP</th>
+                  <th>R:R</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((row) => (
+                  <tr
+                    key={row.id}
+                    data-active={selected?.id === row.id ? "true" : "false"}
+                    onClick={() => setSelectedId(row.id)}
+                  >
+                    <td>
+                      <strong>{row.activo}</strong>{" "}
+                      <span className={styles.oppNoData}>{row.grade}</span>
+                    </td>
+                    <td className={sideClass(row.side)}>{row.side}</td>
+                    <td data-numeric="true">{fmtField(row.score, 1)}</td>
+                    <td data-numeric="true">{fmtField(row.confianza, 2)}</td>
+                    <td>{row.mercado}</td>
+                    <td data-numeric="true">{fmtField(row.stopLoss, 4)}</td>
+                    <td data-numeric="true">{fmtField(row.takeProfit, 4)}</td>
+                    <td data-numeric="true">{fmtField(row.ratioRiesgoBeneficio)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 

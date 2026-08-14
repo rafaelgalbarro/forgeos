@@ -407,7 +407,7 @@ export function InvestmentTerminalDashboard() {
         </div>
         <div className={styles.metricCell}>
           <span className={styles.label}>Daily P&amp;L</span>
-          <span className={styles.valueMuted}>NO_DATA</span>
+          <span className={styles.valueMuted}>see Overview</span>
         </div>
         <div className={styles.metricCell}>
           <span className={styles.label}>Weekly P&amp;L</span>

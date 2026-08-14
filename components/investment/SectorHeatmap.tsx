@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
 import type { IbkrPricePayload } from "./markets-regional.types";
 import styles from "@/styles/investment/markets-regional.module.css";
@@ -77,9 +77,23 @@ async function fetchQuote(symbol: string): Promise<Pick<HeatCell, "price" | "cha
  * Sector heatmap (S&P 500 sector ETF proxies) — red/green by day %, size by ETF weight.
  * ANALYSIS_ONLY · IBKR/Yahoo quotes only · NO_DATA when missing.
  */
-export function SectorHeatmap({ pollMs = 60_000 }: { readonly pollMs?: number }) {
+export function SectorHeatmap({
+  pollMs = 60_000,
+  symbols,
+}: {
+  readonly pollMs?: number;
+  /** Optional subset of sector ETF symbols (e.g. XLK, XLF, XLE, XLV, XLI). */
+  readonly symbols?: readonly string[];
+}) {
+  const symbolKey = symbols?.slice().sort().join(",") ?? "";
+  const universe = useMemo(() => {
+    if (!symbolKey) return [...SECTOR_ETF_UNIVERSE];
+    const allow = new Set(symbolKey.split(","));
+    return SECTOR_ETF_UNIVERSE.filter((s) => allow.has(s.symbol));
+  }, [symbolKey]);
+
   const [cells, setCells] = useState<HeatCell[]>(() =>
-    SECTOR_ETF_UNIVERSE.map((s) => ({
+    universe.map((s) => ({
       symbol: s.symbol,
       name: s.name,
       weight: s.weight,
@@ -93,7 +107,7 @@ export function SectorHeatmap({ pollMs = 60_000 }: { readonly pollMs?: number })
   const refresh = useCallback(async () => {
     setCells((prev) => prev.map((c) => ({ ...c, loading: true })));
     const results = await Promise.all(
-      SECTOR_ETF_UNIVERSE.map(async (s) => {
+      universe.map(async (s) => {
         const q = await fetchQuote(s.symbol);
         return {
           symbol: s.symbol,
@@ -107,7 +121,7 @@ export function SectorHeatmap({ pollMs = 60_000 }: { readonly pollMs?: number })
     );
     setCells(results);
     setUpdatedAt(new Date().toISOString());
-  }, []);
+  }, [universe]);
 
   useEffect(() => {
     void refresh();
@@ -127,7 +141,7 @@ export function SectorHeatmap({ pollMs = 60_000 }: { readonly pollMs?: number })
         <div>
           <h2 className={styles.heatmapTitle}>Sector heatmap</h2>
           <p className={styles.heatmapMeta}>
-            S&P sector ETFs · size ≈ index weight · color = 1d % · ANALYSIS_ONLY
+            {universe.map((s) => s.symbol).join(" · ")} · color = 1d % · ANALYSIS_ONLY
           </p>
         </div>
         <div className={styles.heatmapActions}>

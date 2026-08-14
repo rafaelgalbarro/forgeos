@@ -8,7 +8,9 @@ import styles from "@/styles/investment/workspace.module.css";
 /** Primary product IA for ForgeOS Investment — one route per section. */
 export const INVESTMENT_NAV_LINKS = [
   { id: "dashboard", href: "/investment", label: "Dashboard" },
-  { id: "markets", href: "/investment/markets", label: "Markets" },
+  { id: "markets", href: "/investment/markets", label: "📈 Acciones" },
+  { id: "forex", href: "/investment/forex", label: "💱 FOREX" },
+  { id: "crypto", href: "/investment/crypto", label: "₿ Crypto" },
   { id: "opportunities", href: "/investment/opportunities", label: "Opportunities" },
   { id: "portfolio", href: "/investment/portfolio", label: "Portfolio" },
   { id: "orders", href: "/investment/orders", label: "Orders" },
@@ -27,6 +29,8 @@ export type InvestmentNavId = (typeof INVESTMENT_NAV_LINKS)[number]["id"];
 const SECTION_ALIASES: Record<InvestmentNavId, readonly string[]> = {
   dashboard: ["/investment"],
   markets: ["/investment/markets", "/investment/screener", "/investment/scanner"],
+  forex: ["/investment/forex"],
+  crypto: ["/investment/crypto"],
   opportunities: ["/investment/opportunities", "/investment/alpha", "/investment/signals"],
   portfolio: ["/investment/portfolio"],
   orders: ["/investment/orders", "/investment/broker", "/investment/execution-control"],

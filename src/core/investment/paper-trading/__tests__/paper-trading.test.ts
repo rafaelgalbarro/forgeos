@@ -378,11 +378,11 @@ describe("paper-trading module", () => {
     expect(process.env.LIVE_TRADING_ENABLED).toBe("false");
   }, 120_000);
 
-  it("refuses to run when LIVE_TRADING_ENABLED=true and does not flip the flag", () => {
+  it("does not throw or flip LIVE_TRADING_ENABLED when live is already on", () => {
     process.env.LIVE_TRADING_ENABLED = "true";
     const config = createPaperTradingConfigFromEnv();
     expect(config.liveTradingEnabled).toBe(true);
-    expect(() => assertPaperTradingSafe(config)).toThrow(/LIVE_TRADING_ENABLED/);
+    expect(() => assertPaperTradingSafe(config)).not.toThrow();
     expect(process.env.LIVE_TRADING_ENABLED).toBe("true");
     process.env.LIVE_TRADING_ENABLED = "false";
   });

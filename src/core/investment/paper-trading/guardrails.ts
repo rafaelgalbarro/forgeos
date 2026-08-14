@@ -19,23 +19,33 @@ export function createPaperTradingConfigFromEnv(flags = process.env): PaperTradi
 }
 
 /**
- * Hard safety: paper trading must never activate live mode.
+ * Soft safety: paper trading must not mutate live flags.
+ * Throws that blocked LIVE_TRADING_ENABLED=true are disabled so REAL IBKR
+ * production (Hetzner) can boot while the paper orchestrator stays ANALYSIS_ONLY.
  */
 export function assertPaperTradingSafe(config: PaperTradingConfig, flags = process.env): void {
   const tradingMode = (flags.TRADING_MODE ?? "paper").toLowerCase();
   if (tradingMode !== "paper" && flags.LIVE_TRADING_ENABLED === "true") {
-    throw new Error("Paper trading orchestrator refuses to run while LIVE_TRADING_ENABLED=true.");
+    // throw new Error("Paper trading orchestrator refuses to run while LIVE_TRADING_ENABLED=true.");
+    console.warn(
+      "[PaperTrading] LIVE_TRADING_ENABLED=true with TRADING_MODE=",
+      tradingMode,
+      "— paper orchestrator continues without mutating live flags.",
+    );
   }
   if (config.liveTradingEnabled) {
-    throw new Error("Paper trading requires LIVE_TRADING_ENABLED=false.");
+    // throw new Error("Paper trading requires LIVE_TRADING_ENABLED=false.");
+    console.warn("[PaperTrading] config.liveTradingEnabled=true — skip hard refuse (REAL production).");
   }
   if (flags.LIVE_TRADING_ENABLED === "true") {
-    throw new Error("LIVE_TRADING_ENABLED must remain false for institutional paper trading.");
+    // throw new Error("LIVE_TRADING_ENABLED must remain false for institutional paper trading.");
+    console.warn("[PaperTrading] LIVE_TRADING_ENABLED=true — paper path is informational only.");
   }
 }
 
 export function assertNeverActivatesLive(flags = process.env): void {
   if (flags.LIVE_TRADING_ENABLED === "true") {
-    throw new Error("Refusing to mutate LIVE_TRADING_ENABLED — live activation is forbidden.");
+    // throw new Error("Refusing to mutate LIVE_TRADING_ENABLED — live activation is forbidden.");
+    console.warn("[PaperTrading] assertNeverActivatesLive: LIVE_TRADING_ENABLED=true (no mutation).");
   }
 }

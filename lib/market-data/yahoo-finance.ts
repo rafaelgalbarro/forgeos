@@ -145,6 +145,295 @@ export async function getTickerInfo(ticker: string): Promise<YahooTickerInfo | n
   }
 }
 
+type YahooRawNumber = { raw?: number; fmt?: string } | number | null | undefined;
+
+function rawNum(v: YahooRawNumber): number | null {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const n = Number(v.raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Normalize Yahoo debt/equity (often percent-like, e.g. 50 → 0.5). */
+export function normalizeDebtToEquity(value: number | null): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  if (value > 5) return value / 100;
+  return value;
+}
+
+/** Normalize Yahoo ROE (fraction or percent). */
+export function normalizeRoe(value: number | null): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  if (Math.abs(value) > 1.5) return value / 100;
+  return value;
+}
+
+export type YahooFundamentals = {
+  symbol: string;
+  shortName?: string;
+  sector?: string;
+  industry?: string;
+  trailingPE: number | null;
+  priceToBook: number | null;
+  /** Fraction, e.g. 0.18 = 18%. */
+  returnOnEquity: number | null;
+  /** Ratio, e.g. 0.4 (not percent). */
+  debtToEquity: number | null;
+  dividendYield: number | null;
+  dividendRate: number | null;
+  recommendationKey: string | null;
+  recommendationMean: number | null;
+  marketCap: number | null;
+  repurchaseOfStock: number | null;
+  modulesPresent: string[];
+  modulesMissing: string[];
+};
+
+export type YahooRatingChange = {
+  date: string;
+  firm: string;
+  toGrade: string;
+  fromGrade: string;
+  action: string;
+};
+
+export type YahooCorporateEvent = {
+  type: "dividend" | "split";
+  date: string;
+  amount?: number;
+  splitRatio?: string;
+};
+
+const FUNDAMENTAL_MODULES = [
+  "assetProfile",
+  "summaryDetail",
+  "defaultKeyStatistics",
+  "financialData",
+  "price",
+  "upgradeDowngradeHistory",
+  "cashflowStatementHistory",
+] as const;
+
+/**
+ * Extended quoteSummary fundamentals for long-term value analysis.
+ * Missing modules are listed — callers should render NO_DATA, never invent.
+ */
+export async function getYahooFundamentals(ticker: string): Promise<YahooFundamentals | null> {
+  if (!isYahooFinanceEnabled()) return null;
+  const symbol = ticker.trim().toUpperCase();
+  const modules = FUNDAMENTAL_MODULES.join(",");
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
+  try {
+    const res = await fetchWithRetry(url);
+    const data = (await res.json()) as {
+      quoteSummary?: {
+        result?: Array<Record<string, unknown>>;
+        error?: { description?: string };
+      };
+    };
+    const row = data.quoteSummary?.result?.[0];
+    if (!row) return null;
+
+    const present: string[] = [];
+    const missing: string[] = [];
+    for (const m of FUNDAMENTAL_MODULES) {
+      if (row[m] != null) present.push(m);
+      else missing.push(m);
+    }
+
+    const price = row.price as
+      | { shortName?: string; marketCap?: YahooRawNumber }
+      | undefined;
+    const profile = row.assetProfile as { sector?: string; industry?: string } | undefined;
+    const summary = row.summaryDetail as
+      | {
+          trailingPE?: YahooRawNumber;
+          dividendYield?: YahooRawNumber;
+          dividendRate?: YahooRawNumber;
+        }
+      | undefined;
+    const keys = row.defaultKeyStatistics as
+      | { priceToBook?: YahooRawNumber; trailingPE?: YahooRawNumber }
+      | undefined;
+    const fin = row.financialData as
+      | {
+          returnOnEquity?: YahooRawNumber;
+          debtToEquity?: YahooRawNumber;
+          recommendationKey?: string;
+          recommendationMean?: YahooRawNumber;
+        }
+      | undefined;
+    const cashflow = row.cashflowStatementHistory as
+      | {
+          cashflowStatements?: Array<{ repurchaseOfStock?: YahooRawNumber }>;
+        }
+      | undefined;
+    const repurchase = rawNum(cashflow?.cashflowStatements?.[0]?.repurchaseOfStock ?? null);
+
+    return {
+      symbol,
+      shortName: price?.shortName,
+      sector: profile?.sector,
+      industry: profile?.industry,
+      trailingPE: rawNum(summary?.trailingPE ?? keys?.trailingPE ?? null),
+      priceToBook: rawNum(keys?.priceToBook ?? null),
+      returnOnEquity: normalizeRoe(rawNum(fin?.returnOnEquity ?? null)),
+      debtToEquity: normalizeDebtToEquity(rawNum(fin?.debtToEquity ?? null)),
+      dividendYield: rawNum(summary?.dividendYield ?? null),
+      dividendRate: rawNum(summary?.dividendRate ?? null),
+      recommendationKey: fin?.recommendationKey ?? null,
+      recommendationMean: rawNum(fin?.recommendationMean ?? null),
+      marketCap: rawNum(price?.marketCap ?? null),
+      repurchaseOfStock: repurchase,
+      modulesPresent: present,
+      modulesMissing: missing,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Analyst upgrade / downgrade history from quoteSummary. */
+export async function getUpgradeDowngradeHistory(
+  ticker: string,
+): Promise<{ status: "OK" | "NO_DATA"; items: YahooRatingChange[]; detail: string }> {
+  if (!isYahooFinanceEnabled()) {
+    return { status: "NO_DATA", items: [], detail: "Yahoo Finance disabled" };
+  }
+  const symbol = ticker.trim().toUpperCase();
+  const url =
+    `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}` +
+    `?modules=upgradeDowngradeHistory`;
+  try {
+    const res = await fetchWithRetry(url);
+    const data = (await res.json()) as {
+      quoteSummary?: {
+        result?: Array<{
+          upgradeDowngradeHistory?: {
+            history?: Array<{
+              epochGradeDate?: number;
+              firm?: string;
+              toGrade?: string;
+              fromGrade?: string;
+              action?: string;
+            }>;
+          };
+        }>;
+      };
+    };
+    const history = data.quoteSummary?.result?.[0]?.upgradeDowngradeHistory?.history ?? [];
+    if (!history.length) {
+      return {
+        status: "NO_DATA",
+        items: [],
+        detail: "No upgradeDowngradeHistory in Yahoo quoteSummary",
+      };
+    }
+    const items: YahooRatingChange[] = history.slice(0, 12).map((h) => ({
+      date:
+        typeof h.epochGradeDate === "number"
+          ? new Date(h.epochGradeDate * 1000).toISOString()
+          : "NO_DATA",
+      firm: h.firm ?? "NO_DATA",
+      toGrade: h.toGrade ?? "",
+      fromGrade: h.fromGrade ?? "",
+      action: h.action ?? "",
+    }));
+    return { status: "OK", items, detail: `${items.length} rating events` };
+  } catch (err) {
+    return {
+      status: "NO_DATA",
+      items: [],
+      detail: err instanceof Error ? err.message : "upgradeDowngradeHistory failed",
+    };
+  }
+}
+
+/**
+ * Dividends + splits via Yahoo chart events (best-effort).
+ * Returns NO_DATA when events module is absent.
+ */
+export async function getYahooCorporateEvents(
+  ticker: string,
+  range = "10y",
+): Promise<{
+  status: "OK" | "NO_DATA";
+  dividends: YahooCorporateEvent[];
+  splits: YahooCorporateEvent[];
+  detail: string;
+}> {
+  if (!isYahooFinanceEnabled()) {
+    return {
+      status: "NO_DATA",
+      dividends: [],
+      splits: [],
+      detail: "Yahoo Finance disabled",
+    };
+  }
+  const symbol = ticker.trim().toUpperCase();
+  const url =
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
+    `?interval=1d&range=${encodeURIComponent(range)}&events=div%7Csplit`;
+  try {
+    const res = await fetchWithRetry(url);
+    const data = (await res.json()) as {
+      chart?: {
+        result?: Array<{
+          events?: {
+            dividends?: Record<string, { amount?: number; date?: number }>;
+            splits?: Record<
+              string,
+              { date?: number; numerator?: number; denominator?: number; splitRatio?: string }
+            >;
+          };
+        }>;
+      };
+    };
+    const events = data.chart?.result?.[0]?.events;
+    if (!events) {
+      return {
+        status: "NO_DATA",
+        dividends: [],
+        splits: [],
+        detail: "No chart events (div|split) from Yahoo",
+      };
+    }
+    const dividends: YahooCorporateEvent[] = Object.values(events.dividends ?? {})
+      .filter((d) => typeof d.date === "number")
+      .map((d) => ({
+        type: "dividend" as const,
+        date: new Date((d.date as number) * 1000).toISOString(),
+        amount: Number.isFinite(Number(d.amount)) ? Number(d.amount) : undefined,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const splits: YahooCorporateEvent[] = Object.values(events.splits ?? {})
+      .filter((s) => typeof s.date === "number")
+      .map((s) => ({
+        type: "split" as const,
+        date: new Date((s.date as number) * 1000).toISOString(),
+        splitRatio:
+          s.splitRatio ??
+          (s.numerator != null && s.denominator != null
+            ? `${s.numerator}:${s.denominator}`
+            : undefined),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    return {
+      status: "OK",
+      dividends,
+      splits,
+      detail: `${dividends.length} dividends · ${splits.length} splits`,
+    };
+  } catch (err) {
+    return {
+      status: "NO_DATA",
+      dividends: [],
+      splits: [],
+      detail: err instanceof Error ? err.message : "corporate events failed",
+    };
+  }
+}
+
 export type EarningsHorizonResult =
   | { status: "CLEAR"; detail: string; hoursUntil: number | null }
   | { status: "HAS_EVENT"; detail: string; hoursUntil: number }

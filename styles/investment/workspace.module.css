@@ -1958,3 +1958,270 @@
     transform: none;
   }
 }
+
+/* —— Block 3: compact terminal header —— */
+.hdrBar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--investment-border);
+  background: var(--investment-bg-elevated);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hdrBrand {
+  flex-shrink: 0;
+}
+
+.hdrLogo {
+  color: var(--investment-title);
+  text-decoration: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hdrTickers {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-family: var(--font-investment-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+}
+
+.hdrQuote {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.hdrQuoteSym {
+  color: var(--investment-muted, #6b7280);
+  font-weight: 600;
+}
+
+.hdrQuotePx {
+  color: var(--investment-title);
+}
+
+.hdrSep {
+  color: var(--investment-border-strong);
+}
+
+.hdrPctUp {
+  color: var(--investment-buy);
+}
+
+.hdrPctDown {
+  color: var(--investment-sell);
+}
+
+.hdrPctFlat {
+  color: var(--investment-hold);
+}
+
+.hdrFlashUp {
+  animation: invFlashUp 0.65s ease-out;
+}
+
+.hdrFlashDown {
+  animation: invFlashDown 0.65s ease-out;
+}
+
+.hdrSession {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border: 1px solid var(--investment-border);
+  border-radius: 999px;
+}
+
+.hdrSessionOpen {
+  color: var(--investment-buy);
+  border-color: rgba(0, 208, 132, 0.45);
+  background: rgba(0, 208, 132, 0.08);
+}
+
+.hdrSessionPre {
+  color: var(--investment-warn);
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.hdrSessionClosed {
+  color: var(--investment-sell);
+  border-color: rgba(255, 71, 87, 0.4);
+  background: rgba(255, 71, 87, 0.08);
+}
+
+.hdrNavBlock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+  font-family: var(--font-investment-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  margin-left: auto;
+}
+
+.hdrNavLabel {
+  color: var(--investment-muted, #6b7280);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hdrNavValue {
+  color: var(--investment-title);
+  font-size: 0.82rem;
+}
+
+.hdrBroker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.hdrDotOn,
+.hdrDotOff {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.hdrDotOn {
+  background: var(--investment-buy);
+  box-shadow: 0 0 0 2px rgba(0, 208, 132, 0.25);
+}
+
+.hdrDotOff {
+  background: var(--investment-sell);
+}
+
+.hdrBrokerOn {
+  color: var(--investment-buy);
+  font-weight: 700;
+}
+
+.hdrBrokerOff {
+  color: var(--investment-sell);
+  font-weight: 700;
+}
+
+.hdrStream {
+  color: var(--investment-muted, #6b7280);
+  font-size: 0.58rem;
+}
+
+.hdrActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.hdrBtn,
+.hdrBtnDanger,
+.hdrBtnGhost {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--investment-border);
+  background: transparent;
+  color: var(--investment-title);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hdrBtn:hover,
+.hdrBtnGhost:hover {
+  border-color: var(--investment-border-strong);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hdrBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hdrBtnDanger {
+  border-color: rgba(255, 71, 87, 0.55);
+  color: #ffc9cf;
+  background: rgba(255, 71, 87, 0.12);
+  font-weight: 700;
+}
+
+.hdrBtnDanger:hover {
+  background: rgba(255, 71, 87, 0.22);
+}
+
+.hdrHaltConfirm {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.hdrHaltArmed {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--investment-warn);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  padding: 2px 6px;
+}
+
+@media (max-width: 1100px) {
+  .hdrTickers {
+    font-size: 0.66rem;
+  }
+
+  .hdrSession {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 860px) {
+  .hdrBar {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .hdrNavBlock {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hdrFlashUp,
+  .hdrFlashDown {
+    animation: none;
+  }
+}
+

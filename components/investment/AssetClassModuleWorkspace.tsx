@@ -15,7 +15,7 @@ import {
   FOREX_RISK_POLICY,
   getForexSessionSnapshot,
   type ForexSessionSnapshot,
-} from "@/lib/investment/forex";
+} from "@/lib/investment/forex/config";
 
 type AssetModule = "forex" | "crypto";
 

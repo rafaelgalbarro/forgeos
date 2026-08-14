@@ -40,5 +40,4 @@ export {
 
 export type { ForexBar, ForexIndicators, ForexSignalSide } from "./indicators";
 
-export { getForexMacroSnapshot } from "./macro-calendar";
-export type { ForexMacroEvent, ForexMacroSnapshot } from "./macro-calendar";
+// macro-calendar uses node:fs — import from "@/lib/investment/forex/macro-calendar" on the server only.

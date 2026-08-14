@@ -1,6 +1,9 @@
 /**
  * FOREX macro calendar — HIGH-impact blackout window (±30m).
+ * Server-only (fs cache); do not import from client components or the forex barrel.
  */
+
+import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";

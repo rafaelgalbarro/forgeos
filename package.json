@@ -69,10 +69,11 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "jszip": "^3.10.1",
+    "lightweight-charts": "^5.0.8",
     "next": "15.5.19",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "lightweight-charts": "^5.0.8"
+    "resend": "^6.20.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

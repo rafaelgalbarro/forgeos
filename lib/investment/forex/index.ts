@@ -44,3 +44,10 @@ export {
 } from "./indicators";
 
 export type { ForexBar, ForexIndicators, ForexSignalSide } from "./indicators";
+
+export {
+  FOREX_TIMEFRAMES,
+  FOREX_TF_SPECS,
+  parseForexTimeframe,
+} from "./timeframes";
+export type { ForexTimeframe, ForexTfSpec } from "./timeframes";

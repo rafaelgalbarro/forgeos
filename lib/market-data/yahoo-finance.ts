@@ -536,7 +536,7 @@ export async function getEarningsWithinHours(
 }
 
 /** Yahoo chart intervals used for multi-timeframe analysis. */
-export type YahooChartInterval = "5m" | "60m" | "1h" | "1d" | "1wk";
+export type YahooChartInterval = "1m" | "5m" | "15m" | "60m" | "1h" | "1d" | "1wk";
 
 export type YahooOhlcvBar = {
   open: number;

@@ -9,6 +9,7 @@ export type ForexBar = {
   readonly high: number;
   readonly low: number;
   readonly close: number;
+  readonly volume?: number;
 };
 
 export type ForexIndicators = {

@@ -16,7 +16,8 @@ export function getTradingMode(): TradingMode {
 }
 
 export function isLiveTradingExplicitlyEnabled(): boolean {
-  return process.env.LIVE_TRADING_ENABLED === "true";
+  const raw = (process.env.LIVE_TRADING_ENABLED ?? "").trim().toLowerCase();
+  return raw === "true" || raw === "1" || raw === "yes" || raw === "on";
 }
 
 export function resolveBrokerEngineFromMode(requestedEngine: BrokerEngineName): BrokerEngineName {

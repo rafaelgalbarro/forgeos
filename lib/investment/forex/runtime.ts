@@ -16,6 +16,7 @@ import {
   priceToPips,
   type ForexIbkrContract,
 } from "@/lib/investment/forex/config";
+import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { computeForexIndicators, inferForexSignal, type ForexBar } from "@/lib/investment/forex/indicators";
 import { getForexMacroSnapshot } from "@/lib/investment/forex/macro-calendar";
 
@@ -135,6 +136,8 @@ async function loadHistoryBars(pairId: string): Promise<ForexBar[]> {
 
 export async function buildForexDashboardSnapshot(): Promise<ForexDashboardSnapshot> {
   const config = loadForexEnvConfig();
+  const flags = getInvestmentRuntimeFlags();
+  const enabled = config.enabled || flags.forexEnabled;
   const session = getForexSessionSnapshot();
   const macro = await getForexMacroSnapshot();
   const errors: string[] = [];
@@ -194,10 +197,10 @@ export async function buildForexDashboardSnapshot(): Promise<ForexDashboardSnaps
 
   return {
     generatedAt: new Date().toISOString(),
-    mode: config.enabled ? "LIVE_GATED" : "ANALYSIS_ONLY",
-    forexEnabled: config.enabled,
+    mode: enabled ? "LIVE_GATED" : "ANALYSIS_ONLY",
+    forexEnabled: enabled,
     session,
-    config,
+    config: { ...config, enabled },
     quotes,
     analyses,
     positions,

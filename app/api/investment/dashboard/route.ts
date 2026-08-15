@@ -3,6 +3,7 @@ import {
   getInvestmentDashboardSnapshot,
   refreshInvestmentDashboardSnapshot,
 } from "@/lib/investment/dashboard-snapshot";
+import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,7 +11,7 @@ export const runtime = "nodejs";
 /**
  * Investment dashboard snapshot API.
  * Returns last-good snapshot immediately; refresh runs in background unless force=1.
- * ANALYSIS_ONLY — no order path.
+ * Mode / LIVE_TRADING_ENABLED / orders follow .env.local via runtime flags.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -27,21 +28,30 @@ export async function GET(request: NextRequest) {
       void refreshInvestmentDashboardSnapshot({ force: false, preferCache: false });
     }
 
+    const flags = getInvestmentRuntimeFlags();
     return NextResponse.json({
       ...snapshot,
-      mode: "ANALYSIS_ONLY",
-      orderExecution: "disabled",
-      liveTradingEnabled: false,
-      note: "Investment dashboard snapshot — ANALYSIS_ONLY, no orders.",
+      mode: flags.modeLabel,
+      orderExecution: flags.orderExecution,
+      liveTradingEnabled: flags.liveTradingEnabled,
+      ibkrReadOnly: flags.ibkrReadOnly,
+      forexEnabled: flags.forexEnabled,
+      tradingMode: flags.tradingMode,
+      note: `Investment dashboard · LIVE_TRADING_ENABLED=${flags.liveTradingEnabled} · orders ${flags.orderExecution}`,
     });
   } catch (error) {
     const fallback = getInvestmentDashboardSnapshot();
+    const flags = getInvestmentRuntimeFlags();
     return NextResponse.json(
       {
         ...fallback,
         error: error instanceof Error ? error.message : "Dashboard snapshot failed",
-        mode: "ANALYSIS_ONLY",
-        orderExecution: "disabled",
+        mode: flags.modeLabel,
+        orderExecution: flags.orderExecution,
+        liveTradingEnabled: flags.liveTradingEnabled,
+        ibkrReadOnly: flags.ibkrReadOnly,
+        forexEnabled: flags.forexEnabled,
+        tradingMode: flags.tradingMode,
       },
       { status: 200 },
     );

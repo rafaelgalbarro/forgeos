@@ -115,9 +115,12 @@ export interface RecentDecisionItem {
 
 export interface InvestmentDashboardSnapshot {
   readonly generatedAt: string;
-  readonly mode: "ANALYSIS_ONLY";
-  readonly orderExecution: "disabled";
-  readonly liveTradingEnabled: false;
+  readonly mode: "ANALYSIS_ONLY" | "LIVE";
+  readonly orderExecution: "disabled" | "enabled";
+  readonly liveTradingEnabled: boolean;
+  readonly ibkrReadOnly: boolean;
+  readonly forexEnabled: boolean;
+  readonly tradingMode: string;
   readonly brokerStatus: SnapshotSectionMeta & { readonly data: BrokerStatusSummary | null };
   readonly accountSummary: SnapshotSectionMeta & { readonly data: AccountSummarySnapshot | null };
   readonly portfolioSummary: SnapshotSectionMeta & { readonly data: PortfolioSummarySnapshot | null };

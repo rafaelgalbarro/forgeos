@@ -20,6 +20,7 @@ import {
   type SnapshotSectionMeta,
 } from "./dashboard-snapshot.types";
 import { maskAccountList } from "@/lib/ibkr/account-mask";
+import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 
 const RUNTIME_DIR = path.join(process.cwd(), ".runtime", "investment");
 const SNAPSHOT_PATH = path.join(RUNTIME_DIR, "dashboard-snapshot.json");
@@ -94,15 +95,19 @@ async function fetchIbkrJson(servicePath: string, signal: AbortSignal): Promise<
 
 function emptySnapshot(overrides?: Partial<InvestmentDashboardSnapshot>): InvestmentDashboardSnapshot {
   const generatedAt = nowIso();
+  const flags = getInvestmentRuntimeFlags();
   const unavailable = <T,>(data: T): SnapshotSectionMeta & { data: T } => ({
     ...sectionMeta("UNAVAILABLE", null, { source: "fallback" }),
     data,
   });
   return {
     generatedAt,
-    mode: "ANALYSIS_ONLY",
-    orderExecution: "disabled",
-    liveTradingEnabled: false,
+    mode: flags.modeLabel,
+    orderExecution: flags.orderExecution,
+    liveTradingEnabled: flags.liveTradingEnabled,
+    ibkrReadOnly: flags.ibkrReadOnly,
+    forexEnabled: flags.forexEnabled,
+    tradingMode: flags.tradingMode,
     brokerStatus: unavailable<BrokerStatusSummary | null>(null),
     accountSummary: unavailable<AccountSummarySnapshot | null>(null),
     portfolioSummary: unavailable<PortfolioSummarySnapshot | null>(null),
@@ -241,6 +246,8 @@ function markStaleIfNeeded<T extends SnapshotSectionMeta>(
   nowMs: number,
 ): T {
   if (!section.updatedAt) return section;
+  // Connected broker must stay CONNECTED — TTL stale would contradict the live session.
+  if (section.state === "CONNECTED") return section;
   const age = nowMs - Date.parse(section.updatedAt);
   if (!Number.isFinite(age) || age <= ttlMs) return section;
   if (section.state === "DISCONNECTED" || section.state === "UNAVAILABLE" || section.state === "ERROR") {
@@ -272,6 +279,7 @@ async function refreshSnapshotInternal(): Promise<InvestmentDashboardSnapshot> {
     DASHBOARD_TIMEOUT_MS.brokerStatus,
   );
 
+  const flags = getInvestmentRuntimeFlags();
   let brokerStatus: InvestmentDashboardSnapshot["brokerStatus"];
   if (brokerResult.ok) {
     const body = asObject(brokerResult.value);
@@ -291,8 +299,8 @@ async function refreshSnapshotInternal(): Promise<InvestmentDashboardSnapshot> {
         nextOrderIdReady: Boolean(body?.nextOrderIdReady),
         managedAccounts: accounts,
         maskedAccounts: maskAccountList(accounts),
-        ibkrReadOnly: body?.ibkrReadOnly !== false,
-        liveTradingEnabled: body?.liveTradingEnabled === true,
+        ibkrReadOnly: flags.ibkrReadOnly,
+        liveTradingEnabled: flags.liveTradingEnabled,
         engine: "ibkr",
         dataSource,
       },
@@ -632,6 +640,12 @@ async function refreshSnapshotInternal(): Promise<InvestmentDashboardSnapshot> {
 
   const next = emptySnapshot({
     generatedAt,
+    mode: flags.modeLabel,
+    orderExecution: flags.orderExecution,
+    liveTradingEnabled: flags.liveTradingEnabled,
+    ibkrReadOnly: flags.ibkrReadOnly,
+    forexEnabled: flags.forexEnabled,
+    tradingMode: flags.tradingMode,
     brokerStatus: markStaleIfNeeded(brokerStatus, DASHBOARD_TTL_MS.broker, nowMs) as typeof brokerStatus,
     accountSummary: markStaleIfNeeded(accountSummary, DASHBOARD_TTL_MS.account, nowMs) as typeof accountSummary,
     portfolioSummary: markStaleIfNeeded(

@@ -426,7 +426,11 @@ export function InvestmentTerminalDashboard() {
   const currency = account?.currency ?? portfolio?.baseCurrency ?? "USD";
   const capital = portfolio?.totalValue ?? account?.netLiquidation;
   const connected = Boolean(broker?.data?.connected);
-  const brokerLabel = connected ? "CONNECTED" : (broker?.state ?? "DISCONNECTED");
+  const brokerLabel = connected
+    ? "CONNECTED"
+    : broker?.state === "STALE"
+      ? "STALE"
+      : (broker?.state ?? "DISCONNECTED");
   const aiLabel = (brain?.data?.status ?? brain?.state ?? "IDLE") as string;
   const marketsLabel = market.marketsStatus;
   const riskLabel = (risk?.data?.level ?? risk?.state ?? "UNAVAILABLE") as string;
@@ -434,10 +438,18 @@ export function InvestmentTerminalDashboard() {
     broker?.data?.dataSource ?? broker?.dataSource,
     connected,
   );
+  const liveTradingEnabled = Boolean(
+    snapshot?.liveTradingEnabled ?? broker?.data?.liveTradingEnabled,
+  );
+  const ibkrReadOnly = snapshot?.ibkrReadOnly ?? broker?.data?.ibkrReadOnly ?? true;
+  const ordersEnabled = snapshot?.orderExecution === "enabled";
+  const modeLabel = snapshot?.mode ?? (liveTradingEnabled && !ibkrReadOnly ? "LIVE" : "ANALYSIS_ONLY");
   const ibkrState = connected
-    ? dataSource === "IBKR_LIVE_READ_ONLY"
-      ? "IBKR_READ_ONLY"
-      : dataSource
+    ? liveTradingEnabled && !ibkrReadOnly
+      ? "IBKR_LIVE"
+      : dataSource === "IBKR_LIVE_READ_ONLY"
+        ? "IBKR_READ_ONLY"
+        : dataSource
     : "DISCONNECTED";
 
   const alerts = risk?.data?.factors ?? [];
@@ -465,7 +477,8 @@ export function InvestmentTerminalDashboard() {
       data-panel-id="investment-terminal-dashboard"
     >
       <p className={styles.modeNote}>
-        ANALYSIS_ONLY · IBKR_READ_ONLY · LIVE_TRADING_ENABLED=false · orders disabled
+        {modeLabel} · {ibkrReadOnly ? "IBKR_READ_ONLY" : "IBKR_WRITE"} · LIVE_TRADING_ENABLED=
+        {String(liveTradingEnabled)} · orders {ordersEnabled ? "enabled" : "disabled"}
         {error ? ` · ${error}` : ""}
         {" · "}
         <button type="button" className={styles.retryLink} onClick={retry}>
@@ -730,7 +743,7 @@ export function InvestmentTerminalDashboard() {
                       {c.instrument.symbol} · {c.direction} · {c.detection}
                     </span>
                     <span className={styles.listMeta}>
-                      score {c.score.toFixed(1)} · conf {(c.confidence * 100).toFixed(0)}% · ANALYSIS_ONLY
+                      score {c.score.toFixed(1)} · conf {(c.confidence * 100).toFixed(0)}% · {modeLabel}
                     </span>
                   </li>
                 ))}

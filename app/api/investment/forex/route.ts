@@ -19,11 +19,15 @@ export async function GET() {
     const snapshot = await buildForexDashboardSnapshot();
     return NextResponse.json(snapshot);
   } catch (error) {
+    const { getInvestmentRuntimeFlags } = await import("@/lib/investment/runtime-flags");
+    const flags = getInvestmentRuntimeFlags();
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "FOREX snapshot failed",
         generatedAt: new Date().toISOString(),
-        mode: "ANALYSIS_ONLY",
+        mode: flags.forexEnabled ? "LIVE_GATED" : "ANALYSIS_ONLY",
+        forexEnabled: flags.forexEnabled,
+        config: { enabled: flags.forexEnabled },
         quotes: [],
         analyses: [],
       },

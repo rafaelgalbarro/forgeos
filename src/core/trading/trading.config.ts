@@ -51,8 +51,15 @@ export const TRADING_CONFIG = {
     mcpUrl: 'https://api.ibkr.com/v1/api/mcp',
     /** Tipo de orden por defecto */
     defaultOrderType: 'MKT' as 'MKT' | 'LMT',
-    /** Activar modo paper trading (true = sin dinero real) */
-    paperTrading: true,
+    /**
+     * Paper trading: true = sin dinero real.
+     * When LIVE_TRADING_ENABLED=true and IBKR_READ_ONLY=false → live (false).
+     * Evaluated at module load from process.env (.env.local / spawn env).
+     */
+    paperTrading: !(
+      String(process.env.LIVE_TRADING_ENABLED ?? "").trim().toLowerCase() === "true" &&
+      String(process.env.IBKR_READ_ONLY ?? "true").trim().toLowerCase() === "false"
+    ),
   },
 
   // ── Universo de activos permitidos ────────────────────────────

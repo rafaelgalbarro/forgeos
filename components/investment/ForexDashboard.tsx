@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "@/styles/investment/workspace.module.css";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
+import { FOREX_PAIRS } from "@/lib/investment/forex/config";
 import type {
   ForexCandleView,
   ForexDashboardSnapshotView,
@@ -11,6 +12,7 @@ import type {
 } from "@/lib/investment/forex/types";
 
 const TIMEFRAMES: ForexTimeframeId[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
+const PAIR_OPTIONS = FOREX_PAIRS.map((p) => ({ id: p.pairId, label: p.display }));
 
 type QuotesApi = {
   quotes?: ForexQuoteRow[];
@@ -327,9 +329,9 @@ export function ForexDashboard() {
         <label className={styles.hubNote}>
           Par{" "}
           <select value={selectedPair} onChange={(e) => setSelectedPair(e.target.value)}>
-            {(snap?.analyses?.map((a) => a.pairId) ?? ["EURUSD"]).map((id) => (
-              <option key={id} value={id}>
-                {id}
+            {PAIR_OPTIONS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
               </option>
             ))}
           </select>

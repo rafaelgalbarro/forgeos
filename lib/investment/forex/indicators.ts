@@ -43,13 +43,22 @@ export function computeRsi(values: readonly number[], period = 14): number | nul
 }
 
 export function computeEma(values: readonly number[], period: number): number | null {
-  if (values.length < period) return null;
+  const series = computeEmaSeries(values, period);
+  return series.length ? series[series.length - 1]! : null;
+}
+
+/** Full EMA series aligned to input (leading nulls until period filled as numbers from index period-1). */
+export function computeEmaSeries(values: readonly number[], period: number): number[] {
+  if (values.length < period) return [];
   const k = 2 / (period + 1);
+  const out: number[] = [];
   let ema = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  out.push(ema);
   for (let i = period; i < values.length; i++) {
     ema = values[i]! * k + ema * (1 - k);
+    out.push(ema);
   }
-  return ema;
+  return out;
 }
 
 export function computeMacd(values: readonly number[]): {

@@ -1,0 +1,88 @@
+/**
+ * FOREX risk gates — 1% NAV/trade, 3% daily NAV stop, max 3 pairs, news blackout.
+ */
+
+import "server-only";
+
+import {
+  FOREX_RISK_POLICY,
+  loadForexEnvConfig,
+  positionUnitsForRisk,
+  type ForexIbkrContract,
+} from "@/lib/investment/forex/config";
+import { FOREX_DAILY_GOALS, canOpenForexTrade, getForexDailyState } from "@/lib/investment/forex/goals";
+import type { ForexStrategyStyle } from "@/lib/investment/forex/strategies/defs";
+import type { ForexStrategySignal } from "@/lib/investment/forex/strategies/engine";
+
+export type ForexRiskDecision = {
+  allowed: boolean;
+  reason?: string;
+  units?: number;
+  riskPct: number;
+  riskAmount?: number;
+};
+
+export function assessForexRisk(params: {
+  signal: ForexStrategySignal;
+  pair: ForexIbkrContract;
+  nav: number;
+  openPairCount: number;
+  blackoutActive: boolean;
+  tradingWindowActive: boolean;
+  strategyWindowActive: boolean;
+}): ForexRiskDecision {
+  const riskPct = FOREX_DAILY_GOALS.maxRiskPctPerTrade;
+  const config = loadForexEnvConfig();
+  const daily = getForexDailyState();
+
+  if (!params.tradingWindowActive) {
+    return { allowed: false, reason: "Fuera de horario — solo análisis", riskPct };
+  }
+  if (!params.strategyWindowActive) {
+    return { allowed: false, reason: "Estrategia fuera de su ventana horaria", riskPct };
+  }
+  if (params.blackoutActive) {
+    return { allowed: false, reason: "Blackout noticias HIGH (±30m)", riskPct };
+  }
+  if (daily.stoppedOut) {
+    return { allowed: false, reason: "Stop diario activo", riskPct };
+  }
+  // Approx NAV daily stop: if realized pips strongly negative, already gated; also % of NAV loss estimate
+  const roughLossPct = Math.abs(Math.min(0, daily.realizedPips)) * 0.01; // rough
+  if (roughLossPct >= FOREX_DAILY_GOALS.dailyNavStopPct) {
+    return { allowed: false, reason: "Stop diario 3% NAV", riskPct };
+  }
+
+  const tradeGate = canOpenForexTrade(params.signal.style);
+  if (!tradeGate.ok) return { allowed: false, reason: tradeGate.reason, riskPct };
+
+  if (params.openPairCount >= FOREX_DAILY_GOALS.maxConcurrentPairs) {
+    return { allowed: false, reason: `Máx ${FOREX_DAILY_GOALS.maxConcurrentPairs} pares simultáneos`, riskPct };
+  }
+
+  const sized = positionUnitsForRisk({
+    nav: params.nav > 0 ? params.nav : 100_000,
+    riskPct,
+    stopPips: params.signal.stopPips,
+    pair: params.pair,
+    midPrice: params.signal.entry,
+    minUnits: config.minUnits,
+  });
+  if (!sized) return { allowed: false, reason: "No se pudo calcular tamaño", riskPct };
+
+  // Cap risk to policy
+  if (riskPct > FOREX_RISK_POLICY.maxRiskPctNav) {
+    return { allowed: false, reason: "Risk % > política", riskPct };
+  }
+
+  return {
+    allowed: true,
+    units: sized.units,
+    riskPct,
+    riskAmount: sized.riskAmount,
+  };
+}
+
+export function styleFromSignal(style: ForexStrategyStyle): ForexStrategyStyle {
+  return style;
+}

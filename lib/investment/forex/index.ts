@@ -51,3 +51,6 @@ export {
   parseForexTimeframe,
 } from "./timeframes";
 export type { ForexTimeframe, ForexTfSpec } from "./timeframes";
+
+export { FOREX_STRATEGIES, isStrategyWindowActive } from "./strategies/defs";
+export type { ForexStrategyId, ForexStrategyDef, ForexStrategyStyle } from "./strategies/defs";

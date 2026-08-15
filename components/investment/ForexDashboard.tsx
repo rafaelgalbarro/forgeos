@@ -15,16 +15,48 @@ const TIMEFRAMES: ForexTimeframeId[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 type QuotesApi = {
   quotes?: ForexQuoteRow[];
   generatedAt?: string;
-  fromCache?: boolean;
-  session?: ForexDashboardSnapshotView["session"];
 };
 
 type HistoryApi = {
-  pairId?: string;
-  timeframe?: ForexTimeframeId;
   source?: string;
   bars?: ForexCandleView[];
   note?: string;
+};
+
+type SignalCard = {
+  strategyId: string;
+  code: string;
+  name: string;
+  style: "SCALPING" | "INTRADAY";
+  pairId: string;
+  display: string;
+  side: "BUY" | "SELL";
+  entry: number;
+  stopLoss: number;
+  takeProfit: number;
+  stopPips: number;
+  tpPips: number;
+  confidence: number;
+  confidenceAdjusted: number;
+  reasons: string[];
+  timeframe: string;
+  estimatedMinutes: number;
+  canExecute: boolean;
+  blockReason?: string;
+  backtest?: { badge: string; winRate: number; profitFactor: number; trades: number };
+};
+
+type SignalsApi = {
+  signals?: SignalCard[];
+  goals?: {
+    scalp: { current: number; target: number; pct: number; trades: number; maxTrades: number };
+    intraday: { current: number; target: number; pct: number; trades: number; maxTrades: number };
+    stoppedOut: boolean;
+    realizedPips: number;
+    telegramConfirmRemaining: number;
+  };
+  macroBlackout?: boolean;
+  generatedAt?: string;
 };
 
 function fmt(n: number | null | undefined, digits = 5): string {
@@ -38,12 +70,9 @@ function sideClass(side: string): string {
   return styles.oppSideHold;
 }
 
-/** Compact sparkline from closes (last N). */
 function MiniChart({ bars }: { bars: ForexCandleView[] }) {
   const slice = bars.slice(-40);
-  if (slice.length < 2) {
-    return <span className={styles.overviewHint}>sin velas</span>;
-  }
+  if (slice.length < 2) return <span className={styles.overviewHint}>sin velas</span>;
   const closes = slice.map((b) => b.close);
   const min = Math.min(...closes);
   const max = Math.max(...closes);
@@ -60,19 +89,35 @@ function MiniChart({ bars }: { bars: ForexCandleView[] }) {
   const up = closes[closes.length - 1]! >= closes[0]!;
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
-      <polyline
-        fill="none"
-        stroke={up ? "#22c55e" : "#ef4444"}
-        strokeWidth="1.5"
-        points={pts}
-      />
+      <polyline fill="none" stroke={up ? "#22c55e" : "#ef4444"} strokeWidth="1.5" points={pts} />
     </svg>
   );
 }
 
-/**
- * FOREX terminal — live bid/ask (1s), multi-TF OHLCV, analysis snapshot.
- */
+function ProgressBar({ pct, label }: { pct: number; label: string }) {
+  return (
+    <div>
+      <p className={styles.overviewHint}>{label}</p>
+      <div
+        style={{
+          height: 8,
+          background: "rgba(148,163,184,0.25)",
+          borderRadius: 4,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.min(100, Math.max(0, pct))}%`,
+            height: "100%",
+            background: pct >= 100 ? "#22c55e" : "#0ea5e9",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function ForexDashboard() {
   const [snap, setSnap] = useState<ForexDashboardSnapshotView | null>(null);
   const [quotes, setQuotes] = useState<ForexQuoteRow[]>([]);
@@ -81,8 +126,11 @@ export function ForexDashboard() {
   const [selectedPair, setSelectedPair] = useState("EURUSD");
   const [candles, setCandles] = useState<ForexCandleView[]>([]);
   const [candleMeta, setCandleMeta] = useState("");
+  const [signals, setSignals] = useState<SignalCard[]>([]);
+  const [goals, setGoals] = useState<SignalsApi["goals"]>();
   const [error, setError] = useState("");
   const [cycling, setCycling] = useState(false);
+  const [executing, setExecuting] = useState<string | null>(null);
 
   const refreshSnapshot = useCallback(async () => {
     const res = await safeJsonFetch<ForexDashboardSnapshotView>("/api/investment/forex", {
@@ -98,9 +146,7 @@ export function ForexDashboard() {
   }, []);
 
   const refreshQuotes = useCallback(async () => {
-    const res = await safeJsonFetch<QuotesApi>("/api/investment/forex/quotes", {
-      cache: "no-store",
-    });
+    const res = await safeJsonFetch<QuotesApi>("/api/investment/forex/quotes", { cache: "no-store" });
     if (!res.ok || !res.data?.quotes) return;
     setQuotes(res.data.quotes);
     setQuotesAt(res.data.generatedAt ?? new Date().toISOString());
@@ -117,15 +163,24 @@ export function ForexDashboard() {
       return;
     }
     setCandles(res.data.bars ?? []);
-    setCandleMeta(
-      `${res.data.source ?? "?"} · ${res.data.bars?.length ?? 0} velas · ${res.data.note ?? ""}`,
-    );
+    setCandleMeta(`${res.data.source ?? "?"} · ${res.data.bars?.length ?? 0} velas · ${res.data.note ?? ""}`);
   }, [selectedPair, tf]);
+
+  const refreshSignals = useCallback(async () => {
+    const res = await safeJsonFetch<SignalsApi>("/api/investment/forex/signals", { cache: "no-store" });
+    if (!res.ok || !res.data) return;
+    setSignals(res.data.signals ?? []);
+    setGoals(res.data.goals);
+  }, []);
 
   useEffect(() => {
     void refreshSnapshot();
     void refreshQuotes();
-    const heavy = setInterval(() => void refreshSnapshot(), 60_000);
+    void refreshSignals();
+    const heavy = setInterval(() => {
+      void refreshSnapshot();
+      void refreshSignals();
+    }, 60_000);
     const live = setInterval(() => {
       if (document.hidden) return;
       void refreshQuotes();
@@ -134,7 +189,7 @@ export function ForexDashboard() {
       clearInterval(heavy);
       clearInterval(live);
     };
-  }, [refreshSnapshot, refreshQuotes]);
+  }, [refreshSnapshot, refreshQuotes, refreshSignals]);
 
   useEffect(() => {
     void refreshHistory();
@@ -154,8 +209,40 @@ export function ForexDashboard() {
         body: "{}",
       });
       await refreshSnapshot();
+      await refreshSignals();
     } finally {
       setCycling(false);
+    }
+  }
+
+  async function executeSignal(sig: SignalCard, confirmed: boolean) {
+    const key = `${sig.strategyId}:${sig.pairId}:${sig.side}`;
+    setExecuting(key);
+    try {
+      const res = await safeJsonFetch<{
+        ok?: boolean;
+        needsTelegramConfirm?: boolean;
+        error?: string;
+        message?: string;
+      }>("/api/investment/forex/signals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signal: sig, confirmed, transmit: false }),
+      });
+      if (res.data?.needsTelegramConfirm && !confirmed) {
+        const ok = window.confirm(
+          `${res.data.message ?? "Confirmar ejecución FOREX"}\n\n${sig.side} ${sig.display} @ ${sig.entry}`,
+        );
+        if (ok) await executeSignal(sig, true);
+        return;
+      }
+      if (!res.ok || res.data?.ok === false) {
+        setError(res.data?.error ?? res.error ?? "Ejecución bloqueada");
+      } else {
+        await refreshSignals();
+      }
+    } finally {
+      setExecuting(null);
     }
   }
 
@@ -174,24 +261,23 @@ export function ForexDashboard() {
     <section className={styles.assetModule} aria-label="FOREX dashboard">
       <header className={styles.assetModuleHead}>
         <div>
-          <p className={styles.productKicker}>IBKR IDEALPRO · CASH · live quotes 1s</p>
-          <h1 className={styles.assetModuleTitle}>💱 FOREX</h1>
+          <p className={styles.productKicker}>IBKR IDEALPRO · estrategias A–F · live 1s</p>
+          <h1 className={styles.assetModuleTitle}>💱 FOREX Pro</h1>
           <p className={styles.hubNote}>
-            {session?.label ?? "Cargando sesión…"} · modo {snap?.mode ?? "…"} · enabled=
+            {session?.label ?? "Cargando…"} · {snap?.mode ?? "…"} · enabled=
             {String(snap?.forexEnabled ?? false)}
             {quotesAt ? ` · ticks ${new Date(quotesAt).toLocaleTimeString()}` : ""}
           </p>
         </div>
         <div className={styles.assetModulePnl}>
-          <button type="button" className={styles.oppBtnAnalysis} onClick={() => void refreshQuotes()}>
-            Refresh ticks
+          <button type="button" className={styles.oppBtnAnalysis} onClick={() => void refreshSignals()}>
+            Scan señales
           </button>
           <button
             type="button"
             className={styles.oppBtnExecute}
             disabled={cycling}
             onClick={() => void runCycle()}
-            title="Ciclo análisis + stage LMT (transmit=false)"
           >
             {cycling ? "Ciclo…" : "⚡ Ciclo ahora"}
           </button>
@@ -199,77 +285,138 @@ export function ForexDashboard() {
       </header>
 
       <div
-        className={styles.overviewSideMetrics}
-        style={{ gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", display: "grid", gap: 10 }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+          gap: 10,
+          marginBottom: 12,
+        }}
       >
         <div className={styles.overviewMetricCard}>
-          <p className={styles.overviewLabel}>Sesión</p>
-          <p className={styles.overviewCountdown}>{session?.primarySession ?? "—"}</p>
-          <p className={styles.overviewHint}>
-            {session?.sessionsOpen?.join(" · ") || "cerrada"}
-            {session?.highLiquidity ? " · alta liquidez" : ""}
+          <p className={styles.overviewLabel}>Objetivo scalping</p>
+          <ProgressBar
+            pct={goals?.scalp.pct ?? 0}
+            label={`${goals?.scalp.current ?? 0}/${goals?.scalp.target ?? 20} pips · ops ${goals?.scalp.trades ?? 0}/${goals?.scalp.maxTrades ?? 10}`}
+          />
+        </div>
+        <div className={styles.overviewMetricCard}>
+          <p className={styles.overviewLabel}>Objetivo intradía</p>
+          <ProgressBar
+            pct={goals?.intraday.pct ?? 0}
+            label={`${goals?.intraday.current ?? 0}/${goals?.intraday.target ?? 50} pips · ops ${goals?.intraday.trades ?? 0}/${goals?.intraday.maxTrades ?? 5}`}
+          />
+        </div>
+        <div className={styles.overviewMetricCard}>
+          <p className={styles.overviewLabel}>P&amp;L día</p>
+          <p className={styles.overviewVsSpy}>
+            {goals?.stoppedOut ? "STOP" : `${goals?.realizedPips ?? 0} pips`}
           </p>
+          <p className={styles.overviewHint}>Stop diario −30p · max 3 pares</p>
         </div>
         <div className={styles.overviewMetricCard}>
           <p className={styles.overviewLabel}>{selectedPair}</p>
           <p className={styles.overviewVsSpy}>
-            {fmt(selectedQuote?.mid, selectedDigits)} · spr{" "}
+            {fmt(selectedQuote?.mid, selectedDigits)} ·{" "}
             {selectedQuote?.spreadPips != null ? `${selectedQuote.spreadPips.toFixed(1)}p` : "—"}
           </p>
-          <p className={styles.overviewHint}>
-            {selectedQuote?.source ?? "NO_DATA"} · bid {fmt(selectedQuote?.bid, selectedDigits)} / ask{" "}
-            {fmt(selectedQuote?.ask, selectedDigits)}
-          </p>
-        </div>
-        <div className={styles.overviewMetricCard}>
-          <p className={styles.overviewLabel}>Macro</p>
-          <p className={styles.overviewVsSpy}>{macro?.blackoutActive ? "BLACKOUT" : "OK"}</p>
-          <p className={styles.overviewHint}>
-            {macro?.nextHighImpactAt
-              ? `Próx. HIGH en ${macro.minutesToNextHigh ?? "?"} min`
-              : "Sin HIGH próximo"}
-          </p>
-        </div>
-        <div className={styles.overviewMetricCard}>
-          <p className={styles.overviewLabel}>Posiciones</p>
-          <p className={styles.overviewCountdown}>{snap?.positions?.length ?? 0}</p>
-          <p className={styles.overviewHint}>max {snap?.config.maxPositions ?? 3} pares</p>
+          <p className={styles.overviewHint}>{selectedQuote?.source ?? "NO_DATA"}</p>
         </div>
       </div>
 
-      <div className={styles.assetModulePnl} style={{ marginTop: 12, gap: 8, flexWrap: "wrap" }}>
+      <div className={styles.assetModulePnl} style={{ marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
         <label className={styles.hubNote}>
           Par{" "}
-          <select
-            value={selectedPair}
-            onChange={(e) => setSelectedPair(e.target.value)}
-            aria-label="Par FOREX"
-          >
-            {(snap?.analyses?.map((a) => a.pairId) ?? ["EURUSD", "GBPUSD", "USDJPY"]).map((id) => (
+          <select value={selectedPair} onChange={(e) => setSelectedPair(e.target.value)}>
+            {(snap?.analyses?.map((a) => a.pairId) ?? ["EURUSD"]).map((id) => (
               <option key={id} value={id}>
                 {id}
               </option>
             ))}
           </select>
         </label>
-        <div role="group" aria-label="Timeframe">
-          {TIMEFRAMES.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={tf === id ? styles.oppBtnExecute : styles.oppBtnAnalysis}
-              onClick={() => setTf(id)}
-              style={{ marginRight: 4 }}
-            >
-              {id}
-            </button>
-          ))}
-        </div>
+        {TIMEFRAMES.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className={tf === id ? styles.oppBtnExecute : styles.oppBtnAnalysis}
+            onClick={() => setTf(id)}
+            style={{ marginRight: 4 }}
+          >
+            {id}
+          </button>
+        ))}
         <MiniChart bars={candles} />
-        <span className={styles.overviewHint}>{candleMeta || "Cargando velas…"}</span>
+        <span className={styles.overviewHint}>{candleMeta}</span>
       </div>
 
+      <h2 className={styles.oppEnhancedTitle}>Señales en vivo</h2>
       <div className={styles.oppTableWrap}>
+        <table className={styles.oppTable}>
+          <thead>
+            <tr>
+              <th>Par</th>
+              <th>Side</th>
+              <th>Estrategia</th>
+              <th>Entry</th>
+              <th>SL</th>
+              <th>TP</th>
+              <th>Conf</th>
+              <th>BT</th>
+              <th>ETA</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {signals.length === 0 ? (
+              <tr>
+                <td colSpan={10}>
+                  <span className={styles.oppEmpty}>Sin señales en ventana activa — análisis continuo</span>
+                </td>
+              </tr>
+            ) : (
+              signals.map((sig) => {
+                const digits = sig.pairId.includes("JPY") ? 3 : 5;
+                const key = `${sig.strategyId}:${sig.pairId}:${sig.side}`;
+                return (
+                  <tr key={key}>
+                    <td>
+                      <strong>{sig.display}</strong>
+                    </td>
+                    <td className={sideClass(sig.side)}>{sig.side}</td>
+                    <td>
+                      {sig.code} {sig.name}
+                      <div className={styles.overviewHint}>{sig.style} · {sig.timeframe}</div>
+                    </td>
+                    <td data-numeric="true">{fmt(sig.entry, digits)}</td>
+                    <td data-numeric="true">
+                      {fmt(sig.stopLoss, digits)} ({sig.stopPips}p)
+                    </td>
+                    <td data-numeric="true">
+                      {fmt(sig.takeProfit, digits)} ({sig.tpPips}p)
+                    </td>
+                    <td data-numeric="true">{(sig.confidenceAdjusted * 100).toFixed(0)}%</td>
+                    <td>{sig.backtest?.badge ?? "—"}</td>
+                    <td>~{sig.estimatedMinutes}m</td>
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.oppBtnExecute}
+                        disabled={!sig.canExecute || executing === key}
+                        title={sig.blockReason ?? "Stage LMT"}
+                        onClick={() => void executeSignal(sig, false)}
+                      >
+                        {executing === key ? "…" : "⚡ EJECUTAR"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.oppTableWrap} style={{ marginTop: 16 }}>
         <table className={styles.oppTable}>
           <thead>
             <tr>
@@ -280,13 +427,8 @@ export function ForexDashboard() {
               <th>Src</th>
               <th>Chart</th>
               <th>RSI</th>
-              <th>MACD</th>
-              <th>ATR</th>
               <th>Señal</th>
               <th>Conf</th>
-              <th>Entry</th>
-              <th>SL</th>
-              <th>TP</th>
             </tr>
           </thead>
           <tbody>
@@ -311,17 +453,10 @@ export function ForexDashboard() {
                     {live.spreadPips != null ? `${live.spreadPips.toFixed(1)}p` : "—"}
                   </td>
                   <td>{live.source}</td>
-                  <td>
-                    {selectedPair === row.pairId ? <MiniChart bars={candles} /> : "·"}
-                  </td>
+                  <td>{selectedPair === row.pairId ? <MiniChart bars={candles} /> : "·"}</td>
                   <td data-numeric="true">{fmt(row.indicators.rsi, 1)}</td>
-                  <td data-numeric="true">{fmt(row.indicators.macdHist, 5)}</td>
-                  <td data-numeric="true">{fmt(row.indicators.atr, digits)}</td>
                   <td className={sideClass(row.signal.side)}>{row.signal.side}</td>
                   <td data-numeric="true">{(row.signal.confidence * 100).toFixed(0)}%</td>
-                  <td data-numeric="true">{fmt(row.levels?.entry, digits)}</td>
-                  <td data-numeric="true">{fmt(row.levels?.stopLoss, digits)}</td>
-                  <td data-numeric="true">{fmt(row.levels?.takeProfit, digits)}</td>
                 </tr>
               );
             })}
@@ -330,9 +465,9 @@ export function ForexDashboard() {
       </div>
 
       <div className={styles.assetUniverse}>
-        <h2 className={styles.oppEnhancedTitle}>Calendario económico (hoy)</h2>
+        <h2 className={styles.oppEnhancedTitle}>Calendario económico</h2>
         {(macro?.events?.length ?? 0) === 0 ? (
-          <p className={styles.oppEmpty}>NO_DATA — calendario vacío o proveedor offline</p>
+          <p className={styles.oppEmpty}>NO_DATA</p>
         ) : (
           <ul className={styles.assetUniverseList}>
             {macro!.events.slice(0, 12).map((ev) => (

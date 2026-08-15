@@ -12,9 +12,7 @@ import {
   FOREX_RISK_POLICY,
   buildSlTpFromPips,
   getForexSessionSnapshot,
-  isSpreadAcceptable,
   loadForexEnvConfig,
-  positionUnitsForRisk,
   priceToPips,
   type ForexIbkrContract,
 } from "@/lib/investment/forex/config";
@@ -247,36 +245,52 @@ export async function runForexCycle(opts?: { transmit?: boolean }): Promise<Fore
     };
   }
 
-  const snap = await buildForexDashboardSnapshot();
-  const transmit = Boolean(opts?.transmit) && config.enabled;
+  const { scanForexStrategySignals } = await import("@/lib/investment/forex/signal-scanner");
+  const { assessForexRisk } = await import("@/lib/investment/forex/risk-engine");
+  const { notifyForexSignal, notifyForexOrderFilled } = await import("@/lib/investment/forex/telegram");
+  const { recordForexTradeEvent, getForexGoalProgress, canOpenForexTrade } = await import(
+    "@/lib/investment/forex/goals"
+  );
+  const { isStrategyWindowActive } = await import("@/lib/investment/forex/strategies/defs");
 
-  for (const row of snap.analyses) {
-    if (row.signal.side === "HOLD") continue;
-    if (row.signal.confidence < config.minConfidence) continue;
-    const pair = FOREX_PAIRS.find((p) => p.pairId === row.pairId);
-    if (!pair || row.quote.bid == null || row.quote.ask == null || row.quote.mid == null) continue;
-    if (!isSpreadAcceptable(pair, row.quote.bid, row.quote.ask, config.maxSpreadPips)) {
-      errors.push(`${row.pairId}: spread demasiado alto`);
+  const scan = await scanForexStrategySignals();
+  const transmit = Boolean(opts?.transmit) && config.enabled;
+  const weekend = session.label.toLowerCase().includes("fin de semana");
+
+  let nav = 100_000;
+  try {
+    const { fetchTradingAccountSnapshot } = await import("@/lib/trading/ibkr-data");
+    const acct = await fetchTradingAccountSnapshot();
+    if (acct && Number.isFinite(acct.navUSD) && acct.navUSD > 0) nav = acct.navUSD;
+  } catch {
+    /* default */
+  }
+
+  for (const sig of scan.signals) {
+    if (!sig.canExecute) continue;
+    const gate = canOpenForexTrade(sig.style);
+    if (!gate.ok) {
+      errors.push(`${sig.pairId}: ${gate.reason}`);
       continue;
     }
-    const sized = positionUnitsForRisk({
-      nav: 100_000,
-      riskPct: config.riskPct,
-      stopPips: config.stopPips,
+    const pair = FOREX_PAIRS.find((p) => p.pairId === sig.pairId);
+    if (!pair) continue;
+    const strategyWindow = isStrategyWindowActive(sig.style, session.madridMinutes, weekend);
+    const risk = assessForexRisk({
+      signal: sig,
       pair,
-      midPrice: row.quote.mid,
-      minUnits: config.minUnits,
+      nav,
+      openPairCount: actionable.length,
+      blackoutActive: false,
+      tradingWindowActive: true,
+      strategyWindowActive: strategyWindow,
     });
-    if (!sized) continue;
+    if (!risk.allowed || !risk.units) {
+      errors.push(`${sig.pairId}: ${risk.reason}`);
+      continue;
+    }
 
-    const body = {
-      pair_id: row.pairId,
-      side: row.signal.side,
-      quantity: sized.units,
-      limit_price: row.quote.mid,
-      rationale: `FOREX cycle ${row.signal.reasons.join("; ")} conf=${row.signal.confidence.toFixed(2)}`,
-      transmit,
-    };
+    await notifyForexSignal({ signal: sig, backtest: sig.backtest, units: risk.units });
 
     try {
       const data = await ibkrServiceFetch<{
@@ -284,31 +298,39 @@ export async function runForexCycle(opts?: { transmit?: boolean }): Promise<Fore
         staged?: boolean;
       }>("/api/forex/order", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          pair_id: sig.pairId,
+          side: sig.side,
+          quantity: risk.units,
+          limit_price: sig.entry,
+          rationale: `FOREX ${sig.code} ${sig.name} conf=${sig.confidence.toFixed(2)}`,
+          transmit,
+        }),
       });
       actionable.push({
-        pairId: row.pairId,
-        side: row.signal.side,
-        confidence: row.signal.confidence,
+        pairId: sig.pairId,
+        side: sig.side,
+        confidence: sig.confidence,
         staged: data.staged ?? !transmit,
         orderId: data.ibkrOrderId,
       });
-      await sendTelegramMessage(
-        [
-          `FOREX ${data.staged ? "STAGED" : "ORDER"} ${row.signal.side} ${row.pairId}`,
-          `Conf ${(row.signal.confidence * 100).toFixed(0)}% · mid ${row.quote.mid.toFixed(pair.jpyQuoted ? 3 : 5)}`,
-          `Qty ${sized.units} · SL ${config.stopPips}p / TP ${config.tpPips}p`,
-          data.ibkrOrderId != null ? `IBKR orderId ${data.ibkrOrderId}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n"),
-      );
+      recordForexTradeEvent({ style: sig.style, pipsDelta: 0, opened: true });
+      await notifyForexOrderFilled({
+        pairId: sig.pairId,
+        side: sig.side,
+        price: sig.entry,
+        orderId: data.ibkrOrderId,
+        staged: data.staged ?? !transmit,
+      });
     } catch (err) {
-      errors.push(`${row.pairId}: ${err instanceof Error ? err.message : "order failed"}`);
+      errors.push(`${sig.pairId}: ${err instanceof Error ? err.message : "order failed"}`);
     }
 
     if (actionable.length >= Math.min(config.maxPositions, FOREX_RISK_POLICY.maxConcurrentPairs)) break;
   }
+
+  const goals = getForexGoalProgress();
+  void goals;
 
   return {
     ranAt: new Date().toISOString(),

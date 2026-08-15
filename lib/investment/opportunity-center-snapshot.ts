@@ -12,12 +12,10 @@ import {
   type OpportunityCenterSnapshot,
 } from "@/lib/investment/opportunity-center";
 import type { EnhancedOpportunity } from "@/lib/market-data/types";
+import { getCached, setCached, cacheKey } from "@/lib/market-data/cache";
+import { getDataRefreshPolicy } from "@/lib/market-data/refresh-policy";
 
-/**
- * Builds Opportunity Center payload: scanner scan + Alpha A+/A filter + enhanced multi-source scan.
- * ANALYSIS_ONLY — never places orders; memory persist off for polling.
- */
-export async function getOpportunityCenterSnapshot(): Promise<OpportunityCenterSnapshot & {
+export type OpportunityCenterPayload = OpportunityCenterSnapshot & {
   enhancedScan?: {
     scannedAt: string;
     opportunities: EnhancedOpportunity[];
@@ -29,17 +27,56 @@ export async function getOpportunityCenterSnapshot(): Promise<OpportunityCenterS
       phase3Count: number;
     };
   };
-}> {
+  fromCache?: boolean;
+  cacheAgeMs?: number;
+};
+
+const SNAPSHOT_KEY = cacheKey("opportunity-center", "snapshot");
+
+/**
+ * Builds Opportunity Center payload with aggressive in-memory TTL.
+ * Weekend / closed: prefer disk multi-scanner + skip live enhanced scan.
+ * ANALYSIS_ONLY — never places orders.
+ */
+export async function getOpportunityCenterSnapshot(opts?: {
+  preferCache?: boolean;
+  force?: boolean;
+  limit?: number;
+}): Promise<OpportunityCenterPayload> {
+  const policy = getDataRefreshPolicy();
+  const preferCache = opts?.preferCache !== false;
+  const force = opts?.force === true;
+  const limit = opts?.limit && opts.limit > 0 ? opts.limit : undefined;
+
+  if (!force && preferCache) {
+    const hit = getCached<OpportunityCenterPayload>(SNAPSHOT_KEY);
+    if (hit) {
+      return trimPayload({ ...hit, fromCache: true }, limit);
+    }
+  }
+
   const runtime = getInstitutionalOpportunityRuntime();
   const multiScanner = getMultiScannerSnapshot();
+
+  const skipEnhanced = policy.skipLiveScan || policy.isWeekend;
 
   const [scan, alpha, legacyEnhanced] = await Promise.all([
     runtime.scanner.scan(),
     getAlphaEngineSnapshot({ persistMemory: false }),
-    scanEnhancedOpportunities().catch((err) => {
-      console.warn("[OpportunityCenter] enhanced scan failed:", err);
-      return { scannedAt: new Date().toISOString(), opportunities: [] as EnhancedOpportunity[], scanDurationMs: 0 };
-    }),
+    skipEnhanced
+      ? Promise.resolve({
+          scannedAt: multiScanner?.scannedAt ?? new Date().toISOString(),
+          opportunities: [] as EnhancedOpportunity[],
+          scanDurationMs: 0,
+        })
+      : scanEnhancedOpportunities().catch((err) => {
+          console.warn("[OpportunityCenter] enhanced scan failed:", err);
+          return {
+            scannedAt: new Date().toISOString(),
+            opportunities: [] as EnhancedOpportunity[],
+            scanDurationMs: 0,
+          };
+        }),
   ]);
 
   const multiOpps = multiScanner?.opportunities ?? [];
@@ -71,7 +108,7 @@ export async function getOpportunityCenterSnapshot(): Promise<OpportunityCenterS
     (candidate) => candidate.priceQuality === "DEMO",
   );
 
-  return {
+  const payload: OpportunityCenterPayload = {
     scannedAt: scan.scannedAt,
     generatedAt: new Date().toISOString(),
     mode: "ANALYSIS_ONLY",
@@ -87,6 +124,7 @@ export async function getOpportunityCenterSnapshot(): Promise<OpportunityCenterS
     sortOptions: OPPORTUNITY_CENTER_SORT_OPTIONS,
     fieldWiring: OPPORTUNITY_CENTER_FIELD_WIRING,
     enhancedScan,
+    fromCache: false,
     badges: [
       "ANALYSIS_ONLY",
       "no-orders",
@@ -95,9 +133,33 @@ export async function getOpportunityCenterSnapshot(): Promise<OpportunityCenterS
       "multi-source",
       multiOpps.length > 0 ? "multi-ia-scanner" : null,
       mergedOpportunities.some((o) => (o.badges?.length ?? 0) > 0) ? "institutional-scanner" : null,
+      skipEnhanced ? "cached-scan" : null,
       syntheticScanner ? "DEMO_SYNTHETIC" : "UNAVAILABLE",
     ].filter(Boolean) as string[],
     note:
       "Opportunity Center — Alpha A+/A + multi-IA scanner (Groq Fase 2, Claude Haiku Fase 3). ANALYSIS_ONLY; never sends orders.",
+  };
+
+  setCached(SNAPSHOT_KEY, payload, policy.snapshotTtlMs);
+  return trimPayload(payload, limit);
+}
+
+function trimPayload(
+  payload: OpportunityCenterPayload,
+  limit?: number,
+): OpportunityCenterPayload {
+  if (!limit) return payload;
+  const opportunities = payload.opportunities.slice(0, limit);
+  const enhanced = payload.enhancedScan
+    ? {
+        ...payload.enhancedScan,
+        opportunities: payload.enhancedScan.opportunities.slice(0, limit),
+      }
+    : undefined;
+  return {
+    ...payload,
+    opportunities,
+    count: opportunities.length,
+    enhancedScan: enhanced,
   };
 }

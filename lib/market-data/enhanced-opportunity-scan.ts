@@ -14,11 +14,21 @@ import {
   analyzeTimeframes,
   applyConfluenceToScore,
 } from "@/lib/market-data/multi-timeframe";
+import {
+  applyMlScannerScoreMultiplier,
+  hourEtFromIso,
+  recordMlSignal,
+} from "@/lib/ml/signal-trainer";
+import { getTickerInfo } from "@/lib/market-data/yahoo-finance";
+import { getDataRefreshPolicy } from "@/lib/market-data/refresh-policy";
+import { getCached, setCached, cacheKey } from "@/lib/market-data/cache";
 
 const SCAN_UNIVERSE = [
   "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL", "META", "SPY", "QQQ",
   "ASML", "SAP", "SHEL", "BP", "EZU", "VGK", "TSM", "BABA",
 ];
+
+const WEEKEND_TOP = SCAN_UNIVERSE.slice(0, 10);
 
 function atrLevels(price: number, atrVal: number | null) {
   const a = atrVal && atrVal > 0 ? atrVal : price * 0.02;
@@ -35,11 +45,31 @@ export async function scanEnhancedOpportunities(): Promise<{
   opportunities: EnhancedOpportunity[];
   scanDurationMs: number;
 }> {
+  const policy = getDataRefreshPolicy();
+  const cacheId = cacheKey("enhanced-scan", policy.isWeekend ? "weekend" : policy.phase);
+  const cached = getCached<{
+    scannedAt: string;
+    opportunities: EnhancedOpportunity[];
+    scanDurationMs: number;
+  }>(cacheId);
+  if (cached) return cached;
+
+  if (policy.skipLiveScan) {
+    const empty = {
+      scannedAt: new Date().toISOString(),
+      opportunities: [] as EnhancedOpportunity[],
+      scanDurationMs: 0,
+    };
+    setCached(cacheId, empty, policy.snapshotTtlMs);
+    return empty;
+  }
+
   const started = Date.now();
   const opportunities: EnhancedOpportunity[] = [];
   const macroCtx: MacroContext | null = await getMacroContext().catch(() => null);
+  const universe = policy.isMarketOpen ? SCAN_UNIVERSE : WEEKEND_TOP;
 
-  for (const ticker of SCAN_UNIVERSE) {
+  for (const ticker of universe) {
     try {
       const analysis = await getFullMarketAnalysis(ticker);
       const sentiment = await aggregateSentiment(ticker).catch(() => null);
@@ -163,6 +193,30 @@ export async function scanEnhancedOpportunities(): Promise<{
       // Soft: risk-off lightly dampens BUY scores (does not invent signals)
       if (side === "BUY") score += macroBuyScoreAdjustment(macroCtx);
 
+      const rsiOversold = rsiVal != null && rsiVal < 30;
+      const rsiOverbought = rsiVal != null && rsiVal > 70;
+      const squeeze = !!technicals.volatility.squeeze?.active;
+      const goldenCross = patterns.signals.some((s) => s.name === "Golden Cross");
+      const deathCross = patterns.signals.some((s) => s.name === "Death Cross");
+      const volumeSpike = relVol != null && relVol > 2;
+      const nowIso = new Date().toISOString();
+
+      // Phase H — soft ML scanner weights (capped; never places orders)
+      score = applyMlScannerScoreMultiplier({
+        baseScore: score,
+        hourEt: hourEtFromIso(nowIso),
+        sector: null,
+        vix: macroCtx?.vix.price ?? null,
+        flags: {
+          rsiOversold,
+          rsiOverbought,
+          squeeze,
+          goldenCross,
+          deathCross,
+          volumeSpike,
+        },
+      });
+
       opportunities.push({
         ticker,
         score: Math.min(100, Math.max(0, score)),
@@ -180,6 +234,34 @@ export async function scanEnhancedOpportunities(): Promise<{
         mtfWeakSignal: mtf?.weakSignal,
       });
 
+      if (side === "BUY" || side === "SELL") {
+        void getTickerInfo(ticker)
+          .then((info) => {
+            recordMlSignal({
+              ticker,
+              direction: side,
+              confidence: Math.min(1, score / 100),
+              pattern: hc.candlesticks[0]?.name ?? hc.price[0]?.name ?? null,
+              sector: info?.sector ?? null,
+              vix: macroCtx?.vix.price ?? null,
+              source: "enhanced-scan",
+              indicators: {
+                rsi: rsiVal,
+                squeezeActive: squeeze,
+                relativeVolume: relVol,
+                goldenCross,
+                deathCross,
+                rsiOversold,
+                rsiOverbought,
+                volumeSpike,
+              },
+            });
+          })
+          .catch(() => {
+            /* ignore ML record failures */
+          });
+      }
+
       console.log(`[EnhancedScanner] ${ticker} score=${score} signals=${signals.join("; ")}`);
     } catch (err) {
       console.warn(`[EnhancedScanner] ${ticker} skip:`, err instanceof Error ? err.message : err);
@@ -189,9 +271,11 @@ export async function scanEnhancedOpportunities(): Promise<{
   opportunities.sort((a, b) => b.score - a.score);
   const enriched = await enrichOpportunitiesWithInstitutional(opportunities);
 
-  return {
+  const result = {
     scannedAt: new Date().toISOString(),
     opportunities: enriched,
     scanDurationMs: Date.now() - started,
   };
+  setCached(cacheId, result, policy.snapshotTtlMs);
+  return result;
 }

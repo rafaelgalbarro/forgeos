@@ -1,30 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
+import { readLastKnown, writeLastKnown } from "@/lib/investment/client-last-known";
+import { getDataRefreshPolicy } from "@/lib/market-data/refresh-policy";
 import { MarketsAnalysisPanel } from "./MarketsAnalysisPanel";
 import { SectorHeatmap } from "./SectorHeatmap";
 import {
   ALL_MARKET_TICKERS,
   MARKET_REGIONS,
-  MARKETS_POLL_MS,
-  type IbkrPricePayload,
+  MARKETS_PRIORITY_SYMBOLS,
   type MarketRegion,
   type MarketTicker,
   type TickerQuoteState,
 } from "./markets-regional.types";
 import styles from "@/styles/investment/markets-regional.module.css";
 
+const LAST_KNOWN_KEY = "markets-quotes";
+
+type BatchQuotesResponse = {
+  quotes?: Record<
+    string,
+    { symbol: string; price: number | null; changePct: number | null }
+  >;
+};
+
 function emptyQuote(loading = true): TickerQuoteState {
   return { price: null, changePct: null, loading, isClosing: false };
-}
-
-function dailyChangePct(currentPrice: number, change1d: number): number | null {
-  const prevClose = currentPrice - change1d;
-  if (!Number.isFinite(currentPrice) || currentPrice <= 0) return null;
-  if (!Number.isFinite(prevClose) || prevClose <= 0) return null;
-  const pct = (change1d / prevClose) * 100;
-  return Number.isFinite(pct) ? pct : null;
 }
 
 function formatPrice(price: number): string {
@@ -43,47 +45,32 @@ function changeClass(pct: number | null): string {
   return styles.changeNeutral;
 }
 
-function resolveQuoteFromPayload(data: IbkrPricePayload): TickerQuoteState {
-  const currentPrice = Number(data.currentPrice);
-  const previousClose = Number(data.previousClose);
-  const change1d = Number(data.change1d ?? 0);
-
-  const livePrice =
-    Number.isFinite(currentPrice) && currentPrice > 0 ? currentPrice : null;
-  const closingPrice =
-    Number.isFinite(previousClose) && previousClose > 0 ? previousClose : livePrice;
-
-  if (livePrice != null) {
-    return {
-      price: livePrice,
-      changePct: dailyChangePct(livePrice, change1d),
-      loading: false,
-      isClosing: false,
-    };
-  }
-
-  if (closingPrice != null) {
-    return {
-      price: closingPrice,
-      changePct: dailyChangePct(closingPrice, change1d),
-      loading: false,
-      isClosing: true,
-    };
-  }
-
-  return { price: null, changePct: null, loading: false, isClosing: false };
-}
-
-async function fetchTickerQuote(symbol: string): Promise<TickerQuoteState> {
-  const res = await safeJsonFetch<IbkrPricePayload>(
-    `/api/trading/ibkr?action=price&ticker=${encodeURIComponent(symbol)}`,
-  );
-
-  if (!res.ok || !res.data) {
+function mapBatchQuote(q: {
+  price: number | null;
+  changePct: number | null;
+} | undefined): TickerQuoteState {
+  if (!q || q.price == null || !Number.isFinite(q.price)) {
     return { price: null, changePct: null, loading: false, isClosing: false };
   }
+  return {
+    price: q.price,
+    changePct: q.changePct != null && Number.isFinite(q.changePct) ? q.changePct : null,
+    loading: false,
+    isClosing: false,
+  };
+}
 
-  return resolveQuoteFromPayload(res.data);
+async function fetchBatchQuotes(symbols: readonly string[]): Promise<Record<string, TickerQuoteState>> {
+  if (symbols.length === 0) return {};
+  const res = await safeJsonFetch<BatchQuotesResponse>(
+    `/api/investment/batch-quotes?symbols=${encodeURIComponent(symbols.join(","))}`,
+  );
+  if (!res.ok || !res.data?.quotes) return {};
+  const out: Record<string, TickerQuoteState> = {};
+  for (const symbol of symbols) {
+    out[symbol] = mapBatchQuote(res.data.quotes[symbol]);
+  }
+  return out;
 }
 
 function TickerRow({
@@ -176,53 +163,106 @@ function RegionCard({
 
 export function MarketsRegionalDashboard() {
   const [query, setQuery] = useState("");
-  const [quotes, setQuotes] = useState<Record<string, TickerQuoteState>>(() =>
-    Object.fromEntries(ALL_MARKET_TICKERS.map((t) => [t.symbol, emptyQuote(true)])),
-  );
+  const [quotes, setQuotes] = useState<Record<string, TickerQuoteState>>(() => {
+    const known = readLastKnown<Record<string, TickerQuoteState>>(LAST_KNOWN_KEY);
+    if (known) {
+      return Object.fromEntries(
+        ALL_MARKET_TICKERS.map((t) => {
+          const q = known[t.symbol];
+          if (q?.price != null) return [t.symbol, { ...q, loading: false, isClosing: true }];
+          return [t.symbol, emptyQuote(true)];
+        }),
+      );
+    }
+    return Object.fromEntries(ALL_MARKET_TICKERS.map((t) => [t.symbol, emptyQuote(true)]));
+  });
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [analysisTicker, setAnalysisTicker] = useState<MarketTicker | null>(null);
+  const inFlight = useRef(false);
+
+  const applyQuotes = useCallback(
+    (incoming: Record<string, TickerQuoteState>, symbols: readonly string[]) => {
+      setQuotes((prev) => {
+        const next = { ...prev };
+        for (const symbol of symbols) {
+          const fetched = incoming[symbol];
+          const cached = prev[symbol];
+          if (fetched && fetched.price != null) {
+            next[symbol] = fetched;
+          } else if (cached?.price != null) {
+            next[symbol] = {
+              price: cached.price,
+              changePct: cached.changePct,
+              loading: false,
+              isClosing: true,
+            };
+          } else {
+            next[symbol] =
+              fetched ?? { price: null, changePct: null, loading: false, isClosing: false };
+          }
+        }
+        writeLastKnown(LAST_KNOWN_KEY, next);
+        return next;
+      });
+    },
+    [],
+  );
 
   const refreshQuotes = useCallback(async () => {
-    const symbols = ALL_MARKET_TICKERS.map((t) => t.symbol);
-    setQuotes((prev) => {
-      const next = { ...prev };
-      for (const symbol of symbols) {
-        const existing = next[symbol] ?? emptyQuote();
-        next[symbol] = { ...existing, loading: true };
-      }
-      return next;
-    });
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const all = ALL_MARKET_TICKERS.map((t) => t.symbol);
+    const prioritySet = new Set<string>(MARKETS_PRIORITY_SYMBOLS);
+    const priority = all.filter((s) => prioritySet.has(s));
+    const rest = all.filter((s) => !prioritySet.has(s));
 
-    const results = await Promise.all(
-      symbols.map(async (symbol) => [symbol, await fetchTickerQuote(symbol)] as const),
-    );
-
-    setQuotes((prev) => {
-      const next = Object.fromEntries(results);
-      for (const symbol of symbols) {
-        const fetched = next[symbol];
-        const cached = prev[symbol];
-        if (fetched.price == null && cached?.price != null) {
-          next[symbol] = {
-            price: cached.price,
-            changePct: cached.changePct,
-            loading: false,
-            isClosing: true,
-          };
+    try {
+      setQuotes((prev) => {
+        const next = { ...prev };
+        for (const symbol of priority) {
+          const existing = next[symbol] ?? emptyQuote();
+          if (existing.price == null) next[symbol] = { ...existing, loading: true };
         }
+        return next;
+      });
+
+      const first = await fetchBatchQuotes(priority);
+      applyQuotes(first, priority);
+      setLastUpdated(new Date().toISOString());
+
+      if (rest.length > 0) {
+        setQuotes((prev) => {
+          const next = { ...prev };
+          for (const symbol of rest) {
+            const existing = next[symbol] ?? emptyQuote();
+            if (existing.price == null) next[symbol] = { ...existing, loading: true };
+          }
+          return next;
+        });
+        const second = await fetchBatchQuotes(rest);
+        applyQuotes(second, rest);
+        setLastUpdated(new Date().toISOString());
       }
-      return next;
-    });
-    setLastUpdated(new Date().toISOString());
-  }, []);
+    } finally {
+      inFlight.current = false;
+    }
+  }, [applyQuotes]);
 
   useEffect(() => {
     void refreshQuotes();
+    const pollMs = getDataRefreshPolicy().pollMs;
     const id = window.setInterval(() => {
       if (document.hidden) return;
       void refreshQuotes();
-    }, MARKETS_POLL_MS);
-    return () => window.clearInterval(id);
+    }, pollMs);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void refreshQuotes();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [refreshQuotes]);
 
   const visibleRegions = useMemo(() => {
@@ -293,9 +333,12 @@ export function MarketsRegionalDashboard() {
           ) : null}
           {lastUpdated ? (
             <p className={styles.meta}>
-              Última actualización {new Date(lastUpdated).toLocaleTimeString()}
+              Última actualización {new Date(lastUpdated).toLocaleTimeString()} · lote Yahoo · top
+              10 primero
             </p>
-          ) : null}
+          ) : (
+            <p className={styles.meta}>Cargando cotizaciones…</p>
+          )}
         </div>
 
         {!hasVisibleTickers ? (

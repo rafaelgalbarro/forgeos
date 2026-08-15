@@ -9,11 +9,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
+import { readLastKnown, writeLastKnown } from "@/lib/investment/client-last-known";
+import { getDataRefreshPolicy } from "@/lib/market-data/refresh-policy";
 import {
   DASHBOARD_POLL_MS,
   type InvestmentDashboardSnapshot,
 } from "@/lib/investment/dashboard-snapshot.types";
-import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
 
 type CoordinatorState = {
   snapshot: InvestmentDashboardSnapshot | null;
@@ -40,7 +42,10 @@ export function InvestmentDashboardDataProvider({
   children: ReactNode;
   initialSnapshot?: InvestmentDashboardSnapshot | null;
 }) {
-  const [snapshot, setSnapshot] = useState<InvestmentDashboardSnapshot | null>(initialSnapshot);
+  const [snapshot, setSnapshot] = useState<InvestmentDashboardSnapshot | null>(() => {
+    if (initialSnapshot) return initialSnapshot;
+    return readLastKnown<InvestmentDashboardSnapshot>("dashboard-snapshot");
+  });
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(
@@ -65,6 +70,7 @@ export function InvestmentDashboardDataProvider({
         return;
       }
       setSnapshot(result.data);
+      writeLastKnown("dashboard-snapshot", result.data);
       setLastFetchedAt(new Date().toISOString());
       setError(result.data.error ?? "");
     } catch (err) {
@@ -80,8 +86,7 @@ export function InvestmentDashboardDataProvider({
     let timer: ReturnType<typeof setInterval> | undefined;
 
     function currentInterval(): number {
-      const connected = Boolean(snapshotRef.current?.brokerStatus?.data?.connected);
-      return connected ? DASHBOARD_POLL_MS.dashboard : Math.max(DASHBOARD_POLL_MS.dashboard, 30_000);
+      return getDataRefreshPolicy().pollMs || DASHBOARD_POLL_MS.dashboard;
     }
 
     function arm() {

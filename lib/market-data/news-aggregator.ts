@@ -1,9 +1,8 @@
 import "server-only";
 
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
+import { NEWS_CACHE_TTL_MS } from "@/lib/market-data/refresh-policy";
 import type { NewsAggregate, NewsItem, SentimentLabel } from "@/lib/market-data/types";
-
-const NEWS_CACHE_TTL_MS = 15 * 60 * 1000;
 
 const TICKER_COMPANY: Record<string, string> = {
   AAPL: "Apple",

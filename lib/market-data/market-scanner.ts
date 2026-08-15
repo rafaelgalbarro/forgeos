@@ -23,6 +23,7 @@ import {
 import { sendSignalAlert } from "@/lib/notifications/telegram-bot";
 import { enrichOpportunitiesWithInstitutional } from "@/lib/market-data/institutional-scanner";
 import { aggregateSentiment, sentimentToAgentContext } from "@/lib/market-data/sentiment-aggregator";
+import { getDataRefreshPolicy } from "@/lib/market-data/refresh-policy";
 import { getMacroContext, macroToAgentContext } from "@/lib/market-data/macro-context";
 import {
   analyzeTimeframes,
@@ -424,6 +425,19 @@ export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
   const started = Date.now();
   const errors: string[] = [];
   const phases: MultiScannerPhaseResult[] = [];
+  const policy = getDataRefreshPolicy();
+
+  if (policy.isWeekend) {
+    const disk = getMultiScannerSnapshot();
+    if (disk) {
+      return {
+        ...disk,
+        scannedAt: disk.scannedAt,
+        scanDurationMs: Date.now() - started,
+        errors: [...(disk.errors ?? []), "weekend: serving Friday disk cache"],
+      };
+    }
+  }
 
   let universeSize = 0;
   let phase1: Phase1Candidate[] = [];
@@ -431,7 +445,10 @@ export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
   try {
     const pool = getActiveCandidateTickers();
     const universe = pool.length >= 10 ? null : await getTickerUniverse();
-    const tickers = pool.length >= 10 ? pool : universe!.tickers;
+    let tickers = pool.length >= 10 ? pool : universe!.tickers;
+    if (policy.scannerUniverseCap != null) {
+      tickers = tickers.slice(0, policy.scannerUniverseCap);
+    }
     universeSize = universe?.tickers.length ?? pool.length;
     phase1 = await runPhase1MathFilter(
       tickers,
@@ -440,7 +457,7 @@ export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
         : undefined,
     );
     console.log(
-      `[MarketScanner] pool=${pool.length} scanning=${tickers.length} (daily candidates ${pool.length >= 10 ? "ON" : "fallback universe"})`,
+      `[MarketScanner] pool=${pool.length} scanning=${tickers.length} cap=${policy.scannerUniverseCap ?? "full"} (daily candidates ${pool.length >= 10 ? "ON" : "fallback universe"})`,
     );
     for (const c of phase1) {
       phases.push({

@@ -167,4 +167,18 @@ export type TickerAnalysisPayload = {
   } | null;
 };
 
-export const MARKETS_POLL_MS = 30_000;
+export const MARKETS_POLL_MS = 5 * 60 * 1000;
+
+/** Priority symbols painted first on Acciones (lazy-load the rest). */
+export const MARKETS_PRIORITY_SYMBOLS = [
+  "SPY",
+  "QQQ",
+  "AAPL",
+  "NVDA",
+  "TSLA",
+  "ASML",
+  "TSM",
+  "EZU",
+  "IBIT",
+  "EWJ",
+] as const;

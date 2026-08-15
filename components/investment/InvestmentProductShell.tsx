@@ -10,6 +10,7 @@ import {
 import { InvestmentWorkspaceNav } from "./InvestmentWorkspaceNav";
 import { InvestmentMobileApprovalSheet } from "./InvestmentMobileApprovalSheet";
 import { InvestmentTerminalHeader } from "./InvestmentTerminalHeader";
+import { warmInvestmentDataCaches } from "@/lib/investment/client-last-known";
 
 /**
  * Product chrome for ForgeOS Investment.
@@ -41,6 +42,7 @@ export function InvestmentProductShell({ children }: { children: React.ReactNode
 
   useEffect(() => {
     void refreshStatus();
+    warmInvestmentDataCaches();
   }, [refreshStatus]);
 
   useEffect(() => {

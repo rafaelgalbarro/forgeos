@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
-import type { IbkrPricePayload } from "./markets-regional.types";
+import { getDataRefreshPolicy } from "@/lib/market-data/refresh-policy";
 import styles from "@/styles/investment/markets-regional.module.css";
 
 /** Sector ETF proxies for S&P 500 heatmap — expandable later. */
@@ -29,13 +29,9 @@ type HeatCell = {
   readonly loading: boolean;
 };
 
-function dailyChangePct(currentPrice: number, change1d: number): number | null {
-  const prevClose = currentPrice - change1d;
-  if (!Number.isFinite(currentPrice) || currentPrice <= 0) return null;
-  if (!Number.isFinite(prevClose) || prevClose <= 0) return null;
-  const pct = (change1d / prevClose) * 100;
-  return Number.isFinite(pct) ? pct : null;
-}
+type BatchQuotesResponse = {
+  quotes?: Record<string, { price: number | null; changePct: number | null }>;
+};
 
 function heatBackground(changePct: number | null): string {
   if (changePct == null) return "rgba(47, 64, 84, 0.55)";
@@ -55,34 +51,15 @@ function formatPct(pct: number | null): string {
   return `${sign}${pct.toFixed(2)}%`;
 }
 
-async function fetchQuote(symbol: string): Promise<Pick<HeatCell, "price" | "changePct">> {
-  const res = await safeJsonFetch<IbkrPricePayload>(
-    `/api/trading/ibkr?action=price&ticker=${encodeURIComponent(symbol)}`,
-  );
-  if (!res.ok || !res.data) return { price: null, changePct: null };
-  const currentPrice = Number(res.data.currentPrice);
-  const previousClose = Number(res.data.previousClose);
-  const change1d = Number(res.data.change1d ?? 0);
-  const live =
-    Number.isFinite(currentPrice) && currentPrice > 0
-      ? currentPrice
-      : Number.isFinite(previousClose) && previousClose > 0
-        ? previousClose
-        : null;
-  if (live == null) return { price: null, changePct: null };
-  return { price: live, changePct: dailyChangePct(live, change1d) };
-}
-
 /**
  * Sector heatmap (S&P 500 sector ETF proxies) — red/green by day %, size by ETF weight.
- * ANALYSIS_ONLY · IBKR/Yahoo quotes only · NO_DATA when missing.
+ * ANALYSIS_ONLY · batched Yahoo quotes · NO_DATA when missing.
  */
 export function SectorHeatmap({
-  pollMs = 60_000,
+  pollMs,
   symbols,
 }: {
   readonly pollMs?: number;
-  /** Optional subset of sector ETF symbols (e.g. XLK, XLF, XLE, XLV, XLI). */
   readonly symbols?: readonly string[];
 }) {
   const symbolKey = symbols?.slice().sort().join(",") ?? "";
@@ -105,30 +82,36 @@ export function SectorHeatmap({
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    setCells((prev) => prev.map((c) => ({ ...c, loading: true })));
-    const results = await Promise.all(
-      universe.map(async (s) => {
-        const q = await fetchQuote(s.symbol);
+    setCells((prev) => prev.map((c) => ({ ...c, loading: c.price == null })));
+    const res = await safeJsonFetch<BatchQuotesResponse>(
+      `/api/investment/batch-quotes?symbols=${encodeURIComponent(
+        universe.map((s) => s.symbol).join(","),
+      )}`,
+    );
+    const quotes = res.data?.quotes ?? {};
+    setCells(
+      universe.map((s) => {
+        const q = quotes[s.symbol];
         return {
           symbol: s.symbol,
           name: s.name,
           weight: s.weight,
-          changePct: q.changePct,
-          price: q.price,
+          changePct: q?.changePct ?? null,
+          price: q?.price ?? null,
           loading: false,
         } satisfies HeatCell;
       }),
     );
-    setCells(results);
     setUpdatedAt(new Date().toISOString());
   }, [universe]);
 
   useEffect(() => {
     void refresh();
+    const interval = pollMs ?? getDataRefreshPolicy().pollMs;
     const id = window.setInterval(() => {
       if (document.hidden) return;
       void refresh();
-    }, pollMs);
+    }, interval);
     return () => window.clearInterval(id);
   }, [pollMs, refresh]);
 

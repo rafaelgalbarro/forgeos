@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
+import { readLastKnown, writeLastKnown } from "@/lib/investment/client-last-known";
+import { getDataRefreshPolicy } from "@/lib/market-data/refresh-policy";
 import {
   OPPORTUNITY_CENTER_NO_DATA,
   OPPORTUNITY_CENTER_SORT_OPTIONS,
@@ -61,8 +63,8 @@ type CenterApiResponse = OpportunityCenterSnapshot & {
   };
 };
 
-const POLL_MS = 8_000;
 const DENSITY_KEY = "forgeos-opp-density";
+const OPP_LAST_KNOWN = "opportunities-center";
 
 type DensityMode = "compact" | "expanded";
 
@@ -164,17 +166,19 @@ export function OpportunityScannerDashboard() {
     let cancelled = false;
     let timer: ReturnType<typeof setInterval> | undefined;
 
-    async function refresh() {
-      const result = await safeJsonFetch<CenterApiResponse>("/api/investment/opportunities", {
-        cache: "no-store",
-      });
+    async function refresh(preferCache = true) {
+      const result = await safeJsonFetch<CenterApiResponse>(
+        `/api/investment/opportunities?preferCache=${preferCache ? "1" : "0"}&limit=20`,
+        { cache: "no-store" },
+      );
       if (!result.ok || !result.data) throw new Error(result.error ?? "Opportunity Center unavailable");
       if (!cancelled) {
         setPayload(result.data);
+        writeLastKnown(OPP_LAST_KNOWN, result.data);
         setError(result.data.error ?? "");
         setLoaded(true);
-        const list = result.data?.opportunities ?? [];
-        const enhanced = result.data?.enhancedScan?.opportunities ?? [];
+        const list = (result.data?.opportunities ?? []).slice(0, 20);
+        const enhanced = (result.data?.enhancedScan?.opportunities ?? []).slice(0, 20);
         const seen = seenIdsRef.current;
         if (!bootstrappedRef.current) {
           for (const o of list) seen.add(o.id);
@@ -214,13 +218,21 @@ export function OpportunityScannerDashboard() {
       }
     }
 
-    refresh()
+    const known = readLastKnown<CenterApiResponse>(OPP_LAST_KNOWN);
+    if (known) {
+      setPayload(known);
+      setLoaded(true);
+    }
+
+    refresh(true)
       .then(() => {
+        const pollMs = getDataRefreshPolicy().pollMs;
         timer = setInterval(() => {
-          refresh().catch((nextError) =>
+          if (document.hidden) return;
+          refresh(true).catch((nextError) =>
             setError(nextError instanceof Error ? nextError.message : "Refresh failed"),
           );
-        }, POLL_MS);
+        }, pollMs);
       })
       .catch((initialError) => {
         setLoaded(true);
@@ -237,12 +249,12 @@ export function OpportunityScannerDashboard() {
 
   const sorted = useMemo(() => {
     const filtered = filterOpportunityItems(payload?.opportunities ?? [], filters);
-    return sortOpportunityCenterItems(filtered, sortId);
+    return sortOpportunityCenterItems(filtered, sortId).slice(0, 20);
   }, [payload?.opportunities, filters, sortId]);
 
   const enhancedFiltered = useMemo(() => {
     const raw = payload?.enhancedScan?.opportunities ?? [];
-    return filterEnhancedOpportunities(raw, filters).slice(0, 6);
+    return filterEnhancedOpportunities(raw, filters).slice(0, 20);
   }, [payload?.enhancedScan?.opportunities, filters]);
 
   const tickerSuggestions = useMemo(() => {
@@ -374,7 +386,7 @@ export function OpportunityScannerDashboard() {
           {sorted.length === 0 ? (
             <p className={styles.oppEmpty}>
               {totalOpportunities === 0
-                ? `No high-quality (A+/A) opportunities right now. Scanner candidates: ${payload?.candidates?.length ?? 0}. Auto-refresh every ${POLL_MS / 1000}s.`
+                ? `No high-quality (A+/A) opportunities right now. Scanner candidates: ${payload?.candidates?.length ?? 0}. Auto-refresh adapts to market hours (5m open / 30m closed).`
                 : `Ninguna oportunidad coincide con los filtros (${totalOpportunities} en total). Ajusta side, score, mercado o ticker.`}
             </p>
           ) : density === "expanded" ? (

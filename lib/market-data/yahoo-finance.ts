@@ -1,5 +1,13 @@
 import "server-only";
 
+import { cacheKey, getCached, getOrSetCached, setCached } from "@/lib/market-data/cache";
+import {
+  BARS_CACHE_TTL_MS,
+  FUNDAMENTALS_CACHE_TTL_MS,
+  PRICE_CACHE_TTL_MS,
+  getDataRefreshPolicy,
+} from "@/lib/market-data/refresh-policy";
+
 export type YahooQuote = {
   symbol: string;
   price: number;
@@ -87,21 +95,33 @@ function parseQuoteRow(row: Record<string, unknown>): YahooQuote | null {
   };
 }
 
-/** Batch quotes — up to ~200 symbols per Yahoo request; chunks larger lists automatically. */
+/** Batch quotes — up to ~200 symbols per Yahoo request; 5m in-memory TTL (hits <100ms). */
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   if (!isYahooFinanceEnabled() || tickers.length === 0) return out;
 
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
-  for (let i = 0; i < unique.length; i += BATCH_SIZE) {
-    const chunk = unique.slice(i, i + BATCH_SIZE);
+  const ttl = getDataRefreshPolicy().priceTtlMs || PRICE_CACHE_TTL_MS;
+  const missing: string[] = [];
+
+  for (const symbol of unique) {
+    const hit = getCached<YahooQuote>(cacheKey("yahoo-quote", symbol));
+    if (hit) out.set(symbol, hit);
+    else missing.push(symbol);
+  }
+
+  for (let i = 0; i < missing.length; i += BATCH_SIZE) {
+    const chunk = missing.slice(i, i + BATCH_SIZE);
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(","))}`;
     try {
       const res = await fetchWithRetry(url);
       const data = (await res.json()) as { quoteResponse?: { result?: Record<string, unknown>[] } };
       for (const row of data.quoteResponse?.result ?? []) {
         const q = parseQuoteRow(row);
-        if (q) out.set(q.symbol, q);
+        if (q) {
+          out.set(q.symbol, q);
+          setCached(cacheKey("yahoo-quote", q.symbol), q, ttl);
+        }
       }
     } catch (err) {
       console.warn(
@@ -117,32 +137,34 @@ export async function getBatchPrices(tickers: readonly string[]): Promise<Map<st
 export async function getTickerInfo(ticker: string): Promise<YahooTickerInfo | null> {
   if (!isYahooFinanceEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
-  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile,summaryDetail,price`;
-  try {
-    const res = await fetchWithRetry(url);
-    const data = (await res.json()) as {
-      quoteSummary?: {
-        result?: Array<{
-          price?: { symbol?: string; shortName?: string; exchangeName?: string; marketCap?: { raw?: number } };
-          summaryDetail?: { trailingPE?: { raw?: number } };
-          assetProfile?: { sector?: string; industry?: string };
-        }>;
+  return getOrSetCached(cacheKey("yahoo-info", symbol), FUNDAMENTALS_CACHE_TTL_MS, async () => {
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile,summaryDetail,price`;
+    try {
+      const res = await fetchWithRetry(url);
+      const data = (await res.json()) as {
+        quoteSummary?: {
+          result?: Array<{
+            price?: { symbol?: string; shortName?: string; exchangeName?: string; marketCap?: { raw?: number } };
+            summaryDetail?: { trailingPE?: { raw?: number } };
+            assetProfile?: { sector?: string; industry?: string };
+          }>;
+        };
       };
-    };
-    const row = data.quoteSummary?.result?.[0];
-    if (!row) return null;
-    return {
-      symbol,
-      shortName: row.price?.shortName,
-      sector: row.assetProfile?.sector,
-      industry: row.assetProfile?.industry,
-      marketCap: row.price?.marketCap?.raw,
-      trailingPE: row.summaryDetail?.trailingPE?.raw,
-      exchange: row.price?.exchangeName,
-    };
-  } catch {
-    return null;
-  }
+      const row = data.quoteSummary?.result?.[0];
+      if (!row) return null;
+      return {
+        symbol,
+        shortName: row.price?.shortName,
+        sector: row.assetProfile?.sector,
+        industry: row.assetProfile?.industry,
+        marketCap: row.price?.marketCap?.raw,
+        trailingPE: row.summaryDetail?.trailingPE?.raw,
+        exchange: row.price?.exchangeName,
+      };
+    } catch {
+      return null;
+    }
+  });
 }
 
 type YahooRawNumber = { raw?: number; fmt?: string } | number | null | undefined;
@@ -217,80 +239,83 @@ const FUNDAMENTAL_MODULES = [
 /**
  * Extended quoteSummary fundamentals for long-term value analysis.
  * Missing modules are listed — callers should render NO_DATA, never invent.
+ * Cached 1 hour.
  */
 export async function getYahooFundamentals(ticker: string): Promise<YahooFundamentals | null> {
   if (!isYahooFinanceEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
-  const modules = FUNDAMENTAL_MODULES.join(",");
-  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
-  try {
-    const res = await fetchWithRetry(url);
-    const data = (await res.json()) as {
-      quoteSummary?: {
-        result?: Array<Record<string, unknown>>;
-        error?: { description?: string };
+  return getOrSetCached(cacheKey("yahoo-fundamentals", symbol), FUNDAMENTALS_CACHE_TTL_MS, async () => {
+    const modules = FUNDAMENTAL_MODULES.join(",");
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
+    try {
+      const res = await fetchWithRetry(url);
+      const data = (await res.json()) as {
+        quoteSummary?: {
+          result?: Array<Record<string, unknown>>;
+          error?: { description?: string };
+        };
       };
-    };
-    const row = data.quoteSummary?.result?.[0];
-    if (!row) return null;
+      const row = data.quoteSummary?.result?.[0];
+      if (!row) return null;
 
-    const present: string[] = [];
-    const missing: string[] = [];
-    for (const m of FUNDAMENTAL_MODULES) {
-      if (row[m] != null) present.push(m);
-      else missing.push(m);
+      const present: string[] = [];
+      const missing: string[] = [];
+      for (const m of FUNDAMENTAL_MODULES) {
+        if (row[m] != null) present.push(m);
+        else missing.push(m);
+      }
+
+      const price = row.price as
+        | { shortName?: string; marketCap?: YahooRawNumber }
+        | undefined;
+      const profile = row.assetProfile as { sector?: string; industry?: string } | undefined;
+      const summary = row.summaryDetail as
+        | {
+            trailingPE?: YahooRawNumber;
+            dividendYield?: YahooRawNumber;
+            dividendRate?: YahooRawNumber;
+          }
+        | undefined;
+      const keys = row.defaultKeyStatistics as
+        | { priceToBook?: YahooRawNumber; trailingPE?: YahooRawNumber }
+        | undefined;
+      const fin = row.financialData as
+        | {
+            returnOnEquity?: YahooRawNumber;
+            debtToEquity?: YahooRawNumber;
+            recommendationKey?: string;
+            recommendationMean?: YahooRawNumber;
+          }
+        | undefined;
+      const cashflow = row.cashflowStatementHistory as
+        | {
+            cashflowStatements?: Array<{ repurchaseOfStock?: YahooRawNumber }>;
+          }
+        | undefined;
+      const repurchase = rawNum(cashflow?.cashflowStatements?.[0]?.repurchaseOfStock ?? null);
+
+      return {
+        symbol,
+        shortName: price?.shortName,
+        sector: profile?.sector,
+        industry: profile?.industry,
+        trailingPE: rawNum(summary?.trailingPE ?? keys?.trailingPE ?? null),
+        priceToBook: rawNum(keys?.priceToBook ?? null),
+        returnOnEquity: normalizeRoe(rawNum(fin?.returnOnEquity ?? null)),
+        debtToEquity: normalizeDebtToEquity(rawNum(fin?.debtToEquity ?? null)),
+        dividendYield: rawNum(summary?.dividendYield ?? null),
+        dividendRate: rawNum(summary?.dividendRate ?? null),
+        recommendationKey: fin?.recommendationKey ?? null,
+        recommendationMean: rawNum(fin?.recommendationMean ?? null),
+        marketCap: rawNum(price?.marketCap ?? null),
+        repurchaseOfStock: repurchase,
+        modulesPresent: present,
+        modulesMissing: missing,
+      };
+    } catch {
+      return null;
     }
-
-    const price = row.price as
-      | { shortName?: string; marketCap?: YahooRawNumber }
-      | undefined;
-    const profile = row.assetProfile as { sector?: string; industry?: string } | undefined;
-    const summary = row.summaryDetail as
-      | {
-          trailingPE?: YahooRawNumber;
-          dividendYield?: YahooRawNumber;
-          dividendRate?: YahooRawNumber;
-        }
-      | undefined;
-    const keys = row.defaultKeyStatistics as
-      | { priceToBook?: YahooRawNumber; trailingPE?: YahooRawNumber }
-      | undefined;
-    const fin = row.financialData as
-      | {
-          returnOnEquity?: YahooRawNumber;
-          debtToEquity?: YahooRawNumber;
-          recommendationKey?: string;
-          recommendationMean?: YahooRawNumber;
-        }
-      | undefined;
-    const cashflow = row.cashflowStatementHistory as
-      | {
-          cashflowStatements?: Array<{ repurchaseOfStock?: YahooRawNumber }>;
-        }
-      | undefined;
-    const repurchase = rawNum(cashflow?.cashflowStatements?.[0]?.repurchaseOfStock ?? null);
-
-    return {
-      symbol,
-      shortName: price?.shortName,
-      sector: profile?.sector,
-      industry: profile?.industry,
-      trailingPE: rawNum(summary?.trailingPE ?? keys?.trailingPE ?? null),
-      priceToBook: rawNum(keys?.priceToBook ?? null),
-      returnOnEquity: normalizeRoe(rawNum(fin?.returnOnEquity ?? null)),
-      debtToEquity: normalizeDebtToEquity(rawNum(fin?.debtToEquity ?? null)),
-      dividendYield: rawNum(summary?.dividendYield ?? null),
-      dividendRate: rawNum(summary?.dividendRate ?? null),
-      recommendationKey: fin?.recommendationKey ?? null,
-      recommendationMean: rawNum(fin?.recommendationMean ?? null),
-      marketCap: rawNum(price?.marketCap ?? null),
-      repurchaseOfStock: repurchase,
-      modulesPresent: present,
-      modulesMissing: missing,
-    };
-  } catch {
-    return null;
-  }
+  });
 }
 
 /** Analyst upgrade / downgrade history from quoteSummary. */
@@ -533,51 +558,57 @@ export async function getChartBars(
 ): Promise<YahooOhlcvBar[]> {
   if (!isYahooFinanceEnabled()) return [];
   const symbol = ticker.trim().toUpperCase();
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
-  try {
-    const res = await fetchWithRetry(url);
-    const data = (await res.json()) as {
-      chart?: {
-        result?: Array<{
-          timestamp?: number[];
-          indicators?: {
-            quote?: Array<{
-              open?: (number | null)[];
-              high?: (number | null)[];
-              low?: (number | null)[];
-              close?: (number | null)[];
-              volume?: (number | null)[];
+  return getOrSetCached(
+    cacheKey("yahoo-chart", symbol, interval, range),
+    BARS_CACHE_TTL_MS,
+    async () => {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+      try {
+        const res = await fetchWithRetry(url);
+        const data = (await res.json()) as {
+          chart?: {
+            result?: Array<{
+              timestamp?: number[];
+              indicators?: {
+                quote?: Array<{
+                  open?: (number | null)[];
+                  high?: (number | null)[];
+                  low?: (number | null)[];
+                  close?: (number | null)[];
+                  volume?: (number | null)[];
+                }>;
+              };
             }>;
           };
-        }>;
-      };
-    };
-    const result = data.chart?.result?.[0];
-    const quote = result?.indicators?.quote?.[0];
-    const timestamps = result?.timestamp ?? [];
-    const closes = quote?.close ?? [];
-    const opens = quote?.open ?? [];
-    const highs = quote?.high ?? [];
-    const lows = quote?.low ?? [];
-    const volumes = quote?.volume ?? [];
-    const bars: YahooOhlcvBar[] = [];
-    for (let i = 0; i < closes.length; i += 1) {
-      const c = closes[i];
-      if (c == null || !Number.isFinite(c) || c <= 0) continue;
-      const ts = timestamps[i];
-      bars.push({
-        open: Number(opens[i] ?? c),
-        high: Number(highs[i] ?? c),
-        low: Number(lows[i] ?? c),
-        close: c,
-        volume: Number(volumes[i] ?? 0),
-        date: typeof ts === "number" ? new Date(ts * 1000).toISOString() : undefined,
-      });
-    }
-    return bars;
-  } catch {
-    return [];
-  }
+        };
+        const result = data.chart?.result?.[0];
+        const quote = result?.indicators?.quote?.[0];
+        const timestamps = result?.timestamp ?? [];
+        const closes = quote?.close ?? [];
+        const opens = quote?.open ?? [];
+        const highs = quote?.high ?? [];
+        const lows = quote?.low ?? [];
+        const volumes = quote?.volume ?? [];
+        const bars: YahooOhlcvBar[] = [];
+        for (let i = 0; i < closes.length; i += 1) {
+          const c = closes[i];
+          if (c == null || !Number.isFinite(c) || c <= 0) continue;
+          const ts = timestamps[i];
+          bars.push({
+            open: Number(opens[i] ?? c),
+            high: Number(highs[i] ?? c),
+            low: Number(lows[i] ?? c),
+            close: c,
+            volume: Number(volumes[i] ?? 0),
+            date: typeof ts === "number" ? new Date(ts * 1000).toISOString() : undefined,
+          });
+        }
+        return bars;
+      } catch {
+        return [];
+      }
+    },
+  );
 }
 
 /** Daily OHLCV bars for RSI / indicators (last N days). */

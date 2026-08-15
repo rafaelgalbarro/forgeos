@@ -1,19 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "@/styles/investment/terminal-dashboard.module.css";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
 import {
   type InvestmentHealthState,
   honestBrokerDataSource,
 } from "@/lib/investment/dashboard-snapshot.types";
+import { useInvestmentStream } from "@/lib/investment/use-investment-stream";
 import type { OpportunityCandidate } from "@/src/core/investment/opportunity/client";
+import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { useInvestmentDashboardData } from "./dashboard-data-coordinator";
 
 const MARKET_POLL_MS = 30_000;
 const OPP_POLL_MS = 20_000;
 const CLOCK_TICK_MS = 1_000;
 const SESSION_TICK_MS = 30_000;
+const AUTO_MODE_STORAGE_KEY = "forgeos-investment-auto-mode";
+const AUTO_CYCLE_MS = TRADING_CONFIG.ai.analysisCycleMs;
+
+type CycleStatus = {
+  systemHalted: boolean;
+  haltReason: string;
+  dailyTradeCount: number;
+  lastCycle: {
+    cycleId?: string;
+    completedAt?: string;
+    orders?: Array<{ status: string }>;
+  } | null;
+};
 
 const WORLD_CLOCKS = [
   { city: "New York", timeZone: "America/New_York" },
@@ -186,6 +201,82 @@ export function InvestmentTerminalDashboard() {
     updatedAt: null,
   });
   const [opps, setOpps] = useState<OppState>({ candidates: [], error: "", scannedAt: null });
+  const [autoMode, setAutoMode] = useState(false);
+  const [cycleRunning, setCycleRunning] = useState(false);
+  const [cycleStatus, setCycleStatus] = useState<CycleStatus | null>(null);
+  const [cycleError, setCycleError] = useState("");
+  const cycleRunningRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      setAutoMode(window.localStorage.getItem(AUTO_MODE_STORAGE_KEY) === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(AUTO_MODE_STORAGE_KEY, autoMode ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [autoMode]);
+
+  const fetchCycleStatus = useCallback(async () => {
+    const res = await safeJsonFetch<CycleStatus>("/api/trading/cycle", { cache: "no-store" });
+    if (!res.ok || !res.data) {
+      setCycleError(res.error ?? "Cycle status unavailable");
+      return;
+    }
+    setCycleStatus(res.data);
+    setCycleError("");
+  }, []);
+
+  const runCycle = useCallback(async () => {
+    if (cycleRunningRef.current) return;
+    cycleRunningRef.current = true;
+    setCycleRunning(true);
+    setCycleError("");
+    try {
+      const res = await safeJsonFetch("/api/trading/cycle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!res.ok) {
+        setCycleError(res.error ?? "Cycle failed");
+      }
+      await fetchCycleStatus();
+    } finally {
+      cycleRunningRef.current = false;
+      setCycleRunning(false);
+    }
+  }, [fetchCycleStatus]);
+
+  useEffect(() => {
+    void fetchCycleStatus();
+  }, [fetchCycleStatus]);
+
+  useInvestmentStream((event) => {
+    if (
+      event.type === "signal" ||
+      event.type === "order_executed" ||
+      event.type === "circuit_breaker" ||
+      event.type === "cycle_complete"
+    ) {
+      void fetchCycleStatus();
+    }
+  });
+
+  // Auto-ciclo cada 5 minutos when toggle is on
+  useEffect(() => {
+    if (!autoMode) return;
+    const interval = setInterval(() => {
+      void runCycle();
+    }, AUTO_CYCLE_MS);
+    return () => clearInterval(interval);
+  }, [autoMode, runCycle]);
 
   useEffect(() => {
     const t = setInterval(() => setSessionNow(new Date()), SESSION_TICK_MS);
@@ -352,6 +443,10 @@ export function InvestmentTerminalDashboard() {
   const alerts = risk?.data?.factors ?? [];
   const openOrders = portfolio?.openOrderCount;
   const positionCount = portfolio?.positionCount;
+  const lastCycle = cycleStatus?.lastCycle;
+  const lastCycleOrders = lastCycle?.orders?.length ?? 0;
+  const lastCycleExecuted =
+    lastCycle?.orders?.filter((o) => o.status === "EXECUTED").length ?? 0;
 
   const sessions = useMemo(
     () =>
@@ -377,6 +472,60 @@ export function InvestmentTerminalDashboard() {
           Retry
         </button>
       </p>
+
+      <Panel
+        title="Control del sistema"
+        state={cycleStatus?.systemHalted ? "ERROR" : autoMode ? "ACTIVE" : "IDLE"}
+        className={styles.panelWide}
+      >
+        <div className={styles.controlRow}>
+          <span className={styles.controlLabel}>Modo automático (c/5 min)</span>
+          <button
+            type="button"
+            className={styles.toggle}
+            style={{ background: autoMode ? "var(--term-good)" : "var(--term-border-strong)" }}
+            aria-pressed={autoMode}
+            aria-label={
+              autoMode
+                ? "Desactivar modo automático cada 5 minutos"
+                : "Activar modo automático cada 5 minutos"
+            }
+            onClick={() => setAutoMode((v) => !v)}
+          >
+            <span
+              className={styles.toggleKnob}
+              style={{ transform: autoMode ? "translateX(20px)" : "translateX(0)" }}
+            />
+          </button>
+        </div>
+        <div className={styles.controlMeta}>
+          <span>
+            Último ciclo:{" "}
+            {lastCycle?.completedAt
+              ? new Date(lastCycle.completedAt).toLocaleTimeString()
+              : "—"}
+          </span>
+          <span>
+            Órdenes: {lastCycleExecuted}/{lastCycleOrders} ejecutadas
+          </span>
+          <span>Hoy: {cycleStatus?.dailyTradeCount ?? 0}</span>
+          {autoMode ? <span className={styles.toneGood}>Auto ON · cada 5 min</span> : null}
+        </div>
+        {cycleStatus?.systemHalted ? (
+          <p className={styles.empty}>
+            Sistema detenido: {cycleStatus.haltReason || "halt"}
+          </p>
+        ) : null}
+        {cycleError ? <p className={styles.empty}>{cycleError}</p> : null}
+        <button
+          type="button"
+          className={styles.cycleBtn}
+          disabled={cycleRunning || Boolean(cycleStatus?.systemHalted)}
+          onClick={() => void runCycle()}
+        >
+          {cycleRunning ? "Analizando mercado…" : "Ejecutar ciclo ahora"}
+        </button>
+      </Panel>
 
       {/* Top bar */}
       <div className={styles.topBar} aria-label="Status bar">

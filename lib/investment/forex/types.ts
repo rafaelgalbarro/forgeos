@@ -64,6 +64,7 @@ export type ForexDashboardSnapshotView = {
     label: string;
   };
   config: {
+    enabled?: boolean;
     maxPositions: number;
     stopPips: number;
     tpPips: number;

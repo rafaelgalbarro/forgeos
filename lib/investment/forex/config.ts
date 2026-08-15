@@ -68,30 +68,51 @@ const DEFAULTS: ForexEnvConfig = {
   minUnits: FOREX_MIN_UNITS,
 };
 
-function envBool(name: string, fallback: boolean): boolean {
-  const raw = process.env[name];
+function parseEnvBool(raw: string | undefined, fallback: boolean): boolean {
   if (raw == null || raw.trim() === "") return fallback;
   return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase());
 }
 
-function envNumber(name: string, fallback: number): number {
-  const raw = process.env[name];
+function parseEnvNumber(raw: string | undefined, fallback: number): number {
   if (raw == null || raw.trim() === "") return fallback;
   const n = Number(raw);
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Load FOREX_* knobs (server / Node only). Defaults keep trading off. */
+/**
+ * Load FOREX_* knobs (server / Node only). Defaults keep trading off.
+ * Uses static `process.env.FOREX_*` reads so Next.js reliably loads `.env.local`.
+ * `ALLOW_FOREX` is accepted as a legacy alias for enablement.
+ */
 export function loadForexEnvConfig(): ForexEnvConfig {
+  const enabled = parseEnvBool(
+    process.env.FOREX_ENABLED ?? process.env.ALLOW_FOREX,
+    DEFAULTS.enabled,
+  );
   return {
-    enabled: envBool("FOREX_ENABLED", DEFAULTS.enabled),
-    maxSpreadPips: Math.max(0.1, envNumber("FOREX_MAX_SPREAD_PIPS", DEFAULTS.maxSpreadPips)),
-    maxPositions: Math.max(1, Math.floor(envNumber("FOREX_MAX_POSITIONS", DEFAULTS.maxPositions))),
-    riskPct: Math.min(5, Math.max(0.1, envNumber("FOREX_RISK_PCT", DEFAULTS.riskPct))),
-    stopPips: Math.max(1, envNumber("FOREX_STOP_PIPS", DEFAULTS.stopPips)),
-    tpPips: Math.max(1, envNumber("FOREX_TP_PIPS", DEFAULTS.tpPips)),
-    minConfidence: Math.min(1, Math.max(0, envNumber("FOREX_MIN_CONFIDENCE", DEFAULTS.minConfidence))),
-    minUnits: Math.max(FOREX_MIN_UNITS, Math.floor(envNumber("FOREX_MIN_UNITS", FOREX_MIN_UNITS))),
+    enabled,
+    maxSpreadPips: Math.max(
+      0.1,
+      parseEnvNumber(process.env.FOREX_MAX_SPREAD_PIPS, DEFAULTS.maxSpreadPips),
+    ),
+    maxPositions: Math.max(
+      1,
+      Math.floor(parseEnvNumber(process.env.FOREX_MAX_POSITIONS, DEFAULTS.maxPositions)),
+    ),
+    riskPct: Math.min(
+      5,
+      Math.max(0.1, parseEnvNumber(process.env.FOREX_RISK_PCT, DEFAULTS.riskPct)),
+    ),
+    stopPips: Math.max(1, parseEnvNumber(process.env.FOREX_STOP_PIPS, DEFAULTS.stopPips)),
+    tpPips: Math.max(1, parseEnvNumber(process.env.FOREX_TP_PIPS, DEFAULTS.tpPips)),
+    minConfidence: Math.min(
+      1,
+      Math.max(0, parseEnvNumber(process.env.FOREX_MIN_CONFIDENCE, DEFAULTS.minConfidence)),
+    ),
+    minUnits: Math.max(
+      FOREX_MIN_UNITS,
+      Math.floor(parseEnvNumber(process.env.FOREX_MIN_UNITS, FOREX_MIN_UNITS)),
+    ),
   };
 }
 

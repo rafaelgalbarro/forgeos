@@ -265,7 +265,7 @@ export function ForexDashboard() {
           <h1 className={styles.assetModuleTitle}>💱 FOREX Pro</h1>
           <p className={styles.hubNote}>
             {session?.label ?? "Cargando…"} · {snap?.mode ?? "…"} · enabled=
-            {String(snap?.forexEnabled ?? false)}
+            {String(snap?.forexEnabled ?? snap?.config?.enabled ?? false)}
             {quotesAt ? ` · ticks ${new Date(quotesAt).toLocaleTimeString()}` : ""}
           </p>
         </div>

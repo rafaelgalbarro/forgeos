@@ -5,7 +5,7 @@
  * y /api/investment/multi-scanner?cycle=1
  */
 const http = require("http");
-const { loadEnvLocal, log } = require("./_utils");
+const { loadEnvLocal, log, internalApiHeaders } = require("./_utils");
 
 loadEnvLocal();
 
@@ -65,6 +65,7 @@ function httpGet(pathname) {
         path: url.pathname + url.search,
         method: "GET",
         timeout: 300_000,
+        headers: internalApiHeaders(),
       },
       (res) => {
         res.resume();

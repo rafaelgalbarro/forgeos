@@ -9,7 +9,7 @@
  *   Weekly  — Sundays at REPORT_WEEKLY_HOUR (default 20:00) + PDF
  */
 const http = require("http");
-const { loadEnvLocal, log } = require("./_utils");
+const { loadEnvLocal, log, internalApiHeaders } = require("./_utils");
 
 loadEnvLocal();
 
@@ -28,6 +28,10 @@ const POLL_MS = (() => {
 function triggerAuto() {
   return new Promise((resolve) => {
     const url = new URL("/api/investment/reports?type=auto", BASE);
+    const headers = internalApiHeaders({
+      "Content-Type": "application/json",
+      "Content-Length": "0",
+    });
     const req = http.request(
       {
         hostname: url.hostname,
@@ -35,7 +39,7 @@ function triggerAuto() {
         path: url.pathname + url.search,
         method: "POST",
         timeout: 180_000,
-        headers: { "Content-Type": "application/json", "Content-Length": "0" },
+        headers,
       },
       (res) => {
         let body = "";

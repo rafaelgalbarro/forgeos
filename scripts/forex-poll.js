@@ -5,7 +5,7 @@
  * Also fires Europe-open (08:00) and session-close (22:00) Telegram reports once/day.
  */
 const http = require("http");
-const { loadEnvLocal, log } = require("./_utils");
+const { loadEnvLocal, log, internalApiHeaders } = require("./_utils");
 
 loadEnvLocal();
 
@@ -45,6 +45,10 @@ function madridParts() {
 function post(path) {
   return new Promise((resolve) => {
     const url = new URL(path, BASE);
+    const headers = internalApiHeaders({
+      "Content-Type": "application/json",
+      "Content-Length": "2",
+    });
     const req = http.request(
       {
         hostname: url.hostname,
@@ -52,7 +56,7 @@ function post(path) {
         path: url.pathname + url.search,
         method: "POST",
         timeout: 180_000,
-        headers: { "Content-Type": "application/json", "Content-Length": "2" },
+        headers,
       },
       (res) => {
         let body = "";

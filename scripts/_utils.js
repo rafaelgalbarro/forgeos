@@ -191,6 +191,15 @@ function loadEnvLocal() {
   }
 }
 
+/** Headers for PM2 → Next internal API calls (middleware accepts X-Internal-API-Key). */
+function internalApiHeaders(extra = {}) {
+  const key =
+    process.env.IBKR_INTERNAL_API_KEY?.trim() || process.env.INTERNAL_API_KEY?.trim() || "";
+  const headers = { ...extra };
+  if (key) headers["X-Internal-API-Key"] = key;
+  return headers;
+}
+
 module.exports = {
   ROOT,
   DEV_PORTS,
@@ -206,5 +215,6 @@ module.exports = {
   readPackageJson,
   getInstalledNextVersion,
   loadEnvLocal,
+  internalApiHeaders,
   killChild,
 };

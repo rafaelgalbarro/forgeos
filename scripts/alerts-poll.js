@@ -3,7 +3,7 @@
  * Alerts sidecar — evalúa alertas y watchlist cada 2 min (mercado activo) o 10 min (cerrado).
  */
 const http = require("http");
-const { loadEnvLocal, log } = require("./_utils");
+const { loadEnvLocal, log, internalApiHeaders } = require("./_utils");
 
 loadEnvLocal();
 
@@ -52,6 +52,7 @@ function evaluateAlerts() {
         path: url.pathname + url.search,
         method: "GET",
         timeout: 120_000,
+        headers: internalApiHeaders(),
       },
       (res) => {
         res.resume();

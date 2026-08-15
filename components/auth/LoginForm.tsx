@@ -10,8 +10,9 @@ import { useAuthOptional } from "./AuthProvider";
 
 /** Allow only same-origin relative paths (open-redirect safe). */
 function safeRedirectPath(raw: string | null | undefined): string {
-  if (!raw) return "/workspace";
-  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) return "/workspace";
+  if (!raw) return "/investment";
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) return "/investment";
+  if (raw === "/register" || raw.startsWith("/register/")) return "/investment";
   return raw;
 }
 
@@ -23,6 +24,7 @@ function LoginFormInner() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const privateNotice = searchParams?.get("notice") === "private";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,10 +43,15 @@ function LoginFormInner() {
 
   return (
     <form onSubmit={handleSubmit} className="fhis-auth-form">
+      {privateNotice ? (
+        <p className="fhis-auth-error" role="status">
+          Plataforma privada
+        </p>
+      ) : null}
       <Input
-        label="Email"
-        type="email"
-        autoComplete="email"
+        label="Usuario / Email"
+        type="text"
+        autoComplete="username"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
@@ -63,8 +70,6 @@ function LoginFormInner() {
       </Button>
       <p className="fhis-auth-links">
         <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
-        {" · "}
-        <Link href="/register">Crear cuenta</Link>
       </p>
     </form>
   );

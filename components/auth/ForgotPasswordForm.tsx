@@ -57,8 +57,6 @@ export function ForgotPasswordForm() {
       {message ? <p className="fhis-auth-success">{message}</p> : null}
       <p className="fhis-auth-links">
         <Link href="/login">Volver a login</Link>
-        {" · "}
-        <Link href="/register">Crear cuenta</Link>
       </p>
     </div>
   );

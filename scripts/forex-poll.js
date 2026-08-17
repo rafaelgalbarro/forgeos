@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * FOREX cycle sidecar — every 5 min in Madrid trading window (07:00–22:00).
- * Triggers /api/investment/forex?action=cycle (staged orders by default).
+ * Triggers /api/investment/forex?action=cycle&staged=false when FOREX_ENABLED.
+ * Cycle never places at IBKR — Telegram APROBAR/RECHAZAR is the gate.
  * Also fires Europe-open (08:00) and session-close (22:00) Telegram reports once/day.
  */
 const http = require("http");
@@ -17,6 +18,12 @@ if (process.env.FOREX_POLL_ENABLED === "false") {
 const BASE = process.env.FORGEOS_SCANNER_BASE_URL ?? "http://127.0.0.1:3000";
 const ACTIVE_MS = 5 * 60 * 1000;
 const IDLE_MS = 15 * 60 * 1000;
+const CYCLE_TIMEOUT_MS = 30_000;
+
+function isForexEnabled() {
+  const raw = (process.env.FOREX_ENABLED ?? process.env.ALLOW_FOREX ?? "").trim().toLowerCase();
+  return ["1", "true", "yes", "on"].includes(raw);
+}
 
 function madridParts() {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -42,12 +49,13 @@ function madridParts() {
   };
 }
 
-function post(path) {
+function post(path, bodyObj = {}, timeoutMs = CYCLE_TIMEOUT_MS) {
   return new Promise((resolve) => {
     const url = new URL(path, BASE);
+    const payload = JSON.stringify(bodyObj);
     const headers = internalApiHeaders({
       "Content-Type": "application/json",
-      "Content-Length": "2",
+      "Content-Length": Buffer.byteLength(payload),
     });
     const req = http.request(
       {
@@ -55,7 +63,7 @@ function post(path) {
         port: url.port || 3000,
         path: url.pathname + url.search,
         method: "POST",
-        timeout: 180_000,
+        timeout: timeoutMs,
         headers,
       },
       (res) => {
@@ -64,8 +72,12 @@ function post(path) {
         res.on("end", () => resolve({ status: res.statusCode, body }));
       },
     );
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({ status: 0, body: `timeout after ${timeoutMs}ms` });
+    });
     req.on("error", (err) => resolve({ status: 0, body: String(err) }));
-    req.write("{}");
+    req.write(payload);
     req.end();
   });
 }
@@ -88,8 +100,13 @@ async function tick() {
   }
 
   if (active) {
-    const r = await post("/api/investment/forex?action=cycle");
-    log(`[forex-poll] cycle ${r.status} ${String(r.body).slice(0, 160)}`);
+    const live = isForexEnabled();
+    const staged = live ? "false" : "true";
+    const r = await post(
+      `/api/investment/forex?action=cycle&staged=${staged}`,
+      { staged: live ? false : true },
+    );
+    log(`[forex-poll] cycle staged=${staged} ${r.status} ${String(r.body).slice(0, 160)}`);
   } else {
     log("[forex-poll] idle — fuera de ventana FOREX");
   }
@@ -97,5 +114,5 @@ async function tick() {
   setTimeout(tick, active ? ACTIVE_MS : IDLE_MS);
 }
 
-log(`[forex-poll] start base=${BASE}`);
+log(`[forex-poll] start base=${BASE} FOREX_ENABLED=${isForexEnabled()} timeout=${CYCLE_TIMEOUT_MS}ms`);
 tick();

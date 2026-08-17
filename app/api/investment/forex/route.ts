@@ -9,6 +9,31 @@ import { readForexEnabledAtRuntime } from "@/lib/investment/forex/server-env";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 30;
+
+const CYCLE_TIMEOUT_MS = 30_000;
+
+function parseBoolParam(raw: string | null | undefined): boolean | undefined {
+  if (raw == null || raw.trim() === "") return undefined;
+  const v = raw.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(v)) return true;
+  if (["0", "false", "no", "off"].includes(v)) return false;
+  return undefined;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timeout ${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /**
  * FOREX module API:
@@ -53,13 +78,35 @@ export async function POST(request: Request) {
       const ok = await sendForexSessionCloseReport();
       return NextResponse.json({ ok, action });
     }
-    const body = (await request.json().catch(() => ({}))) as { transmit?: boolean };
-    const result = await runForexCycle({ transmit: Boolean(body.transmit) });
+    const body = (await request.json().catch(() => ({}))) as {
+      transmit?: boolean;
+      staged?: boolean;
+    };
+    const forexEnabled = readForexEnabledAtRuntime();
+    const stagedFromQuery = parseBoolParam(url.searchParams.get("staged"));
+    const staged = forexEnabled
+      ? false
+      : (stagedFromQuery ?? body.staged ?? true);
+    const result = await withTimeout(
+      runForexCycle({ staged, transmit: Boolean(body.transmit) }),
+      CYCLE_TIMEOUT_MS,
+      "FOREX cycle",
+    );
     return NextResponse.json(result);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "FOREX action failed";
+    const timedOut = /timeout/i.test(message);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "FOREX action failed", action },
-      { status: 500 },
+      {
+        error: message,
+        action,
+        ranAt: new Date().toISOString(),
+        skipped: timedOut,
+        reason: timedOut ? "FOREX cycle timeout 30s" : undefined,
+        actionable: [],
+        errors: [message],
+      },
+      { status: timedOut ? 504 : 500 },
     );
   }
 }

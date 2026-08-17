@@ -233,10 +233,14 @@ export type ForexCycleResult = {
 };
 
 /** Cycle never transmits — Telegram approve is the only live path. */
-export async function runForexCycle(_opts?: { transmit?: boolean }): Promise<ForexCycleResult> {
+export async function runForexCycle(opts?: {
+  transmit?: boolean;
+  staged?: boolean;
+}): Promise<ForexCycleResult> {
   const config = loadForexEnvConfig();
   const flags = getInvestmentRuntimeFlags();
   const forexEnabled = flags.forexEnabled || config.enabled;
+  const staged = forexEnabled ? false : opts?.staged !== false;
   const session = getForexSessionSnapshot();
   const macro = await getForexMacroSnapshot();
   const errors: string[] = [];
@@ -321,7 +325,7 @@ export async function runForexCycle(_opts?: { transmit?: boolean }): Promise<For
       pairId: sig.pairId,
       side: sig.side,
       confidence: sig.confidence,
-      staged: !forexEnabled,
+      staged,
       pendingTelegram: true,
       approvalId: pending.approvalId,
     });

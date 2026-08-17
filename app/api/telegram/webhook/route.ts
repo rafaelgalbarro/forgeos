@@ -12,13 +12,19 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as {
       message?: { text?: string; chat?: { id?: number } };
-      callback_query?: { id?: string; data?: string; message?: { chat?: { id?: number } } };
+      callback_query?: {
+        id?: string;
+        data?: string;
+        from?: { id?: number };
+        message?: { chat?: { id?: number } };
+      };
     };
 
     const expectedChat = process.env.TELEGRAM_CHAT_ID?.trim();
     const chatId =
       body.message?.chat?.id?.toString() ??
-      body.callback_query?.message?.chat?.id?.toString();
+      body.callback_query?.message?.chat?.id?.toString() ??
+      body.callback_query?.from?.id?.toString();
     if (expectedChat && chatId && chatId !== expectedChat) {
       return NextResponse.json({ ok: true, ignored: "chat_mismatch" });
     }
@@ -28,13 +34,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.callback_query?.data && body.callback_query.id) {
-      const chatId =
+      const callbackChatId =
         body.callback_query.message?.chat?.id ??
+        body.callback_query.from?.id ??
         body.message?.chat?.id;
       await handleTelegramCallback(
         body.callback_query.data,
         body.callback_query.id,
-        chatId,
+        callbackChatId,
       );
     }
 

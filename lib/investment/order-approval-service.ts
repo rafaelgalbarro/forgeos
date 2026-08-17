@@ -9,6 +9,12 @@ import { publishInvestmentEvent } from "@/lib/notifications/investment-events";
 import { OrderApprovalGate } from "@/src/core/trading/order-approval";
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { updateTradingState, loadTradingState } from "@/src/core/trading/trading-state-store";
+import {
+  executeApprovedForexOrder,
+  isForexPending,
+} from "@/lib/investment/forex/approval";
+import { notifyForexOrderFilled } from "@/lib/investment/forex/telegram";
+import { recordForexTradeEvent } from "@/lib/investment/forex/goals";
 
 type TradingEngineInstance = import("@/src/core/trading/trading-engine").TradingEngine;
 let enginePromise: Promise<TradingEngineInstance> | null = null;
@@ -125,6 +131,71 @@ export async function processOrderApproval(params: {
       direction: pending.direction,
       status: pending.status,
     };
+  }
+
+  if (isForexPending(pending)) {
+    if (action === "reject") {
+      gate.reject(approvalId);
+      await sendTelegramMessage(
+        `❌ <b>RECHAZADA</b> — FOREX ${pending.ticker} ${pending.direction} (${approvalId})`,
+      );
+      publishInvestmentEvent({
+        type: "approval_rejected",
+        at: new Date().toISOString(),
+        payload: { approvalId, ticker: pending.ticker },
+      });
+      return {
+        ok: true,
+        action,
+        approvalId,
+        ticker: pending.ticker,
+        direction: pending.direction,
+        status: "REJECTED",
+      };
+    }
+
+    gate.approve(approvalId);
+    try {
+      const submitted = await executeApprovedForexOrder(pending);
+      gate.markExecuted(approvalId, submitted.orderId);
+      await notifyForexOrderFilled({
+        pairId: pending.ticker,
+        side: pending.direction,
+        price: pending.price,
+        orderId: submitted.orderId,
+        staged: submitted.staged,
+      });
+      recordForexTradeEvent({
+        style: pending.reason.toLowerCase().includes("scalp") ? "SCALPING" : "INTRADAY",
+        pipsDelta: 0,
+        opened: true,
+      });
+      publishInvestmentEvent({
+        type: "order_executed",
+        at: new Date().toISOString(),
+        payload: { approvalId, ticker: pending.ticker, orderId: submitted.orderId },
+      });
+      return {
+        ok: true,
+        action,
+        approvalId,
+        ticker: pending.ticker,
+        direction: pending.direction,
+        status: "EXECUTED",
+        orderId: submitted.orderId,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "FOREX execute failed";
+      await sendTelegramMessage(`❌ FOREX ${pending.ticker}: ${message}`);
+      return {
+        ok: false,
+        action,
+        approvalId,
+        ticker: pending.ticker,
+        direction: pending.direction,
+        error: message,
+      };
+    }
   }
 
   const engine = await getTradingEngine();

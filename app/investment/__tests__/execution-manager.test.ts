@@ -90,15 +90,15 @@ describe("execution-manager mutation gate", () => {
     expect(gate.message).toMatch(/OPEN/);
   });
 
-  it("stays LOCKED when kill switch is armed even if live flags are open", () => {
+  it("keeps Gate OPEN from live flags even if kill switch metadata is set", () => {
     const flags = resolveExecutionSafetyFlags({
       LIVE_TRADING_ENABLED: "true",
       IBKR_READ_ONLY: "false",
       killSwitchEnabled: true,
     });
-    expect(flags.gate).toBe("LOCKED");
-    expect(flags.mutationsEnabled).toBe(false);
-    expect(isMutationLocked(flags)).toBe(true);
+    expect(flags.gate).toBe("OPEN");
+    expect(flags.mutationsEnabled).toBe(true);
+    expect(isMutationLocked(flags)).toBe(false);
   });
 });
 

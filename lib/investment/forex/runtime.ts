@@ -223,7 +223,7 @@ export type ForexCycleResult = {
   errors: string[];
 };
 
-export async function runForexCycle(opts?: { transmit?: boolean }): Promise<ForexCycleResult> {
+export async function runForexCycle(_opts?: { transmit?: boolean }): Promise<ForexCycleResult> {
   const config = loadForexEnvConfig();
   const session = getForexSessionSnapshot();
   const macro = await getForexMacroSnapshot();
@@ -251,23 +251,25 @@ export async function runForexCycle(opts?: { transmit?: boolean }): Promise<Fore
 
   const { scanForexStrategySignals } = await import("@/lib/investment/forex/signal-scanner");
   const { assessForexRisk } = await import("@/lib/investment/forex/risk-engine");
-  const { notifyForexSignal, notifyForexOrderFilled } = await import("@/lib/investment/forex/telegram");
-  const { recordForexTradeEvent, getForexGoalProgress, canOpenForexTrade } = await import(
+  const { notifyForexSignal } = await import("@/lib/investment/forex/telegram");
+  const { enqueueForexApproval } = await import("@/lib/investment/forex/approval");
+  const { canOpenForexTrade } = await import(
     "@/lib/investment/forex/goals"
   );
   const { isStrategyWindowActive } = await import("@/lib/investment/forex/strategies/defs");
 
   const scan = await scanForexStrategySignals();
-  const transmit = Boolean(opts?.transmit) && config.enabled;
   const weekend = session.label.toLowerCase().includes("fin de semana");
 
-  let nav = 100_000;
+  let nav = 0;
+  let cash = 0;
   try {
     const { fetchTradingAccountSnapshot } = await import("@/lib/trading/ibkr-data");
     const acct = await fetchTradingAccountSnapshot();
-    if (acct && Number.isFinite(acct.navUSD) && acct.navUSD > 0) nav = acct.navUSD;
+    nav = Number.isFinite(acct.navUSD) ? acct.navUSD : 0;
+    cash = Number.isFinite(acct.tradingCashUSD) ? acct.tradingCashUSD : acct.cashUSD;
   } catch {
-    /* default */
+    /* no invented cash/NAV */
   }
 
   for (const sig of scan.signals) {
@@ -284,6 +286,7 @@ export async function runForexCycle(opts?: { transmit?: boolean }): Promise<Fore
       signal: sig,
       pair,
       nav,
+      cash,
       openPairCount: actionable.length,
       blackoutActive: false,
       tradingWindowActive: true,
@@ -294,47 +297,23 @@ export async function runForexCycle(opts?: { transmit?: boolean }): Promise<Fore
       continue;
     }
 
-    await notifyForexSignal({ signal: sig, backtest: sig.backtest, units: risk.units });
-
-    try {
-      const data = await ibkrServiceFetch<{
-        ibkrOrderId?: number;
-        staged?: boolean;
-      }>("/api/forex/order", {
-        method: "POST",
-        body: JSON.stringify({
-          pair_id: sig.pairId,
-          side: sig.side,
-          quantity: risk.units,
-          limit_price: sig.entry,
-          rationale: `FOREX ${sig.code} ${sig.name} conf=${sig.confidence.toFixed(2)}`,
-          transmit,
-        }),
-      });
-      actionable.push({
-        pairId: sig.pairId,
-        side: sig.side,
-        confidence: sig.confidence,
-        staged: data.staged ?? !transmit,
-        orderId: data.ibkrOrderId,
-      });
-      recordForexTradeEvent({ style: sig.style, pipsDelta: 0, opened: true });
-      await notifyForexOrderFilled({
-        pairId: sig.pairId,
-        side: sig.side,
-        price: sig.entry,
-        orderId: data.ibkrOrderId,
-        staged: data.staged ?? !transmit,
-      });
-    } catch (err) {
-      errors.push(`${sig.pairId}: ${err instanceof Error ? err.message : "order failed"}`);
-    }
+    const pending = enqueueForexApproval({ signal: sig, units: risk.units });
+    await notifyForexSignal({
+      signal: sig,
+      backtest: sig.backtest,
+      units: risk.units,
+      requireConfirm: true,
+      approvalId: pending.approvalId,
+    });
+    actionable.push({
+      pairId: sig.pairId,
+      side: sig.side,
+      confidence: sig.confidence,
+      staged: true,
+    });
 
     if (actionable.length >= Math.min(config.maxPositions, FOREX_RISK_POLICY.maxConcurrentPairs)) break;
   }
-
-  const goals = getForexGoalProgress();
-  void goals;
 
   return {
     ranAt: new Date().toISOString(),

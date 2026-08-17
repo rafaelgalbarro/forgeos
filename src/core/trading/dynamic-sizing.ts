@@ -67,8 +67,8 @@ export function computeDynamicSizing(params: {
     ds.maxOpenPositionsCap,
   );
 
-  const forexMinNavUSD = TRADING_CONFIG.risk.forex.minNavUSD;
-  const canTradeForex = navUSD >= forexMinNavUSD;
+  const forexMinCashUSD = TRADING_CONFIG.risk.forex.minCashUSD;
+  const canTradeForex = cashUSD >= forexMinCashUSD;
 
   const pctLabel = Math.round(maxOrderPct * 100);
   const operationSizeLabel = canTradeStocks
@@ -92,7 +92,7 @@ export function computeDynamicSizing(params: {
     takeProfitPct: TRADING_CONFIG.risk.defaultTakeProfitPct,
     trailingStopPct: TRADING_CONFIG.risk.trailingStopPct,
     forexRiskPctNav: TRADING_CONFIG.risk.forex.riskPctNav,
-    forexMinNavUSD,
+    forexMinNavUSD: forexMinCashUSD,
     rebalanceDate: new Date().toDateString(),
     operationSizeLabel,
   };

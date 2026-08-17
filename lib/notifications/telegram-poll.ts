@@ -6,9 +6,10 @@ import {
   handleTelegramCommand,
 } from "@/lib/notifications/telegram-handler";
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let offset = 0;
 let polling = false;
+let stopped = false;
 
 async function pollOnce(): Promise<void> {
   if (polling || !isTelegramConfigured()) return;
@@ -23,6 +24,7 @@ async function pollOnce(): Promise<void> {
       if (update.callback_query?.data && update.callback_query.id) {
         const chatId =
           update.callback_query.message?.chat?.id ??
+          update.callback_query.from?.id ??
           update.message?.chat?.id;
         await handleTelegramCallback(
           update.callback_query.data,
@@ -38,17 +40,24 @@ async function pollOnce(): Promise<void> {
   }
 }
 
-/** Long-poll Telegram getUpdates every 30s. Idempotent. */
+async function pollLoop(): Promise<void> {
+  if (stopped || !isTelegramConfigured()) return;
+  await pollOnce();
+  pollTimer = setTimeout(() => void pollLoop(), 400);
+}
+
+/** Long-poll Telegram getUpdates (webhook or this loop). Idempotent. */
 export function startTelegramPolling(): void {
   if (pollTimer || !isTelegramConfigured()) return;
+  stopped = false;
   console.log("[TelegramPoll] ▶ Polling activo");
-  void pollOnce();
-  pollTimer = setInterval(() => void pollOnce(), 30_000);
+  void pollLoop();
 }
 
 export function stopTelegramPolling(): void {
+  stopped = true;
   if (pollTimer) {
-    clearInterval(pollTimer);
+    clearTimeout(pollTimer);
     pollTimer = null;
   }
 }

@@ -1,6 +1,7 @@
 /**
  * Mutation gate for Execution Manager actions.
  * OPEN when LIVE_TRADING_ENABLED=true and IBKR_READ_ONLY=false (supervised live).
+ * Kill-switch metadata is displayed but does not lock this gate.
  */
 
 import {
@@ -55,7 +56,7 @@ export function resolveExecutionSafetyFlags(env: {
   const liveTradingEnabled = parseEnvBool(liveTradingEnabledValue, false);
   const ibkrReadOnly = parseEnvBool(ibkrReadOnlyRaw, !liveTradingEnabled);
   const killSwitchEnabled = Boolean(env.killSwitchEnabled);
-  const mutationsEnabled = liveTradingEnabled && !ibkrReadOnly && !killSwitchEnabled;
+  const mutationsEnabled = liveTradingEnabled && !ibkrReadOnly;
   return {
     mode: mutationsEnabled ? "LIVE" : "ANALYSIS_ONLY",
     liveTradingEnabled,

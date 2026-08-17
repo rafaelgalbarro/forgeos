@@ -27,20 +27,21 @@ export function assessForexRisk(params: {
   signal: ForexStrategySignal;
   pair: ForexIbkrContract;
   nav: number;
+  cash: number;
   openPairCount: number;
   blackoutActive: boolean;
   tradingWindowActive: boolean;
   strategyWindowActive: boolean;
 }): ForexRiskDecision {
   const riskPct = TRADING_CONFIG.risk.forex.riskPctNav;
-  const minNavUSD = TRADING_CONFIG.risk.forex.minNavUSD;
+  const minCashUSD = TRADING_CONFIG.risk.forex.minCashUSD;
   const config = loadForexEnvConfig();
   const daily = getForexDailyState();
 
-  if (params.nav < minNavUSD) {
+  if (!Number.isFinite(params.cash) || params.cash < minCashUSD) {
     return {
       allowed: false,
-      reason: `NAV insuficiente para FOREX (mín $${minNavUSD.toLocaleString()}, actual $${params.nav.toFixed(0)})`,
+      reason: `Cash insuficiente para FOREX (mín €${minCashUSD}, actual €${Number.isFinite(params.cash) ? params.cash.toFixed(0) : "NO_DATA"})`,
       riskPct,
     };
   }
@@ -71,9 +72,9 @@ export function assessForexRisk(params: {
   }
 
   const sized = positionUnitsForRisk({
-    nav: params.nav > 0 ? params.nav : 100_000,
+    nav: Number.isFinite(params.nav) && params.nav > 0 ? params.nav : params.cash,
     riskPct,
-    stopPips: params.signal.stopPips,
+    stopPips: params.signal.stopPips > 0 ? params.signal.stopPips : TRADING_CONFIG.risk.forex.defaultStopPips,
     pair: params.pair,
     midPrice: params.signal.entry,
     minUnits: Math.max(config.minUnits, TRADING_CONFIG.risk.forex.minUnits),

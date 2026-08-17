@@ -381,7 +381,12 @@ export async function getTelegramUpdates(offset?: number): Promise<
   Array<{
     update_id: number;
     message?: { text?: string; chat?: { id?: number } };
-    callback_query?: { id?: string; data?: string; message?: { chat?: { id?: number } } };
+    callback_query?: {
+      id?: string;
+      data?: string;
+      from?: { id?: number };
+      message?: { chat?: { id?: number } };
+    };
   }>
 > {
   const { enabled } = cfg();
@@ -394,7 +399,18 @@ export async function getTelegramUpdates(offset?: number): Promise<
       signal: AbortSignal.timeout(30_000),
     });
     if (!res.ok) return [];
-    const data = (await res.json()) as { result?: Array<{ update_id: number; message?: { text?: string; chat?: { id?: number } }; callback_query?: { id?: string; data?: string; message?: { chat?: { id?: number } } } }> };
+    const data = (await res.json()) as {
+      result?: Array<{
+        update_id: number;
+        message?: { text?: string; chat?: { id?: number } };
+        callback_query?: {
+          id?: string;
+          data?: string;
+          from?: { id?: number };
+          message?: { chat?: { id?: number } };
+        };
+      }>;
+    };
     return data.result ?? [];
   } catch {
     return [];

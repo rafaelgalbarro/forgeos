@@ -37,9 +37,15 @@ export const TRADING_CONFIG = {
     },
     /** FOREX IDEALPRO sizing gates */
     forex: {
-      minNavUSD: 2_000,
+      /** Do not open FOREX when primary-account cash is below this. */
+      minCashUSD: 50,
+      /** @deprecated use minCashUSD — kept so older snapshots still type-check. */
+      minNavUSD: 50,
       riskPctNav: 1.0,
       minUnits: 25_000,
+      /** units = (riskAmount / stopPips) * unitsPerPipEuro */
+      unitsPerPipEuro: 10_000,
+      defaultStopPips: 20,
     },
   },
 

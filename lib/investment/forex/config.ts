@@ -203,7 +203,8 @@ export function buildSlTpFromPips(params: {
 
 /**
  * Position size in FX units from NAV risk %.
- * riskAmount = nav * (riskPct/100); units ≈ riskAmount / (stopPips * pipValuePerUnit)
+ * units = (riskAmount / stopPips) * 10_000  (EUR/USD pip convention).
+ * If that is below IDEALPRO min (25_000), use 25_000.
  */
 export function positionUnitsForRisk(params: {
   nav: number;
@@ -212,17 +213,17 @@ export function positionUnitsForRisk(params: {
   pair: ForexIbkrContract;
   midPrice: number;
   minUnits?: number;
-}): { units: number; riskAmount: number; pipValue: number } | null {
+}): { units: number; riskAmount: number; pipValue: number; rawUnits: number } | null {
   const { nav, riskPct, stopPips, pair, midPrice } = params;
   const minUnits = params.minUnits ?? FOREX_MIN_UNITS;
-  if (!Number.isFinite(nav) || nav <= 0 || stopPips <= 0) return null;
+  if (!Number.isFinite(nav) || nav <= 0 || stopPips <= 0 || riskPct <= 0) return null;
   const riskAmount = nav * (riskPct / 100);
-  const pipValuePerUnit = pipValueQuoteCurrency(1, pair, midPrice);
-  if (!Number.isFinite(pipValuePerUnit) || pipValuePerUnit <= 0) return null;
-  const raw = riskAmount / (stopPips * pipValuePerUnit);
-  const units = Math.max(minUnits, Math.floor(raw / 1000) * 1000);
+  const raw = (riskAmount / stopPips) * 10_000;
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  const units = Math.max(minUnits, Math.floor(raw));
   return {
     units,
+    rawUnits: Math.floor(raw),
     riskAmount,
     pipValue: pipValueQuoteCurrency(units, pair, midPrice),
   };

@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scanForexStrategySignals } from "@/lib/investment/forex/signal-scanner";
 import { getForexGoalProgress } from "@/lib/investment/forex/goals";
-import {
-  assessForexRisk,
-} from "@/lib/investment/forex/risk-engine";
-import { getForexPair, loadForexEnvConfig } from "@/lib/investment/forex/config";
+import { assessForexRisk } from "@/lib/investment/forex/risk-engine";
+import { getForexPair, getForexSessionSnapshot } from "@/lib/investment/forex/config";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
-import {
-  consumeTelegramConfirmSlot,
-  getForexDailyState,
-  recordForexTradeEvent,
-} from "@/lib/investment/forex/goals";
-import {
-  notifyForexDailyGoal,
-  notifyForexOrderFilled,
-  notifyForexSignal,
-} from "@/lib/investment/forex/telegram";
+import { enqueueForexApproval } from "@/lib/investment/forex/approval";
+import { notifyForexSignal } from "@/lib/investment/forex/telegram";
 import { getForexMacroSnapshot } from "@/lib/investment/forex/macro-calendar";
-import { getForexSessionSnapshot } from "@/lib/investment/forex/config";
 import { isStrategyWindowActive } from "@/lib/investment/forex/strategies/defs";
 import type { ForexStrategySignal } from "@/lib/investment/forex/strategies/engine";
 
@@ -49,7 +38,7 @@ type ExecuteBody = {
   confirmed?: boolean;
 };
 
-/** POST — execute / stage a signal via IBKR FOREX order */
+/** POST — queue FOREX signal for Telegram approve/reject (does not place until callback). */
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json().catch(() => ({}))) as ExecuteBody;
@@ -60,7 +49,6 @@ export async function POST(req: NextRequest) {
     const pair = getForexPair(signal.pairId);
     if (!pair) return NextResponse.json({ error: "pair invalid" }, { status: 400 });
 
-    const config = loadForexEnvConfig();
     const session = getForexSessionSnapshot();
     const macro = await getForexMacroSnapshot();
     const weekend = session.label.toLowerCase().includes("fin de semana");
@@ -74,18 +62,21 @@ export async function POST(req: NextRequest) {
       openPairCount = 0;
     }
 
-    let nav = 100_000;
+    let nav = 0;
+    let cash = 0;
     try {
       const acct = await fetchTradingAccountSnapshot();
-      if (acct && Number.isFinite(acct.navUSD) && acct.navUSD > 0) nav = acct.navUSD;
+      nav = Number.isFinite(acct.navUSD) ? acct.navUSD : 0;
+      cash = Number.isFinite(acct.tradingCashUSD) ? acct.tradingCashUSD : acct.cashUSD;
     } catch {
-      /* default */
+      /* no invented cash/NAV */
     }
 
     const risk = assessForexRisk({
       signal,
       pair,
       nav,
+      cash,
       openPairCount,
       blackoutActive: macro.blackoutActive,
       tradingWindowActive: session.tradingWindowActive,
@@ -95,67 +86,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: risk.reason ?? "risk blocked" }, { status: 423 });
     }
 
-    const daily = getForexDailyState();
-    const needsConfirm = daily.telegramConfirmRemaining > 0;
-    if (needsConfirm && !body.confirmed) {
-      await notifyForexSignal({
-        signal,
-        units: risk.units,
-        requireConfirm: true,
-      });
-      return NextResponse.json({
-        ok: false,
-        needsTelegramConfirm: true,
-        telegramConfirmRemaining: daily.telegramConfirmRemaining,
-        message: "Confirma en UI (confirmed=true) — primeras 5 ops requieren confirmación",
-        units: risk.units,
-      });
-    }
-
-    if (needsConfirm && body.confirmed) {
-      consumeTelegramConfirmSlot();
-    }
-
-    const transmit = Boolean(body.transmit) && config.enabled;
-    const orderBody = {
-      pair_id: signal.pairId,
-      side: signal.side,
-      quantity: risk.units,
-      limit_price: signal.entry,
-      rationale: `FX ${signal.code} ${signal.name} conf=${signal.confidence.toFixed(2)}`,
-      transmit,
-    };
-
-    const data = await ibkrServiceFetch<{
-      ibkrOrderId?: number;
-      staged?: boolean;
-      ok?: boolean;
-    }>("/api/forex/order", {
-      method: "POST",
-      body: JSON.stringify(orderBody),
-    });
-
-    recordForexTradeEvent({ style: signal.style, pipsDelta: 0, opened: true });
-    const goals = getForexGoalProgress();
-    if (goals.scalp.pct >= 100) await notifyForexDailyGoal("scalp");
-    if (goals.intraday.pct >= 100) await notifyForexDailyGoal("intraday");
-    if (goals.stoppedOut) await notifyForexDailyGoal("stop");
-
-    await notifyForexOrderFilled({
-      pairId: signal.pairId,
-      side: signal.side,
-      price: signal.entry,
-      orderId: data.ibkrOrderId,
-      staged: data.staged ?? !transmit,
+    const pending = enqueueForexApproval({ signal, units: risk.units });
+    await notifyForexSignal({
+      signal,
+      units: risk.units,
+      requireConfirm: true,
+      approvalId: pending.approvalId,
     });
 
     return NextResponse.json({
       ok: true,
-      staged: data.staged ?? !transmit,
-      transmit,
-      orderId: data.ibkrOrderId,
+      pending: true,
+      needsTelegramConfirm: true,
+      approvalId: pending.approvalId,
       units: risk.units,
       riskPct: risk.riskPct,
+      message: "Señal enviada a Telegram — pulsa APROBAR o RECHAZAR",
       goals: getForexGoalProgress(),
     });
   } catch (error) {

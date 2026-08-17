@@ -57,7 +57,22 @@ describe("forex pip math", () => {
     expect(levels!.riskReward).toBe(2);
   });
 
-  it("sizes position with min 25k units", () => {
+  it("sizes EURUSD with (risk/stopPips)*10000 then floors to 25k", () => {
+    const pair = getForexPair("EURUSD")!;
+    const sized = positionUnitsForRisk({
+      nav: 750,
+      riskPct: 1,
+      stopPips: 20,
+      pair,
+      midPrice: 1.1,
+    });
+    expect(sized).not.toBeNull();
+    expect(sized!.riskAmount).toBeCloseTo(7.5, 5);
+    expect(sized!.rawUnits).toBe(3_750);
+    expect(sized!.units).toBe(25_000);
+  });
+
+  it("sizes position with min 25k units on large NAV", () => {
     const pair = getForexPair("EURUSD")!;
     const sized = positionUnitsForRisk({
       nav: 100_000,

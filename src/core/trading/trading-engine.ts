@@ -22,6 +22,7 @@ import { analyzeTimeframes, mtfToAgentContext } from '@/lib/market-data/multi-ti
 import { sendSignalAlert, notifyCircuitBreaker, notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
+import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
 import {
   fetchTradingAccountSnapshot,
   fetchTradingOpenSymbols,
@@ -94,6 +95,8 @@ export class TradingEngine {
     const cycleId = `cycle_${Date.now()}`
     const startedAt = new Date().toISOString()
     const orders: OrderResult[] = []
+
+    await expireStalePendingApprovals()
 
     // 1. Obtener snapshot de cuenta
     const account = await this.fetchAccountSnapshot()
@@ -709,11 +712,17 @@ export class TradingEngine {
       rsi: analysis?.technicals.momentum.rsi,
       patternName: topPattern,
       approvalId: pending.approvalId,
+      orderValueUSD,
+      shares: resolvedShares,
+      reasoning: signal.reasoning,
     }).catch((err) => {
       console.warn('[TradingEngine] sendSignalAlert error:', err instanceof Error ? err.message : err)
     })
 
-    if (approvalDecision.action === 'AUTO_APPROVE') {
+    if (
+      approvalDecision.action === 'AUTO_APPROVE' &&
+      !TRADING_CONFIG.semiAutomatic.telegramApprovalRequired
+    ) {
       incrementAutoApprovalCount()
       const executed = await this.approveAndExecute(pending.approvalId)
       return executed

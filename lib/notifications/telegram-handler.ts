@@ -11,6 +11,10 @@ import { OrderApprovalGate } from "@/src/core/trading/order-approval";
 import { RiskManager } from "@/src/core/trading/risk/risk-manager";
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import {
+  isFounderTelegramChat,
+  processOrderApproval,
+} from "@/lib/investment/order-approval-service";
+import {
   disableAlertById,
   queueTickerForCycle,
   removeWatchlistTicker,
@@ -153,8 +157,14 @@ export async function handleTelegramCommand(text: string): Promise<void> {
 export async function handleTelegramCallback(
   data: string,
   callbackQueryId: string,
+  chatId?: string | number | null,
 ): Promise<void> {
   await answerCallbackQuery(callbackQueryId, "Procesando…");
+
+  if (chatId != null && !isFounderTelegramChat(chatId)) {
+    await sendTelegramMessage("⛔ Solo el founder puede aprobar órdenes.");
+    return;
+  }
 
   if (data === "resume_trading") {
     RiskManager.getInstance().resume();
@@ -231,37 +241,23 @@ export async function handleTelegramCallback(
     return;
   }
 
-  try {
-    const engine = await getTradingEngine();
-    if (action === "approve") {
-      const result = await engine.approveAndExecute(approvalId);
-      await sendTelegramMessage(`✅ Aprobada y ejecutada: ${result.ticker} ${result.direction}`);
-      publishInvestmentEvent({
-        type: "order_executed",
-        at: new Date().toISOString(),
-        payload: result,
-      });
-    } else if (action === "reject") {
-      await engine.rejectPending(approvalId);
-      await sendTelegramMessage(`❌ Orden ${approvalId} rechazada`);
-    } else if (action === "wait") {
-      updateTradingState((state) => ({
-        ...state,
-        pendingOrders: state.pendingOrders.map((o) =>
-          o.approvalId === approvalId
-            ? {
-                ...o,
-                waitUntil: new Date(Date.now() + 10 * 60_000).toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            : o,
-        ),
-      }));
-      await sendTelegramMessage("⏸ Esperando 10 minutos antes de decidir");
+  if (action === "approve" || action === "reject") {
+    const result = await processOrderApproval({
+      approvalId,
+      action,
+      chatId,
+    });
+    if (!result.ok) {
+      await sendTelegramMessage(`❌ ${result.error ?? "Error en aprobación"}`);
+    } else if (action === "approve" && result.status !== "EXECUTED") {
+      await sendTelegramMessage(
+        `⚠️ ${result.ticker ?? approvalId}: ${result.error ?? result.status ?? "no ejecutada"}`,
+      );
     }
-  } catch (err) {
-    await sendTelegramMessage(`❌ Error: ${err instanceof Error ? err.message : "unknown"}`);
+    return;
   }
+
+  await sendTelegramMessage(`⚠️ Acción desconocida: ${action}`);
 }
 
 export function recordSignalForTelegram(record: RecentSignalRecord): void {

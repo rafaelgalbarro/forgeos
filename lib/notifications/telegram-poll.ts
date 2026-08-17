@@ -21,7 +21,14 @@ async function pollOnce(): Promise<void> {
         await handleTelegramCommand(update.message.text);
       }
       if (update.callback_query?.data && update.callback_query.id) {
-        await handleTelegramCallback(update.callback_query.data, update.callback_query.id);
+        const chatId =
+          update.callback_query.message?.chat?.id ??
+          update.message?.chat?.id;
+        await handleTelegramCallback(
+          update.callback_query.data,
+          update.callback_query.id,
+          chatId,
+        );
       }
     }
   } catch (err) {

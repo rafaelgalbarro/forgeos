@@ -16,6 +16,9 @@ export type SignalTelegramPayload = {
   rsi?: number | null;
   patternName?: string;
   approvalId?: string;
+  orderValueUSD?: number;
+  shares?: number;
+  reasoning?: string;
 };
 
 function cfg() {
@@ -218,23 +221,38 @@ export async function notifyAlertTriggered(payload: {
   ]);
 }
 
-/** Signal detected — with approve/reject/wait buttons. */
+/** Signal detected — semi-automatic approve/reject (founder Telegram). */
 export async function notifySignalDetected(payload: SignalTelegramPayload): Promise<void> {
   if (!notifyEnabled("signal")) return;
 
   const slPct = pct(payload.entry, payload.stopLoss);
   const tpPct = pct(payload.entry, payload.takeProfit);
   const dirEmoji = payload.direction === "BUY" ? "📈" : "📉";
+  const sharesLabel =
+    payload.shares != null
+      ? `${payload.shares} acciones`
+      : payload.orderValueUSD != null
+        ? `~$${payload.orderValueUSD.toFixed(2)}`
+        : "—";
+  const sizeUsd =
+    payload.orderValueUSD != null ? `$${payload.orderValueUSD.toFixed(2)}` : "—";
+  const timeoutMin = Math.max(
+    1,
+    Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5,
+  );
 
   const text = [
-    "🚨 <b>SEÑAL — ForgeOS</b>",
-    `${dirEmoji} <b>${payload.ticker}</b> — ${payload.direction}`,
-    `💰 Entry: $${payload.entry.toFixed(2)}`,
-    `🛑 SL: $${payload.stopLoss.toFixed(2)} (${slPct}%)`,
-    `🎯 TP: $${payload.takeProfit.toFixed(2)} (${tpPct}%)`,
-    `📊 Confianza: ${(payload.confidence * 100).toFixed(0)}%`,
-    `📰 Sentimiento noticias: ${payload.newsSentiment ?? "NEUTRAL"}`,
-    `📉 RSI: ${payload.rsi?.toFixed(0) ?? "N/A"} | Patrón: ${payload.patternName ?? "—"}`,
+    "🚨 <b>SEÑAL DETECTADA — ForgeOS</b>",
+    `${dirEmoji} <b>TICKER:</b> ${payload.ticker}`,
+    `📊 <b>Dirección:</b> ${payload.direction}`,
+    `💰 <b>Entry:</b> $${payload.entry.toFixed(2)}`,
+    `🛑 <b>Stop Loss:</b> $${payload.stopLoss.toFixed(2)} (${slPct}%)`,
+    `🎯 <b>Take Profit:</b> $${payload.takeProfit.toFixed(2)} (+${tpPct}%)`,
+    `💵 <b>Tamaño:</b> ${sizeUsd} (${sharesLabel})`,
+    `🔮 <b>Confianza:</b> ${(payload.confidence * 100).toFixed(0)}%`,
+    `📋 <b>Estrategia:</b> ${payload.reasoning ?? payload.patternName ?? "—"}`,
+    "",
+    `⏱ Tienes ${timeoutMin} min para responder`,
   ].join("\n");
 
   const aid = payload.approvalId ?? "none";
@@ -242,7 +260,6 @@ export async function notifySignalDetected(payload: SignalTelegramPayload): Prom
     [
       { text: "✅ APROBAR", callback_data: `approve:${aid}` },
       { text: "❌ RECHAZAR", callback_data: `reject:${aid}` },
-      { text: "⏸ ESPERAR 10min", callback_data: `wait:${aid}` },
     ],
   ]);
 }

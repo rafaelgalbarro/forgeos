@@ -143,9 +143,22 @@ export const TRADING_CONFIG = {
     noTradeBeforeCloseMin: 15,
   },
 
+  // ── Modo semi-automático (Telegram) ─────────────────────────────
+  semiAutomatic: {
+    /** All orders require Telegram approve/reject when true (default). */
+    telegramApprovalRequired:
+      String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "true").trim().toLowerCase() !== "false",
+    approvalTimeoutMinutes: Math.max(
+      1,
+      Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5,
+    ),
+  },
+
   // ── Aprobación semi-automática ────────────────────────────────
   autoApproval: {
-    enabled: true,
+    /** Disabled when telegramApprovalRequired — no auto-execute without founder tap. */
+    enabled:
+      String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "true").trim().toLowerCase() === "false",
     autoApproveThreshold: {
       minConfidence: 0.65,
       requirePattern: true,
@@ -155,7 +168,7 @@ export const TRADING_CONFIG = {
     },
     notifyAndWait: {
       confidenceRange: [0.50, 0.65] as const,
-      waitMinutes: 10,
+      waitMinutes: Math.max(1, Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5),
       executeIfNoResponse: false,
     },
     alwaysHold: {

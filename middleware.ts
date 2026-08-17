@@ -41,6 +41,8 @@ export const INTERNAL_API_PREFIXES = [
   "/api/investment/alerts",
   "/api/investment/forex",
   "/api/investment/header-quotes",
+  "/api/investment/approve",
+  "/api/telegram/webhook",
   "/api/trading/cycle",
 ] as const;
 

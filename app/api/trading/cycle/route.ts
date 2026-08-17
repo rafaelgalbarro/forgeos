@@ -15,6 +15,7 @@ import { OrderApprovalGate } from '@/src/core/trading/order-approval'
 import { TRADING_CONFIG } from '@/src/core/trading/trading.config'
 import { computeDynamicSizing } from '@/src/core/trading/dynamic-sizing'
 import { fetchTradingAccountSnapshot } from '@/lib/trading/ibkr-data'
+import { expireStalePendingApprovals, countPendingApprovals } from '@/lib/investment/order-approval-service'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { popCycleQueue } from '@/lib/alerts/alert-manager'
 
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
 
   // Ciclo de trading — queues PENDING_APPROVAL; does not auto-execute
   try {
+    await expireStalePendingApprovals()
     const body = await req.json().catch(() => ({}))
     const requested: string[] = body.tickers ?? TRADING_CONFIG.allowedTickers.slice(0, 10)
     const queued = popCycleQueue()
@@ -125,6 +127,8 @@ export async function GET() {
   const risk = RiskManager.getInstance()
   const approvals = OrderApprovalGate.getInstance()
 
+  await expireStalePendingApprovals()
+
   let dynamicSizing = null
   try {
     const acct = await fetchTradingAccountSnapshot()
@@ -141,6 +145,9 @@ export async function GET() {
     haltReason: risk.getHaltReason(),
     dailyTradeCount: risk.getDailyTradeCount(),
     pendingApprovals: approvals.listPending(),
+    pendingApprovalCount: countPendingApprovals(),
+    telegramApprovalRequired: TRADING_CONFIG.semiAutomatic.telegramApprovalRequired,
+    approvalTimeoutMinutes: TRADING_CONFIG.semiAutomatic.approvalTimeoutMinutes,
     lastCycle: global.__lastTradingCycle ?? null,
     dynamicSizing,
     config: {

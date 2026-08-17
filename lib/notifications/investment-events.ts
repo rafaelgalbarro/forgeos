@@ -3,6 +3,8 @@ import "server-only";
 export type InvestmentEvent =
   | { type: "signal"; at: string; payload: unknown }
   | { type: "order_executed"; at: string; payload: unknown }
+  | { type: "approval_rejected"; at: string; payload: unknown }
+  | { type: "approval_expired"; at: string; payload: unknown }
   | { type: "circuit_breaker"; at: string; payload: { reason: string; lossPct?: number } }
   | { type: "cycle_complete"; at: string; payload: unknown }
   | { type: "position_closed"; at: string; payload: unknown }

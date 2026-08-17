@@ -222,6 +222,7 @@ class IBKRClient(EWrapper, EClient):
         self.tick_done: dict[int, threading.Event] = {}
         self._tick_lock = threading.Lock()
         self._forex_req_seq = 9300
+        self._quote_req_seq = 9600
 
     def nextValidId(self, orderId: int) -> None:
         self.next_order_id = orderId
@@ -560,6 +561,62 @@ class IBKRClient(EWrapper, EClient):
     def _next_forex_req_id(self) -> int:
         self._forex_req_seq += 1
         return self._forex_req_seq
+
+    def _next_quote_req_id(self) -> int:
+        self._quote_req_seq += 1
+        return self._quote_req_seq
+
+    def stock_quote(
+        self,
+        symbol: str,
+        *,
+        currency: str = "USD",
+        exchange: str = "SMART",
+        timeout: float = 5.0,
+    ) -> dict[str, Any]:
+        """READ_ONLY bid/ask/last for STK via reqMktData."""
+        cleaned = symbol.strip().upper()
+        with self._tick_lock:
+            self.ensure_connected()
+            req_id = self._next_quote_req_id()
+            done = threading.Event()
+            self.tick_done[req_id] = done
+            self.tick_data[req_id] = {"bid": None, "ask": None, "last": None}
+            contract = Contract()
+            contract.symbol = cleaned
+            contract.secType = "STK"
+            contract.currency = currency
+            contract.exchange = exchange
+            before_errors = len(self.errors)
+            self.reqMktData(req_id, contract, "", False, False, [])
+            done.wait(timeout)
+            try:
+                self.cancelMktData(req_id)
+            except Exception:
+                pass
+            ticks = dict(self.tick_data.get(req_id, {}))
+            self.tick_done.pop(req_id, None)
+            self.tick_data.pop(req_id, None)
+            bid = ticks.get("bid")
+            ask = ticks.get("ask")
+            last = ticks.get("last")
+            mid = None
+            if isinstance(bid, (int, float)) and isinstance(ask, (int, float)) and bid > 0 and ask >= bid:
+                mid = (bid + ask) / 2.0
+            current = last if isinstance(last, (int, float)) and last > 0 else mid
+            return {
+                "symbol": cleaned,
+                "secType": "STK",
+                "currency": currency,
+                "exchange": exchange,
+                "bid": bid if isinstance(bid, (int, float)) and bid > 0 else None,
+                "ask": ask if isinstance(ask, (int, float)) and ask > 0 else None,
+                "last": last if isinstance(last, (int, float)) and last > 0 else None,
+                "mid": mid,
+                "currentPrice": current if isinstance(current, (int, float)) and current > 0 else None,
+                "recentErrors": self.errors[before_errors:][-3:],
+                "mode": "READ_ONLY",
+            }
 
     def forex_quote(self, pair: dict[str, Any], *, timeout: float = 8.0) -> dict[str, Any]:
         """READ_ONLY bid/ask for IDEALPRO CASH via reqMktData."""
@@ -985,6 +1042,21 @@ def history(
         return result
     except Exception as exc:
         audit("IBKR_HISTORY_FAILED", cleaned, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.get("/api/ibkr/quote", dependencies=auth)
+def stock_quote(symbol: str, currency: str = "USD", exchange: str = "SMART"):
+    """READ_ONLY STK bid/ask/last (reqMktData) for live LMT pricing."""
+    cleaned = symbol.strip().upper()
+    if not cleaned or len(cleaned) > 20:
+        raise HTTPException(400, "symbol inválido")
+    try:
+        result = ibkr.stock_quote(cleaned, currency=currency.strip().upper() or "USD", exchange=exchange.strip().upper() or "SMART")
+        audit("IBKR_QUOTE_READ", cleaned, {"bid": result.get("bid"), "ask": result.get("ask"), "last": result.get("last")})
+        return result
+    except Exception as exc:
+        audit("IBKR_QUOTE_FAILED", cleaned, {"error": str(exc)})
         raise HTTPException(503, str(exc)) from exc
 
 

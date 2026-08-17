@@ -24,11 +24,13 @@ import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
 import {
+  fetchLiveLimitPrice,
   fetchTradingAccountSnapshot,
   fetchTradingOpenSymbols,
   fetchTradingPosition,
   fetchTradingPrice,
 } from '@/lib/trading/ibkr-data'
+import { midFromBidAsk } from '@/lib/trading/limit-price'
 import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
 import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
@@ -529,6 +531,25 @@ export class TradingEngine {
     const resolvedShares =
       finalShares || parseFloat((orderValueUSD / priceData.currentPrice).toFixed(4))
 
+    const suggested =
+      signal.suggestedLimitPrice != null && signal.suggestedLimitPrice > 0
+        ? signal.suggestedLimitPrice
+        : undefined
+    const mid = midFromBidAsk(priceData.bid, priceData.ask)
+    const limitPrice =
+      suggested ??
+      (priceData.currentPrice > 0 ? priceData.currentPrice : undefined) ??
+      mid ??
+      undefined
+    if (limitPrice == null) {
+      return {
+        status: 'HOLD', ticker, direction: 'HOLD',
+        reason: `Sin limitPrice para ${ticker} (IA y mercado vacíos)`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     // Phase F — Pre-trade checklist gates PENDING_APPROVAL / auto-approve path
     let smartPlan: SmartOrderPlan | undefined
     let checklistSnapshot:
@@ -594,7 +615,7 @@ export class TradingEngine {
         direction: signal.direction,
         shares: resolvedShares,
         currentPrice: priceData.currentPrice,
-        limitPrice: signal.suggestedLimitPrice,
+        limitPrice,
         stopLoss: riskCheck.stopLossPrice,
         takeProfit: riskCheck.takeProfitPrice,
         atr: analysis?.technicals.volatility.atr ?? null,
@@ -638,8 +659,8 @@ export class TradingEngine {
       ticker,
       direction: signal.direction,
       shares: resolvedShares,
-      orderType: signal.suggestedOrderType,
-      limitPrice: signal.suggestedLimitPrice,
+      orderType: signal.suggestedOrderType || 'LMT',
+      limitPrice,
       orderValueUSD,
       price: priceData.currentPrice,
       stopLoss: effectiveStopLoss,
@@ -813,9 +834,13 @@ export class TradingEngine {
       return `PAPER_${Date.now()}`
     }
 
-    if (!params.limitPrice || params.limitPrice <= 0) {
-      throw new Error('limitPrice required for live IBKR orders')
-    }
+    const side = params.direction === 'SELL' ? 'SELL' : 'BUY'
+    const limitPrice = await fetchLiveLimitPrice({
+      symbol: params.ticker,
+      side,
+      asset: 'STK',
+      suggested: params.limitPrice,
+    })
 
     const plannedNote = params.smartPlan
       ? ` | SMART_PLAN ${params.smartPlan.planId} REAL=LMT PLANNED=${params.smartPlan.plannedFields.join(',')}` +
@@ -830,9 +855,9 @@ export class TradingEngine {
 
     const submitted = await submitSupervisedLiveLimitOrder({
       symbol: String(params.ticker).toUpperCase(),
-      side: params.direction === 'SELL' ? 'SELL' : 'BUY',
+      side,
       quantity: Number(params.shares),
-      limitPrice: params.limitPrice,
+      limitPrice,
       outsideRth: params.outsideRth ?? false,
       rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
       account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
@@ -840,6 +865,7 @@ export class TradingEngine {
     console.log('[TradingEngine] LIVE ORDER SUBMITTED:', {
       approvalId: params.approvalId,
       ticker: params.ticker,
+      limitPrice,
       ibkrOrderId: submitted.ibkrOrderId,
       proposalId: submitted.proposalId,
     })

@@ -2,6 +2,10 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { quoteRoutesForTicker, type TickerQuoteRoute } from "@/lib/trading/ticker-price-routes";
+import {
+  resolveLimitPriceFromQuote,
+  type LiveLimitQuote,
+} from "@/lib/trading/limit-price";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -219,4 +223,119 @@ export async function fetchTradingOpenSymbols(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+function asPositive(n: unknown): number | null {
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+async function fetchIbkrStockQuote(ticker: string): Promise<LiveLimitQuote | null> {
+  const routes = quoteRoutesForTicker(ticker);
+  const tried = new Set<string>();
+  for (const route of [...routes, { symbol: ticker, exchange: "SMART", currency: "USD", label: "SMART" }]) {
+    const key = `${route.exchange}:${route.currency}`;
+    if (tried.has(key)) continue;
+    tried.add(key);
+    try {
+      const data = await ibkrServiceFetch<{
+        bid?: number | null;
+        ask?: number | null;
+        last?: number | null;
+        mid?: number | null;
+        currentPrice?: number | null;
+      }>(
+        `/api/ibkr/quote?symbol=${encodeURIComponent(route.symbol || ticker)}` +
+          `&currency=${encodeURIComponent(route.currency)}` +
+          `&exchange=${encodeURIComponent(route.exchange)}`,
+      );
+      const last = asPositive(data.last) ?? asPositive(data.currentPrice);
+      const bid = asPositive(data.bid);
+      const ask = asPositive(data.ask);
+      const mid = asPositive(data.mid);
+      if (last || bid || ask || mid) {
+        return { bid, ask, last, mid };
+      }
+    } catch {
+      /* try next route */
+    }
+  }
+  return null;
+}
+
+async function fetchIbkrForexQuote(pairId: string): Promise<LiveLimitQuote | null> {
+  try {
+    const data = await ibkrServiceFetch<{
+      quotes?: Array<{
+        pairId?: string;
+        bid?: number | null;
+        ask?: number | null;
+        last?: number | null;
+        mid?: number | null;
+      }>;
+    }>(`/api/forex/quotes?pair=${encodeURIComponent(pairId)}`);
+    const row = (data.quotes ?? []).find(
+      (q) => (q.pairId ?? "").toUpperCase() === pairId.toUpperCase(),
+    ) ?? data.quotes?.[0];
+    if (!row) return null;
+    return {
+      bid: asPositive(row.bid),
+      ask: asPositive(row.ask),
+      last: asPositive(row.last),
+      mid: asPositive(row.mid),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Live LMT price from IBKR at approval/submit time (not the analysis snapshot).
+ * Stocks: last/current else mid. FOREX: BUY=ask, SELL=bid.
+ */
+export async function fetchLiveLimitPrice(args: {
+  readonly symbol: string;
+  readonly side: "BUY" | "SELL";
+  readonly asset: "STK" | "FOREX";
+  readonly suggested?: number | null;
+}): Promise<number> {
+  const quote =
+    args.asset === "FOREX"
+      ? await fetchIbkrForexQuote(args.symbol)
+      : await fetchIbkrStockQuote(args.symbol);
+
+  const fromLive = quote
+    ? resolveLimitPriceFromQuote({
+        asset: args.asset,
+        side: args.side,
+        quote,
+        suggested: args.suggested,
+      })
+    : null;
+  if (fromLive != null) return fromLive;
+
+  if (args.asset === "STK") {
+    try {
+      const hist = await fetchTradingPrice(args.symbol);
+      const histQuote: LiveLimitQuote = {
+        bid: asPositive(hist.bid),
+        ask: asPositive(hist.ask),
+        last: asPositive(hist.currentPrice),
+        mid: null,
+      };
+      const fromHist = resolveLimitPriceFromQuote({
+        asset: "STK",
+        side: args.side,
+        quote: histQuote,
+        suggested: args.suggested,
+      });
+      if (fromHist != null) return fromHist;
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const suggested = asPositive(args.suggested);
+  if (suggested != null) return suggested;
+  throw new Error(`No live IBKR limitPrice for ${args.symbol}`);
 }

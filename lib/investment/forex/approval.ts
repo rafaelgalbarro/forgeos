@@ -7,6 +7,7 @@ import "server-only";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { getForexPair } from "@/lib/investment/forex/config";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
+import { fetchLiveLimitPrice } from "@/lib/trading/ibkr-data";
 import { OrderApprovalGate } from "@/src/core/trading/order-approval";
 import type { PendingOrderRecord } from "@/src/core/trading/trading-state-store";
 import type { ForexStrategySignal } from "@/lib/investment/forex/strategies/engine";
@@ -52,6 +53,12 @@ export async function executeApprovedForexOrder(
   const flags = getInvestmentRuntimeFlags();
   const transmit =
     flags.liveTradingEnabled && !flags.ibkrReadOnly && flags.forexEnabled;
+  const limitPrice = await fetchLiveLimitPrice({
+    symbol: pair.pairId,
+    side: record.direction,
+    asset: "FOREX",
+    suggested: record.limitPrice ?? record.price,
+  });
   const data = await ibkrServiceFetch<{
     ibkrOrderId?: number;
     staged?: boolean;
@@ -61,7 +68,7 @@ export async function executeApprovedForexOrder(
       pair_id: pair.pairId,
       side: record.direction,
       quantity: record.shares,
-      limit_price: record.limitPrice ?? record.price,
+      limit_price: limitPrice,
       rationale: record.reason.slice(0, 4000),
       transmit,
     }),

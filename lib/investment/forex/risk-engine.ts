@@ -5,7 +5,9 @@
 import "server-only";
 
 import {
+  FOREX_MAX_UNITS,
   FOREX_RISK_POLICY,
+  clampForexUnits,
   loadForexEnvConfig,
   positionUnitsForRisk,
   type ForexIbkrContract,
@@ -78,6 +80,11 @@ export function assessForexRisk(params: {
     pair: params.pair,
     midPrice: params.signal.entry,
     minUnits: Math.max(config.minUnits, TRADING_CONFIG.risk.forex.minUnits),
+    maxUnits: Math.min(
+      config.maxUnits,
+      TRADING_CONFIG.risk.forex.maxUnits ?? FOREX_MAX_UNITS,
+      FOREX_MAX_UNITS,
+    ),
   });
   if (!sized) return { allowed: false, reason: "No se pudo calcular tamaño", riskPct };
 
@@ -88,7 +95,7 @@ export function assessForexRisk(params: {
 
   return {
     allowed: true,
-    units: sized.units,
+    units: clampForexUnits(sized.units),
     riskPct,
     riskAmount: sized.riskAmount,
   };

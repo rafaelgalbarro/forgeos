@@ -43,6 +43,7 @@ export const TRADING_CONFIG = {
       minNavUSD: 50,
       riskPctNav: 1.0,
       minUnits: 25_000,
+      maxUnits: 25_000,
       /** units = (riskAmount / stopPips) * unitsPerPipEuro */
       unitsPerPipEuro: 10_000,
       defaultStopPips: 20,

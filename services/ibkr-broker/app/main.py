@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     forex_min_confidence: float = 0.75
     forex_min_units: float = 25_000
     forex_allowed_pairs: str = "EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,USDCAD,EURGBP,EURJPY,GBPJPY"
-    max_forex_order_units: float = 500_000
+    max_forex_order_units: float = 25_000
 
     def csv_set(self, value: str) -> set[str]:
         return {item.strip().upper() for item in value.split(",") if item.strip()}
@@ -861,6 +861,92 @@ class IBKRClient(EWrapper, EClient):
             raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
         return order_id
 
+    def place_forex_limit_order(
+        self,
+        pair: dict[str, Any],
+        *,
+        side: str,
+        quantity: float,
+        limit_price: float,
+        transmit: bool,
+        account: str,
+    ) -> int:
+        """Place FOREX LMT with secType=CASH and exchange=IDEALPRO (avoids IBKR 321)."""
+        try:
+            from .forex_pairs import build_cash_contract
+        except ImportError:
+            from forex_pairs import build_cash_contract  # type: ignore
+
+        self.ensure_connected()
+        if self.next_order_id is None:
+            raise RuntimeError("No existe un identificador de orden válido")
+
+        contract = build_cash_contract(pair)
+        details = None
+        try:
+            details = self._resolve_contract_details(contract)
+            qualified = getattr(details, "contract", None)
+            if qualified is not None:
+                contract = qualified
+        except Exception:
+            contract = build_cash_contract(pair)
+            details = None
+
+        contract.symbol = str(pair["symbol"])
+        contract.secType = "CASH"
+        contract.currency = str(pair["currency"])
+        contract.exchange = "IDEALPRO"
+
+        qty = float(quantity)
+        if details is not None:
+            try:
+                qty = self._normalize_quantity(qty, details)
+            except Exception:
+                pass
+        cap = min(float(settings.max_forex_order_units), 25_000.0)
+        floor = float(settings.forex_min_units)
+        if floor > cap:
+            floor = cap
+        qty = max(floor, min(cap, qty))
+
+        price = float(limit_price)
+        if details is not None:
+            try:
+                rules = self._resolve_market_rules(getattr(details, "marketRuleIds", "") or "")
+                price = self._normalize_price(price, details, rules)
+            except Exception:
+                tick = 0.01 if pair.get("jpy_quoted") else 0.00005
+                price = float(int(price / tick) * tick) if tick > 0 else price
+        else:
+            tick = 0.01 if pair.get("jpy_quoted") else 0.00005
+            price = float(int(price / tick) * tick) if tick > 0 else price
+
+        order_id = self.next_order_id
+        self.next_order_id += 1
+        order = Order()
+        order.action = side
+        order.orderType = "LMT"
+        order.totalQuantity = qty
+        order.lmtPrice = price
+        order.tif = "DAY"
+        order.outsideRth = False
+        order.whatIf = False
+        order.transmit = transmit
+        if account:
+            order.account = account
+        apply_whatif_legacy_attr_compat(order)
+        ack = threading.Event()
+        self.place_ack_events[order_id] = ack
+        self.place_ack_status.pop(order_id, None)
+        self.place_ack_errors.pop(order_id, None)
+        self.placeOrder(order_id, contract, order)
+        ack.wait(6)
+        errors = self.place_ack_errors.get(order_id, [])
+        reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
+        if any(int(err["code"]) in reject_codes for err in errors):
+            raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
+        return order_id
+
 
     def cancel_order(self, order_id: int) -> None:
         self.ensure_connected()
@@ -1187,6 +1273,9 @@ class ForexOrderRequest(BaseModel):
     rationale: str = Field(default="FOREX LMT supervised", min_length=5, max_length=4000)
     transmit: bool = False
     outside_rth: bool = False
+    account: str = ""
+    sec_type: Literal["CASH"] = "CASH"
+    exchange: Literal["IDEALPRO"] = "IDEALPRO"
 
 
 def _forex_pair_or_404(pair_id: str) -> dict[str, Any]:
@@ -1290,16 +1379,23 @@ def forex_history(
 @app.post("/api/forex/order", dependencies=auth)
 def forex_order(payload: ForexOrderRequest):
     """
-    Stage or (when fully unlocked) transmit FOREX LMT on IDEALPRO.
-    Default transmit=false. Live transmit requires FOREX_ENABLED + LIVE_TRADING + not READ_ONLY.
+    Transmit FOREX LMT on IDEALPRO CASH after Telegram approval.
+    Quantity is clamped to 25_000 (never the 500k broker ceiling).
+    Live transmit requires FOREX_ENABLED + LIVE_TRADING + not READ_ONLY.
     """
     if emergency_stop():
         raise HTTPException(423, "Emergency stop activo")
     selected = _forex_pair_or_404(payload.pair_id)
-    if payload.quantity < settings.forex_min_units:
-        raise HTTPException(400, f"Cantidad mínima FOREX {settings.forex_min_units}")
-    if payload.quantity > settings.max_forex_order_units:
-        raise HTTPException(400, f"Cantidad máxima FOREX {settings.max_forex_order_units}")
+
+    cap = min(float(settings.max_forex_order_units), 25_000.0)
+    floor = float(settings.forex_min_units)
+    if floor > cap:
+        floor = cap
+    quantity = float(payload.quantity)
+    if quantity < floor:
+        quantity = floor
+    if quantity > cap:
+        quantity = cap
 
     transmit = bool(payload.transmit)
     if transmit:
@@ -1321,20 +1417,28 @@ def forex_order(payload: ForexOrderRequest):
     if len(open_fx) >= settings.forex_max_positions and transmit:
         raise HTTPException(409, f"Máximo {settings.forex_max_positions} posiciones FOREX")
 
+    account = (payload.account or settings.default_account_id(ibkr.accounts) or "").strip()
     proposal = {
         "symbol": selected["symbol"],
         "sec_type": "CASH",
         "currency": selected["currency"],
         "exchange": "IDEALPRO",
         "side": payload.side,
-        "quantity": float(payload.quantity),
+        "quantity": quantity,
         "limit_price": float(payload.limit_price),
-        "outside_rth": payload.outside_rth,
-        "account": payload.account or settings.default_account_id(ibkr.accounts),
+        "outside_rth": False,
+        "account": account,
         "rationale": payload.rationale,
     }
     try:
-        order_id = ibkr.place_limit_order_validated(proposal, transmit=transmit, what_if=False)
+        order_id = ibkr.place_forex_limit_order(
+            selected,
+            side=payload.side,
+            quantity=quantity,
+            limit_price=float(payload.limit_price),
+            transmit=transmit,
+            account=account,
+        )
         audit(
             "FOREX_ORDER_STAGED" if not transmit else "FOREX_ORDER_SUBMITTED",
             selected["pair_id"],

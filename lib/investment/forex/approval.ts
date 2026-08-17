@@ -5,7 +5,7 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
-import { getForexPair } from "@/lib/investment/forex/config";
+import { getForexPair, clampForexUnits } from "@/lib/investment/forex/config";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { fetchLiveLimitPrice } from "@/lib/trading/ibkr-data";
 import { OrderApprovalGate } from "@/src/core/trading/order-approval";
@@ -23,11 +23,12 @@ export function enqueueForexApproval(params: {
   signal: ForexStrategySignal;
   units: number;
 }): PendingOrderRecord {
-  const notional = params.units * params.signal.entry;
+  const units = clampForexUnits(params.units);
+  const notional = units * params.signal.entry;
   return OrderApprovalGate.getInstance().enqueue({
     ticker: params.signal.pairId,
     direction: params.signal.side,
-    shares: params.units,
+    shares: units,
     orderType: FOREX_ORDER_TYPE,
     limitPrice: params.signal.entry,
     orderValueUSD: Number.isFinite(notional) ? notional : 0,
@@ -53,6 +54,7 @@ export async function executeApprovedForexOrder(
   const flags = getInvestmentRuntimeFlags();
   const transmit =
     flags.liveTradingEnabled && !flags.ibkrReadOnly && flags.forexEnabled;
+  const quantity = clampForexUnits(record.shares);
   const limitPrice = await fetchLiveLimitPrice({
     symbol: pair.pairId,
     side: record.direction,
@@ -67,8 +69,10 @@ export async function executeApprovedForexOrder(
     body: JSON.stringify({
       pair_id: pair.pairId,
       side: record.direction,
-      quantity: record.shares,
+      quantity,
       limit_price: limitPrice,
+      sec_type: "CASH",
+      exchange: "IDEALPRO",
       rationale: record.reason.slice(0, 4000),
       transmit,
     }),

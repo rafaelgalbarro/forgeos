@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   FOREX_PAIRS,
+  FOREX_MAX_UNITS,
   buildSlTpFromPips,
+  clampForexUnits,
   getForexPair,
   getForexSessionSnapshot,
   pipSize,
@@ -72,7 +74,7 @@ describe("forex pip math", () => {
     expect(sized!.units).toBe(25_000);
   });
 
-  it("sizes position with min 25k units on large NAV", () => {
+  it("caps units at 25k even on large NAV (never 500k broker ceiling)", () => {
     const pair = getForexPair("EURUSD")!;
     const sized = positionUnitsForRisk({
       nav: 100_000,
@@ -82,7 +84,14 @@ describe("forex pip math", () => {
       midPrice: 1.1,
     });
     expect(sized).not.toBeNull();
-    expect(sized!.units).toBeGreaterThanOrEqual(25_000);
+    expect(sized!.rawUnits).toBeGreaterThan(FOREX_MAX_UNITS);
+    expect(sized!.units).toBe(FOREX_MAX_UNITS);
+  });
+
+  it("clampForexUnits floors to 25k and never exceeds 25k", () => {
+    expect(clampForexUnits(3_750)).toBe(25_000);
+    expect(clampForexUnits(5_000_000)).toBe(25_000);
+    expect(clampForexUnits(25_000)).toBe(25_000);
   });
 
   it("measures spread in pips", () => {

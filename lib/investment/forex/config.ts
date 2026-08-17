@@ -45,6 +45,20 @@ export const FOREX_PAIR_IDS: readonly ForexPairId[] = FOREX_PAIRS.map((p) => p.p
 
 /** IBKR retail FX often enforces min 25k unit size on IDEALPRO. */
 export const FOREX_MIN_UNITS = 25_000;
+/** Hard cap so we never hit the broker 500k FOREX quantity limit. */
+export const FOREX_MAX_UNITS = 25_000;
+
+/** Clamp FX size to the IDEALPRO ticket we actually send (25k). */
+export function clampForexUnits(
+  units: number,
+  minUnits: number = FOREX_MIN_UNITS,
+  maxUnits: number = FOREX_MAX_UNITS,
+): number {
+  const hi = Math.max(1, Math.floor(maxUnits));
+  const lo = Math.min(hi, Math.max(1, Math.floor(minUnits)));
+  if (!Number.isFinite(units) || units <= 0) return lo;
+  return Math.min(hi, Math.max(lo, Math.floor(units)));
+}
 
 export type ForexEnvConfig = {
   readonly enabled: boolean;
@@ -55,6 +69,7 @@ export type ForexEnvConfig = {
   readonly tpPips: number;
   readonly minConfidence: number;
   readonly minUnits: number;
+  readonly maxUnits: number;
 };
 
 const DEFAULTS: ForexEnvConfig = {
@@ -66,6 +81,7 @@ const DEFAULTS: ForexEnvConfig = {
   tpPips: 40,
   minConfidence: 0.75,
   minUnits: FOREX_MIN_UNITS,
+  maxUnits: FOREX_MAX_UNITS,
 };
 
 function parseEnvBool(raw: string | undefined, fallback: boolean): boolean {
@@ -109,9 +125,11 @@ export function loadForexEnvConfig(): ForexEnvConfig {
       1,
       Math.max(0, parseEnvNumber(process.env.FOREX_MIN_CONFIDENCE, DEFAULTS.minConfidence)),
     ),
-    minUnits: Math.max(
-      FOREX_MIN_UNITS,
-      Math.floor(parseEnvNumber(process.env.FOREX_MIN_UNITS, FOREX_MIN_UNITS)),
+    minUnits: clampForexUnits(
+      parseEnvNumber(process.env.FOREX_MIN_UNITS, FOREX_MIN_UNITS),
+    ),
+    maxUnits: clampForexUnits(
+      parseEnvNumber(process.env.FOREX_MAX_UNITS, FOREX_MAX_UNITS),
     ),
   };
 }
@@ -205,6 +223,7 @@ export function buildSlTpFromPips(params: {
  * Position size in FX units from NAV risk %.
  * units = (riskAmount / stopPips) * 10_000  (EUR/USD pip convention).
  * If that is below IDEALPRO min (25_000), use 25_000.
+ * Never exceed FOREX_MAX_UNITS (25_000) so we stay under the broker 500k cap.
  */
 export function positionUnitsForRisk(params: {
   nav: number;
@@ -213,14 +232,16 @@ export function positionUnitsForRisk(params: {
   pair: ForexIbkrContract;
   midPrice: number;
   minUnits?: number;
+  maxUnits?: number;
 }): { units: number; riskAmount: number; pipValue: number; rawUnits: number } | null {
   const { nav, riskPct, stopPips, pair, midPrice } = params;
   const minUnits = params.minUnits ?? FOREX_MIN_UNITS;
+  const maxUnits = params.maxUnits ?? FOREX_MAX_UNITS;
   if (!Number.isFinite(nav) || nav <= 0 || stopPips <= 0 || riskPct <= 0) return null;
   const riskAmount = nav * (riskPct / 100);
   const raw = (riskAmount / stopPips) * 10_000;
   if (!Number.isFinite(raw) || raw <= 0) return null;
-  const units = Math.max(minUnits, Math.floor(raw));
+  const units = clampForexUnits(raw, minUnits, maxUnits);
   return {
     units,
     rawUnits: Math.floor(raw),

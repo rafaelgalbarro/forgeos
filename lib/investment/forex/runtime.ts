@@ -1,5 +1,6 @@
 /**
- * FOREX dashboard snapshot + supervised cycle (ANALYSIS_ONLY / staged by default).
+ * FOREX dashboard snapshot + Telegram-supervised cycle.
+ * Never places/stages at IBKR from the cycle — founder must tap APROBAR.
  */
 
 import "server-only";
@@ -219,12 +220,23 @@ export type ForexCycleResult = {
   ranAt: string;
   skipped: boolean;
   reason?: string;
-  actionable: Array<{ pairId: string; side: "BUY" | "SELL"; confidence: number; staged?: boolean; orderId?: number }>;
+  actionable: Array<{
+    pairId: string;
+    side: "BUY" | "SELL";
+    confidence: number;
+    staged: boolean;
+    pendingTelegram: boolean;
+    approvalId?: string;
+    orderId?: number;
+  }>;
   errors: string[];
 };
 
+/** Cycle never transmits — Telegram approve is the only live path. */
 export async function runForexCycle(_opts?: { transmit?: boolean }): Promise<ForexCycleResult> {
   const config = loadForexEnvConfig();
+  const flags = getInvestmentRuntimeFlags();
+  const forexEnabled = flags.forexEnabled || config.enabled;
   const session = getForexSessionSnapshot();
   const macro = await getForexMacroSnapshot();
   const errors: string[] = [];
@@ -309,7 +321,9 @@ export async function runForexCycle(_opts?: { transmit?: boolean }): Promise<For
       pairId: sig.pairId,
       side: sig.side,
       confidence: sig.confidence,
-      staged: true,
+      staged: !forexEnabled,
+      pendingTelegram: true,
+      approvalId: pending.approvalId,
     });
 
     if (actionable.length >= Math.min(config.maxPositions, FOREX_RISK_POLICY.maxConcurrentPairs)) break;

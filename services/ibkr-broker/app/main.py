@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     ibkr_port: int = 7497
     ibkr_client_id: int = 41
     ibkr_account_id: str = ""
+    ibkr_account_ids: str = ""
     ibkr_connect_timeout_seconds: int = 12
     ibkr_read_only: bool = True
     live_trading_enabled: bool = False
@@ -68,6 +69,25 @@ class Settings(BaseSettings):
 
     def csv_set(self, value: str) -> set[str]:
         return {item.strip().upper() for item in value.split(",") if item.strip()}
+
+    def configured_account_ids(self) -> list[str]:
+        """Primary IBKR_ACCOUNT_ID first, then IBKR_ACCOUNT_IDS extras."""
+        ids: list[str] = []
+        for raw in (self.ibkr_account_id, *self.ibkr_account_ids.split(",")):
+            account = raw.strip()
+            if account and account not in ids:
+                ids.append(account)
+        return ids
+
+    def default_account_id(self, managed: list[str] | None = None) -> str:
+        if self.ibkr_account_id.strip():
+            return self.ibkr_account_id.strip()
+        configured = self.configured_account_ids()
+        if configured:
+            return configured[0]
+        if managed:
+            return managed[0]
+        return ""
 
 
 settings = Settings()
@@ -158,6 +178,7 @@ class ProposalCreate(BaseModel):
     rationale: str = Field(min_length=10, max_length=4000)
     strategy_id: str = "manual-supervised"
     outside_rth: bool = False
+    account: str | None = None
 
 
 class DecisionRequest(BaseModel):
@@ -181,6 +202,8 @@ class IBKRClient(EWrapper, EClient):
         self.positions_data: list[dict[str, Any]] = []
         self.orders_data: list[dict[str, Any]] = []
         self.account_done = threading.Event()
+        self._account_lock = threading.Lock()
+        self._acct_update_done: dict[str, threading.Event] = {}
         self.positions_done = threading.Event()
         self.orders_done = threading.Event()
         self.history_done = threading.Event()
@@ -204,7 +227,9 @@ class IBKRClient(EWrapper, EClient):
         self.next_order_id = orderId
 
     def managedAccounts(self, accountsList: str) -> None:
-        self.accounts = [account for account in accountsList.split(",") if account]
+        from_tws = [account for account in accountsList.split(",") if account]
+        configured = settings.configured_account_ids()
+        self.accounts = list(dict.fromkeys([*from_tws, *configured]))
 
     def error(self, reqId, errorCode, errorString, advancedOrderRejectJson="") -> None:
         self.errors.append({"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson})
@@ -222,6 +247,25 @@ class IBKRClient(EWrapper, EClient):
 
     def accountSummaryEnd(self, reqId: int) -> None:
         self.account_done.set()
+
+    def updateAccountValue(self, key, val, currency, accountName) -> None:
+        wanted = {
+            "NetLiquidation",
+            "TotalCashValue",
+            "AvailableFunds",
+            "BuyingPower",
+            "GrossPositionValue",
+            "MaintMarginReq",
+            "UnrealizedPnL",
+            "RealizedPnL",
+        }
+        if key in wanted and accountName:
+            self.account_data.setdefault(accountName, {})[key] = {"value": val, "currency": currency}
+
+    def accountDownloadEnd(self, accountName: str) -> None:
+        done = self._acct_update_done.get(accountName)
+        if done:
+            done.set()
 
     def position(self, account, contract, position, avgCost) -> None:
         self.positions_data.append({
@@ -370,7 +414,9 @@ class IBKRClient(EWrapper, EClient):
             "state": "CONNECTED" if self.isConnected() else ("TWS_OFFLINE" if not reachable else "DISCONNECTED"),
             "nextOrderIdReady": self.next_order_id is not None,
             "nextValidId": self.next_order_id,
-            "managedAccounts": self.accounts,
+            "managedAccounts": list(dict.fromkeys([*self.accounts, *settings.configured_account_ids()])),
+            "defaultAccountId": settings.default_account_id(self.accounts),
+            "configuredAccountIds": settings.configured_account_ids(),
             "recentErrors": self.errors[-10:],
             "ibkrReadOnly": settings.ibkr_read_only,
             "liveTradingEnabled": settings.live_trading_enabled,
@@ -378,16 +424,42 @@ class IBKRClient(EWrapper, EClient):
             "port": settings.ibkr_port,
         }
 
+    def _known_accounts(self) -> list[str]:
+        ids: list[str] = []
+        for account in [*settings.configured_account_ids(), *self.accounts]:
+            if account and account not in ids:
+                ids.append(account)
+        return ids
+
+    def _fill_account_via_updates(self, account: str, timeout: float = 8.0) -> None:
+        """reqAccountUpdates for a specific account when summary 'All' omitted it."""
+        done = threading.Event()
+        self._acct_update_done[account] = done
+        try:
+            self.reqAccountUpdates(True, account)
+            done.wait(timeout)
+        finally:
+            try:
+                self.reqAccountUpdates(False, account)
+            except Exception:
+                pass
+            self._acct_update_done.pop(account, None)
+
     def account_summary(self) -> dict[str, Any]:
         self.ensure_connected()
-        self.account_data = {}
-        self.account_done.clear()
-        tags = "NetLiquidation,TotalCashValue,AvailableFunds,BuyingPower,GrossPositionValue,MaintMarginReq,UnrealizedPnL,RealizedPnL"
-        self.reqAccountSummary(9101, "All", tags)
-        if not self.account_done.wait(10):
-            raise TimeoutError("Timeout leyendo cuenta")
-        self.cancelAccountSummary(9101)
-        return self.account_data
+        with self._account_lock:
+            self.account_data = {}
+            self.account_done.clear()
+            tags = "NetLiquidation,TotalCashValue,AvailableFunds,BuyingPower,GrossPositionValue,MaintMarginReq,UnrealizedPnL,RealizedPnL"
+            self.reqAccountSummary(9101, "All", tags)
+            if not self.account_done.wait(10):
+                raise TimeoutError("Timeout leyendo cuenta")
+            self.cancelAccountSummary(9101)
+            for account in self._known_accounts():
+                tags_for = self.account_data.get(account) or {}
+                if "NetLiquidation" not in tags_for and "TotalCashValue" not in tags_for:
+                    self._fill_account_via_updates(account)
+            return self.account_data
 
     def positions(self) -> list[dict[str, Any]]:
         self.ensure_connected()
@@ -716,7 +788,7 @@ class IBKRClient(EWrapper, EClient):
         order.outsideRth = bool(proposal.get("outside_rth")) and settings.allow_outside_rth
         order.whatIf = what_if
         order.transmit = transmit
-        account = (proposal.get("account") or settings.ibkr_account_id or "").strip()
+        account = (proposal.get("account") or settings.default_account_id(self.accounts) or "").strip()
         if account:
             order.account = account
         apply_whatif_legacy_attr_compat(order)
@@ -920,6 +992,7 @@ def create_proposal(payload: ProposalCreate):
             "sec_type": payload.sec_type.upper(),
             "currency": payload.currency.upper(),
             "exchange": payload.exchange.upper(),
+            "account": (payload.account or settings.default_account_id(ibkr.accounts) or None),
         }
     )
     checks = evaluate_risk(normalized)
@@ -1155,7 +1228,7 @@ def forex_order(payload: ForexOrderRequest):
         "quantity": float(payload.quantity),
         "limit_price": float(payload.limit_price),
         "outside_rth": payload.outside_rth,
-        "account": settings.ibkr_account_id,
+        "account": payload.account or settings.default_account_id(ibkr.accounts),
         "rationale": payload.rationale,
     }
     try:

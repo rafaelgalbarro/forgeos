@@ -198,6 +198,12 @@ function asObject(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+function tagNumeric(tag: Record<string, unknown> | null): number | undefined {
+  if (!tag) return undefined;
+  const n = Number(tag.value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function extractAccountSummary(accountPayload: unknown): AccountSummarySnapshot {
   const root = asObject(accountPayload);
   if (!root) return {};
@@ -207,6 +213,8 @@ function extractAccountSummary(accountPayload: unknown): AccountSummarySnapshot 
   let buyingPower: number | undefined;
   let currency: string | undefined;
   let rawTagCount = 0;
+  const primaryAccountId = (process.env.IBKR_ACCOUNT_ID ?? "").trim() || undefined;
+  let tradingCashValue: number | undefined;
 
   for (const accountId of accountIds) {
     const tags = asObject(root[accountId]);
@@ -215,19 +223,22 @@ function extractAccountSummary(accountPayload: unknown): AccountSummarySnapshot 
     const nl = asObject(tags.NetLiquidation);
     const cash = asObject(tags.TotalCashValue);
     const bp = asObject(tags.BuyingPower);
-    if (nl && typeof nl.value === "string") {
-      const n = Number(nl.value);
-      if (Number.isFinite(n)) netLiquidation = (netLiquidation ?? 0) + n;
-      if (typeof nl.currency === "string") currency = nl.currency;
+    const nlN = tagNumeric(nl);
+    const cashN = tagNumeric(cash);
+    const bpN = tagNumeric(bp);
+    if (nlN != null) {
+      netLiquidation = (netLiquidation ?? 0) + nlN;
+      if (typeof nl?.currency === "string") currency = nl.currency;
     }
-    if (cash && typeof cash.value === "string") {
-      const n = Number(cash.value);
-      if (Number.isFinite(n)) totalCashValue = (totalCashValue ?? 0) + n;
+    if (cashN != null) {
+      totalCashValue = (totalCashValue ?? 0) + cashN;
+      if (primaryAccountId && accountId === primaryAccountId) tradingCashValue = cashN;
     }
-    if (bp && typeof bp.value === "string") {
-      const n = Number(bp.value);
-      if (Number.isFinite(n)) buyingPower = (buyingPower ?? 0) + n;
-    }
+    if (bpN != null) buyingPower = (buyingPower ?? 0) + bpN;
+  }
+
+  if (tradingCashValue == null && primaryAccountId && totalCashValue != null) {
+    tradingCashValue = totalCashValue;
   }
 
   return {
@@ -237,6 +248,9 @@ function extractAccountSummary(accountPayload: unknown): AccountSummarySnapshot 
     currency,
     accountIds,
     rawTagCount,
+    primaryAccountId,
+    tradingCashValue,
+    combinedCashValue: totalCashValue,
   };
 }
 

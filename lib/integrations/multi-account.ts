@@ -41,7 +41,10 @@ export function parseConfiguredAccountIds(): string[] {
     }
   }
   const single = process.env.IBKR_ACCOUNT_ID?.trim();
-  if (single) ids.add(single);
+  if (single) {
+    ids.delete(single);
+    return [single, ...ids];
+  }
   return [...ids];
 }
 

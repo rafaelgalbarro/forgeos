@@ -18,6 +18,7 @@ import {
   dynamicStopTakeProfit,
   ensureDailySizingRebalance,
 } from '../dynamic-sizing'
+import { isTickerAllowedForTrading } from '@/lib/investment/cycle-universe'
 
 export type RiskCheckResult =
   | { allowed: true; maxOrderValueUSD: number; stopLossPrice: number; takeProfitPrice: number }
@@ -135,9 +136,9 @@ export class RiskManager {
       return { allowed: false, reason: this.haltReason }
     }
 
-    // 3. Ticker en lista blanca
-    if (!TRADING_CONFIG.allowedTickers.includes(price.ticker as (typeof TRADING_CONFIG.allowedTickers)[number])) {
-      return { allowed: false, reason: `${price.ticker} no está en la lista de activos permitidos` }
+    // 3. Ticker permitido: allowlist estática o candidatos del scanner del día
+    if (!isTickerAllowedForTrading(price.ticker)) {
+      return { allowed: false, reason: `${price.ticker} no está en allowlist ni en el scanner del día` }
     }
 
     // 4. Máximo de posiciones abiertas (solo en compras) — dinámico floor(cash/50)

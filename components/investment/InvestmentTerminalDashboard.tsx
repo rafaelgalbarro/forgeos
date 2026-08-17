@@ -435,7 +435,8 @@ export function InvestmentTerminalDashboard() {
   const brain = snapshot?.brainStatus;
   const provider = snapshot?.providerStatus;
   const currency = account?.currency ?? portfolio?.baseCurrency ?? "USD";
-  const capital = portfolio?.totalValue ?? account?.netLiquidation;
+  const capital = account?.netLiquidation ?? portfolio?.totalValue;
+  const tradingCash = account?.tradingCashValue ?? account?.totalCashValue;
   const connected = Boolean(broker?.data?.connected);
   const brokerLabel = connected
     ? "CONNECTED"
@@ -598,7 +599,7 @@ export function InvestmentTerminalDashboard() {
         </div>
         <div className={styles.metricCell}>
           <span className={styles.label}>Cash</span>
-          <span className={styles.value}>{fmtMoney(account?.totalCashValue, currency)}</span>
+          <span className={styles.value}>{fmtMoney(tradingCash, currency)}</span>
         </div>
         <div className={styles.metricCell}>
           <span className={styles.label}>Buying Power</span>

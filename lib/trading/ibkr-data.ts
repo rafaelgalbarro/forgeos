@@ -6,20 +6,32 @@ import { quoteRoutesForTicker, type TickerQuoteRoute } from "@/lib/trading/ticke
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
 
-function sumTag(account: AccountMap, tag: string): number {
-  let total = 0;
-  for (const tags of Object.values(account ?? {})) {
-    const n = Number(tags?.[tag]?.value);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
+function parseTagNumber(tags: Record<string, AccountTag> | undefined, tag: string): number {
+  const raw = tags?.[tag]?.value;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
 }
+
+function primaryAccountId(): string {
+  return (process.env.IBKR_ACCOUNT_ID ?? "").trim();
+}
+
+export type TradingAccountBreakdown = {
+  accountId: string;
+  nav: number;
+  cash: number;
+};
 
 export type TradingAccountSnapshot = {
   navUSD: number;
   cashUSD: number;
   dailyPnlUSD: number;
   openPositionsCount: number;
+  primaryAccountId: string | null;
+  combinedNav: number;
+  combinedCash: number;
+  tradingCashUSD: number;
+  accounts: TradingAccountBreakdown[];
 };
 
 export type TradingPriceSnapshot = {
@@ -51,16 +63,46 @@ export async function fetchTradingAccountSnapshot(): Promise<TradingAccountSnaps
     ibkrServiceFetch<AccountMap>("/api/ibkr/account"),
     ibkrServiceFetch<unknown[]>("/api/ibkr/positions").catch(() => []),
   ]);
+
+  const ids = Object.keys(account ?? {});
+  const accounts: TradingAccountBreakdown[] = ids.map((accountId) => ({
+    accountId,
+    nav: parseTagNumber(account[accountId], "NetLiquidation"),
+    cash: parseTagNumber(account[accountId], "TotalCashValue"),
+  }));
+
+  const combinedNav = accounts.reduce((sum, row) => sum + row.nav, 0);
+  const combinedCash = accounts.reduce((sum, row) => sum + row.cash, 0);
+  const primary = primaryAccountId();
+  const primaryRow = primary ? accounts.find((row) => row.accountId === primary) : undefined;
+  const tradingCashUSD = primaryRow?.cash ?? combinedCash;
+  const dailyPnlUSD = ids.reduce((sum, id) => {
+    return (
+      sum +
+      parseTagNumber(account[id], "UnrealizedPnL") +
+      parseTagNumber(account[id], "RealizedPnL")
+    );
+  }, 0);
+
+  const openPositionsCount = Array.isArray(positions)
+    ? positions.filter((p) => {
+        const row = p as { position?: number; account?: string };
+        if (typeof row.position !== "number" || Math.abs(row.position) <= 0) return false;
+        if (primary && row.account && row.account !== primary) return false;
+        return true;
+      }).length
+    : 0;
+
   return {
-    navUSD: sumTag(account, "NetLiquidation"),
-    cashUSD: sumTag(account, "TotalCashValue"),
-    dailyPnlUSD: sumTag(account, "UnrealizedPnL") + sumTag(account, "RealizedPnL"),
-    openPositionsCount: Array.isArray(positions)
-      ? positions.filter((p) => {
-          const row = p as { position?: number };
-          return typeof row.position === "number" && Math.abs(row.position) > 0;
-        }).length
-      : 0,
+    navUSD: combinedNav,
+    cashUSD: tradingCashUSD,
+    dailyPnlUSD,
+    openPositionsCount,
+    primaryAccountId: primary || null,
+    combinedNav,
+    combinedCash,
+    tradingCashUSD,
+    accounts,
   };
 }
 

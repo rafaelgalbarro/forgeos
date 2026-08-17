@@ -64,6 +64,9 @@ export interface AccountSummarySnapshot {
   readonly currency?: string;
   readonly accountIds?: readonly string[];
   readonly rawTagCount?: number;
+  readonly primaryAccountId?: string;
+  readonly tradingCashValue?: number;
+  readonly combinedCashValue?: number;
 }
 
 export interface PortfolioSummarySnapshot {

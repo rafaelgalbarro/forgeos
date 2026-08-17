@@ -135,11 +135,12 @@ export async function handleTelegramCommand(text: string): Promise<void> {
       await sendTelegramMessage("🚀 Ejecutando ciclo manual…");
       try {
         const engine = await getTradingEngine();
-        const tickers = TRADING_CONFIG.allowedTickers.slice(0, 8) as unknown as string[];
-        const result = await engine.runCycle(tickers);
+        const { resolveTradingCycleTickers } = await import("@/lib/investment/cycle-universe");
+        const universe = resolveTradingCycleTickers(12);
+        const result = await engine.runCycle(universe.tickers);
         global.__lastTradingCycle = result;
         await sendTelegramMessage(
-          `✅ Ciclo ${result.cycleId} — ${result.orders.length} tickers · halted=${result.systemHalted}`,
+          `✅ Ciclo ${result.cycleId} — ${result.orders.length} tickers (${universe.source}) · halted=${result.systemHalted}`,
         );
         publishInvestmentEvent({ type: "cycle_complete", at: new Date().toISOString(), payload: result });
       } catch (err) {

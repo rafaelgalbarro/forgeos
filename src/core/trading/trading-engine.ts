@@ -844,6 +844,7 @@ export class TradingEngine {
           4000,
         ),
         strategy_id: 'forgeos-trading-engine',
+        account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
       }),
     })
     return proposal.id ?? `LIVE_${Date.now()}`

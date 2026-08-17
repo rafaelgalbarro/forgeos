@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "@/styles/investment/workspace.module.css";
 import { safeJsonFetch } from "@/lib/http/safe-json-fetch";
-import { FOREX_PAIRS } from "@/lib/investment/forex/config";
+import { FOREX_PAIR_OPTIONS } from "@/lib/investment/forex/pairs-client";
 import type {
   ForexCandleView,
   ForexDashboardSnapshotView,
@@ -12,17 +12,24 @@ import type {
 } from "@/lib/investment/forex/types";
 
 const TIMEFRAMES: ForexTimeframeId[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
-const PAIR_OPTIONS = FOREX_PAIRS.map((p) => ({ id: p.pairId, label: p.display }));
+
+type ForexEnvApi = {
+  forexEnabled?: boolean;
+};
 
 type QuotesApi = {
   quotes?: ForexQuoteRow[];
   generatedAt?: string;
+  forexEnabled?: boolean;
+  error?: string;
 };
 
 type HistoryApi = {
   source?: string;
   bars?: ForexCandleView[];
   note?: string;
+  count?: number;
+  error?: string;
 };
 
 type SignalCard = {
@@ -120,8 +127,13 @@ function ProgressBar({ pct, label }: { pct: number; label: string }) {
   );
 }
 
-export function ForexDashboard() {
+export function ForexDashboard({
+  initialForexEnabled = false,
+}: {
+  readonly initialForexEnabled?: boolean;
+}) {
   const [snap, setSnap] = useState<ForexDashboardSnapshotView | null>(null);
+  const [forexEnabled, setForexEnabled] = useState(initialForexEnabled);
   const [quotes, setQuotes] = useState<ForexQuoteRow[]>([]);
   const [quotesAt, setQuotesAt] = useState<string | null>(null);
   const [tf, setTf] = useState<ForexTimeframeId>("5m");
@@ -134,6 +146,15 @@ export function ForexDashboard() {
   const [cycling, setCycling] = useState(false);
   const [executing, setExecuting] = useState<string | null>(null);
 
+  const refreshEnv = useCallback(async () => {
+    const res = await safeJsonFetch<ForexEnvApi>("/api/investment/forex/env", {
+      cache: "no-store",
+    });
+    if (res.ok && res.data && typeof res.data.forexEnabled === "boolean") {
+      setForexEnabled(res.data.forexEnabled);
+    }
+  }, []);
+
   const refreshSnapshot = useCallback(async () => {
     const res = await safeJsonFetch<ForexDashboardSnapshotView>("/api/investment/forex", {
       cache: "no-store",
@@ -143,14 +164,28 @@ export function ForexDashboard() {
       return;
     }
     setSnap(res.data);
+    if (typeof res.data.forexEnabled === "boolean") {
+      setForexEnabled(res.data.forexEnabled);
+    }
     if (res.data.quotes?.length) setQuotes(res.data.quotes);
     setError(res.data.errors?.join(" · ") ?? "");
   }, []);
 
   const refreshQuotes = useCallback(async () => {
-    const res = await safeJsonFetch<QuotesApi>("/api/investment/forex/quotes", { cache: "no-store" });
-    if (!res.ok || !res.data?.quotes) return;
-    setQuotes(res.data.quotes);
+    const res = await safeJsonFetch<QuotesApi>("/api/investment/forex/quotes", {
+      cache: "no-store",
+    });
+    if (!res.ok || !res.data) {
+      if (res.error) setError(res.error);
+      return;
+    }
+    if (typeof res.data.forexEnabled === "boolean") {
+      setForexEnabled(res.data.forexEnabled);
+    }
+    if (res.data.error) {
+      setError(res.data.error);
+    }
+    setQuotes(res.data.quotes ?? []);
     setQuotesAt(res.data.generatedAt ?? new Date().toISOString());
   }, []);
 
@@ -164,8 +199,14 @@ export function ForexDashboard() {
       setCandleMeta(res.error ?? "history failed");
       return;
     }
-    setCandles(res.data.bars ?? []);
-    setCandleMeta(`${res.data.source ?? "?"} · ${res.data.bars?.length ?? 0} velas · ${res.data.note ?? ""}`);
+    const bars = (res.data.bars ?? []).map((b) => ({
+      ...b,
+      time: b.time ?? (b as { date?: string }).date ?? "",
+    }));
+    setCandles(bars);
+    setCandleMeta(
+      `${res.data.source ?? "?"} · ${bars.length} velas · ${res.data.note ?? res.data.error ?? ""}`,
+    );
   }, [selectedPair, tf]);
 
   const refreshSignals = useCallback(async () => {
@@ -176,10 +217,12 @@ export function ForexDashboard() {
   }, []);
 
   useEffect(() => {
+    void refreshEnv();
     void refreshSnapshot();
     void refreshQuotes();
     void refreshSignals();
     const heavy = setInterval(() => {
+      void refreshEnv();
       void refreshSnapshot();
       void refreshSignals();
     }, 60_000);
@@ -191,7 +234,7 @@ export function ForexDashboard() {
       clearInterval(heavy);
       clearInterval(live);
     };
-  }, [refreshSnapshot, refreshQuotes, refreshSignals]);
+  }, [refreshEnv, refreshSnapshot, refreshQuotes, refreshSignals]);
 
   useEffect(() => {
     void refreshHistory();
@@ -267,7 +310,7 @@ export function ForexDashboard() {
           <h1 className={styles.assetModuleTitle}>💱 FOREX Pro</h1>
           <p className={styles.hubNote}>
             {session?.label ?? "Cargando…"} · {snap?.mode ?? "…"} · enabled=
-            {String(snap?.forexEnabled ?? snap?.config?.enabled ?? false)}
+            {String(forexEnabled)}
             {quotesAt ? ` · ticks ${new Date(quotesAt).toLocaleTimeString()}` : ""}
           </p>
         </div>
@@ -329,7 +372,7 @@ export function ForexDashboard() {
         <label className={styles.hubNote}>
           Par{" "}
           <select value={selectedPair} onChange={(e) => setSelectedPair(e.target.value)}>
-            {PAIR_OPTIONS.map((p) => (
+            {FOREX_PAIR_OPTIONS.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
               </option>

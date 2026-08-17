@@ -17,6 +17,7 @@ import {
   type ForexIbkrContract,
 } from "@/lib/investment/forex/config";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
+import { readForexEnabledAtRuntime } from "@/lib/investment/forex/server-env";
 import { computeForexIndicators, inferForexSignal, type ForexBar } from "@/lib/investment/forex/indicators";
 import { getForexMacroSnapshot } from "@/lib/investment/forex/macro-calendar";
 
@@ -136,8 +137,8 @@ async function loadHistoryBars(pairId: string): Promise<ForexBar[]> {
 
 export async function buildForexDashboardSnapshot(): Promise<ForexDashboardSnapshot> {
   const config = loadForexEnvConfig();
-  const flags = getInvestmentRuntimeFlags();
-  const enabled = config.enabled || flags.forexEnabled;
+  const enabled =
+    readForexEnabledAtRuntime() || config.enabled || getInvestmentRuntimeFlags().forexEnabled;
   const session = getForexSessionSnapshot();
   const macro = await getForexMacroSnapshot();
   const errors: string[] = [];

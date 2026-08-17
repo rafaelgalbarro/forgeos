@@ -79,6 +79,8 @@ __pycache__/
 .venv/
 venv/
 env/
+!app/api/investment/forex/env/
+!app/api/investment/forex/env/**
 *.egg-info/
 .pytest_cache/
 .mypy_cache/

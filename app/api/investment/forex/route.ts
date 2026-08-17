@@ -5,6 +5,7 @@ import {
   sendForexEuropeOpenReport,
   sendForexSessionCloseReport,
 } from "@/lib/investment/forex/runtime";
+import { readForexEnabledAtRuntime } from "@/lib/investment/forex/server-env";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,19 +16,23 @@ export const runtime = "nodejs";
  * POST ?action=cycle|europe-open|session-close
  */
 export async function GET() {
+  const forexEnabled = readForexEnabledAtRuntime();
   try {
     const snapshot = await buildForexDashboardSnapshot();
-    return NextResponse.json(snapshot);
+    return NextResponse.json({
+      ...snapshot,
+      forexEnabled,
+      config: { ...snapshot.config, enabled: forexEnabled },
+      mode: forexEnabled ? "LIVE_GATED" : snapshot.mode,
+    });
   } catch (error) {
-    const { getInvestmentRuntimeFlags } = await import("@/lib/investment/runtime-flags");
-    const flags = getInvestmentRuntimeFlags();
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "FOREX snapshot failed",
         generatedAt: new Date().toISOString(),
-        mode: flags.forexEnabled ? "LIVE_GATED" : "ANALYSIS_ONLY",
-        forexEnabled: flags.forexEnabled,
-        config: { enabled: flags.forexEnabled },
+        mode: forexEnabled ? "LIVE_GATED" : "ANALYSIS_ONLY",
+        forexEnabled,
+        config: { enabled: forexEnabled },
         quotes: [],
         analyses: [],
       },

@@ -31,6 +31,8 @@ import {
 import { ibkrServiceFetch } from '@/lib/ibkr/service-client'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
 import { getMarketSessionForExchange, getMarketSessionInfo, getUsMarketSession } from './market-session'
+import { recordMlSignal } from '@/lib/ml/signal-trainer'
+import { getTickerInfo } from '@/lib/market-data/yahoo-finance'
 import {
   buildSmartOrderPlan,
   formatChecklistForTelegram,
@@ -493,6 +495,7 @@ export class TradingEngine {
       },
       signal.direction,
       optimizerOverrides,
+      signal.confidence,
     )
     if (!riskCheck.allowed) {
       return {
@@ -662,6 +665,38 @@ export class TradingEngine {
       at: new Date().toISOString(),
       payload: { ticker, direction: signal.direction, confidence: signal.confidence, approvalId: pending.approvalId },
     })
+
+    // Phase H — record actionable signal for ML trainer (never places orders)
+    void (async () => {
+      try {
+        const info = await getTickerInfo(ticker).catch(() => null)
+        const patternSignals = analysis?.patterns.signals ?? []
+        recordMlSignal({
+          ticker,
+          direction: signal.direction === 'SELL' ? 'SELL' : 'BUY',
+          confidence: signal.confidence,
+          pattern: topPattern ?? null,
+          sector: info?.sector ?? null,
+          vix: macroCtx?.vix.price ?? null,
+          source: 'trading-engine',
+          approvalId: pending.approvalId,
+          indicators: {
+            rsi: analysis?.technicals.momentum.rsi ?? null,
+            squeezeActive: analysis?.technicals.volatility.squeeze?.active ?? false,
+            relativeVolume: analysis?.technicals.volume.relativeVolume ?? null,
+            macdHist: analysis?.technicals.trend.macd?.histogram ?? null,
+            adx: analysis?.technicals.trend.adx ?? null,
+            goldenCross: patternSignals.some((p) => p.name === 'Golden Cross'),
+            deathCross: patternSignals.some((p) => p.name === 'Death Cross'),
+          },
+        })
+      } catch (err) {
+        console.warn(
+          '[TradingEngine] recordMlSignal error:',
+          err instanceof Error ? err.message : err,
+        )
+      }
+    })()
 
     void sendSignalAlert({
       ticker,

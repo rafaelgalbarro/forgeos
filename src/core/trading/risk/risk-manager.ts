@@ -13,6 +13,11 @@ import {
   getPersistedSizingCaps,
   type PortfolioPolicyResult,
 } from '../portfolio-optimizer'
+import {
+  computeDynamicSizing,
+  dynamicStopTakeProfit,
+  ensureDailySizingRebalance,
+} from '../dynamic-sizing'
 
 export type RiskCheckResult =
   | { allowed: true; maxOrderValueUSD: number; stopLossPrice: number; takeProfitPrice: number }
@@ -86,8 +91,15 @@ export class RiskManager {
     price: PriceData,
     direction: 'BUY' | 'SELL',
     optimizer?: RiskOptimizerOverrides,
+    confidence?: number,
   ): RiskCheckResult {
     this.resetDailyCounterIfNeeded()
+    ensureDailySizingRebalance({ cashUSD: account.cashUSD, navUSD: account.navUSD })
+    const sizing = computeDynamicSizing({
+      cashUSD: account.cashUSD,
+      navUSD: account.navUSD,
+      confidence,
+    })
 
     // 1. Circuit breaker global
     if (this.halted) {
@@ -128,9 +140,26 @@ export class RiskManager {
       return { allowed: false, reason: `${price.ticker} no está en la lista de activos permitidos` }
     }
 
-    // 4. Máximo de posiciones abiertas (solo en compras)
-    if (direction === 'BUY' && account.openPositionsCount >= TRADING_CONFIG.risk.maxOpenPositions) {
-      return { allowed: false, reason: `Límite de ${TRADING_CONFIG.risk.maxOpenPositions} posiciones abiertas alcanzado` }
+    // 4. Máximo de posiciones abiertas (solo en compras) — dinámico floor(cash/50)
+    if (direction === 'BUY' && account.openPositionsCount >= sizing.maxOpenPositions) {
+      return {
+        allowed: false,
+        reason: `Límite de ${sizing.maxOpenPositions} posiciones abiertas alcanzado (cash $${account.cashUSD.toFixed(0)})`,
+      }
+    }
+
+    if (direction === 'BUY' && sizing.analysisOnly) {
+      return {
+        allowed: false,
+        reason: 'Modo solo análisis — cash < $30 (reserva de liquidez)',
+      }
+    }
+
+    if (direction === 'BUY' && !sizing.canTradeStocks) {
+      return {
+        allowed: false,
+        reason: `Cash insuficiente para operar (mín $${TRADING_CONFIG.risk.dynamicSizing.minCashToTradeUSD}, actual $${account.cashUSD.toFixed(2)})`,
+      }
     }
 
     // 4b. Horario de mercado por exchange internacional (según ruta de cotización usada)
@@ -164,21 +193,26 @@ export class RiskManager {
       }
     }
 
-    // 5. Cash suficiente — Phase G Kelly / defensive size caps
-    const basePct = TRADING_CONFIG.risk.maxPositionPct
+    // 5. Cash suficiente — dynamic sizing + optional Kelly / defensive caps
     const optimizerPct =
       optimizer?.maxPositionPct != null
         ? optimizer.maxPositionPct
         : persisted.enabled
           ? persisted.maxPositionPct
-          : basePct
-    const effectivePct = Math.min(basePct, Math.max(0, optimizerPct))
-    let maxOrderValue = account.navUSD * effectivePct
+          : TRADING_CONFIG.risk.maxPositionPct
+    let maxOrderValue = Math.min(
+      sizing.maxOrderValueUSD,
+      account.navUSD * Math.max(0, optimizerPct),
+      sizing.deployableCashUSD,
+    )
     if (price.usExtendedHours) {
       maxOrderValue *= TRADING_CONFIG.schedule.extendedHoursMaxOrderSizeFactor
     }
-    if (direction === 'BUY' && account.cashUSD < maxOrderValue * 0.5) {
-      return { allowed: false, reason: `Cash insuficiente: ${account.cashUSD.toFixed(2)}$ disponibles` }
+    if (direction === 'BUY' && sizing.deployableCashUSD < TRADING_CONFIG.risk.dynamicSizing.minOrderUSD) {
+      return {
+        allowed: false,
+        reason: `Cash desplegable insuficiente: $${sizing.deployableCashUSD.toFixed(2)} (70% de $${account.cashUSD.toFixed(2)})`,
+      }
     }
 
     // 6. Máximo de operaciones diarias
@@ -192,17 +226,16 @@ export class RiskManager {
       return { allowed: false, reason: `Spread bid/ask demasiado alto: ${(spread * 100).toFixed(2)}%` }
     }
 
-    // ✅ Todo OK — calcular parámetros de la orden
-    const stopLossPrice = parseFloat(
-      (price.currentPrice * (1 - TRADING_CONFIG.risk.defaultStopLossPct)).toFixed(4)
-    )
-    const takeProfitPrice = parseFloat(
-      (price.currentPrice * (1 + TRADING_CONFIG.risk.defaultTakeProfitPct)).toFixed(4)
+    // ✅ Todo OK — calcular parámetros de la orden (SL 2%, TP 1:2)
+    const { stopLoss: stopLossPrice, takeProfit: takeProfitPrice } = dynamicStopTakeProfit(
+      price.currentPrice,
+      direction,
+      sizing,
     )
 
     return {
       allowed: true,
-      maxOrderValueUSD: Math.min(maxOrderValue, account.cashUSD),
+      maxOrderValueUSD: Math.min(maxOrderValue, sizing.deployableCashUSD),
       stopLossPrice,
       takeProfitPrice,
     }

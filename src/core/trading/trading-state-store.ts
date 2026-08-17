@@ -82,6 +82,10 @@ export type RiskPersistedSlice = {
   lastResetDate: string
   autoApprovalDailyCount: number
   autoApprovalLastResetDate: string
+  /** Last daily sizing rebalance (session open). */
+  lastSizingRebalanceDate?: string
+  lastRebalanceNavUSD?: number
+  lastRebalanceCashUSD?: number
 }
 
 export type TradingPersistedState = {

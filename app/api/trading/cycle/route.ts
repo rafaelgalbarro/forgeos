@@ -13,6 +13,8 @@ import { TradingEngine } from '@/src/core/trading/trading-engine'
 import { RiskManager } from '@/src/core/trading/risk/risk-manager'
 import { OrderApprovalGate } from '@/src/core/trading/order-approval'
 import { TRADING_CONFIG } from '@/src/core/trading/trading.config'
+import { computeDynamicSizing } from '@/src/core/trading/dynamic-sizing'
+import { fetchTradingAccountSnapshot } from '@/lib/trading/ibkr-data'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { popCycleQueue } from '@/lib/alerts/alert-manager'
 
@@ -122,18 +124,32 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   const risk = RiskManager.getInstance()
   const approvals = OrderApprovalGate.getInstance()
+
+  let dynamicSizing = null
+  try {
+    const acct = await fetchTradingAccountSnapshot()
+    dynamicSizing = computeDynamicSizing({
+      cashUSD: acct.cashUSD,
+      navUSD: acct.navUSD,
+    })
+  } catch {
+    dynamicSizing = null
+  }
+
   return NextResponse.json({
     systemHalted: risk.isHalted(),
     haltReason: risk.getHaltReason(),
     dailyTradeCount: risk.getDailyTradeCount(),
     pendingApprovals: approvals.listPending(),
     lastCycle: global.__lastTradingCycle ?? null,
+    dynamicSizing,
     config: {
       maxPositionPct: TRADING_CONFIG.risk.maxPositionPct,
       dailyLossLimitPct: TRADING_CONFIG.risk.dailyLossLimitPct,
       minConfidence: TRADING_CONFIG.ai.minConfidenceToTrade,
       paperTrading: TRADING_CONFIG.ibkr.paperTrading,
       allowedTickers: TRADING_CONFIG.allowedTickers,
+      dynamicSizingPolicy: TRADING_CONFIG.risk.dynamicSizing,
     },
   })
 }

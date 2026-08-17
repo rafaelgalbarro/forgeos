@@ -10,11 +10,12 @@ import { fetchTradingAccountSnapshot, fetchTradingPrice } from "@/lib/trading/ib
 import { TRADING_CONFIG } from "./trading.config";
 import { removeMonitoredPosition } from "./auto-approval";
 import { loadTradingState, updateTradingState, type MonitoredPosition } from "./trading-state-store";
+import { labelMlSignalOutcome } from "@/lib/ml/signal-trainer";
 import { recordClosedTradeOutcome } from "./portfolio-optimizer";
 
 const MONITOR_INTERVAL_MS = 60_000;
 const STALE_HOURS = 24;
-const TRAILING_STOP_PCT = 0.03;
+const TRAILING_STOP_PCT = TRADING_CONFIG.risk.trailingStopPct;
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let running = false;
@@ -53,6 +54,22 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
   } catch (err) {
     console.warn(
       "[PositionMonitor] recordClosedTradeOutcome failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  // Phase H — label ML signal outcome for trainer (ANALYSIS_ONLY; never places orders)
+  try {
+    labelMlSignalOutcome({
+      ticker: pos.ticker,
+      pnlUSD,
+      pnlPct,
+      kind,
+      closedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn(
+      "[PositionMonitor] labelMlSignalOutcome failed:",
       err instanceof Error ? err.message : err,
     );
   }

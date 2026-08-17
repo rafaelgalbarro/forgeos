@@ -10,6 +10,7 @@ import {
   positionUnitsForRisk,
   type ForexIbkrContract,
 } from "@/lib/investment/forex/config";
+import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { FOREX_DAILY_GOALS, canOpenForexTrade, getForexDailyState } from "@/lib/investment/forex/goals";
 import type { ForexStrategyStyle } from "@/lib/investment/forex/strategies/defs";
 import type { ForexStrategySignal } from "@/lib/investment/forex/strategies/engine";
@@ -31,9 +32,18 @@ export function assessForexRisk(params: {
   tradingWindowActive: boolean;
   strategyWindowActive: boolean;
 }): ForexRiskDecision {
-  const riskPct = FOREX_DAILY_GOALS.maxRiskPctPerTrade;
+  const riskPct = TRADING_CONFIG.risk.forex.riskPctNav;
+  const minNavUSD = TRADING_CONFIG.risk.forex.minNavUSD;
   const config = loadForexEnvConfig();
   const daily = getForexDailyState();
+
+  if (params.nav < minNavUSD) {
+    return {
+      allowed: false,
+      reason: `NAV insuficiente para FOREX (mín $${minNavUSD.toLocaleString()}, actual $${params.nav.toFixed(0)})`,
+      riskPct,
+    };
+  }
 
   if (!params.tradingWindowActive) {
     return { allowed: false, reason: "Fuera de horario — solo análisis", riskPct };
@@ -66,7 +76,7 @@ export function assessForexRisk(params: {
     stopPips: params.signal.stopPips,
     pair: params.pair,
     midPrice: params.signal.entry,
-    minUnits: config.minUnits,
+    minUnits: Math.max(config.minUnits, TRADING_CONFIG.risk.forex.minUnits),
   });
   if (!sized) return { allowed: false, reason: "No se pudo calcular tamaño", riskPct };
 

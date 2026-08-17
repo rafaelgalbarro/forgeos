@@ -23,6 +23,17 @@ type CycleStatus = {
   systemHalted: boolean;
   haltReason: string;
   dailyTradeCount: number;
+  dynamicSizing?: {
+    operationSizeLabel?: string;
+    maxOrderValueUSD?: number;
+    maxOrderPct?: number;
+    maxOpenPositions?: number;
+    cashUSD?: number;
+    deployableCashUSD?: number;
+    analysisOnly?: boolean;
+    canTradeStocks?: boolean;
+    canTradeForex?: boolean;
+  } | null;
   lastCycle: {
     cycleId?: string;
     completedAt?: string;
@@ -522,6 +533,12 @@ export function InvestmentTerminalDashboard() {
             Órdenes: {lastCycleExecuted}/{lastCycleOrders} ejecutadas
           </span>
           <span>Hoy: {cycleStatus?.dailyTradeCount ?? 0}</span>
+          {cycleStatus?.dynamicSizing?.operationSizeLabel ? (
+            <span>{cycleStatus.dynamicSizing.operationSizeLabel}</span>
+          ) : null}
+          {cycleStatus?.dynamicSizing?.maxOpenPositions != null ? (
+            <span>Máx posiciones: {cycleStatus.dynamicSizing.maxOpenPositions}</span>
+          ) : null}
           {autoMode ? <span className={styles.toneGood}>Auto ON · cada 5 min</span> : null}
         </div>
         {cycleStatus?.systemHalted ? (

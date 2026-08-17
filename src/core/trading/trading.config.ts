@@ -6,16 +6,41 @@
 export const TRADING_CONFIG = {
   // ── Control de riesgo ──────────────────────────────────────────
   risk: {
-    /** Máximo % del NAV total que se puede arriesgar por operación */
-    maxPositionPct: 0.10,           // 10%
+    /**
+     * Legacy NAV cap — portfolio optimizer may further reduce.
+     * Primary stock sizing: computeDynamicSizing() from live IBKR cash.
+     */
+    maxPositionPct: 0.20,
     /** Si el P&L del día supera esta pérdida, el sistema se detiene */
-    dailyLossLimitPct: 0.10,        // 10% del NAV
-    /** Máximo número de posiciones abiertas simultáneas */
-    maxOpenPositions: 5,
-    /** Stop-loss automático por posición */
-    defaultStopLossPct: 0.05,       // 5%
-    /** Take-profit automático por posición */
-    defaultTakeProfitPct: 0.10,     // 10%
+    dailyLossLimitPct: 0.10,
+    /** Legacy fallback — replaced by dynamic maxOpenPositions (floor(cash/50), cap 10) */
+    maxOpenPositions: 10,
+    /** Stop-loss dinámico: 2% del precio de entrada */
+    defaultStopLossPct: 0.02,
+    /** Take-profit dinámico: stop × 2 (ratio 1:2) → 4% */
+    defaultTakeProfitPct: 0.04,
+    /** Trailing stop: 1.5% desde el máximo alcanzado */
+    trailingStopPct: 0.015,
+    /** Cash-based dynamic sizing (see dynamic-sizing.ts) */
+    dynamicSizing: {
+      maxPctNormal: 0.20,
+      maxPctHighConfidence: 0.30,
+      highConfidenceThreshold: 0.80,
+      minOrderUSD: 10,
+      minCashToTradeUSD: 50,
+      analysisOnlyCashUSD: 30,
+      deployableCashPct: 0.70,
+      positionCashDivisor: 50,
+      maxOpenPositionsCap: 10,
+      minOpenPositions: 1,
+      takeProfitRatio: 2,
+    },
+    /** FOREX IDEALPRO sizing gates */
+    forex: {
+      minNavUSD: 2_000,
+      riskPctNav: 1.0,
+      minUnits: 25_000,
+    },
   },
 
   // ── Motor de IA ────────────────────────────────────────────────

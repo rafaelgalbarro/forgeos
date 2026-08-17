@@ -9,6 +9,7 @@ import {
   type ExecutionSafetyFlags,
   type MutationGateResult,
 } from "@/lib/investment/execution-manager-actions";
+import { cancelIbkrOrder } from "@/lib/investment/ibkr-supervised-submit";
 import {
   mapBrokerOrderToRow,
   type ExecutionManagerOrderRow,
@@ -30,11 +31,11 @@ export type ExecutionAuditEvent = {
 
 export type ExecutionManagerSnapshot = {
   readonly generatedAt: string;
-  readonly mode: "ANALYSIS_ONLY";
-  readonly orderExecution: "disabled";
+  readonly mode: "ANALYSIS_ONLY" | "LIVE";
+  readonly orderExecution: "disabled" | "enabled";
   readonly safety: ExecutionSafetyFlags;
   readonly brokerConnected: boolean | null;
-  readonly dataSource: "IBKR_LIVE_READ_ONLY" | "UNAVAILABLE";
+  readonly dataSource: "IBKR_LIVE_READ_ONLY" | "UNAVAILABLE" | "IBKR_LIVE";
   readonly orders: readonly ExecutionManagerOrderRow[];
   readonly auditItems: readonly AuditTimelineItem[];
   readonly executionAudit: readonly ExecutionAuditEvent[];
@@ -125,13 +126,14 @@ async function fetchBrokerOrders(): Promise<{
 }
 
 /**
- * Read-only Execution Manager snapshot.
- * Reuses IBKR broker engine for orders + Investment Memory audit + execution-control audit.
- * Never submits, cancels, or modifies broker orders.
+ * Execution Manager snapshot (orders + safety + audit).
+ * GET is read-only. Mutations go through runExecutionManagerMutation when Gate OPEN.
  */
 export async function buildExecutionManagerSnapshot(): Promise<ExecutionManagerSnapshot> {
-  const safety = resolveExecutionSafetyFlags({});
   const controlMeta = readExecutionControlMeta();
+  const safety = resolveExecutionSafetyFlags({
+    killSwitchEnabled: controlMeta.killSwitchEnabled,
+  });
   const storage = new InMemoryExecutionStorage();
   const execDash = summarizeExecutionForDashboard({
     approvals: [],
@@ -156,13 +158,18 @@ export async function buildExecutionManagerSnapshot(): Promise<ExecutionManagerS
   const [broker, audit] = await Promise.all([fetchBrokerOrders(), getAuditTimeline({ limit: 40 })]);
 
   const orders = broker.orders.map(mapBrokerOrderToRow);
+  const live = safety.mutationsEnabled;
   const dataSource =
-    broker.connected && !broker.error ? ("IBKR_LIVE_READ_ONLY" as const) : ("UNAVAILABLE" as const);
+    broker.connected && !broker.error
+      ? live
+        ? ("IBKR_LIVE" as const)
+        : ("IBKR_LIVE_READ_ONLY" as const)
+      : ("UNAVAILABLE" as const);
 
   return {
     generatedAt: new Date().toISOString(),
-    mode: "ANALYSIS_ONLY",
-    orderExecution: "disabled",
+    mode: safety.mode,
+    orderExecution: live ? "enabled" : "disabled",
     safety: {
       ...safety,
       killSwitchEnabled: safety.killSwitchEnabled || controlMeta.killSwitchEnabled,
@@ -175,22 +182,28 @@ export async function buildExecutionManagerSnapshot(): Promise<ExecutionManagerS
     note:
       broker.error ??
       (orders.length === 0
-        ? "No open orders from IBKR — NO_DATA (not fabricated). ANALYSIS_ONLY · mutations LOCKED."
-        : `Showing ${orders.length} open order(s) · read-only · Cancel/Modify/Duplicate gated.`),
+        ? live
+          ? "No open orders from IBKR — Gate OPEN · mutations ENABLED."
+          : "No open orders from IBKR — NO_DATA. Gate LOCKED · mutations DISABLED."
+        : live
+          ? `Showing ${orders.length} open order(s) · Gate OPEN · Cancel/Modify/Duplicate enabled.`
+          : `Showing ${orders.length} open order(s) · read-only · Gate LOCKED.`),
     error: broker.error,
   };
 }
+
+export type ExecutionManagerActionResult = MutationGateResult & {
+  readonly action: ExecutionMutationAction;
+  readonly recordedAt: string;
+  readonly patch?: Readonly<Record<string, unknown>>;
+};
 
 export function runExecutionManagerDryRunAction(args: {
   readonly action: ExecutionMutationAction;
   readonly state: ExecutionManagerState;
   readonly orderId?: string | number;
   readonly patch?: Readonly<Record<string, unknown>>;
-}): MutationGateResult & {
-  readonly action: ExecutionMutationAction;
-  readonly recordedAt: string;
-  readonly patch?: Readonly<Record<string, unknown>>;
-} {
+}): ExecutionManagerActionResult {
   const flags = resolveExecutionSafetyFlags({});
   const gate = gateExecutionMutation({
     action: args.action,
@@ -203,5 +216,45 @@ export function runExecutionManagerDryRunAction(args: {
     action: args.action,
     recordedAt: new Date().toISOString(),
     patch: args.patch,
+  };
+}
+
+/** When Gate OPEN, cancel is transmitted to IBKR. Modify/duplicate stay local until wired. */
+export async function runExecutionManagerMutation(args: {
+  readonly action: ExecutionMutationAction;
+  readonly state: ExecutionManagerState;
+  readonly orderId?: string | number;
+  readonly patch?: Readonly<Record<string, unknown>>;
+}): Promise<ExecutionManagerActionResult> {
+  const gated = runExecutionManagerDryRunAction(args);
+  if (!gated.allowed) return gated;
+
+  if (args.action === "cancel") {
+    if (args.orderId == null || String(args.orderId).trim() === "") {
+      return {
+        allowed: false,
+        posture: "OPEN",
+        message: "OPEN · CANCEL blocked — missing orderId",
+        wouldMutateBroker: false,
+        action: args.action,
+        recordedAt: new Date().toISOString(),
+        patch: args.patch,
+      };
+    }
+    await cancelIbkrOrder(args.orderId);
+    return {
+      ...gated,
+      message: `OPEN · CANCEL submitted to IBKR · orderId=${args.orderId}`,
+      recordedAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    ...gated,
+    message:
+      args.action === "modify"
+        ? `OPEN · MODIFY allowed · orderId=${args.orderId ?? "n/a"}`
+        : `OPEN · DUPLICATE allowed locally · source orderId=${args.orderId ?? "n/a"}`,
+    recordedAt: new Date().toISOString(),
   };
 }

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   buildExecutionManagerSnapshot,
-  runExecutionManagerDryRunAction,
+  runExecutionManagerMutation,
 } from "@/lib/investment/execution-manager-snapshot";
-import type { ExecutionMutationAction } from "@/lib/investment/execution-manager-actions";
+import {
+  resolveExecutionSafetyFlags,
+  type ExecutionMutationAction,
+} from "@/lib/investment/execution-manager-actions";
 import type { ExecutionManagerState } from "@/lib/investment/execution-manager-status";
 import { EXECUTION_MANAGER_STATES } from "@/lib/investment/execution-manager-status";
 
@@ -12,26 +15,20 @@ export const runtime = "nodejs";
 
 const ACTIONS: readonly ExecutionMutationAction[] = ["cancel", "modify", "duplicate"];
 
-/** GET — read-only Execution Manager snapshot (orders + safety + audit). */
+/** GET — Execution Manager snapshot (orders + safety + audit). */
 export async function GET() {
   try {
     const snapshot = await buildExecutionManagerSnapshot();
     return NextResponse.json(snapshot);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Execution Manager snapshot failed";
+    const safety = resolveExecutionSafetyFlags({});
     return NextResponse.json(
       {
         generatedAt: new Date().toISOString(),
-        mode: "ANALYSIS_ONLY",
-        orderExecution: "disabled",
-        safety: {
-          mode: "ANALYSIS_ONLY",
-          liveTradingEnabled: false,
-          liveTradingEnabledValue: process.env.LIVE_TRADING_ENABLED ?? "false",
-          ibkrReadOnly: process.env.IBKR_READ_ONLY !== "false",
-          killSwitchEnabled: false,
-          autonomousLock: "LOCKED",
-        },
+        mode: safety.mode,
+        orderExecution: safety.mutationsEnabled ? "enabled" : "disabled",
+        safety,
         brokerConnected: null,
         dataSource: "UNAVAILABLE",
         orders: [],
@@ -46,8 +43,8 @@ export async function GET() {
 }
 
 /**
- * POST — Cancel / Modify / Duplicate dry-run only.
- * Never proxies to broker place/cancel/modify endpoints.
+ * POST — Cancel / Modify / Duplicate.
+ * Gate OPEN when LIVE_TRADING_ENABLED=true and IBKR_READ_ONLY=false; cancel hits IBKR.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +72,7 @@ export async function POST(request: NextRequest) {
         : "Working"
     ) as ExecutionManagerState;
 
-    const result = runExecutionManagerDryRunAction({
+    const result = await runExecutionManagerMutation({
       action,
       state,
       orderId: body.orderId,
@@ -83,12 +80,13 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Dry-run action failed";
+    const message = error instanceof Error ? error.message : "Mutation action failed";
+    const safety = resolveExecutionSafetyFlags({});
     return NextResponse.json(
       {
         allowed: false,
-        posture: "LOCKED",
-        message: `LOCKED · ${message}`,
+        posture: safety.gate,
+        message: `${safety.gate} · ${message}`,
         wouldMutateBroker: false,
       },
       { status: 200 },

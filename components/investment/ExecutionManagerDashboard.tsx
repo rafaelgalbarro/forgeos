@@ -53,6 +53,8 @@ function emptySnapshot(): ExecutionManagerSnapshot {
       ibkrReadOnly: true,
       killSwitchEnabled: false,
       autonomousLock: "LOCKED",
+      mutationsEnabled: false,
+      gate: "LOCKED",
     },
     brokerConnected: null,
     dataSource: "UNAVAILABLE",
@@ -238,7 +240,7 @@ export function ExecutionManagerDashboard({ initialSnapshot }: Props) {
       const msg =
         body?.message ??
         result.error ??
-        `${locked ? "LOCKED" : "DRY_RUN"} · ${action.toUpperCase()} — no broker mutation`;
+        `${locked ? "LOCKED" : "OPEN"} · ${action.toUpperCase()}`;
       setMessage(msg);
 
       if (action === "duplicate" && body) {
@@ -294,7 +296,7 @@ export function ExecutionManagerDashboard({ initialSnapshot }: Props) {
     <section className={styles.root} data-testid="execution-manager">
       <div className={styles.banner} role="status">
         <strong>Execution Manager</strong>
-        <span className={styles.bannerChip}>ANALYSIS_ONLY</span>
+        <span className={styles.bannerChip}>{snapshot.mode}</span>
         <span className={styles.bannerChip}>
           LIVE_TRADING_ENABLED={snapshot.safety.liveTradingEnabledValue}
         </span>
@@ -302,15 +304,17 @@ export function ExecutionManagerDashboard({ initialSnapshot }: Props) {
           IBKR_READ_ONLY={String(snapshot.safety.ibkrReadOnly)}
         </span>
         <span className={styles.bannerChip}>{snapshot.safety.autonomousLock}</span>
-        <span className={styles.bannerChip}>mutations=DISABLED</span>
+        <span className={styles.bannerChip}>
+          mutations={snapshot.safety.mutationsEnabled ? "ENABLED" : "DISABLED"}
+        </span>
       </div>
 
       <header className={styles.header}>
         <h1>Execution Manager</h1>
         <p>
           Centralized order visibility and control surfaces. Reads IBKR open orders via broker
-          engine — Cancel / Modify / Duplicate are gated ({locked ? "LOCKED" : "DRY_RUN"}) and never
-          silently send real orders.
+          engine — Cancel / Modify / Duplicate are{" "}
+          {locked ? "LOCKED" : "OPEN (LIVE_TRADING_ENABLED=true, IBKR_READ_ONLY=false)"}.
         </p>
         <div className={styles.flagRow}>
           <span className={snapshot.brokerConnected ? styles.flagOk : styles.flagWarn}>
@@ -324,8 +328,8 @@ export function ExecutionManagerDashboard({ initialSnapshot }: Props) {
           <span className={styles.flagMuted}>Source: {snapshot.dataSource}</span>
           <span className={styles.flagMuted}>Orders: {snapshot.orders.length}</span>
           <span className={styles.flagMuted}>Synced: {fmtDate(snapshot.generatedAt)}</span>
-          <span className={locked ? styles.flagWarn : styles.flagDanger}>
-            Gate: {locked ? "LOCKED" : "DRY_RUN"}
+          <span className={locked ? styles.flagWarn : styles.flagOk}>
+            Gate: {snapshot.safety.gate ?? (locked ? "LOCKED" : "OPEN")}
           </span>
         </div>
       </header>
@@ -492,19 +496,19 @@ export function ExecutionManagerDashboard({ initialSnapshot }: Props) {
                   type="button"
                   className={styles.btnDanger}
                   disabled={busyAction}
-                  title={locked ? "LOCKED — dry-run only, no broker cancel" : "DRY_RUN cancel"}
+                  title={locked ? "LOCKED — mutations disabled" : "OPEN — cancel on IBKR"}
                   onClick={() => void runAction("cancel")}
                 >
-                  Cancel {locked ? "(LOCKED)" : "(DRY_RUN)"}
+                  Cancel {locked ? "(LOCKED)" : "(OPEN)"}
                 </button>
                 <button
                   type="button"
                   className={styles.btn}
                   disabled={busyAction}
-                  title={locked ? "LOCKED — dry-run only, no broker modify" : "DRY_RUN modify"}
+                  title={locked ? "LOCKED — mutations disabled" : "OPEN — modify on IBKR"}
                   onClick={() => void runAction("modify")}
                 >
-                  Modify {locked ? "(LOCKED)" : "(DRY_RUN)"}
+                  Modify {locked ? "(LOCKED)" : "(OPEN)"}
                 </button>
                 <button
                   type="button"
@@ -513,12 +517,11 @@ export function ExecutionManagerDashboard({ initialSnapshot }: Props) {
                   title="Creates a local Draft copy only — never submits"
                   onClick={() => void runAction("duplicate")}
                 >
-                  Duplicate {locked ? "(LOCKED)" : "(DRY_RUN)"}
+                  Duplicate {locked ? "(LOCKED)" : "(OPEN)"}
                 </button>
               </div>
               <p className={styles.message}>
-                Mutating actions never call broker cancel/modify/place. Posture:{" "}
-                {locked ? "LOCKED" : "DRY_RUN"}.
+                Posture: {locked ? "LOCKED — mutations disabled" : "OPEN — LIVE mutations enabled"}.
               </p>
             </>
           )}

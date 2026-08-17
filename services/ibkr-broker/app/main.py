@@ -805,6 +805,17 @@ class IBKRClient(EWrapper, EClient):
         return order_id
 
 
+    def cancel_order(self, order_id: int) -> None:
+        self.ensure_connected()
+        oid = int(order_id)
+        try:
+            from ibapi.order_cancel import OrderCancel
+
+            self.cancelOrder(oid, OrderCancel())
+        except (ImportError, TypeError):
+            self.cancelOrder(oid)  # type: ignore[call-arg]
+
+
 ibkr = IBKRClient()
 
 
@@ -1066,6 +1077,25 @@ def execute(proposal_id: str, request: ExecuteRequest):
         raise
     except Exception as exc:
         audit("ORDER_SUBMIT_FAILED", proposal_id, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.delete("/api/orders/{order_id}", dependencies=auth)
+def cancel_broker_order(order_id: int):
+    if emergency_stop():
+        raise HTTPException(423, "Parada de emergencia activada")
+    if not settings.live_trading_enabled:
+        raise HTTPException(423, "LIVE_TRADING_ENABLED está desactivado")
+    if settings.ibkr_read_only:
+        raise HTTPException(423, "IBKR_READ_ONLY sigue activado")
+    try:
+        ibkr.cancel_order(order_id)
+        audit("ORDER_CANCELLED", str(order_id), {"ibkrOrderId": order_id})
+        return {"ok": True, "orderId": order_id, "cancelled": True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        audit("ORDER_CANCEL_FAILED", str(order_id), {"error": str(exc)})
         raise HTTPException(503, str(exc)) from exc
 
 

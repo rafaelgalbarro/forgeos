@@ -41,11 +41,11 @@ export type ExecutionManagerOrderRow = {
 
 export type ExecutionManagerSnapshot = {
   readonly generatedAt: string;
-  readonly mode: "ANALYSIS_ONLY";
-  readonly orderExecution: "disabled";
+  readonly mode: "ANALYSIS_ONLY" | "LIVE";
+  readonly orderExecution: "disabled" | "enabled";
   readonly safety: ExecutionSafetyFlags;
   readonly brokerConnected: boolean | null;
-  readonly dataSource: "IBKR_LIVE_READ_ONLY" | "UNAVAILABLE";
+  readonly dataSource: "IBKR_LIVE_READ_ONLY" | "UNAVAILABLE" | "IBKR_LIVE";
   readonly orders: readonly ExecutionManagerOrderRow[];
   readonly auditItems: readonly ExecutionAuditTimelineItem[];
   readonly executionAudit: ReadonlyArray<{
@@ -60,10 +60,10 @@ export type ExecutionManagerSnapshot = {
 };
 
 export type DryRunActionResult = {
-  readonly allowed: false;
-  readonly posture: "LOCKED" | "DRY_RUN";
+  readonly allowed: boolean;
+  readonly posture: "LOCKED" | "OPEN";
   readonly message: string;
-  readonly wouldMutateBroker: false;
+  readonly wouldMutateBroker: boolean;
   readonly action?: string;
   readonly recordedAt?: string;
 };

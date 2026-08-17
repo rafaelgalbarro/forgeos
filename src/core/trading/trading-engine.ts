@@ -29,7 +29,8 @@ import {
   fetchTradingPosition,
   fetchTradingPrice,
 } from '@/lib/trading/ibkr-data'
-import { ibkrServiceFetch } from '@/lib/ibkr/service-client'
+import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
+import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
 import { getMarketSessionForExchange, getMarketSessionInfo, getUsMarketSession } from './market-session'
 import { recordMlSignal } from '@/lib/ml/signal-trainer'
@@ -769,8 +770,9 @@ export class TradingEngine {
   }
 
   /**
-   * Solo ejecutable tras APPROVED. Paper trading short-circuits without live submit.
-   * Smart plans: REAL submit remains LMT proposal; bracket/VWAP/iceberg fields stay PLANNED in rationale.
+   * Solo ejecutable tras APPROVED.
+   * When LIVE_TRADING_ENABLED=true and IBKR_READ_ONLY=false, completes IBKR proposal → execute (TWS).
+   * Smart plans: REAL submit remains LMT; bracket/VWAP/iceberg fields stay PLANNED in rationale.
    */
   private async executeOrder(params: {
     approvalId: string
@@ -800,16 +802,19 @@ export class TradingEngine {
       )
     }
 
-    if (TRADING_CONFIG.ibkr.paperTrading) {
-      console.log('[TradingEngine] 📄 PAPER TRADE (post-approval):', {
+    const flags = getInvestmentRuntimeFlags()
+    if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
+      console.log('[TradingEngine] PAPER TRADE (post-approval, gate not OPEN):', {
         ...params,
+        liveTradingEnabled: flags.liveTradingEnabled,
+        ibkrReadOnly: flags.ibkrReadOnly,
         smartExecutionNote: params.smartPlan?.realSubmitNote,
       })
       return `PAPER_${Date.now()}`
     }
 
     if (!params.limitPrice || params.limitPrice <= 0) {
-      throw new Error('limitPrice required for live IBKR proposals')
+      throw new Error('limitPrice required for live IBKR orders')
     }
 
     const plannedNote = params.smartPlan
@@ -823,31 +828,22 @@ export class TradingEngine {
           : '')
       : ''
 
-    const proposal = await ibkrServiceFetch<{
-      id?: string
-      status?: string
-    }>('/api/proposals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol: String(params.ticker).toUpperCase(),
-        side: params.direction === 'SELL' ? 'SELL' : 'BUY',
-        quantity: Number(params.shares),
-        order_type: 'LMT',
-        limit_price: params.limitPrice,
-        sec_type: 'STK',
-        currency: 'USD',
-        exchange: 'SMART',
-        outside_rth: params.outsideRth ?? false,
-        rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`.slice(
-          0,
-          4000,
-        ),
-        strategy_id: 'forgeos-trading-engine',
-        account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
-      }),
+    const submitted = await submitSupervisedLiveLimitOrder({
+      symbol: String(params.ticker).toUpperCase(),
+      side: params.direction === 'SELL' ? 'SELL' : 'BUY',
+      quantity: Number(params.shares),
+      limitPrice: params.limitPrice,
+      outsideRth: params.outsideRth ?? false,
+      rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
+      account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
     })
-    return proposal.id ?? `LIVE_${Date.now()}`
+    console.log('[TradingEngine] LIVE ORDER SUBMITTED:', {
+      approvalId: params.approvalId,
+      ticker: params.ticker,
+      ibkrOrderId: submitted.ibkrOrderId,
+      proposalId: submitted.proposalId,
+    })
+    return submitted.ibkrOrderId
   }
 
   private sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }

@@ -51,6 +51,8 @@ describe("execution-manager mutation gate", () => {
       IBKR_READ_ONLY: "true",
     });
     expect(flags.mode).toBe("ANALYSIS_ONLY");
+    expect(flags.gate).toBe("LOCKED");
+    expect(flags.mutationsEnabled).toBe(false);
     expect(isMutationLocked(flags)).toBe(true);
 
     const gate = gateExecutionMutation({
@@ -63,17 +65,18 @@ describe("execution-manager mutation gate", () => {
     expect(gate.wouldMutateBroker).toBe(false);
     expect(gate.posture).toBe("LOCKED");
     expect(gate.message).toMatch(/LOCKED/);
-    expect(gate.message).toMatch(/No broker mutation/);
   });
 
-  it("still never allows broker mutation even if flags look open", () => {
+  it("opens the gate when LIVE_TRADING_ENABLED=true and IBKR_READ_ONLY=false", () => {
     const flags = resolveExecutionSafetyFlags({
       LIVE_TRADING_ENABLED: "true",
       IBKR_READ_ONLY: "false",
     });
-    // Live+writable flips autonomousLock, but ANALYSIS_ONLY mode still locks.
-    expect(flags.mode).toBe("ANALYSIS_ONLY");
-    expect(isMutationLocked(flags)).toBe(true);
+    expect(flags.mode).toBe("LIVE");
+    expect(flags.gate).toBe("OPEN");
+    expect(flags.mutationsEnabled).toBe(true);
+    expect(flags.autonomousLock).toBe("ACTIVE");
+    expect(isMutationLocked(flags)).toBe(false);
 
     const gate = gateExecutionMutation({
       action: "modify",
@@ -81,8 +84,21 @@ describe("execution-manager mutation gate", () => {
       flags,
       orderId: 7,
     });
-    expect(gate.allowed).toBe(false);
-    expect(gate.wouldMutateBroker).toBe(false);
+    expect(gate.allowed).toBe(true);
+    expect(gate.wouldMutateBroker).toBe(true);
+    expect(gate.posture).toBe("OPEN");
+    expect(gate.message).toMatch(/OPEN/);
+  });
+
+  it("stays LOCKED when kill switch is armed even if live flags are open", () => {
+    const flags = resolveExecutionSafetyFlags({
+      LIVE_TRADING_ENABLED: "true",
+      IBKR_READ_ONLY: "false",
+      killSwitchEnabled: true,
+    });
+    expect(flags.gate).toBe("LOCKED");
+    expect(flags.mutationsEnabled).toBe(false);
+    expect(isMutationLocked(flags)).toBe(true);
   });
 });
 
@@ -116,23 +132,10 @@ describe("execution-manager order row mapping", () => {
 });
 
 describe("execution-manager API route", () => {
-  it("exports GET/POST and dry-run action never mutates broker", async () => {
+  it("exports GET/POST", async () => {
     const route = await import("../../api/investment/orders/route");
     expect(typeof route.GET).toBe("function");
     expect(typeof route.POST).toBe("function");
-
-    const { runExecutionManagerDryRunAction } = await import(
-      "@/lib/investment/execution-manager-snapshot"
-    );
-    const body = runExecutionManagerDryRunAction({
-      action: "cancel",
-      state: "Working",
-      orderId: 99,
-    });
-    expect(body.allowed).toBe(false);
-    expect(body.wouldMutateBroker).toBe(false);
-    expect(body.posture === "LOCKED" || body.posture === "DRY_RUN").toBe(true);
-    expect(String(body.message)).toMatch(/No broker mutation|LOCKED|DRY_RUN/i);
   }, 30_000);
 
   it("exports Execution Manager page", async () => {

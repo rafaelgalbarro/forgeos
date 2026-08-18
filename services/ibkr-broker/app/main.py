@@ -34,6 +34,15 @@ from ibapi.wrapper import EWrapper
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# ForgeOS supervised live trading universe (Starter IBKR allowlist when live mode is off).
+DEFAULT_ALLOWED_SYMBOLS = (
+    "SPY,QQQ,IWM,TLT,ARKK,AAPL,MSFT,NVDA,TSLA,AMZN,GOOGL,META,"
+    "EZU,VGK,ASML,SAP,SHOP,SHEL,BP,"
+    "EWJ,FXI,EWY,BABA,NIO,TSM,"
+    "MELI,GRAB,DLO,IBN,"
+    "IBIT,FETH"
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -51,7 +60,7 @@ class Settings(BaseSettings):
     proposal_ttl_seconds: int = 600
     max_order_notional: float = 250
     max_order_quantity: float = 2
-    allowed_symbols: str = "AAPL,MSFT"
+    allowed_symbols: str = DEFAULT_ALLOWED_SYMBOLS
     allowed_currencies: str = "EUR,USD"
     allowed_exchanges: str = "SMART"
     database_path: str = "./forgeos_ibkr.sqlite3"
@@ -998,14 +1007,16 @@ def require_key(x_internal_api_key: str = Header(default="")) -> None:
 
 
 def evaluate_risk(p: ProposalCreate) -> list[dict[str, Any]]:
-    symbols = settings.csv_set(settings.allowed_symbols)
+    # Live supervised mode: symbol allowlist disabled — risk gates are nominal/qty/currency/exchange.
+    symbols = set() if settings.live_trading_enabled else settings.csv_set(settings.allowed_symbols)
     currencies = settings.csv_set(settings.allowed_currencies)
     exchanges = settings.csv_set(settings.allowed_exchanges)
     notional = p.quantity * p.limit_price
+    symbol_detail: Any = "disabled (live_trading_enabled)" if settings.live_trading_enabled else sorted(symbols)
     checks = [
         {"name": "quantity_limit", "passed": p.quantity <= settings.max_order_quantity, "detail": f"máximo {settings.max_order_quantity}"},
         {"name": "notional_limit", "passed": notional <= settings.max_order_notional, "detail": f"nominal {notional:.2f}; máximo {settings.max_order_notional:.2f}"},
-        {"name": "symbol_allowlist", "passed": not symbols or p.symbol.upper() in symbols, "detail": sorted(symbols)},
+        {"name": "symbol_allowlist", "passed": not symbols or p.symbol.upper() in symbols, "detail": symbol_detail},
         {"name": "currency_allowlist", "passed": p.currency.upper() in currencies, "detail": sorted(currencies)},
         {"name": "exchange_allowlist", "passed": p.exchange.upper() in exchanges, "detail": sorted(exchanges)},
         {"name": "limit_order_only", "passed": p.order_type == "LMT", "detail": "solo LMT"},

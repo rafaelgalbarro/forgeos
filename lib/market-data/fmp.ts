@@ -1,15 +1,15 @@
 /**
- * Financial Modeling Prep — sole quotes + EOD history source (stable API, post Aug 2025).
- * Quotes: GET /stable/quote?symbol=
- * History: GET /stable/historical-price-eod/full?symbol=
- * Never invents prices. Never logs the API key.
+ * Financial Modeling Prep — sole quotes + daily history source.
+ * Quote:  GET /api/v3/quote/AAPL or /quote/AAPL,NVDA,SPY
+ * History: GET /api/v3/historical-price-full/AAPL?timeseries=N
+ * IBKR is not used for market data.
  */
 
 import "server-only";
 
-import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
+import { cacheKey, getCached, getOrSetCached, setCached } from "@/lib/market-data/cache";
 
-const FMP_BASE = "https://financialmodelingprep.com/stable";
+const FMP_BASE = "https://financialmodelingprep.com/api/v3";
 const QUOTE_TTL_MS = 60_000;
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
 const BATCH_CHUNK = 50;
@@ -105,11 +105,6 @@ function parseQuote(row: Record<string, unknown>): FmpQuote | null {
   const volume = asFinite(row.volume) ?? 0;
   const changePercentage =
     asFinite(row.changePercentage) ?? asFinite(row.changesPercentage) ?? 0;
-  const yearHigh = asFinite(row.yearHigh) ?? undefined;
-  const yearLow = asFinite(row.yearLow) ?? undefined;
-  const avgVolume = asFinite(row.avgVolume) ?? undefined;
-  const marketCap = asFinite(row.marketCap) ?? undefined;
-  const exchange = typeof row.exchange === "string" ? row.exchange : undefined;
   return {
     symbol,
     price,
@@ -119,11 +114,11 @@ function parseQuote(row: Record<string, unknown>): FmpQuote | null {
     previousClose,
     volume,
     changePercentage,
-    yearHigh,
-    yearLow,
-    avgVolume,
-    marketCap,
-    exchange,
+    yearHigh: asFinite(row.yearHigh) ?? undefined,
+    yearLow: asFinite(row.yearLow) ?? undefined,
+    avgVolume: asFinite(row.avgVolume) ?? undefined,
+    marketCap: asFinite(row.marketCap) ?? undefined,
+    exchange: typeof row.exchange === "string" ? row.exchange : undefined,
   };
 }
 
@@ -162,24 +157,21 @@ function extractHistoricalRows(body: unknown): Record<string, unknown>[] {
   return [];
 }
 
+/** Current price from /quote/{ticker}. */
 export async function getQuote(ticker: string): Promise<FmpQuote | null> {
   if (!isFmpEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
-  const key = cacheKey("fmp-quote", symbol);
-  const hit = getCached<FmpQuote>(key);
-  if (hit) return hit;
 
-  const body = await fmpFetchJson(`/quote?symbol=${encodeURIComponent(symbol)}`);
-  const row = quoteRows(body)[0];
-  if (!row) return null;
-  const quote = parseQuote(row);
-  if (!quote) return null;
-  setCached(key, quote, QUOTE_TTL_MS);
-  setCached(cacheKey("fmp-quote", quote.symbol), quote, QUOTE_TTL_MS);
-  return quote;
+  return getOrSetCached(cacheKey("fmp-quote", symbol), QUOTE_TTL_MS, async () => {
+    const body = await fmpFetchJson(`/quote/${encodeURIComponent(symbol)}`);
+    const row = quoteRows(body)[0];
+    if (!row) return null;
+    return parseQuote(row);
+  });
 }
 
+/** Multiple prices in one /quote/AAPL,NVDA,SPY call (chunked at 50). */
 export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<string, FmpQuote>> {
   const out = new Map<string, FmpQuote>();
   if (!isFmpEnabled() || tickers.length === 0) return out;
@@ -195,8 +187,7 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
 
   for (let i = 0; i < missing.length; i += BATCH_CHUNK) {
     const chunk = missing.slice(i, i + BATCH_CHUNK);
-    const joined = chunk.map((s) => encodeURIComponent(s)).join(",");
-    const body = await fmpFetchJson(`/quote?symbol=${joined}`);
+    const body = await fmpFetchJson(`/quote/${chunk.join(",")}`);
     for (const row of quoteRows(body)) {
       const quote = parseQuote(row);
       if (!quote) continue;
@@ -208,32 +199,34 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
   return out;
 }
 
+/** Daily OHLCV from /historical-price-full/{ticker}?timeseries=N — 24h cache. */
 export async function getHistory(ticker: string, days: number): Promise<FmpBar[]> {
   if (!isFmpEnabled()) return [];
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return [];
-  const safeDays = Math.max(1, Math.floor(Number(days)) || 90);
-  const key = cacheKey("fmp-hist", symbol);
-  const hit = getCached<FmpBar[]>(key);
-  if (hit) return hit.slice(-safeDays);
+  const safeDays = Math.max(1, Math.min(Math.floor(Number(days)) || 30, 5000));
 
-  const body = await fmpFetchJson(`/historical-price-eod/full?symbol=${encodeURIComponent(symbol)}`);
-  if (body == null) return [];
-  const bars = extractHistoricalRows(body)
-    .map(parseBar)
-    .filter((b): b is FmpBar => b != null)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (bars.length === 0) return [];
-  setCached(key, bars, HISTORY_TTL_MS);
+  const bars = await getOrSetCached(cacheKey("fmp-hist", symbol, String(safeDays)), HISTORY_TTL_MS, async () => {
+    const body = await fmpFetchJson(
+      `/historical-price-full/${encodeURIComponent(symbol)}?timeseries=${safeDays}`,
+    );
+    if (body == null) return [];
+    return extractHistoricalRows(body)
+      .map(parseBar)
+      .filter((b): b is FmpBar => b != null)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  });
   return bars.slice(-safeDays);
 }
 
+/** FOREX quote — /quote/EURUSD. */
 export async function getForexQuote(pair: string): Promise<FmpQuote | null> {
   const symbol = normalizeFmpForexSymbol(pair);
   if (!symbol) return null;
   return getQuote(symbol);
 }
 
+/** FOREX daily history — /historical-price-full/EURUSD. */
 export async function getForexHistory(pair: string, days: number): Promise<FmpBar[]> {
   const symbol = normalizeFmpForexSymbol(pair);
   if (!symbol) return [];

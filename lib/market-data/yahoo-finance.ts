@@ -1,12 +1,25 @@
 import "server-only";
 
+import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import { FOREX_PAIRS } from "@/lib/investment/forex/config";
 import { cacheKey, getCached, getOrSetCached, setCached } from "@/lib/market-data/cache";
+import {
+  chartIntervalToPolygon,
+  chartRangeToDates,
+  fetchPolygonAggregates,
+  fetchPolygonTickerDetails,
+  getPolygonBatchQuotes,
+  isPolygonEnabled,
+  polygonBarsToYahoo,
+  polygonDetailsToYahooInfo,
+} from "@/lib/market-data/polygon";
 import {
   BARS_CACHE_TTL_MS,
   FUNDAMENTALS_CACHE_TTL_MS,
   PRICE_CACHE_TTL_MS,
   getDataRefreshPolicy,
 } from "@/lib/market-data/refresh-policy";
+import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
 
 export type YahooQuote = {
   symbol: string;
@@ -35,6 +48,9 @@ export type YahooTickerInfo = {
 const BATCH_SIZE = 200;
 const MAX_RETRIES = 3;
 
+/** Once Yahoo returns 401, skip all remaining Yahoo HTTP for this process. */
+let yahooUnauthorized401 = false;
+
 function envBool(name: string, defaultValue = true): boolean {
   const v = process.env[name]?.trim().toLowerCase();
   if (!v) return defaultValue;
@@ -42,10 +58,241 @@ function envBool(name: string, defaultValue = true): boolean {
 }
 
 export function isYahooFinanceEnabled(): boolean {
+  if (yahooUnauthorized401) return false;
   return envBool("USE_YAHOO_FINANCE", true);
 }
 
+type IbkrMappedContract = {
+  yahooSymbol: string;
+  symbol: string;
+  currency: string;
+  exchange: string;
+  secType: "STK" | "CASH";
+  whatToShow: "TRADES" | "MIDPOINT";
+};
+
+const IBKR_QUOTE_CONCURRENCY = 3;
+const IBKR_FETCH_TIMEOUT_MS = 12_000;
+
+function mapTickerToIbkrContracts(ticker: string): IbkrMappedContract[] {
+  const yahooSymbol = ticker.trim().toUpperCase();
+  if (!yahooSymbol || yahooSymbol.startsWith("^")) return [];
+
+  const fxKey = yahooSymbol.endsWith("=X")
+    ? yahooSymbol.slice(0, -2)
+    : yahooSymbol.includes("/")
+      ? yahooSymbol.replace("/", "")
+      : yahooSymbol;
+  const pair = FOREX_PAIRS.find((p) => p.pairId === fxKey);
+  if (pair) {
+    return [
+      {
+        yahooSymbol,
+        symbol: pair.symbol,
+        currency: pair.currency,
+        exchange: pair.exchange,
+        secType: "CASH",
+        whatToShow: "MIDPOINT",
+      },
+    ];
+  }
+  if (yahooSymbol.endsWith("=X") && fxKey.length === 6) {
+    return [
+      {
+        yahooSymbol,
+        symbol: fxKey.slice(0, 3),
+        currency: fxKey.slice(3),
+        exchange: "IDEALPRO",
+        secType: "CASH",
+        whatToShow: "MIDPOINT",
+      },
+    ];
+  }
+
+  return quoteRoutesForTicker(yahooSymbol).map((route) => ({
+    yahooSymbol,
+    symbol: route.symbol,
+    currency: route.currency,
+    exchange: route.exchange,
+    secType: "STK" as const,
+    whatToShow: "TRADES" as const,
+  }));
+}
+
+function yahooRangeToIbkrDuration(range: string): string {
+  switch (range.trim().toLowerCase()) {
+    case "1d":
+      return "1 D";
+    case "5d":
+      return "5 D";
+    case "1wk":
+    case "7d":
+      return "1 W";
+    case "1mo":
+      return "1 M";
+    case "3mo":
+      return "3 M";
+    case "6mo":
+      return "6 M";
+    default:
+      return "1 Y";
+  }
+}
+
+function yahooIntervalToIbkrBarSize(interval: YahooChartInterval): string | null {
+  switch (interval) {
+    case "1m":
+      return "1 min";
+    case "5m":
+      return "5 mins";
+    case "15m":
+      return "15 mins";
+    case "60m":
+    case "1h":
+      return "1 hour";
+    case "1d":
+      return "1 day";
+    default:
+      return null;
+  }
+}
+
+async function runPool<T>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return;
+  let next = 0;
+  const n = Math.min(Math.max(1, concurrency), items.length);
+  await Promise.all(
+    Array.from({ length: n }, async () => {
+      while (true) {
+        const idx = next;
+        next += 1;
+        if (idx >= items.length) return;
+        await worker(items[idx]!);
+      }
+    }),
+  );
+}
+
+function ibkrQuoteToYahoo(
+  yahooSymbol: string,
+  data: {
+    last?: number | null;
+    currentPrice?: number | null;
+    mid?: number | null;
+    bid?: number | null;
+    ask?: number | null;
+    exchange?: string;
+  },
+): YahooQuote | null {
+  const price = Number(data.last ?? data.currentPrice ?? data.mid ?? 0);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const bid = Number(data.bid ?? price);
+  const ask = Number(data.ask ?? price);
+  return {
+    symbol: yahooSymbol,
+    price,
+    changePct: 0,
+    volume: 0,
+    avgVolume: 0,
+    high52w: price,
+    low52w: price,
+    bid: Number.isFinite(bid) && bid > 0 ? bid : price,
+    ask: Number.isFinite(ask) && ask > 0 ? ask : price,
+    exchange: data.exchange,
+  };
+}
+
+async function fetchIbkrQuoteForTicker(ticker: string): Promise<YahooQuote | null> {
+  const contracts = mapTickerToIbkrContracts(ticker);
+  for (const contract of contracts) {
+    try {
+      const params = new URLSearchParams({
+        symbol: contract.symbol,
+        currency: contract.currency,
+        exchange: contract.exchange,
+        secType: contract.secType,
+      });
+      const data = await ibkrServiceFetch<{
+        last?: number | null;
+        currentPrice?: number | null;
+        mid?: number | null;
+        bid?: number | null;
+        ask?: number | null;
+        exchange?: string;
+      }>(`/api/ibkr/quote?${params.toString()}`, {
+        signal: AbortSignal.timeout(IBKR_FETCH_TIMEOUT_MS),
+      });
+      const quote = ibkrQuoteToYahoo(contract.yahooSymbol, data);
+      if (quote) return quote;
+    } catch {
+      /* try next IBKR route */
+    }
+  }
+  return null;
+}
+
+async function fetchIbkrChartBars(
+  ticker: string,
+  interval: YahooChartInterval,
+  range: string,
+): Promise<YahooOhlcvBar[]> {
+  const barSize = yahooIntervalToIbkrBarSize(interval);
+  if (!barSize) return [];
+  const duration = yahooRangeToIbkrDuration(range);
+  const contracts = mapTickerToIbkrContracts(ticker);
+
+  for (const contract of contracts) {
+    try {
+      const params = new URLSearchParams({
+        symbol: contract.symbol,
+        duration,
+        barSize,
+        currency: contract.currency,
+        exchange: contract.exchange,
+        secType: contract.secType,
+        whatToShow: contract.whatToShow,
+      });
+      const history = await ibkrServiceFetch<{
+        bars?: Array<{
+          open?: number;
+          high?: number;
+          low?: number;
+          close?: number;
+          volume?: number;
+          date?: string;
+        }>;
+      }>(`/api/ibkr/history?${params.toString()}`, {
+        signal: AbortSignal.timeout(IBKR_FETCH_TIMEOUT_MS),
+      });
+      const bars: YahooOhlcvBar[] = [];
+      for (const raw of history.bars ?? []) {
+        const close = Number(raw.close ?? 0);
+        if (!Number.isFinite(close) || close <= 0) continue;
+        bars.push({
+          open: Number(raw.open ?? close),
+          high: Number(raw.high ?? close),
+          low: Number(raw.low ?? close),
+          close,
+          volume: Number(raw.volume ?? 0),
+          date: raw.date,
+        });
+      }
+      if (bars.length > 0) return bars;
+    } catch {
+      /* try next IBKR route */
+    }
+  }
+  return [];
+}
+
 async function fetchWithRetry(url: string, init?: RequestInit, retries = MAX_RETRIES): Promise<Response> {
+  if (yahooUnauthorized401) {
+    throw new Error("HTTP 401");
+  }
   let lastErr: unknown;
   for (let i = 0; i < retries; i += 1) {
     try {
@@ -60,13 +307,20 @@ async function fetchWithRetry(url: string, init?: RequestInit, retries = MAX_RET
         signal: AbortSignal.timeout(25_000),
       });
       if (res.ok) return res;
+      if (res.status === 401) {
+        yahooUnauthorized401 = true;
+        console.warn("[YahooFinance] unauthorized (401) — skipping Yahoo for remaining requests");
+        throw new Error("HTTP 401");
+      }
       if (res.status === 429 && i < retries - 1) {
         await new Promise((r) => setTimeout(r, 800 * (i + 1)));
         continue;
       }
       lastErr = new Error(`HTTP ${res.status}`);
+      if (res.status !== 429) break;
     } catch (err) {
       lastErr = err;
+      if (err instanceof Error && err.message.includes("401")) break;
       if (i < retries - 1) await new Promise((r) => setTimeout(r, 500 * (i + 1)));
     }
   }
@@ -95,21 +349,7 @@ function parseQuoteRow(row: Record<string, unknown>): YahooQuote | null {
   };
 }
 
-function rangeToPolygonDates(range: string): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date(to);
-  const r = range.trim().toLowerCase();
-  if (r.endsWith("d")) from.setDate(from.getDate() - Number.parseInt(r, 10));
-  else if (r.endsWith("mo")) from.setMonth(from.getMonth() - Number.parseInt(r, 10));
-  else if (r.endsWith("y")) from.setFullYear(from.getFullYear() - Number.parseInt(r, 10));
-  else from.setMonth(from.getMonth() - 3);
-  return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
-  };
-}
-
-/** Single-ticker Yahoo quote — used by Polygon fallback and direct Yahoo paths. */
+/** Single-ticker Yahoo quote — Yahoo only. IBKR wrappers call this after IBKR misses. */
 export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote | null> {
   if (!isYahooFinanceEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
@@ -121,7 +361,6 @@ export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote 
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
   try {
     const res = await fetchWithRetry(url);
-    if (res.status === 401) return null;
     const data = (await res.json()) as { quoteResponse?: { result?: Record<string, unknown>[] } };
     const q = parseQuoteRow(data.quoteResponse?.result?.[0] ?? {});
     if (q) setCached(cacheKey("yahoo-quote", q.symbol), q, ttl);
@@ -131,7 +370,7 @@ export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote 
   }
 }
 
-/** Raw Yahoo chart bars — Polygon history fallback. */
+/** Raw Yahoo chart bars — IBKR history fallback. */
 export async function fetchYahooChartBarsRaw(
   ticker: string,
   interval: YahooChartInterval = "1d",
@@ -140,10 +379,9 @@ export async function fetchYahooChartBarsRaw(
   if (!isYahooFinanceEnabled()) return [];
   const symbol = ticker.trim().toUpperCase();
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
-  try {
-    const res = await fetchWithRetry(url);
-    if (res.status === 401) return [];
-    const data = (await res.json()) as {
+    try {
+      const res = await fetchWithRetry(url);
+      const data = (await res.json()) as {
       chart?: {
         result?: Array<{
           timestamp?: number[];
@@ -198,10 +436,6 @@ async function fetchYahooBatchPricesRaw(tickers: readonly string[]): Promise<Map
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(","))}`;
     try {
       const res = await fetchWithRetry(url);
-      if (res.status === 401) {
-        console.warn("[YahooFinance] batch unauthorized (401) — skipping Yahoo for remaining symbols");
-        break;
-      }
       const data = (await res.json()) as { quoteResponse?: { result?: Record<string, unknown>[] } };
       for (const row of data.quoteResponse?.result ?? []) {
         const q = parseQuoteRow(row);
@@ -215,12 +449,13 @@ async function fetchYahooBatchPricesRaw(tickers: readonly string[]): Promise<Map
         `[YahooFinance] batch ${i}-${i + chunk.length} failed:`,
         err instanceof Error ? err.message : err,
       );
+      if (!isYahooFinanceEnabled()) break;
     }
   }
   return out;
 }
 
-/** Batch quotes — Polygon.io first, Yahoo Finance fallback; 5m in-memory TTL. */
+/** Batch quotes — Polygon PRIMARY when keyed, then IBKR, then Yahoo. */
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   if (tickers.length === 0) return out;
@@ -237,18 +472,25 @@ export async function getBatchPrices(tickers: readonly string[]): Promise<Map<st
 
   if (missing.length === 0) return out;
 
-  try {
-    const { getPolygonBatchQuotes, isPolygonEnabled } = await import("@/lib/market-data/polygon");
-    if (isPolygonEnabled()) {
+  if (isPolygonEnabled()) {
+    try {
       const polygonQuotes = await getPolygonBatchQuotes(missing);
       for (const [symbol, q] of polygonQuotes) {
         out.set(symbol, q);
         setCached(cacheKey("yahoo-quote", symbol), q, ttl);
       }
+    } catch (err) {
+      console.warn("[MarketData] Polygon batch failed:", err instanceof Error ? err.message : err);
     }
-  } catch (err) {
-    console.warn("[MarketData] Polygon batch failed:", err instanceof Error ? err.message : err);
   }
+
+  const afterPolygon = missing.filter((s) => !out.has(s));
+  await runPool(afterPolygon, IBKR_QUOTE_CONCURRENCY, async (symbol) => {
+    const quote = await fetchIbkrQuoteForTicker(symbol);
+    if (!quote) return;
+    out.set(symbol, quote);
+    setCached(cacheKey("yahoo-quote", symbol), quote, ttl);
+  });
 
   const stillMissing = missing.filter((s) => !out.has(s));
   if (stillMissing.length > 0) {
@@ -259,11 +501,20 @@ export async function getBatchPrices(tickers: readonly string[]): Promise<Map<st
   return out;
 }
 
-/** Fundamentals + metadata for one ticker. */
+/** Fundamentals + metadata for one ticker. Yahoo only (IBKR has no sector/PE). */
 export async function getTickerInfo(ticker: string): Promise<YahooTickerInfo | null> {
-  if (!isYahooFinanceEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
+  if (!symbol) return null;
   return getOrSetCached(cacheKey("yahoo-info", symbol), FUNDAMENTALS_CACHE_TTL_MS, async () => {
+    if (isPolygonEnabled()) {
+      try {
+        const details = await fetchPolygonTickerDetails(symbol);
+        if (details) return polygonDetailsToYahooInfo(details);
+      } catch (err) {
+        console.warn("[MarketData] Polygon ticker info failed:", err instanceof Error ? err.message : err);
+      }
+    }
+    if (!isYahooFinanceEnabled()) return null;
     const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile,summaryDetail,price`;
     try {
       const res = await fetchWithRetry(url);
@@ -364,13 +615,41 @@ const FUNDAMENTAL_MODULES = [
 
 /**
  * Extended quoteSummary fundamentals for long-term value analysis.
- * Missing modules are listed — callers should render NO_DATA, never invent.
- * Cached 1 hour.
+ * Yahoo modules only — IBKR does not provide ratios. Missing modules are listed;
+ * callers should render NO_DATA, never invent. Cached 1 hour.
  */
 export async function getYahooFundamentals(ticker: string): Promise<YahooFundamentals | null> {
-  if (!isYahooFinanceEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
+  if (!symbol) return null;
   return getOrSetCached(cacheKey("yahoo-fundamentals", symbol), FUNDAMENTALS_CACHE_TTL_MS, async () => {
+    let polygonPartial: YahooFundamentals | null = null;
+    if (isPolygonEnabled()) {
+      try {
+        const details = await fetchPolygonTickerDetails(symbol);
+        if (details) {
+          polygonPartial = {
+            symbol,
+            shortName: details.name,
+            industry: details.sicDescription,
+            trailingPE: null,
+            priceToBook: null,
+            returnOnEquity: null,
+            debtToEquity: null,
+            dividendYield: null,
+            dividendRate: null,
+            recommendationKey: null,
+            recommendationMean: null,
+            marketCap: details.marketCap ?? null,
+            repurchaseOfStock: null,
+            modulesPresent: ["polygon.reference.tickers"],
+            modulesMissing: [...FUNDAMENTAL_MODULES],
+          };
+        }
+      } catch (err) {
+        console.warn("[MarketData] Polygon fundamentals failed:", err instanceof Error ? err.message : err);
+      }
+    }
+    if (!isYahooFinanceEnabled()) return polygonPartial;
     const modules = FUNDAMENTAL_MODULES.join(",");
     const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
     try {
@@ -382,7 +661,7 @@ export async function getYahooFundamentals(ticker: string): Promise<YahooFundame
         };
       };
       const row = data.quoteSummary?.result?.[0];
-      if (!row) return null;
+      if (!row) return polygonPartial;
 
       const present: string[] = [];
       const missing: string[] = [];
@@ -439,7 +718,7 @@ export async function getYahooFundamentals(ticker: string): Promise<YahooFundame
         modulesMissing: missing,
       };
     } catch {
-      return null;
+      return polygonPartial;
     }
   });
 }
@@ -674,8 +953,7 @@ export type YahooOhlcvBar = {
 };
 
 /**
- * Multi-interval OHLCV via Yahoo chart API.
- * Intervals: 5m, 60m/1h, 1d, 1wk. Returns [] on failure / disabled.
+ * Multi-interval OHLCV. Polygon PRIMARY when keyed; then IBKR; Yahoo last.
  */
 export async function getChartBars(
   ticker: string,
@@ -689,22 +967,25 @@ export async function getChartBars(
     cacheKey("yahoo-chart", symbol, interval, range),
     BARS_CACHE_TTL_MS,
     async () => {
-      if (interval === "1d") {
+      if (isPolygonEnabled()) {
         try {
-          const { getHistory, isPolygonEnabled, polygonBarsToYahoo } = await import(
-            "@/lib/market-data/polygon"
-          );
-          if (isPolygonEnabled()) {
-            const { from, to } = rangeToPolygonDates(range);
-            const polygonBars = await getHistory(symbol, from, to);
-            if (polygonBars.length > 0) return polygonBarsToYahoo(polygonBars);
-          }
+          const { multiplier, timespan } = chartIntervalToPolygon(interval);
+          const { from, to } = chartRangeToDates(range);
+          const polygonBars = await fetchPolygonAggregates(symbol, multiplier, timespan, from, to);
+          if (polygonBars.length > 0) return polygonBarsToYahoo(polygonBars);
         } catch (err) {
           console.warn(
             "[MarketData] Polygon chart failed:",
             err instanceof Error ? err.message : err,
           );
         }
+      }
+
+      try {
+        const ibkrBars = await fetchIbkrChartBars(symbol, interval, range);
+        if (ibkrBars.length > 0) return ibkrBars;
+      } catch (err) {
+        console.warn("[MarketData] IBKR chart failed:", err instanceof Error ? err.message : err);
       }
 
       if (!isYahooFinanceEnabled()) return [];

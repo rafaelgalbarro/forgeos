@@ -1,5 +1,5 @@
 /**
- * FOREX live market data — IBKR IDEALPRO quotes/bars + Polygon FX + Yahoo fallback.
+ * FOREX live market data — IBKR IDEALPRO CASH first, Yahoo Finance fallback only.
  * Quotes cached ~1s for sub-second UI polls without hammering IBKR.
  */
 
@@ -7,8 +7,7 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
-import { getForexQuote } from "@/lib/market-data/polygon";
-import { getBatchPrices, getChartBars, type YahooOhlcvBar } from "@/lib/market-data/yahoo-finance";
+import { fetchYahooChartBarsRaw, fetchYahooQuoteSingle, type YahooOhlcvBar } from "@/lib/market-data/yahoo-finance";
 import {
   FOREX_PAIRS,
   getForexPair,
@@ -30,7 +29,7 @@ export type ForexLiveQuote = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "IBKR" | "POLYGON" | "YAHOO" | "NO_DATA";
+  source: "IBKR" | "YAHOO" | "NO_DATA";
   updatedAt: string;
 };
 
@@ -43,7 +42,7 @@ export type ForexHistoryResult = {
   pairId: string;
   display: string;
   timeframe: ForexTimeframe;
-  source: "IBKR" | "POLYGON" | "YAHOO" | "NO_DATA";
+  source: "IBKR" | "YAHOO" | "NO_DATA";
   bars: ForexCandle[];
   count: number;
   generatedAt: string;
@@ -112,7 +111,7 @@ async function loadIbkrQuotesRaw(): Promise<ForexLiveQuote[]> {
         spreadPips?: number | null;
       }>;
     }>("/api/forex/quotes");
-    return (data.quotes ?? []).map((q) => ({
+    const fromDedicated = (data.quotes ?? []).map((q) => ({
       pairId: q.pairId,
       display: q.display ?? q.pairId,
       bid: typeof q.bid === "number" ? q.bid : null,
@@ -122,17 +121,47 @@ async function loadIbkrQuotesRaw(): Promise<ForexLiveQuote[]> {
       source: q.bid != null && q.ask != null ? ("IBKR" as const) : ("NO_DATA" as const),
       updatedAt: now,
     }));
+    if (fromDedicated.some((q) => q.mid != null)) return fromDedicated;
   } catch {
-    return [];
+    /* fall through to generic /api/ibkr/quote CASH */
   }
-}
 
-async function polygonFallbackQuotes(): Promise<ForexLiveQuote[]> {
-  const now = new Date().toISOString();
   const rows = await Promise.all(
     FOREX_PAIRS.map(async (p) => {
-      const fx = await getForexQuote(p.pairId).catch(() => null);
-      if (!fx || !Number.isFinite(fx.mid)) {
+      try {
+        const params = new URLSearchParams({
+          symbol: p.symbol,
+          currency: p.currency,
+          exchange: p.exchange,
+          secType: p.secType,
+        });
+        const data = await ibkrServiceFetch<{
+          bid?: number | null;
+          ask?: number | null;
+          last?: number | null;
+          mid?: number | null;
+        }>(`/api/ibkr/quote?${params.toString()}`);
+        const bid = typeof data.bid === "number" ? data.bid : null;
+        const ask = typeof data.ask === "number" ? data.ask : null;
+        const mid =
+          typeof data.mid === "number"
+            ? data.mid
+            : typeof data.last === "number"
+              ? data.last
+              : bid != null && ask != null
+                ? (bid + ask) / 2
+                : null;
+        return {
+          pairId: p.pairId,
+          display: p.display,
+          bid,
+          ask,
+          mid,
+          spreadPips: bid != null && ask != null ? priceToPips(p, bid, ask) : null,
+          source: mid != null ? ("IBKR" as const) : ("NO_DATA" as const),
+          updatedAt: now,
+        };
+      } catch {
         return {
           pairId: p.pairId,
           display: p.display,
@@ -144,16 +173,6 @@ async function polygonFallbackQuotes(): Promise<ForexLiveQuote[]> {
           updatedAt: now,
         };
       }
-      return {
-        pairId: p.pairId,
-        display: p.display,
-        bid: fx.bid,
-        ask: fx.ask,
-        mid: fx.mid,
-        spreadPips: priceToPips(p, fx.bid, fx.ask),
-        source: (fx.source === "polygon" ? "POLYGON" : "YAHOO") as "POLYGON" | "YAHOO",
-        updatedAt: fx.timestamp ?? now,
-      };
     }),
   );
   return rows;
@@ -161,42 +180,38 @@ async function polygonFallbackQuotes(): Promise<ForexLiveQuote[]> {
 
 async function yahooFallbackQuotes(): Promise<ForexLiveQuote[]> {
   const now = new Date().toISOString();
-  const map = await getBatchPrices(FOREX_PAIRS.map((p) => yahooSymbol(p))).catch(() => new Map());
-  return FOREX_PAIRS.map((p) => {
-    const q = map.get(yahooSymbol(p));
-    if (!q || !Number.isFinite(q.price)) {
+  const rows = await Promise.all(
+    FOREX_PAIRS.map(async (p) => {
+      const q = await fetchYahooQuoteSingle(yahooSymbol(p)).catch(() => null);
+      if (!q || !Number.isFinite(q.price)) {
+        return {
+          pairId: p.pairId,
+          display: p.display,
+          bid: null,
+          ask: null,
+          mid: null,
+          spreadPips: null,
+          source: "NO_DATA" as const,
+          updatedAt: now,
+        };
+      }
+      const mid = q.price;
+      const half = p.jpyQuoted ? 0.005 : 0.00005;
+      const bid = mid - half;
+      const ask = mid + half;
       return {
         pairId: p.pairId,
         display: p.display,
-        bid: null,
-        ask: null,
-        mid: null,
-        spreadPips: null,
-        source: "NO_DATA" as const,
+        bid,
+        ask,
+        mid,
+        spreadPips: priceToPips(p, bid, ask),
+        source: "YAHOO" as const,
         updatedAt: now,
       };
-    }
-    const mid = q.price;
-    const half = p.jpyQuoted ? 0.005 : 0.00005;
-    const bid = mid - half;
-    const ask = mid + half;
-    return {
-      pairId: p.pairId,
-      display: p.display,
-      bid,
-      ask,
-      mid,
-      spreadPips: priceToPips(p, bid, ask),
-      source: "YAHOO" as const,
-      updatedAt: now,
-    };
-  });
-}
-
-async function externalFallbackQuotes(): Promise<ForexLiveQuote[]> {
-  const polygon = await polygonFallbackQuotes();
-  if (polygon.some((q) => q.mid != null)) return polygon;
-  return yahooFallbackQuotes();
+    }),
+  );
+  return rows;
 }
 
 /** Live bid/ask for all 9 pairs — ~1s in-memory TTL. */
@@ -213,14 +228,14 @@ export async function getForexLiveQuotes(): Promise<{
 
   let quotes = await loadIbkrQuotesRaw();
   if (quotes.every((q) => q.mid == null)) {
-    quotes = await externalFallbackQuotes();
+    quotes = await yahooFallbackQuotes();
   } else {
     const missing = FOREX_PAIRS.filter((p) => !quotes.some((q) => q.pairId === p.pairId && q.mid != null));
     if (missing.length) {
-      const external = await externalFallbackQuotes();
+      const yahoo = await yahooFallbackQuotes();
       const byId = new Map(quotes.map((q) => [q.pairId, q]));
       for (const m of missing) {
-        const y = external.find((q) => q.pairId === m.pairId);
+        const y = yahoo.find((q) => q.pairId === m.pairId);
         if (y) byId.set(m.pairId, y);
       }
       quotes = FOREX_PAIRS.map(
@@ -244,8 +259,62 @@ export async function getForexLiveQuotes(): Promise<{
   return { quotes, generatedAt, fromCache: false };
 }
 
+function mapIbkrBars(
+  bars: Array<{
+    open?: number;
+    high?: number;
+    low?: number;
+    close?: number;
+    volume?: number;
+    date?: string;
+  }>,
+): ForexCandle[] {
+  return bars
+    .map((b) =>
+      toCandle({
+        open: Number(b.open),
+        high: Number(b.high),
+        low: Number(b.low),
+        close: Number(b.close),
+        volume: Number(b.volume ?? 0),
+        date: b.date,
+      }),
+    )
+    .filter((b): b is ForexCandle => b != null);
+}
+
 async function loadIbkrBars(pairId: string, tf: ForexTimeframe): Promise<ForexCandle[]> {
   const spec = FOREX_TF_SPECS[tf];
+  const pair = getForexPair(pairId.toUpperCase() as ForexPairId);
+
+  if (pair) {
+    try {
+      const params = new URLSearchParams({
+        symbol: pair.symbol,
+        duration: spec.ibkrDuration,
+        barSize: spec.ibkrBarSize,
+        currency: pair.currency,
+        exchange: pair.exchange,
+        secType: pair.secType,
+        whatToShow: "MIDPOINT",
+      });
+      const data = await ibkrServiceFetch<{
+        bars?: Array<{
+          open?: number;
+          high?: number;
+          low?: number;
+          close?: number;
+          volume?: number;
+          date?: string;
+        }>;
+      }>(`/api/ibkr/history?${params.toString()}`);
+      const bars = mapIbkrBars(data.bars ?? []);
+      if (bars.length > 0) return bars;
+    } catch {
+      /* dedicated FOREX history next */
+    }
+  }
+
   try {
     const data = await ibkrServiceFetch<{
       bars?: Array<{
@@ -261,18 +330,7 @@ async function loadIbkrBars(pairId: string, tf: ForexTimeframe): Promise<ForexCa
         `&duration=${encodeURIComponent(spec.ibkrDuration)}` +
         `&barSize=${encodeURIComponent(spec.ibkrBarSize)}`,
     );
-    return (data.bars ?? [])
-      .map((b) =>
-        toCandle({
-          open: Number(b.open),
-          high: Number(b.high),
-          low: Number(b.low),
-          close: Number(b.close),
-          volume: Number(b.volume ?? 0),
-          date: b.date,
-        }),
-      )
-      .filter((b): b is ForexCandle => b != null);
+    return mapIbkrBars(data.bars ?? []);
   } catch {
     return [];
   }
@@ -280,7 +338,7 @@ async function loadIbkrBars(pairId: string, tf: ForexTimeframe): Promise<ForexCa
 
 async function loadYahooBars(pair: ForexIbkrContract, tf: ForexTimeframe): Promise<ForexCandle[]> {
   const spec = FOREX_TF_SPECS[tf];
-  const raw: YahooOhlcvBar[] = await getChartBars(
+  const raw: YahooOhlcvBar[] = await fetchYahooChartBarsRaw(
     yahooSymbol(pair),
     spec.yahooInterval,
     spec.yahooRange,
@@ -300,7 +358,7 @@ async function loadYahooBars(pair: ForexIbkrContract, tf: ForexTimeframe): Promi
   return aggregateBars(candles, spec.aggregate);
 }
 
-/** OHLCV for one pair/timeframe — IBKR first, Yahoo FX fallback. */
+/** OHLCV for one pair/timeframe — IBKR CASH/IDEALPRO first, Yahoo fallback. */
 export async function getForexHistory(
   pairIdRaw: string,
   timeframeRaw?: string | null,
@@ -335,9 +393,8 @@ export async function getForexHistory(
     note:
       bars.length > 0
         ? `${bars.length} velas ${timeframe} via ${source}`
-        : "NO_DATA — sin historial IBKR/Polygon/Yahoo para este TF",
+        : "NO_DATA — sin historial IBKR/Yahoo para este TF",
   };
-  // Short TF refresh often; daily slower
   const ttl =
     timeframe === "1m" || timeframe === "5m"
       ? 15_000

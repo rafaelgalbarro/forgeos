@@ -6,7 +6,7 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
-import { getBatchPrices } from "@/lib/market-data/yahoo-finance";
+import { fetchYahooQuoteSingle } from "@/lib/market-data/yahoo-finance";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import {
   FOREX_PAIRS,
@@ -89,35 +89,66 @@ async function loadIbkrQuotes(): Promise<{ quotes: ForexQuoteRow[]; errors: stri
 }
 
 async function yahooFallbackQuotes(): Promise<ForexQuoteRow[]> {
-  const map = await getBatchPrices(FOREX_PAIRS.map((p) => yahooSymbol(p))).catch(() => new Map());
-  return FOREX_PAIRS.map((p) => {
-    const q = map.get(yahooSymbol(p));
-    if (!q || !Number.isFinite(q.price)) {
+  return Promise.all(
+    FOREX_PAIRS.map(async (p) => {
+      const q = await fetchYahooQuoteSingle(yahooSymbol(p)).catch(() => null);
+      if (!q || !Number.isFinite(q.price)) {
+        return {
+          pairId: p.pairId,
+          display: p.display,
+          bid: null,
+          ask: null,
+          mid: null,
+          spreadPips: null,
+          source: "NO_DATA" as const,
+        };
+      }
+      const mid = q.price;
+      const half = p.jpyQuoted ? 0.005 : 0.00005;
       return {
         pairId: p.pairId,
         display: p.display,
-        bid: null,
-        ask: null,
-        mid: null,
-        spreadPips: null,
-        source: "NO_DATA" as const,
+        bid: mid - half,
+        ask: mid + half,
+        mid,
+        spreadPips: priceToPips(p, mid - half, mid + half),
+        source: "YAHOO" as const,
       };
-    }
-    const mid = q.price;
-    const half = p.jpyQuoted ? 0.005 : 0.00005;
-    return {
-      pairId: p.pairId,
-      display: p.display,
-      bid: mid - half,
-      ask: mid + half,
-      mid,
-      spreadPips: priceToPips(p, mid - half, mid + half),
-      source: "YAHOO" as const,
-    };
-  });
+    }),
+  );
 }
 
 async function loadHistoryBars(pairId: string): Promise<ForexBar[]> {
+  const pair = FOREX_PAIRS.find((p) => p.pairId === pairId);
+  if (pair) {
+    try {
+      const params = new URLSearchParams({
+        symbol: pair.symbol,
+        duration: "5 D",
+        barSize: "5 mins",
+        currency: pair.currency,
+        exchange: pair.exchange,
+        secType: pair.secType,
+        whatToShow: "MIDPOINT",
+      });
+      const data = await ibkrServiceFetch<{
+        bars?: Array<{ open?: number; high?: number; low?: number; close?: number; date?: string }>;
+      }>(`/api/ibkr/history?${params.toString()}`);
+      const bars = (data.bars ?? [])
+        .map((b) => ({
+          date: b.date,
+          open: Number(b.open),
+          high: Number(b.high),
+          low: Number(b.low),
+          close: Number(b.close),
+        }))
+        .filter((b) => [b.open, b.high, b.low, b.close].every((n) => Number.isFinite(n)));
+      if (bars.length > 0) return bars;
+    } catch {
+      /* dedicated FOREX history next */
+    }
+  }
+
   try {
     const data = await ibkrServiceFetch<{
       bars?: Array<{ open?: number; high?: number; low?: number; close?: number; date?: string }>;

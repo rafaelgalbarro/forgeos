@@ -492,13 +492,31 @@ class IBKRClient(EWrapper, EClient):
         what_to_show: str = "TRADES",
         currency: str = "USD",
         exchange: str = "SMART",
-        use_rth: int = 1,
+        sec_type: str = "STK",
+        use_rth: int | None = None,
     ) -> dict[str, Any]:
         """
         READ_ONLY historical bars via reqHistoricalData.
+        STK uses SMART/TRADES; CASH uses IDEALPRO/MIDPOINT.
         Never calls placeOrder. Does not flip IBKR_READ_ONLY / LIVE_TRADING_ENABLED.
         Empty bars are returned as-is when TWS lacks market-data permissions — never invented.
         """
+        cleaned_sec = (sec_type or "STK").upper().strip()
+        if cleaned_sec not in {"STK", "CASH"}:
+            cleaned_sec = "STK"
+        if cleaned_sec == "CASH":
+            exchange_value = (exchange or "IDEALPRO").upper().strip() or "IDEALPRO"
+            if exchange_value == "SMART":
+                exchange_value = "IDEALPRO"
+            show = (what_to_show or "MIDPOINT").upper().strip() or "MIDPOINT"
+            if show == "TRADES":
+                show = "MIDPOINT"
+            rth = 0 if use_rth is None else int(use_rth)
+        else:
+            exchange_value = (exchange or "SMART").upper().strip() or "SMART"
+            show = (what_to_show or "TRADES").upper().strip() or "TRADES"
+            rth = 1 if use_rth is None else int(use_rth)
+
         with self._history_lock:
             self.ensure_connected()
             req_id = 9201
@@ -508,17 +526,17 @@ class IBKRClient(EWrapper, EClient):
             before_errors = len(self.errors)
             contract = Contract()
             contract.symbol = symbol.upper().strip()
-            contract.secType = "STK"
+            contract.secType = cleaned_sec
             contract.currency = currency.upper().strip() or "USD"
-            contract.exchange = exchange.upper().strip() or "SMART"
+            contract.exchange = exchange_value
             self.reqHistoricalData(
                 req_id,
                 contract,
                 "",
                 duration,
                 bar_size,
-                what_to_show,
-                use_rth,
+                show,
+                rth,
                 1,
                 False,
                 [],
@@ -541,7 +559,8 @@ class IBKRClient(EWrapper, EClient):
                 "symbol": contract.symbol,
                 "duration": duration,
                 "barSize": bar_size,
-                "whatToShow": what_to_show,
+                "whatToShow": show,
+                "secType": contract.secType,
                 "currency": contract.currency,
                 "exchange": contract.exchange,
                 "bars": bars,
@@ -572,10 +591,21 @@ class IBKRClient(EWrapper, EClient):
         *,
         currency: str = "USD",
         exchange: str = "SMART",
+        sec_type: str = "STK",
         timeout: float = 5.0,
     ) -> dict[str, Any]:
-        """READ_ONLY bid/ask/last for STK via reqMktData."""
+        """READ_ONLY bid/ask/last via reqMktData (STK SMART or CASH IDEALPRO)."""
         cleaned = symbol.strip().upper()
+        cleaned_sec = (sec_type or "STK").upper().strip()
+        if cleaned_sec not in {"STK", "CASH"}:
+            cleaned_sec = "STK"
+        if cleaned_sec == "CASH":
+            exchange_value = (exchange or "IDEALPRO").upper().strip() or "IDEALPRO"
+            if exchange_value == "SMART":
+                exchange_value = "IDEALPRO"
+        else:
+            exchange_value = (exchange or "SMART").upper().strip() or "SMART"
+        currency_value = (currency or "USD").upper().strip() or "USD"
         with self._tick_lock:
             self.ensure_connected()
             req_id = self._next_quote_req_id()
@@ -584,9 +614,9 @@ class IBKRClient(EWrapper, EClient):
             self.tick_data[req_id] = {"bid": None, "ask": None, "last": None}
             contract = Contract()
             contract.symbol = cleaned
-            contract.secType = "STK"
-            contract.currency = currency
-            contract.exchange = exchange
+            contract.secType = cleaned_sec
+            contract.currency = currency_value
+            contract.exchange = exchange_value
             before_errors = len(self.errors)
             self.reqMktData(req_id, contract, "", False, False, [])
             done.wait(timeout)
@@ -606,9 +636,9 @@ class IBKRClient(EWrapper, EClient):
             current = last if isinstance(last, (int, float)) and last > 0 else mid
             return {
                 "symbol": cleaned,
-                "secType": "STK",
-                "currency": currency,
-                "exchange": exchange,
+                "secType": cleaned_sec,
+                "currency": currency_value,
+                "exchange": exchange_value,
                 "bid": bid if isinstance(bid, (int, float)) and bid > 0 else None,
                 "ask": ask if isinstance(ask, (int, float)) and ask > 0 else None,
                 "last": last if isinstance(last, (int, float)) and last > 0 else None,
@@ -1101,16 +1131,22 @@ def history(
     whatToShow: str = "TRADES",
     currency: str = "USD",
     exchange: str = "SMART",
+    secType: str = "STK",
 ):
     """
     READ_ONLY historical bars (reqHistoricalData).
+    STK: SMART/TRADES. CASH FOREX: symbol=EUR&currency=USD&secType=CASH&exchange=IDEALPRO.
     Does not place orders and does not change LIVE_TRADING_ENABLED / IBKR_READ_ONLY.
     """
     cleaned = symbol.strip().upper()
     if not cleaned or len(cleaned) > 20:
         raise HTTPException(400, "symbol inválido")
     allowed_durations = {"1 D", "5 D", "1 W", "2 W", "1 M", "3 M", "6 M", "1 Y"}
-    allowed_bars = {"1 min", "5 mins", "15 mins", "1 hour", "1 day"}
+    allowed_bars = {"1 min", "5 mins", "15 mins", "1 hour", "4 hours", "1 day"}
+    allowed_sec = {"STK", "CASH"}
+    cleaned_sec = (secType or "STK").strip().upper()
+    if cleaned_sec not in allowed_sec:
+        raise HTTPException(400, f"secType no permitida; use una de {sorted(allowed_sec)}")
     if duration not in allowed_durations:
         raise HTTPException(400, f"duration no permitida; use una de {sorted(allowed_durations)}")
     if barSize not in allowed_bars:
@@ -1123,6 +1159,7 @@ def history(
             what_to_show=whatToShow,
             currency=currency,
             exchange=exchange,
+            sec_type=cleaned_sec,
         )
         audit("IBKR_HISTORY_READ", cleaned, {"count": result.get("count", 0), "duration": duration, "barSize": barSize})
         return result
@@ -1132,13 +1169,26 @@ def history(
 
 
 @app.get("/api/ibkr/quote", dependencies=auth)
-def stock_quote(symbol: str, currency: str = "USD", exchange: str = "SMART"):
-    """READ_ONLY STK bid/ask/last (reqMktData) for live LMT pricing."""
+def stock_quote(
+    symbol: str,
+    currency: str = "USD",
+    exchange: str = "SMART",
+    secType: str = "STK",
+):
+    """READ_ONLY bid/ask/last (reqMktData). STK default; CASH uses IDEALPRO."""
     cleaned = symbol.strip().upper()
     if not cleaned or len(cleaned) > 20:
         raise HTTPException(400, "symbol inválido")
+    cleaned_sec = (secType or "STK").strip().upper()
+    if cleaned_sec not in {"STK", "CASH"}:
+        raise HTTPException(400, "secType inválido; use STK o CASH")
     try:
-        result = ibkr.stock_quote(cleaned, currency=currency.strip().upper() or "USD", exchange=exchange.strip().upper() or "SMART")
+        result = ibkr.stock_quote(
+            cleaned,
+            currency=currency.strip().upper() or "USD",
+            exchange=exchange.strip().upper() or "SMART",
+            sec_type=cleaned_sec,
+        )
         audit("IBKR_QUOTE_READ", cleaned, {"bid": result.get("bid"), "ask": result.get("ask"), "last": result.get("last")})
         return result
     except Exception as exc:

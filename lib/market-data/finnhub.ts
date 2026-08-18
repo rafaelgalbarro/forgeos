@@ -236,16 +236,15 @@ export async function getQuote(ticker: string): Promise<FinnhubQuote | null> {
   });
 }
 
-/** Last N daily candles from /stock/candle. */
-export async function getCandles(ticker: string, days: number): Promise<FinnhubOhlcvBar[]> {
+/** Last N daily candles from /stock/candle (30-day window). */
+export async function getCandles(ticker: string, _days: number): Promise<FinnhubOhlcvBar[]> {
   const symbol = toFinnhubStockSymbol(ticker);
   if (!symbol || !isFinnhubEnabled()) return [];
 
-  const safeDays = Math.max(1, Math.min(Math.floor(days), 365 * 5));
-  const cacheId = cacheKey("finnhub-candles", symbol, String(safeDays), "D");
+  const cacheId = cacheKey("finnhub-candles", symbol, "30", "D");
   return getOrSetCached(cacheId, CANDLES_TTL_MS, async () => {
     const to = Math.floor(Date.now() / 1000);
-    const from = to - safeDays * 86_400;
+    const from = to - 30 * 24 * 3600;
     const data = await finnhubFetch<FinnhubCandleSet>(
       `/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=D&from=${from}&to=${to}`,
     );

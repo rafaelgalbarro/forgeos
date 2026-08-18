@@ -1,20 +1,13 @@
 /**
- * FOREX live market data — Finnhub only (OANDA:EUR_USD candles + quotes).
- * IBKR reserved for order execution, not market data.
+ * FOREX market data — IBKR IDEALPRO (Finnhub free tier has no OANDA/FOREX).
+ * Stocks use Finnhub; FOREX history + quotes come from ibkr-broker.
  */
 
 import "server-only";
 
+import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
-import {
-  getBatchForexQuotes,
-  getFinnhubQuoteTtlMs,
-  getCandlesWithResolution,
-  getForexCandles,
-  isFinnhubEnabled,
-  yahooIntervalToFinnhub,
-  yahooRangeToUnix,
-} from "@/lib/market-data/finnhub";
+import { getFinnhubQuoteTtlMs } from "@/lib/market-data/finnhub";
 import {
   FOREX_PAIRS,
   getForexPair,
@@ -36,7 +29,7 @@ export type ForexLiveQuote = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "FINNHUB" | "NO_DATA";
+  source: "IBKR" | "NO_DATA";
   updatedAt: string;
 };
 
@@ -49,7 +42,7 @@ export type ForexHistoryResult = {
   pairId: string;
   display: string;
   timeframe: ForexTimeframe;
-  source: "FINNHUB" | "NO_DATA";
+  source: "IBKR" | "NO_DATA";
   bars: ForexCandle[];
   count: number;
   generatedAt: string;
@@ -114,28 +107,101 @@ function aggregateBars(bars: ForexCandle[], n: number): ForexCandle[] {
   return out;
 }
 
-async function loadFinnhubQuotesRaw(): Promise<ForexLiveQuote[]> {
-  const now = new Date().toISOString();
-  if (!isFinnhubEnabled()) return FOREX_PAIRS.map((p) => emptyQuote(p, now));
-
-  const byPair = await getBatchForexQuotes(FOREX_PAIRS.map((p) => p.pairId));
-  return FOREX_PAIRS.map((p) => {
-    const q = byPair.get(p.pairId);
-    if (!q || !Number.isFinite(q.mid) || q.mid <= 0) return emptyQuote(p, now);
-    return {
-      pairId: p.pairId,
-      display: p.display,
-      bid: q.bid,
-      ask: q.ask,
-      mid: q.mid,
-      spreadPips: priceToPips(p, q.bid, q.ask),
-      source: "FINNHUB" as const,
-      updatedAt: q.updatedAt,
-    };
-  });
+function mapIbkrBars(
+  bars: Array<{
+    open?: number;
+    high?: number;
+    low?: number;
+    close?: number;
+    volume?: number;
+    date?: string;
+  }>,
+): ForexCandle[] {
+  return bars
+    .map((b) =>
+      toCandle({
+        open: Number(b.open),
+        high: Number(b.high),
+        low: Number(b.low),
+        close: Number(b.close),
+        volume: Number(b.volume ?? 0),
+        date: b.date,
+      }),
+    )
+    .filter((b): b is ForexCandle => b != null);
 }
 
-/** Live bid/ask for all 9 pairs — Finnhub OANDA quotes, ~1 min cache. */
+async function loadIbkrForexQuotes(): Promise<ForexLiveQuote[]> {
+  const now = new Date().toISOString();
+  try {
+    const data = await ibkrServiceFetch<{
+      quotes?: Array<{
+        pairId: string;
+        display?: string;
+        bid?: number | null;
+        ask?: number | null;
+        mid?: number | null;
+        spreadPips?: number | null;
+      }>;
+    }>("/api/forex/quotes");
+    const fromDedicated = (data.quotes ?? []).map((q) => ({
+      pairId: q.pairId,
+      display: q.display ?? q.pairId,
+      bid: typeof q.bid === "number" ? q.bid : null,
+      ask: typeof q.ask === "number" ? q.ask : null,
+      mid: typeof q.mid === "number" ? q.mid : null,
+      spreadPips: typeof q.spreadPips === "number" ? q.spreadPips : null,
+      source: q.mid != null ? ("IBKR" as const) : ("NO_DATA" as const),
+      updatedAt: now,
+    }));
+    if (fromDedicated.some((q) => q.mid != null)) return fromDedicated;
+  } catch {
+    /* fall through to per-pair /api/ibkr/quote */
+  }
+
+  return Promise.all(
+    FOREX_PAIRS.map(async (p) => {
+      try {
+        const params = new URLSearchParams({
+          symbol: p.symbol,
+          currency: p.currency,
+          exchange: p.exchange,
+          secType: p.secType,
+        });
+        const data = await ibkrServiceFetch<{
+          bid?: number | null;
+          ask?: number | null;
+          last?: number | null;
+          mid?: number | null;
+        }>(`/api/ibkr/quote?${params.toString()}`);
+        const bid = typeof data.bid === "number" ? data.bid : null;
+        const ask = typeof data.ask === "number" ? data.ask : null;
+        const mid =
+          typeof data.mid === "number"
+            ? data.mid
+            : typeof data.last === "number"
+              ? data.last
+              : bid != null && ask != null
+                ? (bid + ask) / 2
+                : null;
+        return {
+          pairId: p.pairId,
+          display: p.display,
+          bid,
+          ask,
+          mid,
+          spreadPips: bid != null && ask != null ? priceToPips(p, bid, ask) : null,
+          source: mid != null ? ("IBKR" as const) : ("NO_DATA" as const),
+          updatedAt: now,
+        };
+      } catch {
+        return emptyQuote(p, now);
+      }
+    }),
+  );
+}
+
+/** Live bid/ask for all 9 pairs — IBKR IDEALPRO. */
 export async function getForexLiveQuotes(): Promise<{
   quotes: ForexLiveQuote[];
   generatedAt: string;
@@ -147,59 +213,62 @@ export async function getForexLiveQuotes(): Promise<{
     return { quotes: hit.quotes, generatedAt: hit.generatedAt, fromCache: true };
   }
 
-  const quotes = await loadFinnhubQuotesRaw();
+  const quotes = await loadIbkrForexQuotes();
   const generatedAt = new Date().toISOString();
   setCached(key, { quotes, generatedAt }, QUOTES_TTL_MS());
   return { quotes, generatedAt, fromCache: false };
 }
 
-async function loadFinnhubBars(pair: ForexIbkrContract, tf: ForexTimeframe): Promise<ForexCandle[]> {
+async function loadIbkrForexBars(pair: ForexIbkrContract, tf: ForexTimeframe): Promise<ForexCandle[]> {
   const spec = FOREX_TF_SPECS[tf];
-  if (!isFinnhubEnabled()) return [];
+  try {
+    const params = new URLSearchParams({
+      symbol: pair.symbol,
+      currency: pair.currency,
+      exchange: pair.exchange,
+      secType: pair.secType,
+      duration: spec.ibkrDuration,
+      barSize: spec.ibkrBarSize,
+      whatToShow: "MIDPOINT",
+    });
+    const data = await ibkrServiceFetch<{
+      bars?: Array<{
+        open?: number;
+        high?: number;
+        low?: number;
+        close?: number;
+        volume?: number;
+        date?: string;
+      }>;
+    }>(`/api/ibkr/history?${params.toString()}`);
+    const bars = mapIbkrBars(data.bars ?? []);
+    if (bars.length > 0) return aggregateBars(bars, spec.aggregate);
+  } catch {
+    /* dedicated FOREX history next */
+  }
 
-  const resolution = yahooIntervalToFinnhub(spec.yahooInterval);
-  const { from, to } = yahooRangeToUnix(spec.yahooRange);
-  const raw = await getCandlesWithResolution(pair.pairId, resolution, from, to, true);
-  const candles = raw
-    .map((b) =>
-      toCandle({
-        open: b.open,
-        high: b.high,
-        low: b.low,
-        close: b.close,
-        volume: b.volume,
-        date: b.date,
-      }),
-    )
-    .filter((b): b is ForexCandle => b != null);
-
-  if (candles.length > 0) return aggregateBars(candles, spec.aggregate);
-
-  const days =
-    spec.yahooRange === "5d"
-      ? 7
-      : spec.yahooRange === "1mo"
-        ? 35
-        : spec.yahooRange === "3mo"
-          ? 95
-          : 180;
-  const daily = await getForexCandles(pair.pairId, days);
-  const dailyCandles = daily
-    .map((b) =>
-      toCandle({
-        open: b.open,
-        high: b.high,
-        low: b.low,
-        close: b.close,
-        volume: b.volume,
-        date: b.date,
-      }),
-    )
-    .filter((b): b is ForexCandle => b != null);
-  return aggregateBars(dailyCandles, spec.aggregate);
+  try {
+    const data = await ibkrServiceFetch<{
+      bars?: Array<{
+        open?: number;
+        high?: number;
+        low?: number;
+        close?: number;
+        volume?: number;
+        date?: string;
+      }>;
+    }>(
+      `/api/forex/history?pair=${encodeURIComponent(pair.pairId)}` +
+        `&duration=${encodeURIComponent(spec.ibkrDuration)}` +
+        `&barSize=${encodeURIComponent(spec.ibkrBarSize)}`,
+    );
+    return aggregateBars(mapIbkrBars(data.bars ?? []), spec.aggregate);
+  } catch {
+    return [];
+  }
 }
 
-/** OHLCV for one pair/timeframe — Finnhub only. */
+/** OHLCV for one pair/timeframe — IBKR IDEALPRO. */
 export async function getForexHistory(
   pairIdRaw: string,
   timeframeRaw?: string | null,
@@ -215,9 +284,9 @@ export async function getForexHistory(
   let bars: ForexCandle[] = [];
   let source: ForexHistoryResult["source"] = "NO_DATA";
 
-  if (pair && isFinnhubEnabled()) {
-    bars = await loadFinnhubBars(pair, timeframe);
-    if (bars.length > 0) source = "FINNHUB";
+  if (pair) {
+    bars = await loadIbkrForexBars(pair, timeframe);
+    if (bars.length > 0) source = "IBKR";
   }
 
   const result: ForexHistoryResult = {
@@ -230,8 +299,8 @@ export async function getForexHistory(
     generatedAt: new Date().toISOString(),
     note:
       bars.length > 0
-        ? `${bars.length} velas ${timeframe} via Finnhub`
-        : "NO_DATA — sin historial Finnhub para este TF",
+        ? `${bars.length} velas ${timeframe} via IBKR`
+        : "NO_DATA — sin historial IBKR para este TF",
   };
   const ttl =
     timeframe === "1m" || timeframe === "5m"

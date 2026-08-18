@@ -28,7 +28,7 @@ export type ForexQuoteRow = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "FINNHUB" | "NO_DATA";
+  source: "IBKR" | "NO_DATA";
 };
 
 export type ForexPairAnalysis = {
@@ -63,7 +63,7 @@ async function loadFinnhubQuoteRows(): Promise<ForexQuoteRow[]> {
     ask: q.ask,
     mid: q.mid,
     spreadPips: q.spreadPips,
-    source: q.source === "FINNHUB" ? ("FINNHUB" as const) : ("NO_DATA" as const),
+    source: q.source === "IBKR" ? ("IBKR" as const) : ("NO_DATA" as const),
   }));
 }
 

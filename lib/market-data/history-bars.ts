@@ -1,65 +1,41 @@
 import "server-only";
 
-import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
-import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
+import { getCandles, getQuote, isFinnhubEnabled } from "@/lib/market-data/finnhub";
 import type { OhlcvBar } from "@/lib/market-data/types";
-
-type IbkrBar = {
-  open?: number;
-  high?: number;
-  low?: number;
-  close?: number;
-  volume?: number;
-  date?: string;
-};
-
-function normalizeBar(raw: IbkrBar): OhlcvBar | null {
-  const close = Number(raw.close ?? 0);
-  if (!Number.isFinite(close) || close <= 0) return null;
-  return {
-    open: Number(raw.open ?? close),
-    high: Number(raw.high ?? close),
-    low: Number(raw.low ?? close),
-    close,
-    volume: Number(raw.volume ?? 0),
-    date: raw.date,
-  };
-}
 
 export type IbkrBarSize = "1 min" | "5 mins" | "15 mins" | "1 hour" | "1 day";
 
-/** Fetches OHLCV bars from IBKR (tries quote routes). Default daily / 90 days. */
+/** Fetches OHLCV bars from Finnhub (daily). Default ~90 days. */
 export async function fetchHistoryBars(
   ticker: string,
   duration = "3 M",
-  barSize: IbkrBarSize = "1 day",
+  _barSize: IbkrBarSize = "1 day",
 ): Promise<{ bars: OhlcvBar[]; errors: string[] }> {
-  const routes = quoteRoutesForTicker(ticker);
   const errors: string[] = [];
-
-  for (const route of routes) {
-    try {
-      const params = new URLSearchParams({
-        symbol: route.symbol,
-        duration,
-        barSize,
-        currency: route.currency,
-        exchange: route.exchange,
-      });
-      const history = await ibkrServiceFetch<{ bars?: IbkrBar[] }>(
-        `/api/ibkr/history?${params.toString()}`,
-      );
-      const bars = (history.bars ?? [])
-        .map(normalizeBar)
-        .filter((b): b is OhlcvBar => b != null);
-      if (bars.length >= 20) {
-        return { bars, errors };
-      }
-      errors.push(`${route.label}: solo ${bars.length} barras`);
-    } catch (err) {
-      errors.push(`${route.label}: ${err instanceof Error ? err.message : "error"}`);
-    }
+  if (!isFinnhubEnabled()) {
+    errors.push("FINNHUB_API_KEY not configured");
+    return { bars: [], errors };
   }
 
-  return { bars: [], errors };
+  const days = duration.includes("M") ? 90 : duration.includes("W") ? 35 : 7;
+  const raw = await getCandles(ticker, days);
+  const bars: OhlcvBar[] = raw.map((b) => ({
+    open: b.open,
+    high: b.high,
+    low: b.low,
+    close: b.close,
+    volume: b.volume,
+    date: b.date,
+  }));
+
+  if (bars.length < 20) {
+    errors.push(`Finnhub: solo ${bars.length} barras para ${ticker}`);
+  }
+  return { bars, errors };
+}
+
+/** Quick Finnhub quote for limit-price fallback. */
+export async function fetchFinnhubPrice(ticker: string): Promise<number | null> {
+  const q = await getQuote(ticker);
+  return q && q.c > 0 ? q.c : null;
 }

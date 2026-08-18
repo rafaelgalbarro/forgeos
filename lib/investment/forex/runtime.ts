@@ -1,13 +1,13 @@
 /**
  * FOREX dashboard snapshot + Telegram-supervised cycle.
  * Never places/stages at IBKR from the cycle — founder must tap APROBAR.
- * Quotes: Polygon → Yahoo (skip 401) → IBKR CASH/IDEALPRO last.
+ * Quotes/history: Finnhub only. IBKR for positions/orders only.
  */
 
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
-import { fetchYahooQuoteSingle } from "@/lib/market-data/yahoo-finance";
+import { getForexHistory, getForexLiveQuotes } from "@/lib/investment/forex/market-data";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import {
   FOREX_PAIRS,
@@ -15,8 +15,6 @@ import {
   buildSlTpFromPips,
   getForexSessionSnapshot,
   loadForexEnvConfig,
-  priceToPips,
-  type ForexIbkrContract,
 } from "@/lib/investment/forex/config";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { readForexEnabledAtRuntime } from "@/lib/investment/forex/server-env";
@@ -30,7 +28,7 @@ export type ForexQuoteRow = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "POLYGON" | "IBKR" | "YAHOO" | "NO_DATA";
+  source: "FINNHUB" | "NO_DATA";
 };
 
 export type ForexPairAnalysis = {
@@ -56,199 +54,28 @@ export type ForexDashboardSnapshot = {
   errors: string[];
 };
 
-function yahooSymbol(pair: ForexIbkrContract): string {
-  return `${pair.pairId}=X`;
-}
-
-function emptyQuoteRow(p: ForexIbkrContract): ForexQuoteRow {
-  return {
-    pairId: p.pairId,
-    display: p.display,
-    bid: null,
-    ask: null,
-    mid: null,
-    spreadPips: null,
-    source: "NO_DATA",
-  };
-}
-
-function mergeQuoteRows(fill: ForexQuoteRow[], into: Map<string, ForexQuoteRow>): void {
-  for (const q of fill) {
-    const cur = into.get(q.pairId);
-    if (!cur || cur.mid == null) into.set(q.pairId, q);
-  }
-}
-
-async function loadPolygonQuotes(): Promise<ForexQuoteRow[]> {
-  try {
-    const { fetchPolygonForexOnly, isPolygonEnabled } = await import("@/lib/market-data/polygon");
-    if (!isPolygonEnabled()) return FOREX_PAIRS.map(emptyQuoteRow);
-    return Promise.all(
-      FOREX_PAIRS.map(async (p) => {
-        const q = await fetchPolygonForexOnly(p.pairId);
-        if (!q || !Number.isFinite(q.mid) || q.mid <= 0) return emptyQuoteRow(p);
-        return {
-          pairId: p.pairId,
-          display: p.display,
-          bid: q.bid,
-          ask: q.ask,
-          mid: q.mid,
-          spreadPips: priceToPips(p, q.bid, q.ask),
-          source: "POLYGON" as const,
-        };
-      }),
-    );
-  } catch {
-    return FOREX_PAIRS.map(emptyQuoteRow);
-  }
-}
-
-async function loadIbkrQuotes(): Promise<{ quotes: ForexQuoteRow[]; errors: string[] }> {
-  const errors: string[] = [];
-  try {
-    const data = await ibkrServiceFetch<{
-      quotes?: Array<{
-        pairId: string;
-        display?: string;
-        bid?: number | null;
-        ask?: number | null;
-        mid?: number | null;
-        spreadPips?: number | null;
-      }>;
-    }>("/api/forex/quotes");
-    const fromDedicated = (data.quotes ?? []).map((q) => ({
-      pairId: q.pairId,
-      display: q.display ?? q.pairId,
-      bid: typeof q.bid === "number" ? q.bid : null,
-      ask: typeof q.ask === "number" ? q.ask : null,
-      mid: typeof q.mid === "number" ? q.mid : null,
-      spreadPips: typeof q.spreadPips === "number" ? q.spreadPips : null,
-      source: q.bid != null && q.ask != null ? ("IBKR" as const) : ("NO_DATA" as const),
-    }));
-    if (fromDedicated.some((q) => q.mid != null)) return { quotes: fromDedicated, errors };
-  } catch (err) {
-    errors.push(err instanceof Error ? err.message : "IBKR quotes failed");
-  }
-
-  const quotes = await Promise.all(
-    FOREX_PAIRS.map(async (p) => {
-      try {
-        const params = new URLSearchParams({
-          symbol: p.symbol,
-          currency: p.currency,
-          exchange: p.exchange,
-          secType: p.secType,
-        });
-        const data = await ibkrServiceFetch<{
-          bid?: number | null;
-          ask?: number | null;
-          last?: number | null;
-          mid?: number | null;
-        }>(`/api/ibkr/quote?${params.toString()}`);
-        const bid = typeof data.bid === "number" ? data.bid : null;
-        const ask = typeof data.ask === "number" ? data.ask : null;
-        const mid =
-          typeof data.mid === "number"
-            ? data.mid
-            : typeof data.last === "number"
-              ? data.last
-              : bid != null && ask != null
-                ? (bid + ask) / 2
-                : null;
-        return {
-          pairId: p.pairId,
-          display: p.display,
-          bid,
-          ask,
-          mid,
-          spreadPips: bid != null && ask != null ? priceToPips(p, bid, ask) : null,
-          source: mid != null ? ("IBKR" as const) : ("NO_DATA" as const),
-        };
-      } catch {
-        return emptyQuoteRow(p);
-      }
-    }),
-  );
-  return { quotes, errors };
-}
-
-async function yahooFallbackQuotes(): Promise<ForexQuoteRow[]> {
-  return Promise.all(
-    FOREX_PAIRS.map(async (p) => {
-      const q = await fetchYahooQuoteSingle(yahooSymbol(p)).catch(() => null);
-      if (!q || !Number.isFinite(q.price)) {
-        return {
-          pairId: p.pairId,
-          display: p.display,
-          bid: null,
-          ask: null,
-          mid: null,
-          spreadPips: null,
-          source: "NO_DATA" as const,
-        };
-      }
-      const mid = q.price;
-      const half = p.jpyQuoted ? 0.005 : 0.00005;
-      return {
-        pairId: p.pairId,
-        display: p.display,
-        bid: mid - half,
-        ask: mid + half,
-        mid,
-        spreadPips: priceToPips(p, mid - half, mid + half),
-        source: "YAHOO" as const,
-      };
-    }),
-  );
+async function loadFinnhubQuoteRows(): Promise<ForexQuoteRow[]> {
+  const { quotes } = await getForexLiveQuotes();
+  return quotes.map((q) => ({
+    pairId: q.pairId,
+    display: q.display,
+    bid: q.bid,
+    ask: q.ask,
+    mid: q.mid,
+    spreadPips: q.spreadPips,
+    source: q.source === "FINNHUB" ? ("FINNHUB" as const) : ("NO_DATA" as const),
+  }));
 }
 
 async function loadHistoryBars(pairId: string): Promise<ForexBar[]> {
-  const pair = FOREX_PAIRS.find((p) => p.pairId === pairId);
-  if (pair) {
-    try {
-      const params = new URLSearchParams({
-        symbol: pair.symbol,
-        duration: "5 D",
-        barSize: "5 mins",
-        currency: pair.currency,
-        exchange: pair.exchange,
-        secType: pair.secType,
-        whatToShow: "MIDPOINT",
-      });
-      const data = await ibkrServiceFetch<{
-        bars?: Array<{ open?: number; high?: number; low?: number; close?: number; date?: string }>;
-      }>(`/api/ibkr/history?${params.toString()}`);
-      const bars = (data.bars ?? [])
-        .map((b) => ({
-          date: b.date,
-          open: Number(b.open),
-          high: Number(b.high),
-          low: Number(b.low),
-          close: Number(b.close),
-        }))
-        .filter((b) => [b.open, b.high, b.low, b.close].every((n) => Number.isFinite(n)));
-      if (bars.length > 0) return bars;
-    } catch {
-      /* dedicated FOREX history next */
-    }
-  }
-
-  try {
-    const data = await ibkrServiceFetch<{
-      bars?: Array<{ open?: number; high?: number; low?: number; close?: number; date?: string }>;
-    }>(`/api/forex/history?pair=${encodeURIComponent(pairId)}&duration=${encodeURIComponent("5 D")}&barSize=${encodeURIComponent("5 mins")}`);
-    return (data.bars ?? [])
-      .map((b) => ({
-        date: b.date,
-        open: Number(b.open),
-        high: Number(b.high),
-        low: Number(b.low),
-        close: Number(b.close),
-      }))
-      .filter((b) => [b.open, b.high, b.low, b.close].every((n) => Number.isFinite(n)));
-  } catch {
-    return [];
-  }
+  const hist = await getForexHistory(pairId, "5m");
+  return hist.bars.map((b) => ({
+    date: b.date,
+    open: b.open,
+    high: b.high,
+    low: b.low,
+    close: b.close,
+  }));
 }
 
 export async function buildForexDashboardSnapshot(): Promise<ForexDashboardSnapshot> {
@@ -259,22 +86,7 @@ export async function buildForexDashboardSnapshot(): Promise<ForexDashboardSnaps
   const macro = await getForexMacroSnapshot();
   const errors: string[] = [];
 
-  const byId = new Map<string, ForexQuoteRow>();
-  for (const p of FOREX_PAIRS) byId.set(p.pairId, emptyQuoteRow(p));
-
-  mergeQuoteRows(await loadPolygonQuotes(), byId);
-
-  if (FOREX_PAIRS.some((p) => byId.get(p.pairId)?.mid == null)) {
-    mergeQuoteRows(await yahooFallbackQuotes(), byId);
-  }
-
-  if (FOREX_PAIRS.some((p) => byId.get(p.pairId)?.mid == null)) {
-    const { quotes: ibkrQuotes, errors: qErr } = await loadIbkrQuotes();
-    errors.push(...qErr);
-    mergeQuoteRows(ibkrQuotes, byId);
-  }
-
-  const quotes = FOREX_PAIRS.map((p) => byId.get(p.pairId) ?? emptyQuoteRow(p));
+  const quotes = await loadFinnhubQuoteRows();
 
   const analyses: ForexPairAnalysis[] = [];
   for (const pair of FOREX_PAIRS) {

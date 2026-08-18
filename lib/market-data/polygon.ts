@@ -1,21 +1,19 @@
 /**
- * Polygon.io market data client — PRIMARY when POLYGON_API_KEY is set.
- * Chain: Polygon first → Yahoo (skip 401) → IBKR last resort.
- * A 403 (free plan / no permissions) skips remaining Polygon calls for this process.
+ * @deprecated Polygon retired — Finnhub is the sole market data source.
+ * Thin compatibility layer; all functions delegate to Finnhub or return empty.
  */
 
 import "server-only";
 
-import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
 import {
-  BARS_CACHE_TTL_MS,
-  PRICE_CACHE_TTL_MS,
-  getDataRefreshPolicy,
-} from "@/lib/market-data/refresh-policy";
+  getForexQuote as finnhubGetForexQuote,
+  getQuote as finnhubGetQuote,
+  isFinnhubEnabled,
+  toFinnhubForexSymbol,
+  getCandles,
+  getForexCandles,
+} from "@/lib/market-data/finnhub";
 import type { YahooOhlcvBar, YahooQuote, YahooTickerInfo } from "@/lib/market-data/yahoo-finance";
-
-const POLYGON_BASE = "https://api.polygon.io";
-const MAX_RETRIES = 2;
 
 export type PolygonTimespan = "minute" | "hour" | "day" | "week";
 
@@ -23,7 +21,7 @@ export type PolygonQuote = {
   symbol: string;
   price: number;
   timestamp?: string;
-  source: "polygon" | "yahoo" | "ibkr";
+  source: "finnhub";
   changePct?: number;
   volume?: number;
   avgVolume?: number;
@@ -42,7 +40,7 @@ export type PolygonForexQuote = {
   ask: number;
   mid: number;
   timestamp?: string;
-  source: "polygon" | "yahoo" | "ibkr";
+  source: "finnhub";
 };
 
 export type PolygonHistoryBar = {
@@ -64,50 +62,13 @@ export type PolygonTickerDetails = {
   marketCap?: number;
 };
 
-function envBool(name: string, defaultValue = true): boolean {
-  const v = process.env[name]?.trim().toLowerCase();
-  if (!v) return defaultValue;
-  return v === "true" || v === "1" || v === "yes";
-}
-
-/** Once Polygon returns 403, skip remaining Polygon HTTP for this process. */
-let polygonForbidden403 = false;
-
+/** @deprecated Always false — use isFinnhubEnabled(). */
 export function isPolygonEnabled(): boolean {
-  if (polygonForbidden403) return false;
-  const key = process.env.POLYGON_API_KEY?.trim();
-  if (!key) return false;
-  return envBool("USE_POLYGON", true);
+  return false;
 }
 
-function polygonApiKey(): string | null {
-  const key = process.env.POLYGON_API_KEY?.trim();
-  return key || null;
-}
-
-/** Map Yahoo-style tickers to Polygon symbol format. */
 export function normalizePolygonTicker(ticker: string): string {
-  const raw = ticker.trim().toUpperCase();
-  if (!raw) return raw;
-  if (raw.startsWith("C:") || raw.startsWith("I:") || raw.startsWith("X:")) return raw;
-  if (raw.endsWith("=X")) {
-    const pair = raw.slice(0, -2);
-    if (pair.length === 6) return `C:${pair}`;
-  }
-  if (raw.startsWith("^")) return `I:${raw.slice(1)}`;
-  return raw;
-}
-
-function parseForexPair(pair: string): { from: string; to: string } | null {
-  const cleaned = pair.trim().toUpperCase().replace(/\//g, "").replace(/=X$/, "");
-  if (cleaned.startsWith("C:") && cleaned.length === 9) {
-    const codes = cleaned.slice(2);
-    return { from: codes.slice(0, 3), to: codes.slice(3, 6) };
-  }
-  if (cleaned.length === 6 && /^[A-Z]{6}$/.test(cleaned)) {
-    return { from: cleaned.slice(0, 3), to: cleaned.slice(3, 6) };
-  }
-  return null;
+  return ticker.trim().toUpperCase();
 }
 
 export function chartIntervalToPolygon(
@@ -138,251 +99,72 @@ export function chartRangeToDates(range: string): { from: string; to: string } {
   else if (r.endsWith("mo")) from.setMonth(from.getMonth() - Number.parseInt(r, 10));
   else if (r.endsWith("y")) from.setFullYear(from.getFullYear() - Number.parseInt(r, 10));
   else from.setMonth(from.getMonth() - 3);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+function toPolygonQuote(symbol: string, q: { c: number; h: number; l: number; pc: number }): PolygonQuote {
+  const prev = q.pc > 0 ? q.pc : q.c;
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
-  };
-}
-
-async function polygonFetch<T>(path: string, retries = MAX_RETRIES): Promise<T | null> {
-  if (polygonForbidden403) return null;
-  const apiKey = polygonApiKey();
-  if (!apiKey) return null;
-
-  const separator = path.includes("?") ? "&" : "?";
-  const url = `${POLYGON_BASE}${path}${separator}apiKey=${encodeURIComponent(apiKey)}`;
-
-  let lastErr: unknown;
-  for (let i = 0; i < retries; i += 1) {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: "application/json",
-        },
-        cache: "no-store",
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (res.ok) return (await res.json()) as T;
-      if (res.status === 403) {
-        polygonForbidden403 = true;
-        console.warn(
-          "[Polygon] forbidden (403) — skipping Polygon (free plan / no permissions); Yahoo then IBKR",
-        );
-        return null;
-      }
-      if (res.status === 429 && i < retries - 1) {
-        await new Promise((r) => setTimeout(r, 600 * (i + 1)));
-        continue;
-      }
-      lastErr = new Error(`Polygon HTTP ${res.status}`);
-      if (res.status !== 429) break;
-    } catch (err) {
-      lastErr = err;
-      if (i < retries - 1) await new Promise((r) => setTimeout(r, 400 * (i + 1)));
-    }
-  }
-  console.warn("[Polygon]", path, lastErr instanceof Error ? lastErr.message : lastErr);
-  return null;
-}
-
-function mapAggResults(
-  results: Array<{ t?: number; o?: number; h?: number; l?: number; c?: number; v?: number }> | undefined,
-): PolygonHistoryBar[] {
-  return (results ?? [])
-    .map((row): PolygonHistoryBar | null => {
-      const close = Number(row.c);
-      if (!Number.isFinite(close) || close <= 0) return null;
-      return {
-        open: Number(row.o ?? close),
-        high: Number(row.h ?? close),
-        low: Number(row.l ?? close),
-        close,
-        volume: Number(row.v ?? 0),
-        date: typeof row.t === "number" ? new Date(row.t).toISOString() : undefined,
-      };
-    })
-    .filter((b): b is PolygonHistoryBar => b != null);
-}
-
-function toYahooQuote(symbol: string, row: PolygonQuote): YahooQuote {
-  const price = row.price;
-  return {
-    symbol: symbol.trim().toUpperCase(),
-    price,
-    changePct: Number(row.changePct ?? 0),
-    volume: Number(row.volume ?? 0),
-    avgVolume: Number(row.avgVolume ?? row.volume ?? 0),
-    high52w: Number(row.high52w ?? price),
-    low52w: Number(row.low52w ?? price),
-    bid: Number(row.bid ?? price),
-    ask: Number(row.ask ?? price),
-    marketCap: row.marketCap,
-    exchange: row.exchange,
+    symbol,
+    price: q.c,
+    source: "finnhub",
+    changePct: prev > 0 ? ((q.c - prev) / prev) * 100 : 0,
+    bid: q.c,
+    ask: q.c,
+    high52w: q.h,
+    low52w: q.l,
   };
 }
 
 export async function fetchPolygonForexOnly(pair: string): Promise<PolygonForexQuote | null> {
-  if (!isPolygonEnabled()) return null;
-  const codes = parseForexPair(pair);
-  if (!codes) return null;
-
-  const data = await polygonFetch<{
-    status?: string;
-    last?: { bid?: number; ask?: number; timestamp?: number };
-    converted?: number;
-  }>(
-    `/v1/conversion/${encodeURIComponent(codes.from)}/${encodeURIComponent(codes.to)}?amount=1&precision=5`,
-  );
-  const bid = Number(data?.last?.bid);
-  const ask = Number(data?.last?.ask);
-  if (Number.isFinite(bid) && Number.isFinite(ask) && bid > 0 && ask > 0) {
-    return {
-      from: codes.from,
-      to: codes.to,
-      bid,
-      ask,
-      mid: (bid + ask) / 2,
-      timestamp:
-        typeof data?.last?.timestamp === "number"
-          ? new Date(data.last.timestamp).toISOString()
-          : undefined,
-      source: "polygon",
-    };
-  }
-  const converted = Number(data?.converted);
-  if (Number.isFinite(converted) && converted > 0) {
-    return {
-      from: codes.from,
-      to: codes.to,
-      bid: converted,
-      ask: converted,
-      mid: converted,
-      source: "polygon",
-    };
-  }
-  return null;
+  if (!isFinnhubEnabled()) return null;
+  const q = await finnhubGetForexQuote(pair);
+  if (!q) return null;
+  const codes = pair.replace("=X", "").toUpperCase();
+  return {
+    from: codes.slice(0, 3),
+    to: codes.slice(3, 6),
+    bid: q.bid,
+    ask: q.ask,
+    mid: q.mid,
+    source: "finnhub",
+  };
 }
 
-/**
- * Polygon-only last price (no Yahoo/IBKR). Tries last/trade, snapshot, previous close,
- * and FX conversion. Wrappers (getQuote / lV / getBatchPrices) apply Yahoo then IBKR.
- */
 export async function getLastValue(ticker: string): Promise<PolygonQuote | null> {
-  if (!isPolygonEnabled()) return null;
+  if (!isFinnhubEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
-  if (!symbol) return null;
-
-  const fx = parseForexPair(symbol);
-  if (fx) {
-    const fxQuote = await fetchPolygonForexOnly(symbol);
-    if (fxQuote && Number.isFinite(fxQuote.mid) && fxQuote.mid > 0) {
-      return {
-        symbol,
-        price: fxQuote.mid,
-        timestamp: fxQuote.timestamp,
-        source: "polygon",
-        bid: fxQuote.bid,
-        ask: fxQuote.ask,
-      };
-    }
-  }
-
-  const polySymbol = normalizePolygonTicker(symbol);
-
-  const lastTrade = await polygonFetch<{
-    status?: string;
-    results?: { p?: number; t?: number; s?: number };
-  }>(`/v2/last/trade/${encodeURIComponent(polySymbol)}`);
-  const lastPrice = Number(lastTrade?.results?.p);
-  if (Number.isFinite(lastPrice) && lastPrice > 0) {
-    return {
-      symbol,
-      price: lastPrice,
-      timestamp:
-        typeof lastTrade?.results?.t === "number"
-          ? new Date(lastTrade.results.t).toISOString()
-          : undefined,
-      source: "polygon",
-      volume: Number(lastTrade?.results?.s ?? 0) || undefined,
-    };
-  }
-
-  const snap = await polygonFetch<{
-    ticker?: {
-      todaysChangePerc?: number;
-      updated?: number;
-      lastTrade?: { p?: number; t?: number };
-      lastQuote?: { p?: number; P?: number; t?: number };
-      min?: { c?: number; v?: number };
-      day?: { c?: number; v?: number; h?: number; l?: number };
-      prevDay?: { c?: number; v?: number; h?: number; l?: number };
-    };
-  }>(`/v2/snapshot/locale/us/markets/stocks/tickers/${encodeURIComponent(polySymbol)}`);
-  const t = snap?.ticker;
-  const snapPrice = Number(
-    t?.lastTrade?.p ?? t?.min?.c ?? t?.day?.c ?? t?.prevDay?.c ?? 0,
-  );
-  if (Number.isFinite(snapPrice) && snapPrice > 0) {
-    const bid = Number(t?.lastQuote?.p ?? snapPrice);
-    const ask = Number(t?.lastQuote?.P ?? snapPrice);
-    return {
-      symbol,
-      price: snapPrice,
-      timestamp:
-        typeof t?.updated === "number"
-          ? new Date(t.updated).toISOString()
-          : undefined,
-      source: "polygon",
-      changePct: Number(t?.todaysChangePerc ?? 0),
-      volume: Number(t?.day?.v ?? t?.min?.v ?? 0),
-      avgVolume: Number(t?.prevDay?.v ?? t?.day?.v ?? 0),
-      bid: Number.isFinite(bid) && bid > 0 ? bid : snapPrice,
-      ask: Number.isFinite(ask) && ask > 0 ? ask : snapPrice,
-      high52w: Number(t?.day?.h ?? snapPrice),
-      low52w: Number(t?.day?.l ?? snapPrice),
-    };
-  }
-
-  const prev = await polygonFetch<{
-    results?: Array<{ c?: number; v?: number; h?: number; l?: number; t?: number }>;
-  }>(`/v2/aggs/ticker/${encodeURIComponent(polySymbol)}/prev?adjusted=true`);
-  const prevBar = prev?.results?.[0];
-  const prevClose = Number(prevBar?.c);
-  if (Number.isFinite(prevClose) && prevClose > 0) {
-    return {
-      symbol,
-      price: prevClose,
-      timestamp: typeof prevBar?.t === "number" ? new Date(prevBar.t).toISOString() : undefined,
-      source: "polygon",
-      volume: Number(prevBar?.v ?? 0),
-      high52w: Number(prevBar?.h ?? prevClose),
-      low52w: Number(prevBar?.l ?? prevClose),
-    };
-  }
-
-  return null;
+  const q = await finnhubGetQuote(symbol);
+  if (!q) return null;
+  return toPolygonQuote(symbol, q);
 }
 
-/** Polygon-only daily (or custom) aggregates — no Yahoo. */
 export async function fetchPolygonAggregates(
   ticker: string,
-  multiplier: number,
-  timespan: PolygonTimespan,
+  _multiplier: number,
+  _timespan: PolygonTimespan,
   from: string,
   to: string,
 ): Promise<PolygonHistoryBar[]> {
-  if (!isPolygonEnabled() || !ticker || !from || !to) return [];
-  const polySymbol = normalizePolygonTicker(ticker);
-  const data = await polygonFetch<{
-    results?: Array<{ t?: number; o?: number; h?: number; l?: number; c?: number; v?: number }>;
-  }>(
-    `/v2/aggs/ticker/${encodeURIComponent(polySymbol)}/range/${encodeURIComponent(String(multiplier))}/${encodeURIComponent(timespan)}/${encodeURIComponent(from)}/${encodeURIComponent(to)}?adjusted=true&sort=asc&limit=50000`,
-  );
-  return mapAggResults(data?.results);
+  if (!isFinnhubEnabled()) return [];
+  const fromMs = Date.parse(from);
+  const toMs = Date.parse(to);
+  const days = Number.isFinite(fromMs) && Number.isFinite(toMs)
+    ? Math.max(1, Math.ceil((toMs - fromMs) / 86_400_000))
+    : 90;
+  const symbol = ticker.trim().toUpperCase();
+  const forex = symbol.endsWith("=X") || toFinnhubForexSymbol(symbol).startsWith("OANDA:");
+  const bars = forex ? await getForexCandles(symbol, days) : await getCandles(symbol, days);
+  return bars.map((b) => ({
+    open: b.open,
+    high: b.high,
+    low: b.low,
+    close: b.close,
+    volume: b.volume,
+    date: b.date,
+  }));
 }
 
-/** Polygon-only daily history — no Yahoo. */
 export async function fetchPolygonHistoryOnly(
   ticker: string,
   from: string,
@@ -391,35 +173,8 @@ export async function fetchPolygonHistoryOnly(
   return fetchPolygonAggregates(ticker, 1, "day", from, to);
 }
 
-export async function fetchPolygonTickerDetails(
-  ticker: string,
-): Promise<PolygonTickerDetails | null> {
-  if (!isPolygonEnabled()) return null;
-  const symbol = ticker.trim().toUpperCase();
-  if (!symbol) return null;
-  const polySymbol = normalizePolygonTicker(symbol);
-  const data = await polygonFetch<{
-    results?: {
-      ticker?: string;
-      name?: string;
-      market?: string;
-      primary_exchange?: string;
-      type?: string;
-      sic_description?: string;
-      market_cap?: number;
-    };
-  }>(`/v3/reference/tickers/${encodeURIComponent(polySymbol)}`);
-  const row = data?.results;
-  if (!row) return null;
-  return {
-    symbol,
-    name: row.name,
-    market: row.market,
-    primaryExchange: row.primary_exchange,
-    type: row.type,
-    sicDescription: row.sic_description,
-    marketCap: Number(row.market_cap ?? 0) || undefined,
-  };
+export async function fetchPolygonTickerDetails(_ticker: string): Promise<PolygonTickerDetails | null> {
+  return null;
 }
 
 export function polygonDetailsToYahooInfo(details: PolygonTickerDetails): YahooTickerInfo {
@@ -432,253 +187,33 @@ export function polygonDetailsToYahooInfo(details: PolygonTickerDetails): YahooT
   };
 }
 
-async function yahooQuoteFallback(ticker: string): Promise<PolygonQuote | null> {
-  try {
-    const { fetchYahooQuoteSingle } = await import("@/lib/market-data/yahoo-finance");
-    const q = await fetchYahooQuoteSingle(ticker);
-    if (!q) return null;
-    return {
-      symbol: q.symbol,
-      price: q.price,
-      source: "yahoo",
-      changePct: q.changePct,
-      volume: q.volume,
-      avgVolume: q.avgVolume,
-      bid: q.bid,
-      ask: q.ask,
-      high52w: q.high52w,
-      low52w: q.low52w,
-      marketCap: q.marketCap,
-      exchange: q.exchange,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function yahooHistoryFallback(
-  ticker: string,
-  from: string,
-  to: string,
-): Promise<PolygonHistoryBar[]> {
-  try {
-    const { fetchYahooChartBarsRaw } = await import("@/lib/market-data/yahoo-finance");
-    const bars = await fetchYahooChartBarsRaw(ticker, "1d", inferYahooRange(from, to));
-    return bars.map((b) => ({
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-      volume: b.volume,
-      date: b.date,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function yahooForexFallback(pair: string): Promise<PolygonForexQuote | null> {
-  const codes = parseForexPair(pair);
-  if (!codes) return null;
-  try {
-    const { fetchYahooQuoteSingle } = await import("@/lib/market-data/yahoo-finance");
-    const yahooSymbol = `${codes.from}${codes.to}=X`;
-    const q = await fetchYahooQuoteSingle(yahooSymbol);
-    if (!q || !Number.isFinite(q.price)) return null;
-    const mid = q.price;
-    const jpyQuoted = codes.to === "JPY";
-    const half = jpyQuoted ? 0.005 : 0.00005;
-    return {
-      from: codes.from,
-      to: codes.to,
-      bid: mid - half,
-      ask: mid + half,
-      mid,
-      source: "yahoo",
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function ibkrQuoteFallback(ticker: string): Promise<PolygonQuote | null> {
-  try {
-    const { fetchIbkrQuoteForTicker } = await import("@/lib/market-data/yahoo-finance");
-    const q = await fetchIbkrQuoteForTicker(ticker);
-    if (!q) return null;
-    return {
-      symbol: q.symbol,
-      price: q.price,
-      source: "ibkr",
-      changePct: q.changePct,
-      volume: q.volume,
-      avgVolume: q.avgVolume,
-      bid: q.bid,
-      ask: q.ask,
-      high52w: q.high52w,
-      low52w: q.low52w,
-      marketCap: q.marketCap,
-      exchange: q.exchange,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function ibkrHistoryFallback(
-  ticker: string,
-  from: string,
-  to: string,
-): Promise<PolygonHistoryBar[]> {
-  try {
-    const { fetchIbkrChartBars } = await import("@/lib/market-data/yahoo-finance");
-    const bars = await fetchIbkrChartBars(ticker, "1d", inferYahooRange(from, to));
-    return bars.map((b) => ({
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-      volume: b.volume,
-      date: b.date,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function ibkrForexFallback(pair: string): Promise<PolygonForexQuote | null> {
-  const codes = parseForexPair(pair);
-  if (!codes) return null;
-  try {
-    const { fetchIbkrQuoteForTicker } = await import("@/lib/market-data/yahoo-finance");
-    const q = await fetchIbkrQuoteForTicker(`${codes.from}${codes.to}=X`);
-    if (!q || !Number.isFinite(q.price) || q.price <= 0) return null;
-    const bid = Number.isFinite(q.bid) && q.bid > 0 ? q.bid : q.price;
-    const ask = Number.isFinite(q.ask) && q.ask > 0 ? q.ask : q.price;
-    return {
-      from: codes.from,
-      to: codes.to,
-      bid,
-      ask,
-      mid: q.price,
-      source: "ibkr",
-    };
-  } catch {
-    return null;
-  }
-}
-
-function inferYahooRange(from: string, to: string): string {
-  const fromMs = Date.parse(from);
-  const toMs = Date.parse(to);
-  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return "3mo";
-  const days = Math.max(1, Math.round((toMs - fromMs) / 86_400_000));
-  if (days <= 7) return "5d";
-  if (days <= 35) return "1mo";
-  if (days <= 95) return "3mo";
-  if (days <= 190) return "6mo";
-  if (days <= 380) return "1y";
-  if (days <= 760) return "2y";
-  return "5y";
-}
-
-/** Last trade / snapshot / prev close. Polygon → Yahoo (skip 401) → IBKR last resort. */
 export async function getQuote(ticker: string): Promise<PolygonQuote | null> {
-  const symbol = ticker.trim().toUpperCase();
-  if (!symbol) return null;
-
-  const ttl = getDataRefreshPolicy().priceTtlMs || PRICE_CACHE_TTL_MS;
-  const cached = getCached<PolygonQuote>(cacheKey("polygon-quote", symbol));
-  if (cached) return cached;
-
-  let result: PolygonQuote | null = await getLastValue(symbol);
-
-  if (!result) {
-    result = await yahooQuoteFallback(symbol);
-  }
-  if (!result) {
-    result = await ibkrQuoteFallback(symbol);
-  }
-
-  if (result) setCached(cacheKey("polygon-quote", symbol), result, ttl);
-  return result;
+  return getLastValue(ticker);
 }
 
-/** Last value with full fallback chain: Polygon → Yahoo (skip 401) → IBKR. */
 export async function lV(ticker: string): Promise<PolygonQuote | null> {
   return getQuote(ticker);
 }
 
-/** Daily OHLCV. Polygon → Yahoo (skip 401) → IBKR last resort. */
 export async function getHistory(
   ticker: string,
   from: string,
   to: string,
 ): Promise<PolygonHistoryBar[]> {
-  const symbol = ticker.trim().toUpperCase();
-  if (!symbol || !from || !to) return [];
-
-  const cacheId = cacheKey("polygon-history", symbol, from, to);
-  const cached = getCached<PolygonHistoryBar[]>(cacheId);
-  if (cached) return cached;
-
-  let bars = await fetchPolygonHistoryOnly(symbol, from, to);
-
-  if (bars.length === 0) {
-    bars = await yahooHistoryFallback(symbol, from, to);
-  }
-  if (bars.length === 0) {
-    bars = await ibkrHistoryFallback(symbol, from, to);
-  }
-
-  if (bars.length > 0) setCached(cacheId, bars, BARS_CACHE_TTL_MS);
-  return bars;
+  return fetchPolygonHistoryOnly(ticker, from, to);
 }
 
-/** Real-time FX. Polygon → Yahoo (skip 401) → IBKR CASH/IDEALPRO last resort. */
 export async function getForexQuote(pair: string): Promise<PolygonForexQuote | null> {
-  const codes = parseForexPair(pair);
-  if (!codes) return null;
-
-  const pairKey = `${codes.from}${codes.to}`;
-  const ttl = 900;
-  const cached = getCached<PolygonForexQuote>(cacheKey("polygon-fx", pairKey));
-  if (cached) return cached;
-
-  let result: PolygonForexQuote | null = await fetchPolygonForexOnly(pairKey);
-
-  if (!result) {
-    result = await yahooForexFallback(pairKey);
-  }
-  if (!result) {
-    result = await ibkrForexFallback(pairKey);
-  }
-
-  if (result) setCached(cacheKey("polygon-fx", pairKey), result, ttl);
-  return result;
+  return fetchPolygonForexOnly(pair);
 }
 
-/**
- * Batch quotes from Polygon ONLY (no Yahoo/IBKR). yahoo-finance.ts applies
- * Yahoo then IBKR last resort for symbols still missing.
- */
 export async function getPolygonBatchQuotes(
   tickers: readonly string[],
 ): Promise<Map<string, YahooQuote>> {
-  const out = new Map<string, YahooQuote>();
-  if (tickers.length === 0 || !isPolygonEnabled()) return out;
-
-  const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
-  await Promise.all(
-    unique.map(async (symbol) => {
-      const q = await getLastValue(symbol);
-      if (q) out.set(symbol, toYahooQuote(symbol, q));
-    }),
-  );
-  return out;
+  const { getBatchPrices } = await import("@/lib/market-data/yahoo-finance");
+  return getBatchPrices(tickers);
 }
 
-/** Map Polygon history bars to YahooOhlcvBar for chart consumers. */
 export function polygonBarsToYahoo(bars: readonly PolygonHistoryBar[]): YahooOhlcvBar[] {
   return bars.map((b) => ({
     open: b.open,

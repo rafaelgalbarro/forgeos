@@ -1,6 +1,12 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import {
+  getCandles,
+  getForexQuote as finnhubGetForexQuote,
+  getQuote as finnhubGetQuote,
+  isFinnhubEnabled,
+} from "@/lib/market-data/finnhub";
 import { quoteRoutesForTicker, type TickerQuoteRoute } from "@/lib/trading/ticker-price-routes";
 import {
   resolveLimitPriceFromQuote,
@@ -115,38 +121,6 @@ async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot
   };
 }
 
-type IbkrHistoryResponse = {
-  bars?: Array<{ close?: number; high?: number; low?: number; volume?: number }>;
-  recentErrors?: Array<{ code?: number; message?: string } | string>;
-  note?: string;
-  exchange?: string;
-};
-
-async function fetchHistoryForRoute(route: TickerQuoteRoute): Promise<IbkrHistoryResponse> {
-  const params = new URLSearchParams({
-    symbol: route.symbol,
-    duration: "5 D",
-    barSize: "1 day",
-    currency: route.currency,
-    exchange: route.exchange,
-  });
-  return ibkrServiceFetch<IbkrHistoryResponse>(`/api/ibkr/history?${params.toString()}`);
-}
-
-function formatHistoryError(route: TickerQuoteRoute, history: IbkrHistoryResponse, err?: unknown): string {
-  if (err instanceof Error) {
-    return `${route.label} (${route.exchange}/${route.currency}): ${err.message}`;
-  }
-  const recent = (history.recentErrors ?? [])
-    .map((e) => (typeof e === "string" ? e : e.message ?? String(e.code ?? "error")))
-    .filter(Boolean)
-    .join("; ");
-  const note = history.note?.trim();
-  if (recent) return `${route.label} (${route.exchange}): ${recent}`;
-  if (note) return `${route.label} (${route.exchange}): ${note}`;
-  return `${route.label} (${route.exchange}/${route.currency}): sin barras de precio`;
-}
-
 export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSnapshot> {
   return getOrSetIbkrCached(ibkrCacheKey("price", ticker), () => fetchTradingPriceLive(ticker));
 }
@@ -155,47 +129,41 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
   const routes = quoteRoutesForTicker(ticker);
   const quoteErrors: string[] = [];
 
-  for (const route of routes) {
-    try {
-      const history = await fetchHistoryForRoute(route);
-      const bars = Array.isArray(history.bars) ? history.bars : [];
-      const last = bars[bars.length - 1] ?? {};
-      const prev = bars[bars.length - 2] ?? last;
-      const currentPrice = Number(last.close ?? 0);
-      if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
-        quoteErrors.push(formatHistoryError(route, history));
-        continue;
-      }
-      const prevClose = Number(prev.close ?? currentPrice);
-      return {
-        ticker,
-        currentPrice,
-        previousClose: prevClose,
-        bid: currentPrice,
-        ask: currentPrice,
-        change1d: currentPrice - prevClose,
-        high52w: Math.max(...bars.map((b) => Number(b.high ?? 0)), currentPrice),
-        low52w: Math.min(
-          ...bars.map((b) => Number(b.low ?? (currentPrice || 0))).filter((n) => n > 0),
-          currentPrice || 0,
-        ),
-        volume: Number(last.volume ?? 0),
-        quoteSymbol: route.symbol,
-        quoteExchange: route.exchange,
-        quoteCurrency: route.currency,
-        quoteRoute: route.label,
-        quoteErrors,
-      };
-    } catch (err) {
-      quoteErrors.push(formatHistoryError(route, {}, err));
-    }
+  if (!isFinnhubEnabled()) {
+    throw new Error(`FINNHUB_API_KEY required for price data — ${ticker}`);
   }
 
-  throw new Error(
-    quoteErrors.length
-      ? `No se pudo obtener precio de ${ticker} — ${quoteErrors.join(" | ")}`
-      : `No se pudo obtener precio de ${ticker}`,
-  );
+  const quote = await finnhubGetQuote(ticker);
+  if (!quote || !Number.isFinite(quote.c) || quote.c <= 0) {
+    throw new Error(`Finnhub sin precio para ${ticker}`);
+  }
+
+  const candles = await getCandles(ticker, 90);
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2] ?? last;
+  const currentPrice = quote.c;
+  const prevClose = prev?.close ?? quote.pc ?? currentPrice;
+  const route = routes[0];
+
+  return {
+    ticker,
+    currentPrice,
+    previousClose: prevClose,
+    bid: currentPrice,
+    ask: currentPrice,
+    change1d: currentPrice - prevClose,
+    high52w: Math.max(...candles.map((b) => b.high), quote.h, currentPrice),
+    low52w: Math.min(
+      ...candles.map((b) => b.low).filter((n) => n > 0),
+      quote.l > 0 ? quote.l : currentPrice,
+    ),
+    volume: last?.volume ?? 0,
+    quoteSymbol: route?.symbol ?? ticker,
+    quoteExchange: route?.exchange ?? "FINNHUB",
+    quoteCurrency: route?.currency ?? "USD",
+    quoteRoute: route?.label ?? "Finnhub",
+    quoteErrors,
+  };
 }
 
 export async function fetchTradingPosition(
@@ -248,68 +216,31 @@ function asPositive(n: unknown): number | null {
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
-async function fetchIbkrStockQuote(ticker: string): Promise<LiveLimitQuote | null> {
-  const routes = quoteRoutesForTicker(ticker);
-  const tried = new Set<string>();
-  for (const route of [...routes, { symbol: ticker, exchange: "SMART", currency: "USD", label: "SMART" }]) {
-    const key = `${route.exchange}:${route.currency}`;
-    if (tried.has(key)) continue;
-    tried.add(key);
-    try {
-      const data = await ibkrServiceFetch<{
-        bid?: number | null;
-        ask?: number | null;
-        last?: number | null;
-        mid?: number | null;
-        currentPrice?: number | null;
-      }>(
-        `/api/ibkr/quote?symbol=${encodeURIComponent(route.symbol || ticker)}` +
-          `&currency=${encodeURIComponent(route.currency)}` +
-          `&exchange=${encodeURIComponent(route.exchange)}`,
-      );
-      const last = asPositive(data.last) ?? asPositive(data.currentPrice);
-      const bid = asPositive(data.bid);
-      const ask = asPositive(data.ask);
-      const mid = asPositive(data.mid);
-      if (last || bid || ask || mid) {
-        return { bid, ask, last, mid };
-      }
-    } catch {
-      /* try next route */
-    }
-  }
-  return null;
+async function fetchFinnhubStockQuote(ticker: string): Promise<LiveLimitQuote | null> {
+  const q = await finnhubGetQuote(ticker);
+  if (!q || !Number.isFinite(q.c) || q.c <= 0) return null;
+  return {
+    bid: q.c,
+    ask: q.c,
+    last: q.c,
+    mid: q.c,
+  };
 }
 
-async function fetchIbkrForexQuote(pairId: string): Promise<LiveLimitQuote | null> {
-  try {
-    const data = await ibkrServiceFetch<{
-      quotes?: Array<{
-        pairId?: string;
-        bid?: number | null;
-        ask?: number | null;
-        last?: number | null;
-        mid?: number | null;
-      }>;
-    }>(`/api/forex/quotes?pair=${encodeURIComponent(pairId)}`);
-    const row = (data.quotes ?? []).find(
-      (q) => (q.pairId ?? "").toUpperCase() === pairId.toUpperCase(),
-    ) ?? data.quotes?.[0];
-    if (!row) return null;
-    return {
-      bid: asPositive(row.bid),
-      ask: asPositive(row.ask),
-      last: asPositive(row.last),
-      mid: asPositive(row.mid),
-    };
-  } catch {
-    return null;
-  }
+async function fetchFinnhubForexQuote(pairId: string): Promise<LiveLimitQuote | null> {
+  const q = await finnhubGetForexQuote(pairId);
+  if (!q || !Number.isFinite(q.mid) || q.mid <= 0) return null;
+  return {
+    bid: asPositive(q.bid),
+    ask: asPositive(q.ask),
+    last: q.mid,
+    mid: q.mid,
+  };
 }
 
 /**
- * Live LMT price from IBKR at approval/submit time (not the analysis snapshot).
- * Stocks: last/current else mid. FOREX: BUY=ask, SELL=bid.
+ * Live LMT price from Finnhub at approval/submit time.
+ * IBKR is used only for order execution, not market data.
  */
 export async function fetchLiveLimitPrice(args: {
   readonly symbol: string;
@@ -319,8 +250,8 @@ export async function fetchLiveLimitPrice(args: {
 }): Promise<number> {
   const quote =
     args.asset === "FOREX"
-      ? await fetchIbkrForexQuote(args.symbol)
-      : await fetchIbkrStockQuote(args.symbol);
+      ? await fetchFinnhubForexQuote(args.symbol)
+      : await fetchFinnhubStockQuote(args.symbol);
 
   const fromLive = quote
     ? resolveLimitPriceFromQuote({
@@ -332,28 +263,7 @@ export async function fetchLiveLimitPrice(args: {
     : null;
   if (fromLive != null) return fromLive;
 
-  if (args.asset === "STK") {
-    try {
-      const hist = await fetchTradingPrice(args.symbol);
-      const histQuote: LiveLimitQuote = {
-        bid: asPositive(hist.bid),
-        ask: asPositive(hist.ask),
-        last: asPositive(hist.currentPrice),
-        mid: null,
-      };
-      const fromHist = resolveLimitPriceFromQuote({
-        asset: "STK",
-        side: args.side,
-        quote: histQuote,
-        suggested: args.suggested,
-      });
-      if (fromHist != null) return fromHist;
-    } catch {
-      /* fall through */
-    }
-  }
-
   const suggested = asPositive(args.suggested);
   if (suggested != null) return suggested;
-  throw new Error(`No live IBKR limitPrice for ${args.symbol}`);
+  throw new Error(`No Finnhub limitPrice for ${args.symbol}`);
 }

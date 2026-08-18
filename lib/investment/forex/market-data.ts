@@ -1,5 +1,5 @@
 /**
- * FOREX live market data — IBKR IDEALPRO quotes/bars + Yahoo FX fallback.
+ * FOREX live market data — IBKR IDEALPRO quotes/bars + Polygon FX + Yahoo fallback.
  * Quotes cached ~1s for sub-second UI polls without hammering IBKR.
  */
 
@@ -7,6 +7,7 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
+import { getForexQuote } from "@/lib/market-data/polygon";
 import { getBatchPrices, getChartBars, type YahooOhlcvBar } from "@/lib/market-data/yahoo-finance";
 import {
   FOREX_PAIRS,
@@ -29,7 +30,7 @@ export type ForexLiveQuote = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "IBKR" | "YAHOO" | "NO_DATA";
+  source: "IBKR" | "POLYGON" | "YAHOO" | "NO_DATA";
   updatedAt: string;
 };
 
@@ -42,7 +43,7 @@ export type ForexHistoryResult = {
   pairId: string;
   display: string;
   timeframe: ForexTimeframe;
-  source: "IBKR" | "YAHOO" | "NO_DATA";
+  source: "IBKR" | "POLYGON" | "YAHOO" | "NO_DATA";
   bars: ForexCandle[];
   count: number;
   generatedAt: string;
@@ -126,6 +127,38 @@ async function loadIbkrQuotesRaw(): Promise<ForexLiveQuote[]> {
   }
 }
 
+async function polygonFallbackQuotes(): Promise<ForexLiveQuote[]> {
+  const now = new Date().toISOString();
+  const rows = await Promise.all(
+    FOREX_PAIRS.map(async (p) => {
+      const fx = await getForexQuote(p.pairId).catch(() => null);
+      if (!fx || !Number.isFinite(fx.mid)) {
+        return {
+          pairId: p.pairId,
+          display: p.display,
+          bid: null,
+          ask: null,
+          mid: null,
+          spreadPips: null,
+          source: "NO_DATA" as const,
+          updatedAt: now,
+        };
+      }
+      return {
+        pairId: p.pairId,
+        display: p.display,
+        bid: fx.bid,
+        ask: fx.ask,
+        mid: fx.mid,
+        spreadPips: priceToPips(p, fx.bid, fx.ask),
+        source: (fx.source === "polygon" ? "POLYGON" : "YAHOO") as "POLYGON" | "YAHOO",
+        updatedAt: fx.timestamp ?? now,
+      };
+    }),
+  );
+  return rows;
+}
+
 async function yahooFallbackQuotes(): Promise<ForexLiveQuote[]> {
   const now = new Date().toISOString();
   const map = await getBatchPrices(FOREX_PAIRS.map((p) => yahooSymbol(p))).catch(() => new Map());
@@ -160,6 +193,12 @@ async function yahooFallbackQuotes(): Promise<ForexLiveQuote[]> {
   });
 }
 
+async function externalFallbackQuotes(): Promise<ForexLiveQuote[]> {
+  const polygon = await polygonFallbackQuotes();
+  if (polygon.some((q) => q.mid != null)) return polygon;
+  return yahooFallbackQuotes();
+}
+
 /** Live bid/ask for all 9 pairs — ~1s in-memory TTL. */
 export async function getForexLiveQuotes(): Promise<{
   quotes: ForexLiveQuote[];
@@ -174,14 +213,14 @@ export async function getForexLiveQuotes(): Promise<{
 
   let quotes = await loadIbkrQuotesRaw();
   if (quotes.every((q) => q.mid == null)) {
-    quotes = await yahooFallbackQuotes();
+    quotes = await externalFallbackQuotes();
   } else {
     const missing = FOREX_PAIRS.filter((p) => !quotes.some((q) => q.pairId === p.pairId && q.mid != null));
     if (missing.length) {
-      const yahoo = await yahooFallbackQuotes();
+      const external = await externalFallbackQuotes();
       const byId = new Map(quotes.map((q) => [q.pairId, q]));
       for (const m of missing) {
-        const y = yahoo.find((q) => q.pairId === m.pairId);
+        const y = external.find((q) => q.pairId === m.pairId);
         if (y) byId.set(m.pairId, y);
       }
       quotes = FOREX_PAIRS.map(
@@ -296,7 +335,7 @@ export async function getForexHistory(
     note:
       bars.length > 0
         ? `${bars.length} velas ${timeframe} via ${source}`
-        : "NO_DATA — sin historial IBKR/Yahoo para este TF",
+        : "NO_DATA — sin historial IBKR/Polygon/Yahoo para este TF",
   };
   // Short TF refresh often; daily slower
   const ttl =

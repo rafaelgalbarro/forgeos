@@ -95,26 +95,113 @@ function parseQuoteRow(row: Record<string, unknown>): YahooQuote | null {
   };
 }
 
-/** Batch quotes — up to ~200 symbols per Yahoo request; 5m in-memory TTL (hits <100ms). */
-export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
+function rangeToPolygonDates(range: string): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to);
+  const r = range.trim().toLowerCase();
+  if (r.endsWith("d")) from.setDate(from.getDate() - Number.parseInt(r, 10));
+  else if (r.endsWith("mo")) from.setMonth(from.getMonth() - Number.parseInt(r, 10));
+  else if (r.endsWith("y")) from.setFullYear(from.getFullYear() - Number.parseInt(r, 10));
+  else from.setMonth(from.getMonth() - 3);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
+
+/** Single-ticker Yahoo quote — used by Polygon fallback and direct Yahoo paths. */
+export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote | null> {
+  if (!isYahooFinanceEnabled()) return null;
+  const symbol = ticker.trim().toUpperCase();
+  if (!symbol) return null;
+  const ttl = getDataRefreshPolicy().priceTtlMs || PRICE_CACHE_TTL_MS;
+  const hit = getCached<YahooQuote>(cacheKey("yahoo-quote", symbol));
+  if (hit) return hit;
+
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+  try {
+    const res = await fetchWithRetry(url);
+    if (res.status === 401) return null;
+    const data = (await res.json()) as { quoteResponse?: { result?: Record<string, unknown>[] } };
+    const q = parseQuoteRow(data.quoteResponse?.result?.[0] ?? {});
+    if (q) setCached(cacheKey("yahoo-quote", q.symbol), q, ttl);
+    return q;
+  } catch {
+    return null;
+  }
+}
+
+/** Raw Yahoo chart bars — Polygon history fallback. */
+export async function fetchYahooChartBarsRaw(
+  ticker: string,
+  interval: YahooChartInterval = "1d",
+  range = "3mo",
+): Promise<YahooOhlcvBar[]> {
+  if (!isYahooFinanceEnabled()) return [];
+  const symbol = ticker.trim().toUpperCase();
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+  try {
+    const res = await fetchWithRetry(url);
+    if (res.status === 401) return [];
+    const data = (await res.json()) as {
+      chart?: {
+        result?: Array<{
+          timestamp?: number[];
+          indicators?: {
+            quote?: Array<{
+              open?: (number | null)[];
+              high?: (number | null)[];
+              low?: (number | null)[];
+              close?: (number | null)[];
+              volume?: (number | null)[];
+            }>;
+          };
+        }>;
+      };
+    };
+    const result = data.chart?.result?.[0];
+    const quote = result?.indicators?.quote?.[0];
+    const timestamps = result?.timestamp ?? [];
+    const closes = quote?.close ?? [];
+    const opens = quote?.open ?? [];
+    const highs = quote?.high ?? [];
+    const lows = quote?.low ?? [];
+    const volumes = quote?.volume ?? [];
+    const bars: YahooOhlcvBar[] = [];
+    for (let i = 0; i < closes.length; i += 1) {
+      const c = closes[i];
+      if (c == null || !Number.isFinite(c) || c <= 0) continue;
+      const ts = timestamps[i];
+      bars.push({
+        open: Number(opens[i] ?? c),
+        high: Number(highs[i] ?? c),
+        low: Number(lows[i] ?? c),
+        close: c,
+        volume: Number(volumes[i] ?? 0),
+        date: typeof ts === "number" ? new Date(ts * 1000).toISOString() : undefined,
+      });
+    }
+    return bars;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchYahooBatchPricesRaw(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   if (!isYahooFinanceEnabled() || tickers.length === 0) return out;
 
-  const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
   const ttl = getDataRefreshPolicy().priceTtlMs || PRICE_CACHE_TTL_MS;
-  const missing: string[] = [];
 
-  for (const symbol of unique) {
-    const hit = getCached<YahooQuote>(cacheKey("yahoo-quote", symbol));
-    if (hit) out.set(symbol, hit);
-    else missing.push(symbol);
-  }
-
-  for (let i = 0; i < missing.length; i += BATCH_SIZE) {
-    const chunk = missing.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+    const chunk = tickers.slice(i, i + BATCH_SIZE);
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(","))}`;
     try {
       const res = await fetchWithRetry(url);
+      if (res.status === 401) {
+        console.warn("[YahooFinance] batch unauthorized (401) — skipping Yahoo for remaining symbols");
+        break;
+      }
       const data = (await res.json()) as { quoteResponse?: { result?: Record<string, unknown>[] } };
       for (const row of data.quoteResponse?.result ?? []) {
         const q = parseQuoteRow(row);
@@ -130,6 +217,45 @@ export async function getBatchPrices(tickers: readonly string[]): Promise<Map<st
       );
     }
   }
+  return out;
+}
+
+/** Batch quotes — Polygon.io first, Yahoo Finance fallback; 5m in-memory TTL. */
+export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
+  const out = new Map<string, YahooQuote>();
+  if (tickers.length === 0) return out;
+
+  const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
+  const ttl = getDataRefreshPolicy().priceTtlMs || PRICE_CACHE_TTL_MS;
+  const missing: string[] = [];
+
+  for (const symbol of unique) {
+    const hit = getCached<YahooQuote>(cacheKey("yahoo-quote", symbol));
+    if (hit) out.set(symbol, hit);
+    else missing.push(symbol);
+  }
+
+  if (missing.length === 0) return out;
+
+  try {
+    const { getPolygonBatchQuotes, isPolygonEnabled } = await import("@/lib/market-data/polygon");
+    if (isPolygonEnabled()) {
+      const polygonQuotes = await getPolygonBatchQuotes(missing);
+      for (const [symbol, q] of polygonQuotes) {
+        out.set(symbol, q);
+        setCached(cacheKey("yahoo-quote", symbol), q, ttl);
+      }
+    }
+  } catch (err) {
+    console.warn("[MarketData] Polygon batch failed:", err instanceof Error ? err.message : err);
+  }
+
+  const stillMissing = missing.filter((s) => !out.has(s));
+  if (stillMissing.length > 0) {
+    const yahoo = await fetchYahooBatchPricesRaw(stillMissing);
+    for (const [symbol, q] of yahoo) out.set(symbol, q);
+  }
+
   return out;
 }
 
@@ -556,57 +682,33 @@ export async function getChartBars(
   interval: YahooChartInterval = "1d",
   range = "3mo",
 ): Promise<YahooOhlcvBar[]> {
-  if (!isYahooFinanceEnabled()) return [];
   const symbol = ticker.trim().toUpperCase();
+  if (!symbol) return [];
+
   return getOrSetCached(
     cacheKey("yahoo-chart", symbol, interval, range),
     BARS_CACHE_TTL_MS,
     async () => {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
-      try {
-        const res = await fetchWithRetry(url);
-        const data = (await res.json()) as {
-          chart?: {
-            result?: Array<{
-              timestamp?: number[];
-              indicators?: {
-                quote?: Array<{
-                  open?: (number | null)[];
-                  high?: (number | null)[];
-                  low?: (number | null)[];
-                  close?: (number | null)[];
-                  volume?: (number | null)[];
-                }>;
-              };
-            }>;
-          };
-        };
-        const result = data.chart?.result?.[0];
-        const quote = result?.indicators?.quote?.[0];
-        const timestamps = result?.timestamp ?? [];
-        const closes = quote?.close ?? [];
-        const opens = quote?.open ?? [];
-        const highs = quote?.high ?? [];
-        const lows = quote?.low ?? [];
-        const volumes = quote?.volume ?? [];
-        const bars: YahooOhlcvBar[] = [];
-        for (let i = 0; i < closes.length; i += 1) {
-          const c = closes[i];
-          if (c == null || !Number.isFinite(c) || c <= 0) continue;
-          const ts = timestamps[i];
-          bars.push({
-            open: Number(opens[i] ?? c),
-            high: Number(highs[i] ?? c),
-            low: Number(lows[i] ?? c),
-            close: c,
-            volume: Number(volumes[i] ?? 0),
-            date: typeof ts === "number" ? new Date(ts * 1000).toISOString() : undefined,
-          });
+      if (interval === "1d") {
+        try {
+          const { getHistory, isPolygonEnabled, polygonBarsToYahoo } = await import(
+            "@/lib/market-data/polygon"
+          );
+          if (isPolygonEnabled()) {
+            const { from, to } = rangeToPolygonDates(range);
+            const polygonBars = await getHistory(symbol, from, to);
+            if (polygonBars.length > 0) return polygonBarsToYahoo(polygonBars);
+          }
+        } catch (err) {
+          console.warn(
+            "[MarketData] Polygon chart failed:",
+            err instanceof Error ? err.message : err,
+          );
         }
-        return bars;
-      } catch {
-        return [];
       }
+
+      if (!isYahooFinanceEnabled()) return [];
+      return fetchYahooChartBarsRaw(symbol, interval, range);
     },
   );
 }

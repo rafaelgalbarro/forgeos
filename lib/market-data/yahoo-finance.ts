@@ -4,16 +4,6 @@ import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { FOREX_PAIRS } from "@/lib/investment/forex/config";
 import { cacheKey, getCached, getOrSetCached, setCached } from "@/lib/market-data/cache";
 import {
-  chartIntervalToPolygon,
-  chartRangeToDates,
-  fetchPolygonAggregates,
-  fetchPolygonTickerDetails,
-  getPolygonBatchQuotes,
-  isPolygonEnabled,
-  polygonBarsToYahoo,
-  polygonDetailsToYahooInfo,
-} from "@/lib/market-data/polygon";
-import {
   BARS_CACHE_TTL_MS,
   FUNDAMENTALS_CACHE_TTL_MS,
   PRICE_CACHE_TTL_MS,
@@ -455,7 +445,7 @@ async function fetchYahooBatchPricesRaw(tickers: readonly string[]): Promise<Map
   return out;
 }
 
-/** Batch quotes — Polygon PRIMARY when keyed, then IBKR, then Yahoo. */
+/** Batch quotes — IBKR first (SMART/STK or IDEALPRO/CASH), Yahoo Finance fallback. */
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   if (tickers.length === 0) return out;
@@ -472,20 +462,7 @@ export async function getBatchPrices(tickers: readonly string[]): Promise<Map<st
 
   if (missing.length === 0) return out;
 
-  if (isPolygonEnabled()) {
-    try {
-      const polygonQuotes = await getPolygonBatchQuotes(missing);
-      for (const [symbol, q] of polygonQuotes) {
-        out.set(symbol, q);
-        setCached(cacheKey("yahoo-quote", symbol), q, ttl);
-      }
-    } catch (err) {
-      console.warn("[MarketData] Polygon batch failed:", err instanceof Error ? err.message : err);
-    }
-  }
-
-  const afterPolygon = missing.filter((s) => !out.has(s));
-  await runPool(afterPolygon, IBKR_QUOTE_CONCURRENCY, async (symbol) => {
+  await runPool(missing, IBKR_QUOTE_CONCURRENCY, async (symbol) => {
     const quote = await fetchIbkrQuoteForTicker(symbol);
     if (!quote) return;
     out.set(symbol, quote);
@@ -506,14 +483,6 @@ export async function getTickerInfo(ticker: string): Promise<YahooTickerInfo | n
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
   return getOrSetCached(cacheKey("yahoo-info", symbol), FUNDAMENTALS_CACHE_TTL_MS, async () => {
-    if (isPolygonEnabled()) {
-      try {
-        const details = await fetchPolygonTickerDetails(symbol);
-        if (details) return polygonDetailsToYahooInfo(details);
-      } catch (err) {
-        console.warn("[MarketData] Polygon ticker info failed:", err instanceof Error ? err.message : err);
-      }
-    }
     if (!isYahooFinanceEnabled()) return null;
     const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=assetProfile,summaryDetail,price`;
     try {
@@ -622,34 +591,7 @@ export async function getYahooFundamentals(ticker: string): Promise<YahooFundame
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
   return getOrSetCached(cacheKey("yahoo-fundamentals", symbol), FUNDAMENTALS_CACHE_TTL_MS, async () => {
-    let polygonPartial: YahooFundamentals | null = null;
-    if (isPolygonEnabled()) {
-      try {
-        const details = await fetchPolygonTickerDetails(symbol);
-        if (details) {
-          polygonPartial = {
-            symbol,
-            shortName: details.name,
-            industry: details.sicDescription,
-            trailingPE: null,
-            priceToBook: null,
-            returnOnEquity: null,
-            debtToEquity: null,
-            dividendYield: null,
-            dividendRate: null,
-            recommendationKey: null,
-            recommendationMean: null,
-            marketCap: details.marketCap ?? null,
-            repurchaseOfStock: null,
-            modulesPresent: ["polygon.reference.tickers"],
-            modulesMissing: [...FUNDAMENTAL_MODULES],
-          };
-        }
-      } catch (err) {
-        console.warn("[MarketData] Polygon fundamentals failed:", err instanceof Error ? err.message : err);
-      }
-    }
-    if (!isYahooFinanceEnabled()) return polygonPartial;
+    if (!isYahooFinanceEnabled()) return null;
     const modules = FUNDAMENTAL_MODULES.join(",");
     const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${modules}`;
     try {
@@ -661,7 +603,7 @@ export async function getYahooFundamentals(ticker: string): Promise<YahooFundame
         };
       };
       const row = data.quoteSummary?.result?.[0];
-      if (!row) return polygonPartial;
+      if (!row) return null;
 
       const present: string[] = [];
       const missing: string[] = [];
@@ -718,7 +660,7 @@ export async function getYahooFundamentals(ticker: string): Promise<YahooFundame
         modulesMissing: missing,
       };
     } catch {
-      return polygonPartial;
+      return null;
     }
   });
 }
@@ -953,7 +895,8 @@ export type YahooOhlcvBar = {
 };
 
 /**
- * Multi-interval OHLCV. Polygon PRIMARY when keyed; then IBKR; Yahoo last.
+ * Multi-interval OHLCV. IBKR PRIMARY (SMART/STK or IDEALPRO/CASH); Yahoo only if
+ * IBKR is unavailable or returns no bars.
  */
 export async function getChartBars(
   ticker: string,
@@ -967,20 +910,6 @@ export async function getChartBars(
     cacheKey("yahoo-chart", symbol, interval, range),
     BARS_CACHE_TTL_MS,
     async () => {
-      if (isPolygonEnabled()) {
-        try {
-          const { multiplier, timespan } = chartIntervalToPolygon(interval);
-          const { from, to } = chartRangeToDates(range);
-          const polygonBars = await fetchPolygonAggregates(symbol, multiplier, timespan, from, to);
-          if (polygonBars.length > 0) return polygonBarsToYahoo(polygonBars);
-        } catch (err) {
-          console.warn(
-            "[MarketData] Polygon chart failed:",
-            err instanceof Error ? err.message : err,
-          );
-        }
-      }
-
       try {
         const ibkrBars = await fetchIbkrChartBars(symbol, interval, range);
         if (ibkrBars.length > 0) return ibkrBars;

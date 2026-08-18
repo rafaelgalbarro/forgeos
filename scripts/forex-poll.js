@@ -18,7 +18,7 @@ if (process.env.FOREX_POLL_ENABLED === "false") {
 const BASE = process.env.FORGEOS_SCANNER_BASE_URL ?? "http://127.0.0.1:3000";
 const ACTIVE_MS = 5 * 60 * 1000;
 const IDLE_MS = 15 * 60 * 1000;
-const CYCLE_TIMEOUT_MS = 30_000;
+const CYCLE_TIMEOUT_MS = 60_000;
 
 function isForexEnabled() {
   const raw = (process.env.FOREX_ENABLED ?? process.env.ALLOW_FOREX ?? "").trim().toLowerCase();

@@ -30,8 +30,24 @@ export type ForexSignalScanResult = {
   durationMs: number;
 };
 
+const PAIR_TIMEOUT_MS = 8_000;
+
 function weekendFromSession(label: string): boolean {
   return label.toLowerCase().includes("fin de semana");
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timeout ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export async function scanForexStrategySignals(): Promise<ForexSignalScanResult> {
@@ -44,59 +60,83 @@ export async function scanForexStrategySignals(): Promise<ForexSignalScanResult>
   const macro = await getForexMacroSnapshot();
   const { quotes } = await getForexLiveQuotes();
   const weekend = weekendFromSession(session.label);
-  const signals: ForexLiveSignalCard[] = [];
+  const pairJobs = FOREX_PAIRS.map(async (pair): Promise<ForexLiveSignalCard[]> => {
+    const label = `pair ${pair.pairId}`;
+    try {
+      return await withTimeout(
+        (async () => {
+          const quote = quotes.find((q) => q.pairId === pair.pairId);
+          const spread = quote?.spreadPips ?? null;
+          const defs = FOREX_STRATEGIES.filter((def) => {
+            if (!isStrategyWindowActive(def.style, session.madridMinutes, weekend)) return false;
+            return !(
+              def.style === "SCALPING" &&
+              def.priorityPairs.length &&
+              !def.priorityPairs.includes(pair.pairId)
+            );
+          });
+          if (defs.length === 0) return [];
 
-  for (const pair of FOREX_PAIRS) {
-    const quote = quotes.find((q) => q.pairId === pair.pairId);
-    const spread = quote?.spreadPips ?? null;
+          const timeframeSet = new Set(defs.map((d) => d.timeframe));
+          const historyEntries = await Promise.all(
+            [...timeframeSet].map(async (timeframe) => {
+              try {
+                const hist = await getForexHistory(pair.pairId, timeframe);
+                return [timeframe, hist] as const;
+              } catch {
+                return [timeframe, null] as const;
+              }
+            }),
+          );
+          const historyByTf = new Map(historyEntries);
+          const pairSignals: ForexLiveSignalCard[] = [];
 
-    for (const def of FOREX_STRATEGIES) {
-      if (!isStrategyWindowActive(def.style, session.madridMinutes, weekend)) continue;
-      // Prefer priority pairs for scalping noise control
-      if (
-        def.style === "SCALPING" &&
-        def.priorityPairs.length &&
-        !def.priorityPairs.includes(pair.pairId)
-      ) {
-        continue;
-      }
+          for (const def of defs) {
+            const hist = historyByTf.get(def.timeframe);
+            if (!hist || hist.bars.length < 25) continue;
+            const sig = evaluateStrategy(def.id, pair.pairId, hist.bars, {
+              spreadPips: spread,
+              madridMinutes: session.madridMinutes,
+              weekend,
+              primarySession: session.primarySession,
+            });
+            if (!sig) continue;
 
-      const hist = await getForexHistory(pair.pairId, def.timeframe);
-      if (hist.bars.length < 25) continue;
+            const bt = getCachedBacktest(def.id, pair.pairId, hist.bars);
+            const confAdj = Math.min(
+              0.95,
+              sig.confidence * (0.85 + Math.min(0.2, bt.winRate * 0.25) + (bt.profitFactor > 1.2 ? 0.05 : 0)),
+            );
 
-      const sig = evaluateStrategy(def.id, pair.pairId, hist.bars, {
-        spreadPips: spread,
-        madridMinutes: session.madridMinutes,
-        weekend,
-        primarySession: session.primarySession,
-      });
-      if (!sig) continue;
+            let canExecute = session.tradingWindowActive && !macro.blackoutActive;
+            let blockReason: string | undefined;
+            if (!session.tradingWindowActive) blockReason = "Fuera de horario";
+            else if (macro.blackoutActive) blockReason = "Blackout macro";
+            else if (bt.trades >= 5 && bt.winRate < 0.4) {
+              canExecute = false;
+              blockReason = "Backtest débil";
+            }
 
-      const bt = getCachedBacktest(def.id, pair.pairId, hist.bars);
-      const confAdj = Math.min(
-        0.95,
-        sig.confidence * (0.85 + Math.min(0.2, bt.winRate * 0.25) + (bt.profitFactor > 1.2 ? 0.05 : 0)),
+            pairSignals.push({
+              ...sig,
+              confidence: confAdj,
+              confidenceAdjusted: confAdj,
+              backtest: bt,
+              canExecute,
+              blockReason,
+            });
+          }
+          return pairSignals;
+        })(),
+        PAIR_TIMEOUT_MS,
+        label,
       );
-
-      let canExecute = session.tradingWindowActive && !macro.blackoutActive;
-      let blockReason: string | undefined;
-      if (!session.tradingWindowActive) blockReason = "Fuera de horario";
-      else if (macro.blackoutActive) blockReason = "Blackout macro";
-      else if (bt.trades >= 5 && bt.winRate < 0.4) {
-        canExecute = false;
-        blockReason = "Backtest débil";
-      }
-
-      signals.push({
-        ...sig,
-        confidence: confAdj,
-        confidenceAdjusted: confAdj,
-        backtest: bt,
-        canExecute,
-        blockReason,
-      });
+    } catch {
+      return [];
     }
-  }
+  });
+  const settled = await Promise.allSettled(pairJobs);
+  const signals = settled.flatMap((item) => (item.status === "fulfilled" ? item.value : []));
 
   signals.sort((a, b) => b.confidenceAdjusted - a.confidenceAdjusted);
 

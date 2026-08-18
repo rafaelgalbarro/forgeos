@@ -4,6 +4,14 @@ import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { FOREX_PAIRS } from "@/lib/investment/forex/config";
 import { cacheKey, getCached, getOrSetCached, setCached } from "@/lib/market-data/cache";
 import {
+  chartIntervalToPolygon,
+  chartRangeToDates,
+  fetchPolygonAggregates,
+  getPolygonBatchQuotes,
+  isPolygonEnabled,
+  polygonBarsToYahoo,
+} from "@/lib/market-data/polygon";
+import {
   BARS_CACHE_TTL_MS,
   FUNDAMENTALS_CACHE_TTL_MS,
   PRICE_CACHE_TTL_MS,
@@ -196,7 +204,8 @@ function ibkrQuoteToYahoo(
   };
 }
 
-async function fetchIbkrQuoteForTicker(ticker: string): Promise<YahooQuote | null> {
+/** IBKR last-resort quote (SMART/STK or IDEALPRO/CASH). Authenticated via ibkrServiceFetch. */
+export async function fetchIbkrQuoteForTicker(ticker: string): Promise<YahooQuote | null> {
   const contracts = mapTickerToIbkrContracts(ticker);
   for (const contract of contracts) {
     try {
@@ -225,7 +234,8 @@ async function fetchIbkrQuoteForTicker(ticker: string): Promise<YahooQuote | nul
   return null;
 }
 
-async function fetchIbkrChartBars(
+/** IBKR last-resort history (SMART/STK or IDEALPRO/CASH). Authenticated via ibkrServiceFetch. */
+export async function fetchIbkrChartBars(
   ticker: string,
   interval: YahooChartInterval,
   range: string,
@@ -445,7 +455,10 @@ async function fetchYahooBatchPricesRaw(tickers: readonly string[]): Promise<Map
   return out;
 }
 
-/** Batch quotes — IBKR first (SMART/STK or IDEALPRO/CASH), Yahoo Finance fallback. */
+/**
+ * Batch quotes — Polygon first; Yahoo (skip quickly on 401); IBKR last resort
+ * (SMART/STK or IDEALPRO/CASH). Never invents prices.
+ */
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   if (tickers.length === 0) return out;
@@ -462,17 +475,35 @@ export async function getBatchPrices(tickers: readonly string[]): Promise<Map<st
 
   if (missing.length === 0) return out;
 
-  await runPool(missing, IBKR_QUOTE_CONCURRENCY, async (symbol) => {
-    const quote = await fetchIbkrQuoteForTicker(symbol);
-    if (!quote) return;
-    out.set(symbol, quote);
-    setCached(cacheKey("yahoo-quote", symbol), quote, ttl);
-  });
+  if (isPolygonEnabled()) {
+    try {
+      const polygon = await getPolygonBatchQuotes(missing);
+      for (const [symbol, q] of polygon) {
+        out.set(symbol, q);
+        setCached(cacheKey("yahoo-quote", symbol), q, ttl);
+      }
+    } catch (err) {
+      console.warn("[MarketData] Polygon batch failed:", err instanceof Error ? err.message : err);
+    }
+  }
 
-  const stillMissing = missing.filter((s) => !out.has(s));
-  if (stillMissing.length > 0) {
+  let stillMissing = missing.filter((s) => !out.has(s));
+  if (stillMissing.length > 0 && isYahooFinanceEnabled()) {
     const yahoo = await fetchYahooBatchPricesRaw(stillMissing);
     for (const [symbol, q] of yahoo) out.set(symbol, q);
+  }
+
+  stillMissing = missing.filter((s) => !out.has(s));
+  if (stillMissing.length > 0) {
+    console.warn(
+      `[MarketData] ${stillMissing.length} symbols missing after Polygon/Yahoo — IBKR last resort`,
+    );
+    await runPool(stillMissing, IBKR_QUOTE_CONCURRENCY, async (symbol) => {
+      const quote = await fetchIbkrQuoteForTicker(symbol);
+      if (!quote) return;
+      out.set(symbol, quote);
+      setCached(cacheKey("yahoo-quote", symbol), quote, ttl);
+    });
   }
 
   return out;
@@ -895,8 +926,8 @@ export type YahooOhlcvBar = {
 };
 
 /**
- * Multi-interval OHLCV. IBKR PRIMARY (SMART/STK or IDEALPRO/CASH); Yahoo only if
- * IBKR is unavailable or returns no bars.
+ * Multi-interval OHLCV. Polygon first; Yahoo (skip 401); IBKR last resort
+ * (SMART/STK or IDEALPRO/CASH). Never invents prices.
  */
 export async function getChartBars(
   ticker: string,
@@ -910,6 +941,22 @@ export async function getChartBars(
     cacheKey("yahoo-chart", symbol, interval, range),
     BARS_CACHE_TTL_MS,
     async () => {
+      if (isPolygonEnabled()) {
+        try {
+          const { multiplier, timespan } = chartIntervalToPolygon(interval);
+          const { from, to } = chartRangeToDates(range);
+          const polyBars = await fetchPolygonAggregates(symbol, multiplier, timespan, from, to);
+          if (polyBars.length > 0) return polygonBarsToYahoo(polyBars);
+        } catch (err) {
+          console.warn("[MarketData] Polygon chart failed:", err instanceof Error ? err.message : err);
+        }
+      }
+
+      if (isYahooFinanceEnabled()) {
+        const yahooBars = await fetchYahooChartBarsRaw(symbol, interval, range);
+        if (yahooBars.length > 0) return yahooBars;
+      }
+
       try {
         const ibkrBars = await fetchIbkrChartBars(symbol, interval, range);
         if (ibkrBars.length > 0) return ibkrBars;
@@ -917,8 +964,7 @@ export async function getChartBars(
         console.warn("[MarketData] IBKR chart failed:", err instanceof Error ? err.message : err);
       }
 
-      if (!isYahooFinanceEnabled()) return [];
-      return fetchYahooChartBarsRaw(symbol, interval, range);
+      return [];
     },
   );
 }

@@ -1,7 +1,7 @@
 /**
- * Polygon.io market data client — UNUSED / SECONDARY.
- * Live quotes and history go IBKR-first (see yahoo-finance.ts). This module is
- * kept for optional callers; it is not the primary market-data path.
+ * Polygon.io market data client — PRIMARY when POLYGON_API_KEY is set.
+ * Chain: Polygon first → Yahoo (skip 401) → IBKR last resort.
+ * A 403 (free plan / no permissions) skips remaining Polygon calls for this process.
  */
 
 import "server-only";
@@ -23,7 +23,7 @@ export type PolygonQuote = {
   symbol: string;
   price: number;
   timestamp?: string;
-  source: "polygon" | "yahoo";
+  source: "polygon" | "yahoo" | "ibkr";
   changePct?: number;
   volume?: number;
   avgVolume?: number;
@@ -42,7 +42,7 @@ export type PolygonForexQuote = {
   ask: number;
   mid: number;
   timestamp?: string;
-  source: "polygon" | "yahoo";
+  source: "polygon" | "yahoo" | "ibkr";
 };
 
 export type PolygonHistoryBar = {
@@ -70,7 +70,11 @@ function envBool(name: string, defaultValue = true): boolean {
   return v === "true" || v === "1" || v === "yes";
 }
 
+/** Once Polygon returns 403, skip remaining Polygon HTTP for this process. */
+let polygonForbidden403 = false;
+
 export function isPolygonEnabled(): boolean {
+  if (polygonForbidden403) return false;
   const key = process.env.POLYGON_API_KEY?.trim();
   if (!key) return false;
   return envBool("USE_POLYGON", true);
@@ -141,6 +145,7 @@ export function chartRangeToDates(range: string): { from: string; to: string } {
 }
 
 async function polygonFetch<T>(path: string, retries = MAX_RETRIES): Promise<T | null> {
+  if (polygonForbidden403) return null;
   const apiKey = polygonApiKey();
   if (!apiKey) return null;
 
@@ -159,6 +164,13 @@ async function polygonFetch<T>(path: string, retries = MAX_RETRIES): Promise<T |
         signal: AbortSignal.timeout(20_000),
       });
       if (res.ok) return (await res.json()) as T;
+      if (res.status === 403) {
+        polygonForbidden403 = true;
+        console.warn(
+          "[Polygon] forbidden (403) — skipping Polygon (free plan / no permissions); Yahoo then IBKR",
+        );
+        return null;
+      }
       if (res.status === 429 && i < retries - 1) {
         await new Promise((r) => setTimeout(r, 600 * (i + 1)));
         continue;
@@ -253,8 +265,8 @@ export async function fetchPolygonForexOnly(pair: string): Promise<PolygonForexQ
 }
 
 /**
- * Polygon-only last price (no Yahoo). Tries last/trade, snapshot, previous close,
- * and FX conversion. Used as PRIMARY by yahoo-finance wrappers.
+ * Polygon-only last price (no Yahoo/IBKR). Tries last/trade, snapshot, previous close,
+ * and FX conversion. Wrappers (getQuote / lV / getBatchPrices) apply Yahoo then IBKR.
  */
 export async function getLastValue(ticker: string): Promise<PolygonQuote | null> {
   if (!isPolygonEnabled()) return null;
@@ -351,9 +363,6 @@ export async function getLastValue(ticker: string): Promise<PolygonQuote | null>
 
   return null;
 }
-
-/** Alias used by some callers for last trade / last value. */
-export const lV = getLastValue;
 
 /** Polygon-only daily (or custom) aggregates — no Yahoo. */
 export async function fetchPolygonAggregates(
@@ -492,6 +501,73 @@ async function yahooForexFallback(pair: string): Promise<PolygonForexQuote | nul
   }
 }
 
+async function ibkrQuoteFallback(ticker: string): Promise<PolygonQuote | null> {
+  try {
+    const { fetchIbkrQuoteForTicker } = await import("@/lib/market-data/yahoo-finance");
+    const q = await fetchIbkrQuoteForTicker(ticker);
+    if (!q) return null;
+    return {
+      symbol: q.symbol,
+      price: q.price,
+      source: "ibkr",
+      changePct: q.changePct,
+      volume: q.volume,
+      avgVolume: q.avgVolume,
+      bid: q.bid,
+      ask: q.ask,
+      high52w: q.high52w,
+      low52w: q.low52w,
+      marketCap: q.marketCap,
+      exchange: q.exchange,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function ibkrHistoryFallback(
+  ticker: string,
+  from: string,
+  to: string,
+): Promise<PolygonHistoryBar[]> {
+  try {
+    const { fetchIbkrChartBars } = await import("@/lib/market-data/yahoo-finance");
+    const bars = await fetchIbkrChartBars(ticker, "1d", inferYahooRange(from, to));
+    return bars.map((b) => ({
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+      date: b.date,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function ibkrForexFallback(pair: string): Promise<PolygonForexQuote | null> {
+  const codes = parseForexPair(pair);
+  if (!codes) return null;
+  try {
+    const { fetchIbkrQuoteForTicker } = await import("@/lib/market-data/yahoo-finance");
+    const q = await fetchIbkrQuoteForTicker(`${codes.from}${codes.to}=X`);
+    if (!q || !Number.isFinite(q.price) || q.price <= 0) return null;
+    const bid = Number.isFinite(q.bid) && q.bid > 0 ? q.bid : q.price;
+    const ask = Number.isFinite(q.ask) && q.ask > 0 ? q.ask : q.price;
+    return {
+      from: codes.from,
+      to: codes.to,
+      bid,
+      ask,
+      mid: q.price,
+      source: "ibkr",
+    };
+  } catch {
+    return null;
+  }
+}
+
 function inferYahooRange(from: string, to: string): string {
   const fromMs = Date.parse(from);
   const toMs = Date.parse(to);
@@ -506,7 +582,7 @@ function inferYahooRange(from: string, to: string): string {
   return "5y";
 }
 
-/** Last trade / snapshot / prev close. Polygon PRIMARY; Yahoo only if Polygon misses. */
+/** Last trade / snapshot / prev close. Polygon → Yahoo (skip 401) → IBKR last resort. */
 export async function getQuote(ticker: string): Promise<PolygonQuote | null> {
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
@@ -520,12 +596,20 @@ export async function getQuote(ticker: string): Promise<PolygonQuote | null> {
   if (!result) {
     result = await yahooQuoteFallback(symbol);
   }
+  if (!result) {
+    result = await ibkrQuoteFallback(symbol);
+  }
 
   if (result) setCached(cacheKey("polygon-quote", symbol), result, ttl);
   return result;
 }
 
-/** Daily OHLCV. Polygon PRIMARY; Yahoo only if Polygon returns no bars. */
+/** Last value with full fallback chain: Polygon → Yahoo (skip 401) → IBKR. */
+export async function lV(ticker: string): Promise<PolygonQuote | null> {
+  return getQuote(ticker);
+}
+
+/** Daily OHLCV. Polygon → Yahoo (skip 401) → IBKR last resort. */
 export async function getHistory(
   ticker: string,
   from: string,
@@ -543,12 +627,15 @@ export async function getHistory(
   if (bars.length === 0) {
     bars = await yahooHistoryFallback(symbol, from, to);
   }
+  if (bars.length === 0) {
+    bars = await ibkrHistoryFallback(symbol, from, to);
+  }
 
   if (bars.length > 0) setCached(cacheId, bars, BARS_CACHE_TTL_MS);
   return bars;
 }
 
-/** Real-time FX. Polygon conversion PRIMARY; Yahoo FX mid only if Polygon misses. */
+/** Real-time FX. Polygon → Yahoo (skip 401) → IBKR CASH/IDEALPRO last resort. */
 export async function getForexQuote(pair: string): Promise<PolygonForexQuote | null> {
   const codes = parseForexPair(pair);
   if (!codes) return null;
@@ -563,14 +650,17 @@ export async function getForexQuote(pair: string): Promise<PolygonForexQuote | n
   if (!result) {
     result = await yahooForexFallback(pairKey);
   }
+  if (!result) {
+    result = await ibkrForexFallback(pairKey);
+  }
 
   if (result) setCached(cacheKey("polygon-fx", pairKey), result, ttl);
   return result;
 }
 
 /**
- * Batch quotes from Polygon ONLY (no Yahoo). yahoo-finance.ts falls back to Yahoo
- * for symbols still missing — avoids Yahoo being invoked "inside" the primary path.
+ * Batch quotes from Polygon ONLY (no Yahoo/IBKR). yahoo-finance.ts applies
+ * Yahoo then IBKR last resort for symbols still missing.
  */
 export async function getPolygonBatchQuotes(
   tickers: readonly string[],

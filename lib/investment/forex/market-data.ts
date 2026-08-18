@@ -1,5 +1,5 @@
 /**
- * FOREX live market data — IBKR IDEALPRO CASH first, Yahoo Finance fallback only.
+ * FOREX live market data — Polygon first; Yahoo (skip 401); IBKR CASH/IDEALPRO last.
  * Quotes cached ~1s for sub-second UI polls without hammering IBKR.
  */
 
@@ -29,7 +29,7 @@ export type ForexLiveQuote = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "IBKR" | "YAHOO" | "NO_DATA";
+  source: "POLYGON" | "IBKR" | "YAHOO" | "NO_DATA";
   updatedAt: string;
 };
 
@@ -42,7 +42,7 @@ export type ForexHistoryResult = {
   pairId: string;
   display: string;
   timeframe: ForexTimeframe;
-  source: "IBKR" | "YAHOO" | "NO_DATA";
+  source: "POLYGON" | "IBKR" | "YAHOO" | "NO_DATA";
   bars: ForexCandle[];
   count: number;
   generatedAt: string;
@@ -53,6 +53,26 @@ const QUOTES_TTL_MS = 900;
 
 function yahooSymbol(pair: ForexIbkrContract): string {
   return `${pair.pairId}=X`;
+}
+
+function emptyQuote(p: ForexIbkrContract, now: string): ForexLiveQuote {
+  return {
+    pairId: p.pairId,
+    display: p.display,
+    bid: null,
+    ask: null,
+    mid: null,
+    spreadPips: null,
+    source: "NO_DATA",
+    updatedAt: now,
+  };
+}
+
+function mergeQuotes(fill: ForexLiveQuote[], into: Map<string, ForexLiveQuote>): void {
+  for (const q of fill) {
+    const cur = into.get(q.pairId);
+    if (!cur || cur.mid == null) into.set(q.pairId, q);
+  }
 }
 
 function toCandle(b: {
@@ -96,6 +116,32 @@ function aggregateBars(bars: ForexCandle[], n: number): ForexCandle[] {
     });
   }
   return out;
+}
+
+async function loadPolygonQuotesRaw(): Promise<ForexLiveQuote[]> {
+  const now = new Date().toISOString();
+  try {
+    const { fetchPolygonForexOnly, isPolygonEnabled } = await import("@/lib/market-data/polygon");
+    if (!isPolygonEnabled()) return FOREX_PAIRS.map((p) => emptyQuote(p, now));
+    return Promise.all(
+      FOREX_PAIRS.map(async (p) => {
+        const q = await fetchPolygonForexOnly(p.pairId);
+        if (!q || !Number.isFinite(q.mid) || q.mid <= 0) return emptyQuote(p, now);
+        return {
+          pairId: p.pairId,
+          display: p.display,
+          bid: q.bid,
+          ask: q.ask,
+          mid: q.mid,
+          spreadPips: priceToPips(p, q.bid, q.ask),
+          source: "POLYGON" as const,
+          updatedAt: now,
+        };
+      }),
+    );
+  } catch {
+    return FOREX_PAIRS.map((p) => emptyQuote(p, now));
+  }
 }
 
 async function loadIbkrQuotesRaw(): Promise<ForexLiveQuote[]> {
@@ -214,7 +260,7 @@ async function yahooFallbackQuotes(): Promise<ForexLiveQuote[]> {
   return rows;
 }
 
-/** Live bid/ask for all 9 pairs — ~1s in-memory TTL. */
+/** Live bid/ask for all 9 pairs — ~1s in-memory TTL. Polygon → Yahoo → IBKR last. */
 export async function getForexLiveQuotes(): Promise<{
   quotes: ForexLiveQuote[];
   generatedAt: string;
@@ -226,33 +272,24 @@ export async function getForexLiveQuotes(): Promise<{
     return { quotes: hit.quotes, generatedAt: hit.generatedAt, fromCache: true };
   }
 
-  let quotes = await loadIbkrQuotesRaw();
-  if (quotes.every((q) => q.mid == null)) {
-    quotes = await yahooFallbackQuotes();
-  } else {
-    const missing = FOREX_PAIRS.filter((p) => !quotes.some((q) => q.pairId === p.pairId && q.mid != null));
-    if (missing.length) {
-      const yahoo = await yahooFallbackQuotes();
-      const byId = new Map(quotes.map((q) => [q.pairId, q]));
-      for (const m of missing) {
-        const y = yahoo.find((q) => q.pairId === m.pairId);
-        if (y) byId.set(m.pairId, y);
-      }
-      quotes = FOREX_PAIRS.map(
-        (p) =>
-          byId.get(p.pairId) ?? {
-            pairId: p.pairId,
-            display: p.display,
-            bid: null,
-            ask: null,
-            mid: null,
-            spreadPips: null,
-            source: "NO_DATA" as const,
-            updatedAt: new Date().toISOString(),
-          },
-      );
-    }
+  const now = new Date().toISOString();
+  const byId = new Map<string, ForexLiveQuote>();
+  for (const p of FOREX_PAIRS) byId.set(p.pairId, emptyQuote(p, now));
+
+  mergeQuotes(await loadPolygonQuotesRaw(), byId);
+
+  if (FOREX_PAIRS.some((p) => byId.get(p.pairId)?.mid == null)) {
+    mergeQuotes(await yahooFallbackQuotes(), byId);
   }
+
+  if (FOREX_PAIRS.some((p) => byId.get(p.pairId)?.mid == null)) {
+    mergeQuotes(await loadIbkrQuotesRaw(), byId);
+  }
+
+  const quotes = FOREX_PAIRS.map(
+    (p) =>
+      byId.get(p.pairId) ?? emptyQuote(p, now),
+  );
 
   const generatedAt = new Date().toISOString();
   setCached(key, { quotes, generatedAt }, QUOTES_TTL_MS);
@@ -336,6 +373,38 @@ async function loadIbkrBars(pairId: string, tf: ForexTimeframe): Promise<ForexCa
   }
 }
 
+async function loadPolygonBars(pair: ForexIbkrContract, tf: ForexTimeframe): Promise<ForexCandle[]> {
+  const spec = FOREX_TF_SPECS[tf];
+  try {
+    const {
+      chartIntervalToPolygon,
+      chartRangeToDates,
+      fetchPolygonAggregates,
+      isPolygonEnabled,
+    } = await import("@/lib/market-data/polygon");
+    if (!isPolygonEnabled()) return [];
+    const { multiplier, timespan } = chartIntervalToPolygon(spec.yahooInterval);
+    const { from, to } = chartRangeToDates(spec.yahooRange);
+    const polySymbol = `${pair.pairId}=X`;
+    const raw = await fetchPolygonAggregates(polySymbol, multiplier, timespan, from, to);
+    const candles = raw
+      .map((b) =>
+        toCandle({
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+          date: b.date,
+        }),
+      )
+      .filter((b): b is ForexCandle => b != null);
+    return aggregateBars(candles, spec.aggregate);
+  } catch {
+    return [];
+  }
+}
+
 async function loadYahooBars(pair: ForexIbkrContract, tf: ForexTimeframe): Promise<ForexCandle[]> {
   const spec = FOREX_TF_SPECS[tf];
   const raw: YahooOhlcvBar[] = await fetchYahooChartBarsRaw(
@@ -358,7 +427,7 @@ async function loadYahooBars(pair: ForexIbkrContract, tf: ForexTimeframe): Promi
   return aggregateBars(candles, spec.aggregate);
 }
 
-/** OHLCV for one pair/timeframe — IBKR CASH/IDEALPRO first, Yahoo fallback. */
+/** OHLCV for one pair/timeframe — Polygon → Yahoo (skip 401) → IBKR CASH/IDEALPRO last. */
 export async function getForexHistory(
   pairIdRaw: string,
   timeframeRaw?: string | null,
@@ -371,14 +440,30 @@ export async function getForexHistory(
   const cached = getCached<ForexHistoryResult>(cacheId);
   if (cached) return cached;
 
-  let bars = await loadIbkrBars(pairId, timeframe);
-  let source: ForexHistoryResult["source"] = bars.length > 0 ? "IBKR" : "NO_DATA";
+  let bars: ForexCandle[] = [];
+  let source: ForexHistoryResult["source"] = "NO_DATA";
+
+  if (pair) {
+    const polygon = await loadPolygonBars(pair, timeframe);
+    if (polygon.length > 0) {
+      bars = polygon;
+      source = "POLYGON";
+    }
+  }
 
   if (bars.length < 10 && pair) {
     const yahoo = await loadYahooBars(pair, timeframe);
     if (yahoo.length > bars.length) {
       bars = yahoo;
       source = "YAHOO";
+    }
+  }
+
+  if (bars.length < 10) {
+    const ibkr = await loadIbkrBars(pairId, timeframe);
+    if (ibkr.length > bars.length) {
+      bars = ibkr;
+      source = "IBKR";
     }
   }
 
@@ -393,7 +478,7 @@ export async function getForexHistory(
     note:
       bars.length > 0
         ? `${bars.length} velas ${timeframe} via ${source}`
-        : "NO_DATA — sin historial IBKR/Yahoo para este TF",
+        : "NO_DATA — sin historial Polygon/Yahoo/IBKR para este TF",
   };
   const ttl =
     timeframe === "1m" || timeframe === "5m"

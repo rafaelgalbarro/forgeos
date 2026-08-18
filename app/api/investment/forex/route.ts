@@ -9,9 +9,9 @@ import { readForexEnabledAtRuntime } from "@/lib/investment/forex/server-env";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 90;
 
-const CYCLE_TIMEOUT_MS = 30_000;
+const CYCLE_TIMEOUT_MS = 90_000;
 
 function parseBoolParam(raw: string | null | undefined): boolean | undefined {
   if (raw == null || raw.trim() === "") return undefined;
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         action,
         ranAt: new Date().toISOString(),
         skipped: timedOut,
-        reason: timedOut ? "FOREX cycle timeout 30s" : undefined,
+        reason: timedOut ? "FOREX cycle timeout 90s" : undefined,
         actionable: [],
         errors: [message],
       },

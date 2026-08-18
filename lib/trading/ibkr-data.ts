@@ -1,8 +1,8 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import { getHistory as getAvHistory } from "@/lib/market-data/alpha-vantage";
 import {
-  getCandles,
   getForexQuote as finnhubGetForexQuote,
   getQuote as finnhubGetQuote,
   isFinnhubEnabled,
@@ -138,7 +138,7 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     throw new Error(`Finnhub sin precio para ${ticker}`);
   }
 
-  const candles = await getCandles(ticker, 90);
+  const candles = await getAvHistory(ticker, 90);
   const last = candles[candles.length - 1];
   const prev = candles[candles.length - 2] ?? last;
   const currentPrice = quote.c;

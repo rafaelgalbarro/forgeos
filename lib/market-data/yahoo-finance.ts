@@ -2,16 +2,17 @@ import "server-only";
 
 import { cacheKey, getOrSetCached } from "@/lib/market-data/cache";
 import {
+  getForexHistory as getAvForexHistory,
+  getHistory as getAvHistory,
+  isAlphaVantageEnabled,
+  rangeToDays,
+  type AlphaVantageBar,
+} from "@/lib/market-data/alpha-vantage";
+import {
   getBatchQuotes,
-  getCandles,
-  getCandlesWithResolution,
   getQuote,
   isFinnhubEnabled,
-  yahooIntervalToFinnhub,
-  yahooRangeToUnix,
-  type FinnhubOhlcvBar,
 } from "@/lib/market-data/finnhub";
-import { BARS_CACHE_TTL_MS } from "@/lib/market-data/refresh-policy";
 
 export type YahooQuote = {
   symbol: string;
@@ -37,9 +38,9 @@ export type YahooTickerInfo = {
   exchange?: string;
 };
 
-/** @deprecated Yahoo retired — returns Finnhub availability. */
+/** @deprecated Yahoo retired — Finnhub quotes + Alpha Vantage history. */
 export function isYahooFinanceEnabled(): boolean {
-  return isFinnhubEnabled();
+  return isFinnhubEnabled() || isAlphaVantageEnabled();
 }
 
 function finnhubQuoteToYahoo(symbol: string, q: { c: number; h: number; l: number; pc: number }): YahooQuote {
@@ -59,7 +60,7 @@ function finnhubQuoteToYahoo(symbol: string, q: { c: number; h: number; l: numbe
   };
 }
 
-function finnhubBarsToYahoo(bars: readonly FinnhubOhlcvBar[]): YahooOhlcvBar[] {
+function avBarsToYahoo(bars: readonly AlphaVantageBar[]): YahooOhlcvBar[] {
   return bars.map((b) => ({
     open: b.open,
     high: b.high,
@@ -68,6 +69,32 @@ function finnhubBarsToYahoo(bars: readonly FinnhubOhlcvBar[]): YahooOhlcvBar[] {
     volume: b.volume,
     date: b.date,
   }));
+}
+
+function isForexSymbol(ticker: string): boolean {
+  const raw = ticker.trim().toUpperCase();
+  if (raw.endsWith("=X") || raw.startsWith("OANDA:")) return true;
+  const stripped = raw.replace("=X", "").replace("/", "");
+  return stripped.length === 6 && /^[A-Z]{6}$/.test(stripped);
+}
+
+function parseForexPair(ticker: string): { from: string; to: string } | null {
+  const raw = ticker.trim().toUpperCase().replace("=X", "").replace("/", "").replace("OANDA:", "").replace("_", "");
+  if (raw.length === 6 && /^[A-Z]{6}$/.test(raw)) {
+    return { from: raw.slice(0, 3), to: raw.slice(3) };
+  }
+  return null;
+}
+
+async function fetchAlphaVantageBars(ticker: string, range: string): Promise<YahooOhlcvBar[]> {
+  if (!isAlphaVantageEnabled()) return [];
+  const days = rangeToDays(range);
+  if (isForexSymbol(ticker)) {
+    const pair = parseForexPair(ticker);
+    if (!pair) return [];
+    return avBarsToYahoo(await getAvForexHistory(pair.from, pair.to, days));
+  }
+  return avBarsToYahoo(await getAvHistory(ticker, days));
 }
 
 /** @deprecated IBKR market data disabled — use Finnhub. */
@@ -94,20 +121,15 @@ export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote 
   return finnhubQuoteToYahoo(symbol, q);
 }
 
-/** Daily chart bars via Finnhub candles. */
+/** Daily chart bars via Alpha Vantage TIME_SERIES_DAILY / FX_DAILY. */
 export async function fetchYahooChartBarsRaw(
   ticker: string,
-  interval: YahooChartInterval = "1d",
+  _interval: YahooChartInterval = "1d",
   range = "3mo",
 ): Promise<YahooOhlcvBar[]> {
-  if (!isFinnhubEnabled()) return [];
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return [];
-  const resolution = yahooIntervalToFinnhub(interval);
-  const { from, to } = yahooRangeToUnix(range);
-  const forex = symbol.endsWith("=X") || (symbol.length === 6 && symbol.includes("USD"));
-  const bars = await getCandlesWithResolution(symbol, resolution, from, to, forex);
-  return finnhubBarsToYahoo(bars);
+  return fetchAlphaVantageBars(symbol, range);
 }
 
 /** Batch quotes — Finnhub only. */
@@ -229,30 +251,16 @@ export type YahooOhlcvBar = {
   date?: string;
 };
 
-/** Multi-interval OHLCV — Finnhub only. */
+/** Daily OHLCV — Alpha Vantage (24h cache). Intraday intervals reuse daily bars. */
 export async function getChartBars(
   ticker: string,
-  interval: YahooChartInterval = "1d",
+  _interval: YahooChartInterval = "1d",
   range = "3mo",
 ): Promise<YahooOhlcvBar[]> {
   const symbol = ticker.trim().toUpperCase();
-  if (!symbol || !isFinnhubEnabled()) return [];
-
-  return getOrSetCached(
-    cacheKey("finnhub-chart", symbol, interval, range),
-    BARS_CACHE_TTL_MS,
-    async () => {
-      if (interval === "1d" && (range === "3mo" || range === "90d")) {
-        const days = range.startsWith("3") ? 90 : 90;
-        const bars = await getCandles(symbol, days);
-        if (bars.length > 0) return finnhubBarsToYahoo(bars);
-      }
-      const resolution = yahooIntervalToFinnhub(interval);
-      const { from, to } = yahooRangeToUnix(range);
-      const forex = symbol.endsWith("=X");
-      const bars = await getCandlesWithResolution(symbol, resolution, from, to, forex);
-      return finnhubBarsToYahoo(bars);
-    },
+  if (!symbol) return [];
+  return getOrSetCached(cacheKey("av-chart", symbol, range), 60_000, () =>
+    fetchAlphaVantageBars(symbol, range),
   );
 }
 

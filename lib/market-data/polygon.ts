@@ -6,12 +6,13 @@
 import "server-only";
 
 import {
+  getHistory as getAvHistory,
+  isAlphaVantageEnabled,
+} from "@/lib/market-data/alpha-vantage";
+import {
   getForexQuote as finnhubGetForexQuote,
   getQuote as finnhubGetQuote,
   isFinnhubEnabled,
-  toFinnhubForexSymbol,
-  getCandles,
-  getForexCandles,
 } from "@/lib/market-data/finnhub";
 import type { YahooOhlcvBar, YahooQuote, YahooTickerInfo } from "@/lib/market-data/yahoo-finance";
 
@@ -146,15 +147,14 @@ export async function fetchPolygonAggregates(
   from: string,
   to: string,
 ): Promise<PolygonHistoryBar[]> {
-  if (!isFinnhubEnabled()) return [];
+  if (!isAlphaVantageEnabled()) return [];
   const fromMs = Date.parse(from);
   const toMs = Date.parse(to);
   const days = Number.isFinite(fromMs) && Number.isFinite(toMs)
     ? Math.max(1, Math.ceil((toMs - fromMs) / 86_400_000))
     : 90;
   const symbol = ticker.trim().toUpperCase();
-  const forex = symbol.endsWith("=X") || toFinnhubForexSymbol(symbol).startsWith("OANDA:");
-  const bars = forex ? await getForexCandles(symbol, days) : await getCandles(symbol, days);
+  const bars = await getAvHistory(symbol, days);
   return bars.map((b) => ({
     open: b.open,
     high: b.high,

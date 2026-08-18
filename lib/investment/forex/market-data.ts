@@ -7,6 +7,7 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
+import { getForexHistory as getAvForexHistory, isAlphaVantageEnabled } from "@/lib/market-data/alpha-vantage";
 import { getFinnhubQuoteTtlMs } from "@/lib/market-data/finnhub";
 import {
   FOREX_PAIRS,
@@ -42,7 +43,7 @@ export type ForexHistoryResult = {
   pairId: string;
   display: string;
   timeframe: ForexTimeframe;
-  source: "IBKR" | "NO_DATA";
+  source: "IBKR" | "ALPHA_VANTAGE" | "NO_DATA";
   bars: ForexCandle[];
   count: number;
   generatedAt: string;
@@ -284,7 +285,24 @@ export async function getForexHistory(
   let bars: ForexCandle[] = [];
   let source: ForexHistoryResult["source"] = "NO_DATA";
 
-  if (pair) {
+  if (pair && isAlphaVantageEnabled()) {
+    const av = await getAvForexHistory(pair.symbol, pair.currency, 100);
+    bars = av
+      .map((b) =>
+        toCandle({
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+          date: b.date,
+        }),
+      )
+      .filter((b): b is ForexCandle => b != null);
+    if (bars.length > 0) source = "ALPHA_VANTAGE";
+  }
+
+  if (bars.length === 0 && pair) {
     bars = await loadIbkrForexBars(pair, timeframe);
     if (bars.length > 0) source = "IBKR";
   }
@@ -299,8 +317,8 @@ export async function getForexHistory(
     generatedAt: new Date().toISOString(),
     note:
       bars.length > 0
-        ? `${bars.length} velas ${timeframe} via IBKR`
-        : "NO_DATA — sin historial IBKR para este TF",
+        ? `${bars.length} velas ${timeframe} via ${source}`
+        : "NO_DATA — sin historial Alpha Vantage/IBKR para este TF",
   };
   const ttl =
     timeframe === "1m" || timeframe === "5m"

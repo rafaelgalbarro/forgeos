@@ -40,13 +40,21 @@ export type FmpBar = {
   volume: number;
 };
 
-export function isFmpEnabled(): boolean {
-  return Boolean(process.env.FMP_API_KEY?.trim());
+/** Read at call time — bracket access avoids Next.js build-time env inlining. */
+function readFmpApiKey(): string | null {
+  const raw = process.env["FMP_API_KEY"];
+  if (typeof raw !== "string") return null;
+  const key = raw.trim().replace(/^['"]|['"]$/g, "");
+  return key || null;
 }
 
-function fmpApiKey(): string | null {
-  const key = process.env.FMP_API_KEY?.trim();
-  return key || null;
+export function isFmpEnabled(): boolean {
+  return Boolean(readFmpApiKey());
+}
+
+export function getFmpRuntimeStatus(): { configured: boolean; keyLength: number } {
+  const key = readFmpApiKey();
+  return { configured: Boolean(key), keyLength: key?.length ?? 0 };
 }
 
 /** EURUSD style: strip =X, slashes, OANDA:, underscores. */
@@ -67,16 +75,50 @@ function asFinite(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function pathForLog(pathAndQuery: string): string {
-  const q = pathAndQuery.indexOf("?");
-  return q >= 0 ? pathAndQuery.slice(0, q) : pathAndQuery;
+function pathForLog(endpoint: string): string {
+  return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 }
 
-async function fmpFetchJson(pathAndQuery: string): Promise<unknown | null> {
-  const key = fmpApiKey();
+/**
+ * Build stable FMP URL with apikey as query param (never Authorization header).
+ * Batch quotes keep literal commas in symbol=AAPL,NVDA (FMP rejects %2C).
+ */
+function buildFmpUrl(
+  endpoint: string,
+  query: Readonly<Record<string, string>>,
+): string | null {
+  const key = readFmpApiKey();
   if (!key) return null;
-  const separator = pathAndQuery.includes("?") ? "&" : "?";
-  const url = `${FMP_BASE}${pathAndQuery}${separator}apikey=${encodeURIComponent(key)}`;
+
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const symbol = query.symbol;
+  const useLiteralCommas = Boolean(symbol?.includes(","));
+
+  if (useLiteralCommas && symbol) {
+    const parts = Object.entries(query).map(([name, value]) =>
+      name === "symbol" ? `${name}=${value}` : `${name}=${encodeURIComponent(value)}`,
+    );
+    parts.push(`apikey=${encodeURIComponent(key)}`);
+    return `${FMP_BASE}${path}?${parts.join("&")}`;
+  }
+
+  const url = new URL(`${FMP_BASE}${path}`);
+  for (const [name, value] of Object.entries(query)) {
+    url.searchParams.set(name, value);
+  }
+  url.searchParams.set("apikey", key);
+  return url.toString();
+}
+
+async function fmpFetchJson(endpoint: string, query: Record<string, string>): Promise<unknown | null> {
+  const key = readFmpApiKey();
+  if (!key) {
+    console.warn("[FMP] FMP_API_KEY missing at runtime — set in .env.local and restart Next.js");
+    return null;
+  }
+  const url = buildFmpUrl(endpoint, query);
+  if (!url) return null;
+
   try {
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
@@ -84,12 +126,16 @@ async function fmpFetchJson(pathAndQuery: string): Promise<unknown | null> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
-      console.warn(`[FMP] HTTP ${res.status} ${pathForLog(pathAndQuery)}`);
+      const hint =
+        res.status === 402
+          ? ` (payment required — key configured=${Boolean(key)}, len=${key.length}; verify FMP_API_KEY in .env.local)`
+          : "";
+      console.warn(`[FMP] HTTP ${res.status} ${pathForLog(endpoint)}${hint}`);
       return null;
     }
     return await res.json();
   } catch (err) {
-    console.warn("[FMP]", pathForLog(pathAndQuery), err instanceof Error ? err.message : err);
+    console.warn("[FMP]", pathForLog(endpoint), err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -170,7 +216,7 @@ export async function getQuote(ticker: string): Promise<FmpQuote | null> {
   const hit = getCached<FmpQuote>(key);
   if (hit) return hit;
 
-  const body = await fmpFetchJson(`/quote?symbol=${encodeURIComponent(symbol)}`);
+  const body = await fmpFetchJson("/quote", { symbol });
   const row = quoteRows(body)[0];
   if (!row) return null;
   const quote = parseQuote(row);
@@ -195,8 +241,8 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
 
   for (let i = 0; i < missing.length; i += BATCH_CHUNK) {
     const chunk = missing.slice(i, i + BATCH_CHUNK);
-    const joined = chunk.map((s) => encodeURIComponent(s)).join(",");
-    const body = await fmpFetchJson(`/quote?symbol=${joined}`);
+    const joined = chunk.join(",");
+    const body = await fmpFetchJson("/quote", { symbol: joined });
     for (const row of quoteRows(body)) {
       const quote = parseQuote(row);
       if (!quote) continue;
@@ -217,7 +263,7 @@ export async function getHistory(ticker: string, days: number): Promise<FmpBar[]
   const hit = getCached<FmpBar[]>(key);
   if (hit) return hit.slice(-safeDays);
 
-  const body = await fmpFetchJson(`/historical-price-eod/full?symbol=${encodeURIComponent(symbol)}`);
+  const body = await fmpFetchJson("/historical-price-eod/full", { symbol });
   if (body == null) return [];
   const bars = extractHistoricalRows(body)
     .map(parseBar)

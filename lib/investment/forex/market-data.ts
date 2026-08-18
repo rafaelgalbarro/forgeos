@@ -7,9 +7,10 @@ import "server-only";
 
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
 import {
-  getForexCandles,
-  getForexQuote as finnhubGetForexQuote,
+  getBatchForexQuotes,
+  getFinnhubQuoteTtlMs,
   getCandlesWithResolution,
+  getForexCandles,
   isFinnhubEnabled,
   yahooIntervalToFinnhub,
   yahooRangeToUnix,
@@ -55,7 +56,7 @@ export type ForexHistoryResult = {
   note: string;
 };
 
-const QUOTES_TTL_MS = 60_000;
+const QUOTES_TTL_MS = getFinnhubQuoteTtlMs;
 
 function emptyQuote(p: ForexIbkrContract, now: string): ForexLiveQuote {
   return {
@@ -117,22 +118,21 @@ async function loadFinnhubQuotesRaw(): Promise<ForexLiveQuote[]> {
   const now = new Date().toISOString();
   if (!isFinnhubEnabled()) return FOREX_PAIRS.map((p) => emptyQuote(p, now));
 
-  return Promise.all(
-    FOREX_PAIRS.map(async (p) => {
-      const q = await finnhubGetForexQuote(p.pairId);
-      if (!q || !Number.isFinite(q.mid) || q.mid <= 0) return emptyQuote(p, now);
-      return {
-        pairId: p.pairId,
-        display: p.display,
-        bid: q.bid,
-        ask: q.ask,
-        mid: q.mid,
-        spreadPips: priceToPips(p, q.bid, q.ask),
-        source: "FINNHUB" as const,
-        updatedAt: q.updatedAt,
-      };
-    }),
-  );
+  const byPair = await getBatchForexQuotes(FOREX_PAIRS.map((p) => p.pairId));
+  return FOREX_PAIRS.map((p) => {
+    const q = byPair.get(p.pairId);
+    if (!q || !Number.isFinite(q.mid) || q.mid <= 0) return emptyQuote(p, now);
+    return {
+      pairId: p.pairId,
+      display: p.display,
+      bid: q.bid,
+      ask: q.ask,
+      mid: q.mid,
+      spreadPips: priceToPips(p, q.bid, q.ask),
+      source: "FINNHUB" as const,
+      updatedAt: q.updatedAt,
+    };
+  });
 }
 
 /** Live bid/ask for all 9 pairs — Finnhub OANDA quotes, ~1 min cache. */
@@ -149,7 +149,7 @@ export async function getForexLiveQuotes(): Promise<{
 
   const quotes = await loadFinnhubQuotesRaw();
   const generatedAt = new Date().toISOString();
-  setCached(key, { quotes, generatedAt }, QUOTES_TTL_MS);
+  setCached(key, { quotes, generatedAt }, QUOTES_TTL_MS());
   return { quotes, generatedAt, fromCache: false };
 }
 

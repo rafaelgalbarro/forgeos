@@ -1,16 +1,23 @@
 /**
  * Finnhub market data — sole price/history source when FINNHUB_API_KEY is set.
- * Rate limit: 60 calls/min. Cache: 1 min quotes, 5 min candles.
+ * Rate limit: 30 calls/min, 1s between calls, batch pauses. Cache: 2 min quotes (open market).
  */
 
 import "server-only";
 
 import { cacheKey, getCached, getOrSetCached, setCached } from "@/lib/market-data/cache";
+import { getUsMarketSession } from "@/src/core/trading/market-session";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
-const QUOTE_TTL_MS = 60_000;
+const QUOTE_TTL_OPEN_MS = 2 * 60_000;
+const QUOTE_TTL_CLOSED_MS = 60_000;
 const CANDLES_TTL_MS = 5 * 60_000;
-const MAX_CALLS_PER_MINUTE = 60;
+const MAX_CALLS_PER_MINUTE = 30;
+const INTER_CALL_DELAY_MS = 1_000;
+const BATCH_SIZE = 5;
+const BATCH_PAUSE_MS = 3_000;
+const RETRY_429_MS = 5_000;
+const MAX_429_RETRIES = 2;
 const FETCH_TIMEOUT_MS = 20_000;
 
 export type FinnhubQuote = {
@@ -42,6 +49,19 @@ export type FinnhubOhlcvBar = {
 };
 
 const callTimestamps: number[] = [];
+let fetchChain: Promise<unknown> = Promise.resolve();
+let lastFetchFinishedAt = 0;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** 2 min quotes when US market open; 1 min otherwise. */
+export function getFinnhubQuoteTtlMs(): number {
+  const session = getUsMarketSession();
+  const isMarketOpen = session.isTradeable && session.phase === "REGULAR";
+  return isMarketOpen ? QUOTE_TTL_OPEN_MS : QUOTE_TTL_CLOSED_MS;
+}
 
 export function isFinnhubEnabled(): boolean {
   return Boolean(process.env.FINNHUB_API_KEY?.trim());
@@ -58,36 +78,84 @@ async function acquireRateLimit(): Promise<void> {
     callTimestamps.shift();
   }
   if (callTimestamps.length >= MAX_CALLS_PER_MINUTE) {
-    const wait = callTimestamps[0]! + 60_000 - now + 15;
-    await new Promise((r) => setTimeout(r, Math.max(0, wait)));
+    const wait = callTimestamps[0]! + 60_000 - now + 50;
+    await sleep(Math.max(0, wait));
     return acquireRateLimit();
   }
   callTimestamps.push(Date.now());
+}
+
+async function waitInterCallDelay(): Promise<void> {
+  const elapsed = Date.now() - lastFetchFinishedAt;
+  if (elapsed < INTER_CALL_DELAY_MS) {
+    await sleep(INTER_CALL_DELAY_MS - elapsed);
+  }
+}
+
+/** Serialize all Finnhub HTTP so concurrent callers cannot burst past limits. */
+async function runSerialized<T>(work: () => Promise<T>): Promise<T> {
+  const task = fetchChain.then(async () => work());
+  fetchChain = task.then(
+    () => undefined,
+    () => undefined,
+  );
+  return task;
+}
+
+type FinnhubFetchResult<T> =
+  | { kind: "ok"; data: T }
+  | { kind: "rate_limited" }
+  | { kind: "error" };
+
+async function finnhubFetchOnce<T>(path: string, apiKey: string): Promise<FinnhubFetchResult<T>> {
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `${FINNHUB_BASE}${path}${separator}token=${encodeURIComponent(apiKey)}`;
+
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+
+  if (res.status === 429) return { kind: "rate_limited" };
+  if (!res.ok) {
+    console.warn(`[Finnhub] HTTP ${res.status} ${path}`);
+    return { kind: "error" };
+  }
+  return { kind: "ok", data: (await res.json()) as T };
 }
 
 async function finnhubFetch<T>(path: string): Promise<T | null> {
   const apiKey = finnhubApiKey();
   if (!apiKey) return null;
 
-  await acquireRateLimit();
-  const separator = path.includes("?") ? "&" : "?";
-  const url = `${FINNHUB_BASE}${path}${separator}token=${encodeURIComponent(apiKey)}`;
+  return runSerialized(async () => {
+    for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt += 1) {
+      await acquireRateLimit();
+      await waitInterCallDelay();
 
-  try {
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      console.warn(`[Finnhub] HTTP ${res.status} ${path}`);
-      return null;
+      try {
+        const result = await finnhubFetchOnce<T>(path, apiKey);
+        lastFetchFinishedAt = Date.now();
+
+        if (result.kind === "ok") return result.data;
+        if (result.kind === "rate_limited" && attempt < MAX_429_RETRIES) {
+          console.warn(`[Finnhub] 429 on ${path} — retry in ${RETRY_429_MS}ms`);
+          await sleep(RETRY_429_MS);
+          continue;
+        }
+        if (result.kind === "rate_limited") {
+          console.warn(`[Finnhub] rate limited after retries: ${path}`);
+        }
+        return null;
+      } catch (err) {
+        lastFetchFinishedAt = Date.now();
+        console.warn("[Finnhub]", path, err instanceof Error ? err.message : err);
+        return null;
+      }
     }
-    return (await res.json()) as T;
-  } catch (err) {
-    console.warn("[Finnhub]", path, err instanceof Error ? err.message : err);
     return null;
-  }
+  });
 }
 
 /** Normalize ticker to Finnhub stock symbol (strip suffixes). */
@@ -147,7 +215,8 @@ export async function getQuote(ticker: string): Promise<FinnhubQuote | null> {
     "finnhub-quote",
     isForexTicker(symbol) ? toFinnhubForexSymbol(symbol) : toFinnhubStockSymbol(symbol),
   );
-  return getOrSetCached(cacheId, QUOTE_TTL_MS, async () => {
+  const ttl = getFinnhubQuoteTtlMs();
+  return getOrSetCached(cacheId, ttl, async () => {
     const finnhubSymbol = isForexTicker(symbol)
       ? toFinnhubForexSymbol(symbol)
       : toFinnhubStockSymbol(symbol);
@@ -215,6 +284,7 @@ export async function getForexQuote(pairId: string): Promise<FinnhubForexQuote |
   const pairKey = pairId.replace("=X", "").replace("/", "").toUpperCase();
   if (!symbol || !isFinnhubEnabled()) return null;
 
+  const ttl = getFinnhubQuoteTtlMs();
   const cacheId = cacheKey("finnhub-fx-quote", symbol);
   const hit = getCached<FinnhubForexQuote>(cacheId);
   if (hit) return hit;
@@ -232,7 +302,7 @@ export async function getForexQuote(pairId: string): Promise<FinnhubForexQuote |
     mid,
     updatedAt: new Date().toISOString(),
   };
-  setCached(cacheId, result, QUOTE_TTL_MS);
+  setCached(cacheId, result, ttl);
   return result;
 }
 
@@ -290,7 +360,7 @@ export function yahooRangeToUnix(range: string): { from: number; to: number } {
   return { from, to };
 }
 
-/** Batch stock quotes — respects rate limit via sequential acquire. */
+/** Batch quotes — 5 tickers per batch, 3s pause between batches, serialized HTTP. */
 export async function getBatchQuotes(
   tickers: readonly string[],
 ): Promise<Map<string, FinnhubQuote>> {
@@ -298,11 +368,36 @@ export async function getBatchQuotes(
   if (!isFinnhubEnabled() || tickers.length === 0) return out;
 
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
-  await Promise.all(
-    unique.map(async (symbol) => {
+
+  for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+    if (i > 0) await sleep(BATCH_PAUSE_MS);
+
+    const batch = unique.slice(i, i + BATCH_SIZE);
+    for (const symbol of batch) {
       const q = await getQuote(symbol);
       if (q) out.set(symbol, q);
-    }),
-  );
+    }
+  }
+  return out;
+}
+
+/** Batch FOREX quotes — same batching as stocks. */
+export async function getBatchForexQuotes(
+  pairIds: readonly string[],
+): Promise<Map<string, FinnhubForexQuote>> {
+  const out = new Map<string, FinnhubForexQuote>();
+  if (!isFinnhubEnabled() || pairIds.length === 0) return out;
+
+  const unique = [...new Set(pairIds.map((p) => p.trim().toUpperCase()).filter(Boolean))];
+
+  for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+    if (i > 0) await sleep(BATCH_PAUSE_MS);
+
+    const batch = unique.slice(i, i + BATCH_SIZE);
+    for (const pairId of batch) {
+      const q = await getForexQuote(pairId);
+      if (q) out.set(pairId, q);
+    }
+  }
   return out;
 }

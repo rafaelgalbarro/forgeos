@@ -63,7 +63,7 @@ export function getDataRefreshPolicy(now = new Date()): DataRefreshPolicy {
       isMarketOpen: true,
       pollMs: POLL_OPEN_MS,
       snapshotTtlMs: 60_000,
-      priceTtlMs: PRICE_CACHE_TTL_MS,
+      priceTtlMs: 2 * 60 * 1000,
       scannerUniverseCap: null,
       skipLiveScan: false,
     };

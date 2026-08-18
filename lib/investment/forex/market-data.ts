@@ -117,7 +117,7 @@ async function loadFmpForexQuotes(): Promise<ForexLiveQuote[]> {
   });
 }
 
-/** Live quotes for all 9 pairs — one FMP /api/v3/quote/EURUSD,GBPUSD,... batch call. */
+/** Live quotes for all 9 pairs — one FMP /stable/quote?symbol=EURUSD,GBPUSD,... batch call. */
 export async function getForexLiveQuotes(): Promise<{
   quotes: ForexLiveQuote[];
   generatedAt: string;

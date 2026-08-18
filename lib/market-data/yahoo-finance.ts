@@ -116,7 +116,7 @@ export async function fetchIbkrChartBars(
   return [];
 }
 
-/** Single-ticker quote via FMP /api/v3/quote/{ticker}. */
+/** Single-ticker quote via FMP /stable/quote?symbol=. */
 export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote | null> {
   if (!isFmpEnabled()) return null;
   const requested = ticker.trim().toUpperCase();
@@ -127,7 +127,7 @@ export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote 
   return fmpQuoteToYahoo(q, requested);
 }
 
-/** Daily chart bars via FMP /api/v3/historical-price-full. */
+/** Daily chart bars via FMP /stable/historical-price-eod/full. */
 export async function fetchYahooChartBarsRaw(
   ticker: string,
   _interval: YahooChartInterval = "1d",
@@ -138,7 +138,7 @@ export async function fetchYahooChartBarsRaw(
   return fetchFmpBars(symbol, range);
 }
 
-/** Batch quotes — one FMP /api/v3/quote/AAPL,NVDA call (chunked at 50). */
+/** Batch quotes — one FMP /stable/quote?symbol=A,B,C call (chunked at 50). */
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   if (tickers.length === 0 || !isFmpEnabled()) return out;

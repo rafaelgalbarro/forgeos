@@ -1,12 +1,11 @@
 import "server-only";
 
-import { getHistory } from "@/lib/market-data/alpha-vantage";
-import { getQuote, isFinnhubEnabled } from "@/lib/market-data/finnhub";
+import { getHistory, getQuote, isFmpEnabled } from "@/lib/market-data/fmp";
 import type { OhlcvBar } from "@/lib/market-data/types";
 
 export type IbkrBarSize = "1 min" | "5 mins" | "15 mins" | "1 hour" | "1 day";
 
-/** Fetches daily OHLCV from Alpha Vantage (24h cache). */
+/** Fetches daily OHLCV from FMP (24h cache). */
 export async function fetchHistoryBars(
   ticker: string,
   duration = "3 M",
@@ -25,14 +24,14 @@ export async function fetchHistoryBars(
   }));
 
   if (bars.length < 20) {
-    errors.push(`Alpha Vantage: solo ${bars.length} barras para ${ticker}`);
+    errors.push(`FMP: solo ${bars.length} barras para ${ticker}`);
   }
   return { bars, errors };
 }
 
-/** Quick Finnhub quote for limit-price fallback. */
+/** Quick FMP quote for limit-price fallback. */
 export async function fetchFinnhubPrice(ticker: string): Promise<number | null> {
-  if (!isFinnhubEnabled()) return null;
+  if (!isFmpEnabled()) return null;
   const q = await getQuote(ticker);
-  return q && q.c > 0 ? q.c : null;
+  return q && q.price > 0 ? q.price : null;
 }

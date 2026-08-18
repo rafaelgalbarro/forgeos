@@ -9,7 +9,7 @@ export type ForexQuoteRow = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "POLYGON" | "IBKR" | "YAHOO" | "NO_DATA";
+  source: "FMP" | "POLYGON" | "IBKR" | "YAHOO" | "NO_DATA";
   updatedAt?: string;
 };
 

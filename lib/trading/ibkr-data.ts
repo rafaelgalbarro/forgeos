@@ -1,13 +1,13 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
-import { getHistory as getAvHistory } from "@/lib/market-data/alpha-vantage";
 import {
-  getForexQuote as finnhubGetForexQuote,
-  getQuote as finnhubGetQuote,
-  isFinnhubEnabled,
-} from "@/lib/market-data/finnhub";
-import { quoteRoutesForTicker, type TickerQuoteRoute } from "@/lib/trading/ticker-price-routes";
+  getForexQuote as fmpGetForexQuote,
+  getHistory as fmpGetHistory,
+  getQuote as fmpGetQuote,
+  isFmpEnabled,
+} from "@/lib/market-data/fmp";
+import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
 import {
   resolveLimitPriceFromQuote,
   type LiveLimitQuote,
@@ -129,20 +129,22 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
   const routes = quoteRoutesForTicker(ticker);
   const quoteErrors: string[] = [];
 
-  if (!isFinnhubEnabled()) {
-    throw new Error(`FINNHUB_API_KEY required for price data — ${ticker}`);
+  if (!isFmpEnabled()) {
+    throw new Error(`FMP_API_KEY required for price data — ${ticker}`);
   }
 
-  const quote = await finnhubGetQuote(ticker);
-  if (!quote || !Number.isFinite(quote.c) || quote.c <= 0) {
-    throw new Error(`Finnhub sin precio para ${ticker}`);
+  const quote = await fmpGetQuote(ticker);
+  if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
+    throw new Error(`FMP sin precio para ${ticker}`);
   }
 
-  const candles = await getAvHistory(ticker, 90);
+  const candles = await fmpGetHistory(ticker, 90);
   const last = candles[candles.length - 1];
   const prev = candles[candles.length - 2] ?? last;
-  const currentPrice = quote.c;
-  const prevClose = prev?.close ?? quote.pc ?? currentPrice;
+  const currentPrice = quote.price;
+  const prevClose = prev?.close ?? quote.previousClose ?? currentPrice;
+  const highs = candles.map((b) => b.high).filter((n) => n > 0);
+  const lows = candles.map((b) => b.low).filter((n) => n > 0);
   const route = routes[0];
 
   return {
@@ -152,16 +154,20 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     bid: currentPrice,
     ask: currentPrice,
     change1d: currentPrice - prevClose,
-    high52w: Math.max(...candles.map((b) => b.high), quote.h, currentPrice),
-    low52w: Math.min(
-      ...candles.map((b) => b.low).filter((n) => n > 0),
-      quote.l > 0 ? quote.l : currentPrice,
+    high52w: Math.max(
+      ...(highs.length > 0 ? highs : [currentPrice]),
+      quote.yearHigh ?? quote.dayHigh,
+      currentPrice,
     ),
-    volume: last?.volume ?? 0,
+    low52w: Math.min(
+      ...(lows.length > 0 ? lows : [currentPrice]),
+      quote.yearLow && quote.yearLow > 0 ? quote.yearLow : quote.dayLow > 0 ? quote.dayLow : currentPrice,
+    ),
+    volume: last?.volume ?? quote.volume ?? 0,
     quoteSymbol: route?.symbol ?? ticker,
-    quoteExchange: route?.exchange ?? "FINNHUB",
+    quoteExchange: route?.exchange ?? "FMP",
     quoteCurrency: route?.currency ?? "USD",
-    quoteRoute: route?.label ?? "Finnhub",
+    quoteRoute: route?.label ?? "FMP",
     quoteErrors,
   };
 }
@@ -216,30 +222,30 @@ function asPositive(n: unknown): number | null {
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
-async function fetchFinnhubStockQuote(ticker: string): Promise<LiveLimitQuote | null> {
-  const q = await finnhubGetQuote(ticker);
-  if (!q || !Number.isFinite(q.c) || q.c <= 0) return null;
+async function fetchFmpStockQuote(ticker: string): Promise<LiveLimitQuote | null> {
+  const q = await fmpGetQuote(ticker);
+  if (!q || !Number.isFinite(q.price) || q.price <= 0) return null;
   return {
-    bid: q.c,
-    ask: q.c,
-    last: q.c,
-    mid: q.c,
+    bid: q.price,
+    ask: q.price,
+    last: q.price,
+    mid: q.price,
   };
 }
 
-async function fetchFinnhubForexQuote(pairId: string): Promise<LiveLimitQuote | null> {
-  const q = await finnhubGetForexQuote(pairId);
-  if (!q || !Number.isFinite(q.mid) || q.mid <= 0) return null;
+async function fetchFmpForexQuote(pairId: string): Promise<LiveLimitQuote | null> {
+  const q = await fmpGetForexQuote(pairId);
+  if (!q || !Number.isFinite(q.price) || q.price <= 0) return null;
   return {
-    bid: asPositive(q.bid),
-    ask: asPositive(q.ask),
-    last: q.mid,
-    mid: q.mid,
+    bid: asPositive(q.price),
+    ask: asPositive(q.price),
+    last: q.price,
+    mid: q.price,
   };
 }
 
 /**
- * Live LMT price from Finnhub at approval/submit time.
+ * Live LMT price from FMP at approval/submit time.
  * IBKR is used only for order execution, not market data.
  */
 export async function fetchLiveLimitPrice(args: {
@@ -250,8 +256,8 @@ export async function fetchLiveLimitPrice(args: {
 }): Promise<number> {
   const quote =
     args.asset === "FOREX"
-      ? await fetchFinnhubForexQuote(args.symbol)
-      : await fetchFinnhubStockQuote(args.symbol);
+      ? await fetchFmpForexQuote(args.symbol)
+      : await fetchFmpStockQuote(args.symbol);
 
   const fromLive = quote
     ? resolveLimitPriceFromQuote({
@@ -265,5 +271,5 @@ export async function fetchLiveLimitPrice(args: {
 
   const suggested = asPositive(args.suggested);
   if (suggested != null) return suggested;
-  throw new Error(`No Finnhub limitPrice for ${args.symbol}`);
+  throw new Error(`No FMP limitPrice for ${args.symbol}`);
 }

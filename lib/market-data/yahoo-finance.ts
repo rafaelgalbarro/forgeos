@@ -1,18 +1,15 @@
 import "server-only";
 
-import { cacheKey, getOrSetCached } from "@/lib/market-data/cache";
-import {
-  getForexHistory as getAvForexHistory,
-  getHistory as getAvHistory,
-  isAlphaVantageEnabled,
-  rangeToDays,
-  type AlphaVantageBar,
-} from "@/lib/market-data/alpha-vantage";
 import {
   getBatchQuotes,
+  getForexHistory,
+  getHistory,
   getQuote,
-  isFinnhubEnabled,
-} from "@/lib/market-data/finnhub";
+  isFmpEnabled,
+  normalizeFmpForexSymbol,
+  type FmpBar,
+  type FmpQuote,
+} from "@/lib/market-data/fmp";
 
 export type YahooQuote = {
   symbol: string;
@@ -38,29 +35,45 @@ export type YahooTickerInfo = {
   exchange?: string;
 };
 
-/** @deprecated Yahoo retired — Finnhub quotes + Alpha Vantage history. */
+/** Yahoo retired — FMP is the sole quotes/history source. */
 export function isYahooFinanceEnabled(): boolean {
-  return isFinnhubEnabled() || isAlphaVantageEnabled();
+  return isFmpEnabled();
 }
 
-function finnhubQuoteToYahoo(symbol: string, q: { c: number; h: number; l: number; pc: number }): YahooQuote {
-  const price = q.c;
-  const prev = q.pc > 0 ? q.pc : price;
-  const changePct = prev > 0 ? ((price - prev) / prev) * 100 : 0;
+function isForexSymbol(ticker: string): boolean {
+  const raw = ticker.trim().toUpperCase();
+  if (raw.endsWith("=X") || raw.startsWith("OANDA:")) return true;
+  const stripped = raw.replace("=X", "").replace("/", "").replace("_", "");
+  return stripped.length === 6 && /^[A-Z]{6}$/.test(stripped);
+}
+
+function toFmpSymbol(ticker: string): string {
+  const raw = ticker.trim().toUpperCase();
+  if (!raw) return "";
+  return isForexSymbol(raw) ? normalizeFmpForexSymbol(raw) : raw;
+}
+
+function fmpQuoteToYahoo(q: FmpQuote, requestedSymbol?: string): YahooQuote {
+  const price = q.price;
+  const changePct = Number.isFinite(q.changePercentage) ? q.changePercentage : 0;
+  const high52w = q.yearHigh && q.yearHigh > 0 ? q.yearHigh : q.dayHigh > 0 ? q.dayHigh : price;
+  const low52w = q.yearLow && q.yearLow > 0 ? q.yearLow : q.dayLow > 0 ? q.dayLow : price;
   return {
-    symbol,
+    symbol: requestedSymbol ?? q.symbol,
     price,
     changePct,
-    volume: 0,
-    avgVolume: 0,
-    high52w: q.h > 0 ? q.h : price,
-    low52w: q.l > 0 ? q.l : price,
+    volume: q.volume,
+    avgVolume: q.avgVolume ?? 0,
+    high52w,
+    low52w,
     bid: price,
     ask: price,
+    marketCap: q.marketCap,
+    exchange: q.exchange,
   };
 }
 
-function avBarsToYahoo(bars: readonly AlphaVantageBar[]): YahooOhlcvBar[] {
+function fmpBarsToYahoo(bars: readonly FmpBar[]): YahooOhlcvBar[] {
   return bars.map((b) => ({
     open: b.open,
     high: b.high,
@@ -71,38 +84,30 @@ function avBarsToYahoo(bars: readonly AlphaVantageBar[]): YahooOhlcvBar[] {
   }));
 }
 
-function isForexSymbol(ticker: string): boolean {
-  const raw = ticker.trim().toUpperCase();
-  if (raw.endsWith("=X") || raw.startsWith("OANDA:")) return true;
-  const stripped = raw.replace("=X", "").replace("/", "");
-  return stripped.length === 6 && /^[A-Z]{6}$/.test(stripped);
+export function rangeToDays(range: string): number {
+  const r = range.trim().toLowerCase();
+  if (r.endsWith("d")) return Number.parseInt(r, 10) || 5;
+  if (r.endsWith("mo")) return (Number.parseInt(r, 10) || 3) * 22;
+  if (r.endsWith("y")) return (Number.parseInt(r, 10) || 1) * 252;
+  if (r === "1wk" || r === "7d") return 7;
+  return 66;
 }
 
-function parseForexPair(ticker: string): { from: string; to: string } | null {
-  const raw = ticker.trim().toUpperCase().replace("=X", "").replace("/", "").replace("OANDA:", "").replace("_", "");
-  if (raw.length === 6 && /^[A-Z]{6}$/.test(raw)) {
-    return { from: raw.slice(0, 3), to: raw.slice(3) };
-  }
-  return null;
-}
-
-async function fetchAlphaVantageBars(ticker: string, range: string): Promise<YahooOhlcvBar[]> {
-  if (!isAlphaVantageEnabled()) return [];
+async function fetchFmpBars(ticker: string, range: string): Promise<YahooOhlcvBar[]> {
+  if (!isFmpEnabled()) return [];
+  const symbol = toFmpSymbol(ticker);
+  if (!symbol) return [];
   const days = rangeToDays(range);
-  if (isForexSymbol(ticker)) {
-    const pair = parseForexPair(ticker);
-    if (!pair) return [];
-    return avBarsToYahoo(await getAvForexHistory(pair.from, pair.to, days));
-  }
-  return avBarsToYahoo(await getAvHistory(ticker, days));
+  const bars = isForexSymbol(ticker) ? await getForexHistory(symbol, days) : await getHistory(symbol, days);
+  return fmpBarsToYahoo(bars);
 }
 
-/** @deprecated IBKR market data disabled — use Finnhub. */
+/** @deprecated IBKR market data disabled — orders/account only. */
 export async function fetchIbkrQuoteForTicker(_ticker: string): Promise<YahooQuote | null> {
   return null;
 }
 
-/** @deprecated IBKR market data disabled — use Finnhub. */
+/** @deprecated IBKR market data disabled — orders/account only. */
 export async function fetchIbkrChartBars(
   _ticker: string,
   _interval: YahooChartInterval,
@@ -111,17 +116,18 @@ export async function fetchIbkrChartBars(
   return [];
 }
 
-/** Single-ticker quote via Finnhub /quote. */
+/** Single-ticker quote via FMP /stable/quote. */
 export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote | null> {
-  if (!isFinnhubEnabled()) return null;
-  const symbol = ticker.trim().toUpperCase();
+  if (!isFmpEnabled()) return null;
+  const requested = ticker.trim().toUpperCase();
+  const symbol = toFmpSymbol(requested);
   if (!symbol) return null;
   const q = await getQuote(symbol);
   if (!q) return null;
-  return finnhubQuoteToYahoo(symbol, q);
+  return fmpQuoteToYahoo(q, requested);
 }
 
-/** Daily chart bars via Alpha Vantage TIME_SERIES_DAILY / FX_DAILY. */
+/** Daily chart bars via FMP /stable/historical-price-eod/full. */
 export async function fetchYahooChartBarsRaw(
   ticker: string,
   _interval: YahooChartInterval = "1d",
@@ -129,23 +135,27 @@ export async function fetchYahooChartBarsRaw(
 ): Promise<YahooOhlcvBar[]> {
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return [];
-  return fetchAlphaVantageBars(symbol, range);
+  return fetchFmpBars(symbol, range);
 }
 
-/** Batch quotes — Finnhub only. */
+/** Batch quotes — one FMP /stable/quote call (chunked at 50). */
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
-  if (tickers.length === 0 || !isFinnhubEnabled()) return out;
+  if (tickers.length === 0 || !isFmpEnabled()) return out;
 
-  const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
-  const quotes = await getBatchQuotes(unique);
-  for (const [symbol, q] of quotes) {
-    out.set(symbol, finnhubQuoteToYahoo(symbol, q));
+  const requested = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
+  const fmpSymbols = [...new Set(requested.map(toFmpSymbol).filter(Boolean))];
+  const quotes = await getBatchQuotes(fmpSymbols);
+  for (const symbol of requested) {
+    const fmpSymbol = toFmpSymbol(symbol);
+    const q = quotes.get(fmpSymbol);
+    if (!q) continue;
+    out.set(symbol, fmpQuoteToYahoo(q, symbol));
   }
   return out;
 }
 
-/** Fundamentals — Finnhub free tier has no quoteSummary; returns null. */
+/** Fundamentals — FMP quote path does not include ratios; returns null. */
 export async function getTickerInfo(_ticker: string): Promise<YahooTickerInfo | null> {
   return null;
 }
@@ -196,7 +206,7 @@ export type YahooCorporateEvent = {
   splitRatio?: string;
 };
 
-/** @deprecated Yahoo fundamentals disabled — Finnhub free tier has no ratios module. */
+/** @deprecated Yahoo fundamentals disabled — FMP quotes/history only. */
 export async function getYahooFundamentals(_ticker: string): Promise<YahooFundamentals | null> {
   return null;
 }
@@ -204,7 +214,7 @@ export async function getYahooFundamentals(_ticker: string): Promise<YahooFundam
 export async function getUpgradeDowngradeHistory(
   _ticker: string,
 ): Promise<{ status: "OK" | "NO_DATA"; items: YahooRatingChange[]; detail: string }> {
-  return { status: "NO_DATA", items: [], detail: "Yahoo fundamentals disabled — Finnhub only for prices" };
+  return { status: "NO_DATA", items: [], detail: "Yahoo fundamentals disabled — FMP only for prices" };
 }
 
 export async function getYahooCorporateEvents(
@@ -220,7 +230,7 @@ export async function getYahooCorporateEvents(
     status: "NO_DATA",
     dividends: [],
     splits: [],
-    detail: "Yahoo corporate events disabled — Finnhub only for prices",
+    detail: "Yahoo corporate events disabled — FMP only for prices",
   };
 }
 
@@ -235,7 +245,7 @@ export async function getEarningsWithinHours(
 ): Promise<EarningsHorizonResult> {
   return {
     status: "NO_DATA",
-    detail: "Earnings calendar unavailable — Finnhub only for prices",
+    detail: "Earnings calendar unavailable — FMP only for prices",
     hoursUntil: null,
   };
 }
@@ -251,7 +261,7 @@ export type YahooOhlcvBar = {
   date?: string;
 };
 
-/** Daily OHLCV — Alpha Vantage (24h cache). Intraday intervals reuse daily bars. */
+/** Daily OHLCV — FMP EOD full (24h cache). Intraday intervals reuse daily bars. */
 export async function getChartBars(
   ticker: string,
   _interval: YahooChartInterval = "1d",
@@ -259,9 +269,7 @@ export async function getChartBars(
 ): Promise<YahooOhlcvBar[]> {
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return [];
-  return getOrSetCached(cacheKey("av-chart", symbol, range), 60_000, () =>
-    fetchAlphaVantageBars(symbol, range),
-  );
+  return fetchFmpBars(symbol, range);
 }
 
 export async function getDailyBars(ticker: string, range = "3mo"): Promise<

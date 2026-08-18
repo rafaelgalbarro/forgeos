@@ -1,7 +1,7 @@
 /**
  * FOREX dashboard snapshot + Telegram-supervised cycle.
  * Never places/stages at IBKR from the cycle — founder must tap APROBAR.
- * Quotes/history: Finnhub only. IBKR for positions/orders only.
+ * Quotes/history: FMP only. IBKR for positions/orders only.
  */
 
 import "server-only";
@@ -28,7 +28,7 @@ export type ForexQuoteRow = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "IBKR" | "NO_DATA";
+  source: "FMP" | "NO_DATA";
 };
 
 export type ForexPairAnalysis = {
@@ -54,7 +54,7 @@ export type ForexDashboardSnapshot = {
   errors: string[];
 };
 
-async function loadFinnhubQuoteRows(): Promise<ForexQuoteRow[]> {
+async function loadFmpQuoteRows(): Promise<ForexQuoteRow[]> {
   const { quotes } = await getForexLiveQuotes();
   return quotes.map((q) => ({
     pairId: q.pairId,
@@ -63,7 +63,7 @@ async function loadFinnhubQuoteRows(): Promise<ForexQuoteRow[]> {
     ask: q.ask,
     mid: q.mid,
     spreadPips: q.spreadPips,
-    source: q.source === "IBKR" ? ("IBKR" as const) : ("NO_DATA" as const),
+    source: q.source === "FMP" ? ("FMP" as const) : ("NO_DATA" as const),
   }));
 }
 
@@ -86,7 +86,7 @@ export async function buildForexDashboardSnapshot(): Promise<ForexDashboardSnaps
   const macro = await getForexMacroSnapshot();
   const errors: string[] = [];
 
-  const quotes = await loadFinnhubQuoteRows();
+  const quotes = await loadFmpQuoteRows();
 
   const analyses: ForexPairAnalysis[] = [];
   for (const pair of FOREX_PAIRS) {

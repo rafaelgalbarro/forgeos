@@ -1,19 +1,17 @@
 /**
- * @deprecated Polygon retired — Finnhub is the sole market data source.
- * Thin compatibility layer; all functions delegate to Finnhub or return empty.
+ * @deprecated Polygon retired — FMP is the sole market data source.
+ * Thin compatibility layer; all functions delegate to FMP or return empty.
  */
 
 import "server-only";
 
 import {
-  getHistory as getAvHistory,
-  isAlphaVantageEnabled,
-} from "@/lib/market-data/alpha-vantage";
-import {
-  getForexQuote as finnhubGetForexQuote,
-  getQuote as finnhubGetQuote,
-  isFinnhubEnabled,
-} from "@/lib/market-data/finnhub";
+  getForexQuote as fmpGetForexQuote,
+  getHistory as fmpGetHistory,
+  getQuote as fmpGetQuote,
+  isFmpEnabled,
+  normalizeFmpForexSymbol,
+} from "@/lib/market-data/fmp";
 import type { YahooOhlcvBar, YahooQuote, YahooTickerInfo } from "@/lib/market-data/yahoo-finance";
 
 export type PolygonTimespan = "minute" | "hour" | "day" | "week";
@@ -22,7 +20,7 @@ export type PolygonQuote = {
   symbol: string;
   price: number;
   timestamp?: string;
-  source: "finnhub";
+  source: "fmp";
   changePct?: number;
   volume?: number;
   avgVolume?: number;
@@ -41,7 +39,7 @@ export type PolygonForexQuote = {
   ask: number;
   mid: number;
   timestamp?: string;
-  source: "finnhub";
+  source: "fmp";
 };
 
 export type PolygonHistoryBar = {
@@ -63,9 +61,9 @@ export type PolygonTickerDetails = {
   marketCap?: number;
 };
 
-/** @deprecated Always false — use isFinnhubEnabled(). */
+/** Compatibility: true when FMP is configured. */
 export function isPolygonEnabled(): boolean {
-  return false;
+  return isFmpEnabled();
 }
 
 export function normalizePolygonTicker(ticker: string): string {
@@ -103,41 +101,40 @@ export function chartRangeToDates(range: string): { from: string; to: string } {
   return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
 }
 
-function toPolygonQuote(symbol: string, q: { c: number; h: number; l: number; pc: number }): PolygonQuote {
-  const prev = q.pc > 0 ? q.pc : q.c;
-  return {
-    symbol,
-    price: q.c,
-    source: "finnhub",
-    changePct: prev > 0 ? ((q.c - prev) / prev) * 100 : 0,
-    bid: q.c,
-    ask: q.c,
-    high52w: q.h,
-    low52w: q.l,
-  };
-}
-
 export async function fetchPolygonForexOnly(pair: string): Promise<PolygonForexQuote | null> {
-  if (!isFinnhubEnabled()) return null;
-  const q = await finnhubGetForexQuote(pair);
-  if (!q) return null;
-  const codes = pair.replace("=X", "").toUpperCase();
+  if (!isFmpEnabled()) return null;
+  const q = await fmpGetForexQuote(pair);
+  if (!q || q.price <= 0) return null;
+  const codes = normalizeFmpForexSymbol(pair);
   return {
     from: codes.slice(0, 3),
     to: codes.slice(3, 6),
-    bid: q.bid,
-    ask: q.ask,
-    mid: q.mid,
-    source: "finnhub",
+    bid: q.price,
+    ask: q.price,
+    mid: q.price,
+    source: "fmp",
   };
 }
 
 export async function getLastValue(ticker: string): Promise<PolygonQuote | null> {
-  if (!isFinnhubEnabled()) return null;
+  if (!isFmpEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
-  const q = await finnhubGetQuote(symbol);
+  const q = await fmpGetQuote(symbol);
   if (!q) return null;
-  return toPolygonQuote(symbol, q);
+  return {
+    symbol,
+    price: q.price,
+    source: "fmp",
+    changePct: q.changePercentage,
+    volume: q.volume,
+    avgVolume: q.avgVolume,
+    bid: q.price,
+    ask: q.price,
+    high52w: q.yearHigh ?? q.dayHigh,
+    low52w: q.yearLow ?? q.dayLow,
+    marketCap: q.marketCap,
+    exchange: q.exchange,
+  };
 }
 
 export async function fetchPolygonAggregates(
@@ -147,22 +144,26 @@ export async function fetchPolygonAggregates(
   from: string,
   to: string,
 ): Promise<PolygonHistoryBar[]> {
-  if (!isAlphaVantageEnabled()) return [];
+  if (!isFmpEnabled()) return [];
   const fromMs = Date.parse(from);
   const toMs = Date.parse(to);
   const days = Number.isFinite(fromMs) && Number.isFinite(toMs)
     ? Math.max(1, Math.ceil((toMs - fromMs) / 86_400_000))
     : 90;
   const symbol = ticker.trim().toUpperCase();
-  const bars = await getAvHistory(symbol, days);
-  return bars.map((b) => ({
-    open: b.open,
-    high: b.high,
-    low: b.low,
-    close: b.close,
-    volume: b.volume,
-    date: b.date,
-  }));
+  const bars = await fmpGetHistory(symbol, days);
+  const fromDay = from.slice(0, 10);
+  const toDay = to.slice(0, 10);
+  return bars
+    .filter((b) => (!fromDay || b.date >= fromDay) && (!toDay || b.date <= toDay))
+    .map((b) => ({
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+      date: b.date,
+    }));
 }
 
 export async function fetchPolygonHistoryOnly(

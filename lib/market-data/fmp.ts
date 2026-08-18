@@ -1,7 +1,8 @@
 /**
- * Financial Modeling Prep — sole quotes + EOD history source (stable API, post Aug 2025).
- * Quotes: GET /stable/quote?symbol=
- * History: GET /stable/historical-price-eod/full?symbol=
+ * Financial Modeling Prep — sole quotes + EOD history source (stable API, Starter plan).
+ * Quotes: GET /stable/profile?symbol=  → [{ symbol, price, ... }]
+ * History: GET /stable/historical-price-eod/full?symbol=  → [{ date, open, high, low, close, volume }]
+ * Batch quotes: individual profile calls (profile batch unsupported on Starter).
  * Never invents prices. Never logs the API key.
  */
 
@@ -10,9 +11,12 @@ import "server-only";
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
+const PROFILE_ENDPOINT = "/profile";
+const HISTORY_ENDPOINT = "/historical-price-eod/full";
 const QUOTE_TTL_MS = 60_000;
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
-const BATCH_CHUNK = 50;
+/** Starter plan: 300 calls/min — cap parallel profile fetches. */
+const BATCH_CONCURRENCY = 10;
 const FETCH_TIMEOUT_MS = 20_000;
 
 export type FmpQuote = {
@@ -81,7 +85,6 @@ function pathForLog(endpoint: string): string {
 
 /**
  * Build stable FMP URL with apikey as query param (never Authorization header).
- * Batch quotes keep literal commas in symbol=AAPL,NVDA (FMP rejects %2C).
  */
 function buildFmpUrl(
   endpoint: string,
@@ -91,17 +94,6 @@ function buildFmpUrl(
   if (!key) return null;
 
   const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const symbol = query.symbol;
-  const useLiteralCommas = Boolean(symbol?.includes(","));
-
-  if (useLiteralCommas && symbol) {
-    const parts = Object.entries(query).map(([name, value]) =>
-      name === "symbol" ? `${name}=${value}` : `${name}=${encodeURIComponent(value)}`,
-    );
-    parts.push(`apikey=${encodeURIComponent(key)}`);
-    return `${FMP_BASE}${path}?${parts.join("&")}`;
-  }
-
   const url = new URL(`${FMP_BASE}${path}`);
   for (const [name, value] of Object.entries(query)) {
     url.searchParams.set(name, value);
@@ -140,6 +132,13 @@ async function fmpFetchJson(endpoint: string, query: Record<string, string>): Pr
   }
 }
 
+function parseRangeYearBounds(range: unknown): { yearHigh?: number; yearLow?: number } {
+  if (typeof range !== "string") return {};
+  const parts = range.split("-").map((part) => asFinite(part.trim()));
+  if (parts.length !== 2 || parts[0] == null || parts[1] == null) return {};
+  return { yearLow: parts[0], yearHigh: parts[1] };
+}
+
 function parseQuote(row: Record<string, unknown>): FmpQuote | null {
   const symbol = typeof row.symbol === "string" ? row.symbol.trim().toUpperCase() : "";
   const price = asFinite(row.price);
@@ -148,14 +147,23 @@ function parseQuote(row: Record<string, unknown>): FmpQuote | null {
   const dayHigh = asFinite(row.dayHigh) ?? asFinite(row.high) ?? price;
   const dayLow = asFinite(row.dayLow) ?? asFinite(row.low) ?? price;
   const previousClose = asFinite(row.previousClose) ?? price;
-  const volume = asFinite(row.volume) ?? 0;
+  const volume = asFinite(row.volume) ?? asFinite(row.volAvg) ?? 0;
   const changePercentage =
-    asFinite(row.changePercentage) ?? asFinite(row.changesPercentage) ?? 0;
-  const yearHigh = asFinite(row.yearHigh) ?? undefined;
-  const yearLow = asFinite(row.yearLow) ?? undefined;
-  const avgVolume = asFinite(row.avgVolume) ?? undefined;
-  const marketCap = asFinite(row.marketCap) ?? undefined;
-  const exchange = typeof row.exchange === "string" ? row.exchange : undefined;
+    asFinite(row.changePercentage) ??
+    asFinite(row.changesPercentage) ??
+    asFinite(row.changes) ??
+    0;
+  const rangeBounds = parseRangeYearBounds(row.range);
+  const yearHigh = asFinite(row.yearHigh) ?? rangeBounds.yearHigh;
+  const yearLow = asFinite(row.yearLow) ?? rangeBounds.yearLow;
+  const avgVolume = asFinite(row.avgVolume) ?? asFinite(row.volAvg) ?? undefined;
+  const marketCap = asFinite(row.marketCap) ?? asFinite(row.mktCap) ?? undefined;
+  const exchange =
+    typeof row.exchange === "string"
+      ? row.exchange
+      : typeof row.exchangeShortName === "string"
+        ? row.exchangeShortName
+        : undefined;
   return {
     symbol,
     price,
@@ -216,7 +224,7 @@ export async function getQuote(ticker: string): Promise<FmpQuote | null> {
   const hit = getCached<FmpQuote>(key);
   if (hit) return hit;
 
-  const body = await fmpFetchJson("/quote", { symbol });
+  const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol });
   const row = quoteRows(body)[0];
   if (!row) return null;
   const quote = parseQuote(row);
@@ -239,14 +247,11 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
   }
   if (missing.length === 0) return out;
 
-  for (let i = 0; i < missing.length; i += BATCH_CHUNK) {
-    const chunk = missing.slice(i, i + BATCH_CHUNK);
-    const joined = chunk.join(",");
-    const body = await fmpFetchJson("/quote", { symbol: joined });
-    for (const row of quoteRows(body)) {
-      const quote = parseQuote(row);
+  for (let i = 0; i < missing.length; i += BATCH_CONCURRENCY) {
+    const chunk = missing.slice(i, i + BATCH_CONCURRENCY);
+    const quotes = await Promise.all(chunk.map((symbol) => getQuote(symbol)));
+    for (const quote of quotes) {
       if (!quote) continue;
-      setCached(cacheKey("fmp-quote", quote.symbol), quote, QUOTE_TTL_MS);
       out.set(quote.symbol, quote);
     }
   }
@@ -263,7 +268,7 @@ export async function getHistory(ticker: string, days: number): Promise<FmpBar[]
   const hit = getCached<FmpBar[]>(key);
   if (hit) return hit.slice(-safeDays);
 
-  const body = await fmpFetchJson("/historical-price-eod/full", { symbol });
+  const body = await fmpFetchJson(HISTORY_ENDPOINT, { symbol });
   if (body == null) return [];
   const bars = extractHistoricalRows(body)
     .map(parseBar)

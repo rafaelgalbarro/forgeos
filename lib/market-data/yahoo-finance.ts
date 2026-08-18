@@ -1,3 +1,9 @@
+/**
+ * Yahoo Finance compatibility layer — all live prices/history delegate to fmp.ts.
+ * Quotes: fmp.getQuote → GET /stable/profile
+ * Batch: fmp.getBatchQuotes → parallel profile calls (Starter plan)
+ * History: fmp.getHistory → GET /stable/historical-price-eod/full
+ */
 import "server-only";
 
 import {
@@ -116,7 +122,7 @@ export async function fetchIbkrChartBars(
   return [];
 }
 
-/** Single-ticker quote via FMP /stable/quote?symbol=. */
+/** Single-ticker quote — delegates to fmp.getQuote (/stable/profile). */
 export async function fetchYahooQuoteSingle(ticker: string): Promise<YahooQuote | null> {
   if (!isFmpEnabled()) return null;
   const requested = ticker.trim().toUpperCase();
@@ -138,7 +144,7 @@ export async function fetchYahooChartBarsRaw(
   return fetchFmpBars(symbol, range);
 }
 
-/** Batch quotes — one FMP /stable/quote?symbol=A,B,C call (chunked at 50). */
+/** Batch quotes — delegates to fmp.getBatchQuotes (parallel /stable/profile, max 10). */
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
   if (tickers.length === 0 || !isFmpEnabled()) return out;
@@ -155,7 +161,7 @@ export async function getBatchPrices(tickers: readonly string[]): Promise<Map<st
   return out;
 }
 
-/** Fundamentals — FMP quote path does not include ratios; returns null. */
+/** Fundamentals — fmp profile does not include ratios; returns null. */
 export async function getTickerInfo(_ticker: string): Promise<YahooTickerInfo | null> {
   return null;
 }

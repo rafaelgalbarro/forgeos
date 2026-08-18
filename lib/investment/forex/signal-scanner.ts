@@ -30,7 +30,7 @@ export type ForexSignalScanResult = {
   durationMs: number;
 };
 
-const PAIR_TIMEOUT_MS = 8_000;
+const PAIR_TIMEOUT_MS = 5_000;
 
 function weekendFromSession(label: string): boolean {
   return label.toLowerCase().includes("fin de semana");

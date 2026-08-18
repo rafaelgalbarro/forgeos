@@ -23,6 +23,7 @@ import { sendSignalAlert, notifyCircuitBreaker, notifyPreTradeHold } from '@/lib
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
+import { ensureIbkrBrokerConnected } from '@/lib/trading/ibkr-reconnect'
 import {
   fetchLiveLimitPrice,
   fetchTradingAccountSnapshot,
@@ -89,6 +90,29 @@ export class TradingEngine {
   private agent = new TradingAgent()
   private approvals = OrderApprovalGate.getInstance()
 
+  private static readonly TICKER_TIMEOUT_MS = 5_000
+
+  private static async withTickerTimeout<T>(
+    promise: Promise<T>,
+    ticker: string,
+    ms: number = TradingEngine.TICKER_TIMEOUT_MS,
+  ): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`${ticker} timeout ${ms}ms`)),
+            ms,
+          )
+        }),
+      ])
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
   /**
    * Ejecuta un ciclo de trading completo para una lista de tickers.
    * Llamado por el API route de Next.js cada X minutos.
@@ -113,28 +137,32 @@ export class TradingEngine {
       }
     }
 
-    // 3. Procesar cada ticker (horario evaluado por ticker, no solo USA)
-    for (const ticker of tickers) {
-      if (this.risk.isHalted()) break
-
+    // 3. Procesar tickers en paralelo (5s máx por ticker)
+    const jobs = tickers.map(async (ticker) => {
+      if (this.risk.isHalted()) return null
       try {
-        const order = await this.processTicker(ticker, account)
-        orders.push(order)
-
-        // Cash estimado solo cuando hay aprobación pendiente de compra (reserva informativa)
+        const order = await TradingEngine.withTickerTimeout(
+          this.processTicker(ticker, account),
+          ticker,
+        )
         if (order.status === 'PENDING_APPROVAL' && order.direction === 'BUY' && order.sharesOrValue) {
           account.cashUSD = Math.max(0, account.cashUSD - order.sharesOrValue)
         }
-
-        await this.sleep(500)
+        return order
       } catch (err) {
-        orders.push({
-          status: 'ERROR', ticker, direction: 'HOLD',
+        return {
+          status: 'ERROR' as const,
+          ticker,
+          direction: 'HOLD' as const,
           reason: err instanceof Error ? err.message : 'Error desconocido',
-          signal: { confidence: 0, reasoning: 'Error en ciclo', urgency: 'LOW' },
+          signal: { confidence: 0, reasoning: 'Error en ciclo', urgency: 'LOW' as const },
           timestamp: new Date().toISOString(),
-        })
+        }
       }
+    })
+    const settled = await Promise.allSettled(jobs)
+    for (const item of settled) {
+      if (item.status === 'fulfilled' && item.value) orders.push(item.value)
     }
 
     return {
@@ -148,12 +176,17 @@ export class TradingEngine {
   /**
    * Aprueba una orden PENDING_APPROVAL y solo entonces llama a executeOrder.
    */
-  async approveAndExecute(approvalId: string): Promise<OrderResult> {
+  async approveAndExecute(
+    approvalId: string,
+    opts?: { skipPreTradeRecheck?: boolean },
+  ): Promise<OrderResult> {
     const pending = this.approvals.get(approvalId)
     if (!pending) throw new Error(`Approval not found: ${approvalId}`)
 
-    // Re-run pre-trade gate immediately before approval → execute (market may have moved).
-    if (isPreTradeChecklistEnabled()) {
+    await ensureIbkrBrokerConnected()
+
+    // Re-run pre-trade gate unless founder explicitly approved via Telegram.
+    if (!opts?.skipPreTradeRecheck && isPreTradeChecklistEnabled()) {
       let priceSnap: Awaited<ReturnType<typeof fetchTradingPrice>> | null = null
       try {
         priceSnap = await this.fetchPrice(pending.ticker)
@@ -723,7 +756,7 @@ export class TradingEngine {
       }
     })()
 
-    void sendSignalAlert({
+    await sendSignalAlert({
       ticker,
       direction: signal.direction,
       entry: priceData.currentPrice,

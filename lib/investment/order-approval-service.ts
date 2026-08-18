@@ -4,7 +4,7 @@
 
 import "server-only";
 
-import { sendTelegramMessage, notifyOrderExecuted } from "@/lib/notifications/telegram-bot";
+import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { publishInvestmentEvent } from "@/lib/notifications/investment-events";
 import { OrderApprovalGate } from "@/src/core/trading/order-approval";
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
@@ -13,11 +13,12 @@ import {
   executeApprovedForexOrder,
   isForexPending,
 } from "@/lib/investment/forex/approval";
-import { notifyForexOrderFilled } from "@/lib/investment/forex/telegram";
 import { recordForexTradeEvent } from "@/lib/investment/forex/goals";
+import { ensureIbkrBrokerConnected } from "@/lib/trading/ibkr-reconnect";
 
 type TradingEngineInstance = import("@/src/core/trading/trading-engine").TradingEngine;
 let enginePromise: Promise<TradingEngineInstance> | null = null;
+const approvalInFlight = new Set<string>();
 
 async function getTradingEngine(): Promise<TradingEngineInstance> {
   if (!enginePromise) {
@@ -133,6 +134,12 @@ export async function processOrderApproval(params: {
     };
   }
 
+  if (approvalInFlight.has(approvalId)) {
+    return { ok: false, action, approvalId, error: "Aprobación ya en curso" };
+  }
+  approvalInFlight.add(approvalId);
+
+  try {
   if (isForexPending(pending)) {
     if (action === "reject") {
       gate.reject(approvalId);
@@ -156,15 +163,15 @@ export async function processOrderApproval(params: {
 
     gate.approve(approvalId);
     try {
+      await ensureIbkrBrokerConnected();
       const submitted = await executeApprovedForexOrder(pending);
       gate.markExecuted(approvalId, submitted.orderId);
-      await notifyForexOrderFilled({
-        pairId: pending.ticker,
-        side: pending.direction,
-        price: pending.price,
-        orderId: submitted.orderId,
-        staged: submitted.staged,
-      });
+      const price = pending.limitPrice ?? pending.price;
+      await sendTelegramMessage(
+        submitted.staged
+          ? `✅ FOREX staged: ${pending.ticker} ${pending.direction} ${pending.shares}@${price.toFixed(5)} · IBKR #${submitted.orderId}`
+          : `✅ Orden ejecutada: ${pending.ticker} ${pending.shares}@${price.toFixed(5)} · IBKR #${submitted.orderId}`,
+      );
       recordForexTradeEvent({
         style: pending.reason.toLowerCase().includes("scalp") ? "SCALPING" : "INTRADAY",
         pipsDelta: 0,
@@ -220,20 +227,21 @@ export async function processOrderApproval(params: {
     };
   }
 
-  const result = await engine.approveAndExecute(approvalId);
+  const result = await engine.approveAndExecute(approvalId, { skipPreTradeRecheck: true });
   if (result.status === "EXECUTED") {
-    await notifyOrderExecuted({
-      ticker: result.ticker ?? pending.ticker,
-      shares: pending.shares,
-      price: pending.price,
-      stopLoss: pending.stopLoss,
-      takeProfit: pending.takeProfit,
-    });
+    await sendTelegramMessage(
+      `✅ Orden ejecutada: ${result.ticker ?? pending.ticker} ${pending.shares}@$${(result.price ?? pending.price).toFixed(2)}` +
+        (result.orderId ? ` · IBKR #${result.orderId}` : ""),
+    );
     publishInvestmentEvent({
       type: "order_executed",
       at: new Date().toISOString(),
       payload: result,
     });
+  } else {
+    await sendTelegramMessage(
+      `❌ ${pending.ticker}: ${result.reason ?? result.status ?? "no ejecutada"}`,
+    );
   }
 
   return {
@@ -246,6 +254,9 @@ export async function processOrderApproval(params: {
     orderId: result.orderId,
     error: result.status !== "EXECUTED" ? result.reason : undefined,
   };
+  } finally {
+    approvalInFlight.delete(approvalId);
+  }
 }
 
 export function countPendingApprovals(): number {

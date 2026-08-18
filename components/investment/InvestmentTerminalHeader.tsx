@@ -29,9 +29,11 @@ export type InvestmentTerminalHeaderProps = {
   connected: boolean;
   streamConnected: boolean;
   refreshing: boolean;
+  reconnecting?: boolean;
   halted: boolean;
   confirmHalt: boolean;
   onRefresh: () => void;
+  onReconnect?: () => void;
   onConfirmHalt: () => void;
   onCancelHalt: () => void;
   onArmHalt: () => void;
@@ -195,6 +197,15 @@ export function InvestmentTerminalHeader(props: InvestmentTerminalHeaderProps) {
       </div>
 
       <div className={styles.hdrActions}>
+        <button
+          type="button"
+          className={styles.hdrBtn}
+          disabled={props.reconnecting}
+          onClick={props.onReconnect}
+          title="Reconectar broker IBKR"
+        >
+          {props.reconnecting ? "Reconectando…" : "🔄 Reconectar Broker"}
+        </button>
         <button
           type="button"
           className={styles.hdrBtn}

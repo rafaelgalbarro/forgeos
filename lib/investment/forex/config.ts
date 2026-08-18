@@ -79,7 +79,7 @@ const DEFAULTS: ForexEnvConfig = {
   riskPct: 2,
   stopPips: 20,
   tpPips: 40,
-  minConfidence: 0.75,
+  minConfidence: 0.65,
   minUnits: FOREX_MIN_UNITS,
   maxUnits: FOREX_MAX_UNITS,
 };

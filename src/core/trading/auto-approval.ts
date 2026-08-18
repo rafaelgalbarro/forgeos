@@ -72,7 +72,7 @@ export function evaluateAutoApproval(
     input;
 
   if (confidence < cfg.alwaysHold.belowConfidence) {
-    return { action: "HOLD", reason: `Confianza ${(confidence * 100).toFixed(0)}% < 72%` };
+    return { action: "HOLD", reason: `Confianza ${(confidence * 100).toFixed(0)}% < 65%` };
   }
 
   if (cfg.alwaysHold.newsConflicting && newsConflicting(direction, news)) {

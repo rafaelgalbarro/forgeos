@@ -10,6 +10,7 @@ const SHORT_ALIASES: Record<string, string> = {
   "/positions": "/api/ibkr/positions",
   "/orders": "/api/ibkr/orders",
   "/connect": "/api/ibkr/connect",
+  "/reconnect": "/api/ibkr/reconnect",
   "/history": "/api/ibkr/history",
   "/quote": "/api/ibkr/quote",
   "/forex/quotes": "/api/forex/quotes",

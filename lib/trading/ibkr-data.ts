@@ -6,6 +6,7 @@ import {
   resolveLimitPriceFromQuote,
   type LiveLimitQuote,
 } from "@/lib/trading/limit-price";
+import { getOrSetIbkrCached, ibkrCacheKey } from "@/lib/trading/ibkr-cache";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -61,8 +62,12 @@ export type TradingPositionSnapshot = {
   unrealizedPnl: number;
 };
 
-/** Direct IBKR FastAPI read — no HTTP loopback through Next.js. */
+/** Direct IBKR FastAPI read — cached 5 min for dashboard/scanners (not live approval). */
 export async function fetchTradingAccountSnapshot(): Promise<TradingAccountSnapshot> {
+  return getOrSetIbkrCached(ibkrCacheKey("account"), fetchTradingAccountSnapshotLive);
+}
+
+async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot> {
   const [account, positions] = await Promise.all([
     ibkrServiceFetch<AccountMap>("/api/ibkr/account"),
     ibkrServiceFetch<unknown[]>("/api/ibkr/positions").catch(() => []),
@@ -143,6 +148,10 @@ function formatHistoryError(route: TickerQuoteRoute, history: IbkrHistoryRespons
 }
 
 export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSnapshot> {
+  return getOrSetIbkrCached(ibkrCacheKey("price", ticker), () => fetchTradingPriceLive(ticker));
+}
+
+async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapshot> {
   const routes = quoteRoutesForTicker(ticker);
   const quoteErrors: string[] = [];
 
@@ -192,6 +201,12 @@ export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSna
 export async function fetchTradingPosition(
   ticker: string,
 ): Promise<TradingPositionSnapshot | undefined> {
+  return getOrSetIbkrCached(ibkrCacheKey("position", ticker), () => fetchTradingPositionLive(ticker));
+}
+
+async function fetchTradingPositionLive(
+  ticker: string,
+): Promise<TradingPositionSnapshot | undefined> {
   const positions = await ibkrServiceFetch<
     Array<{
       symbol?: string;
@@ -209,8 +224,11 @@ export async function fetchTradingPosition(
   };
 }
 
-/** Open position symbols with non-zero size — for pre-trade correlation checks. */
 export async function fetchTradingOpenSymbols(): Promise<string[]> {
+  return getOrSetIbkrCached(ibkrCacheKey("open-symbols"), fetchTradingOpenSymbolsLive);
+}
+
+async function fetchTradingOpenSymbolsLive(): Promise<string[]> {
   try {
     const positions = await ibkrServiceFetch<
       Array<{ symbol?: string; position?: number }>

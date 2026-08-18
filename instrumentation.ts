@@ -4,9 +4,11 @@ export async function register() {
     const { startTelegramPolling } = await import("@/lib/notifications/telegram-poll");
     const { startWebhookExportListener } = await import("@/lib/integrations/webhook-export");
     const { startApprovalExpiryMonitor } = await import("@/lib/investment/order-approval-service");
+    const { startIbkrReconnectMonitor } = await import("@/lib/trading/ibkr-reconnect");
     startPositionMonitor();
     startTelegramPolling();
     startApprovalExpiryMonitor();
     startWebhookExportListener();
+    startIbkrReconnectMonitor();
   }
 }

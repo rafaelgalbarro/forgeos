@@ -160,12 +160,13 @@ export async function handleTelegramCallback(
   callbackQueryId: string,
   chatId?: string | number | null,
 ): Promise<void> {
-  await answerCallbackQuery(callbackQueryId, "Procesando…");
-
   if (chatId != null && !isFounderTelegramChat(chatId)) {
+    await answerCallbackQuery(callbackQueryId, "Solo founder");
     await sendTelegramMessage("⛔ Solo el founder puede aprobar órdenes.");
     return;
   }
+
+  await answerCallbackQuery(callbackQueryId, "Procesando…");
 
   if (data === "resume_trading") {
     RiskManager.getInstance().resume();
@@ -248,12 +249,8 @@ export async function handleTelegramCallback(
       action,
       chatId,
     });
-    if (!result.ok) {
-      await sendTelegramMessage(`❌ ${result.error ?? "Error en aprobación"}`);
-    } else if (action === "approve" && result.status !== "EXECUTED") {
-      await sendTelegramMessage(
-        `⚠️ ${result.ticker ?? approvalId}: ${result.error ?? result.status ?? "no ejecutada"}`,
-      );
+    if (!result.ok && result.error) {
+      await sendTelegramMessage(`❌ ${result.error}`);
     }
     return;
   }

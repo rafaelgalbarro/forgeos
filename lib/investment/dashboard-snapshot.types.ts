@@ -137,15 +137,15 @@ export interface InvestmentDashboardSnapshot {
 }
 
 export const DASHBOARD_TTL_MS = {
-  broker: 5_000,
-  account: 10_000,
-  positions: 10_000,
-  risk: 30_000,
-  analytics: 30_000,
-  committee: 60_000,
-  provider: 30_000,
-  memory: 60_000,
-  runtime: 10_000,
+  broker: 300_000,
+  account: 300_000,
+  positions: 300_000,
+  risk: 300_000,
+  analytics: 300_000,
+  committee: 300_000,
+  provider: 300_000,
+  memory: 300_000,
+  runtime: 60_000,
 } as const;
 
 export const DASHBOARD_TIMEOUT_MS = {
@@ -158,10 +158,10 @@ export const DASHBOARD_TIMEOUT_MS = {
 } as const;
 
 export const DASHBOARD_POLL_MS = {
-  broker: 5_000,
-  account: 10_000,
-  positions: 10_000,
-  risk: 30_000,
-  committee: 60_000,
-  dashboard: 10_000,
+  broker: 60_000,
+  account: 60_000,
+  positions: 60_000,
+  risk: 120_000,
+  committee: 120_000,
+  dashboard: 30_000,
 } as const;

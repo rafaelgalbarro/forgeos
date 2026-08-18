@@ -64,3 +64,14 @@ export function clearMarketDataCache(): void {
   store.clear();
   inflight.clear();
 }
+
+/** Drop cached entries whose key starts with prefix (e.g. "IBKR:"). */
+export function invalidateCacheByPrefix(prefix: string): void {
+  const p = prefix.toUpperCase();
+  for (const key of [...store.keys()]) {
+    if (key.startsWith(p)) store.delete(key);
+  }
+  for (const key of [...inflight.keys()]) {
+    if (key.startsWith(p)) inflight.delete(key);
+  }
+}

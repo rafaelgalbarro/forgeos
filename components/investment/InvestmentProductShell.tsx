@@ -20,6 +20,8 @@ import { warmInvestmentDataCaches } from "@/lib/investment/client-last-known";
 export function InvestmentProductShell({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<InvestmentDashboardSnapshot | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectNote, setReconnectNote] = useState("");
   const [halted, setHalted] = useState(false);
   const [haltMessage, setHaltMessage] = useState("");
   const [confirmHalt, setConfirmHalt] = useState(false);
@@ -78,15 +80,39 @@ export function InvestmentProductShell({ children }: { children: React.ReactNode
     );
   }
 
+  const reconnectBroker = useCallback(async () => {
+    setReconnecting(true);
+    setReconnectNote("Reconectando…");
+    try {
+      const result = await safeJsonFetch<{ connected?: boolean; error?: string; state?: string }>(
+        "/api/broker/reconnect",
+        { method: "POST", cache: "no-store", body: "{}" },
+      );
+      if (result.ok && result.data?.connected) {
+        setReconnectNote("✅ Conectado");
+      } else {
+        setReconnectNote(`❌ Error: ${result.data?.error ?? result.error ?? "desconocido"}`);
+      }
+      await refreshStatus();
+    } catch (err) {
+      setReconnectNote(`❌ Error: ${err instanceof Error ? err.message : "reconnect failed"}`);
+    } finally {
+      setReconnecting(false);
+      window.setTimeout(() => setReconnectNote(""), 8000);
+    }
+  }, [refreshStatus]);
+
   return (
     <div className={styles.productRoot} data-product="forgeos-investment">
       <InvestmentTerminalHeader
         connected={connected}
         streamConnected={streamConnected}
         refreshing={refreshing}
+        reconnecting={reconnecting}
         halted={halted}
         confirmHalt={confirmHalt}
         onRefresh={() => void refreshStatus()}
+        onReconnect={() => void reconnectBroker()}
         onArmHalt={() => setConfirmHalt(true)}
         onCancelHalt={() => setConfirmHalt(false)}
         onConfirmHalt={runEmergencyStop}
@@ -99,6 +125,7 @@ export function InvestmentProductShell({ children }: { children: React.ReactNode
       />
 
       {haltMessage ? <p className={styles.hubNote}>{haltMessage}</p> : null}
+      {reconnectNote ? <p className={styles.hubNote}>{reconnectNote}</p> : null}
 
       <InvestmentWorkspaceNav />
 

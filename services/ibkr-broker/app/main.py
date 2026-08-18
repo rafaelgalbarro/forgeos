@@ -1079,6 +1079,19 @@ def connect():
         raise HTTPException(503, str(exc)) from exc
 
 
+@app.post("/api/ibkr/reconnect", dependencies=auth)
+def reconnect():
+    """Reset socket state and reconnect to TWS/Gateway."""
+    try:
+        ibkr._reset_socket_state()
+        result = ibkr.connect_gateway()
+        audit("IBKR_RECONNECTED", None, result)
+        return {**result, "reconnected": True}
+    except Exception as exc:
+        audit("IBKR_RECONNECT_FAILED", None, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
 @app.get("/api/ibkr/status", dependencies=auth)
 def status():
     return ibkr.status()

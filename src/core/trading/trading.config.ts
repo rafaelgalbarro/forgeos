@@ -56,7 +56,7 @@ export const TRADING_CONFIG = {
     /** Ciclo de análisis en ms (5 min por defecto) */
     analysisCycleMs: 5 * 60 * 1000,
     /** Confianza mínima (0-1) para ejecutar una orden — temporal pruebas */
-    minConfidenceToTrade: 0.50,
+    minConfidenceToTrade: 0.65,
     /** Máximo de operaciones por día */
     maxDailyTrades: 20,
   },
@@ -179,7 +179,7 @@ export const TRADING_CONFIG = {
       executeIfNoResponse: false,
     },
     alwaysHold: {
-      belowConfidence: 0.50,
+      belowConfidence: 0.65,
       marketVolatilityHigh: true,
       newsConflicting: true,
     },

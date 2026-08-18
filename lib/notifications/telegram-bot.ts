@@ -304,7 +304,7 @@ export async function notifyOrderExecuted(params: {
 }): Promise<void> {
   if (!notifyEnabled("execution")) return;
   const text = [
-    `✅ <b>EJECUTADA:</b> ${params.ticker} ${params.shares} acc a $${params.price.toFixed(2)}`,
+    `✅ Orden ejecutada: ${params.ticker} ${params.shares}@$${params.price.toFixed(2)}`,
     params.stopLoss != null ? `SL: $${params.stopLoss.toFixed(2)}` : "",
     params.takeProfit != null ? `TP: $${params.takeProfit.toFixed(2)}` : "",
   ]

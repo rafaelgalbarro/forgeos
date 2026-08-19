@@ -7,6 +7,7 @@ import {
   notifyStalePosition,
   sendTelegramMessage,
 } from "@/lib/notifications/telegram-bot";
+import { sendDailyClosePremiumReport } from "@/lib/notifications/cycle-premium-report";
 import { fetchTradingAccountSnapshot, fetchTradingPrice } from "@/lib/trading/ibkr-data";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { submitSupervisedLiveLimitOrder } from "@/lib/investment/ibkr-supervised-submit";
@@ -262,17 +263,7 @@ async function tick(): Promise<void> {
     const dateKey = `${parts.find((p) => p.type === "year")?.value}-${parts.find((p) => p.type === "month")?.value}-${parts.find((p) => p.type === "day")?.value}`;
     if (hh === 22 && mm === 0 && lastDailySummaryDate !== dateKey) {
       lastDailySummaryDate = dateKey;
-      const { loadOptimizerState } = await import("./portfolio-optimizer");
-      const state = loadOptimizerState();
-      const daily = state.closedOutcomes.filter((o) => (o.closedAt ?? "").startsWith(dateKey));
-      const trades = daily.length;
-      const wins = daily.filter((o) => (o.pnlUSD ?? 0) > 0).length;
-      const pnl = daily.reduce((s, o) => s + (o.pnlUSD ?? 0), 0);
-      const winRate = trades > 0 ? (wins / trades) * 100 : 0;
-      const sign = pnl >= 0 ? "+" : "";
-      await sendTelegramMessage(
-        `📊 RESUMEN DÍA: Operaciones: ${trades} | Ganadoras: ${wins} | P&L: ${sign}$${pnl.toFixed(2)} | Win rate: ${winRate.toFixed(0)}%`,
-      );
+      await sendDailyClosePremiumReport();
     }
   } finally {
     running = false;

@@ -37,6 +37,7 @@ type DailyUniverseCache = {
   generatedAt: string;
   nextRefreshAt: string;
   source: "fmp-screener" | "fallback-738";
+  screenerCount: number;
   tickers: DailyTicker[];
   excludedEarnings: string[];
   sectorLeader: { etf: string; changePct: number };
@@ -281,6 +282,7 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
     generatedAt: new Date().toISOString(),
     nextRefreshAt,
     source,
+    screenerCount: symbols.length,
     tickers: finalTop,
     excludedEarnings: [...excluded],
     sectorLeader,

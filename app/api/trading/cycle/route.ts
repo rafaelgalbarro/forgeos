@@ -19,7 +19,8 @@ import { expireStalePendingApprovals, countPendingApprovals } from '@/lib/invest
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { popCycleQueue } from '@/lib/alerts/alert-manager'
 import { resolveTradingCycleTickers } from '@/lib/investment/cycle-universe'
-import { refreshDailyMarketUniverse } from '@/lib/investment/market-daily-universe'
+import { refreshDailyMarketUniverse, getDailyMarketUniverse } from '@/lib/investment/market-daily-universe'
+import { sendCyclePremiumReport } from '@/lib/notifications/cycle-premium-report'
 
 const engine = new TradingEngine()
 
@@ -91,6 +92,13 @@ export async function POST(req: NextRequest) {
     )
 
     const result = await engine.runCycle(tickers)
+
+    const daily = getDailyMarketUniverse()
+    void sendCyclePremiumReport(result, {
+      analyzed: tickers.length,
+      universeScanned: daily?.screenerCount ?? universe.universeSize,
+      universeFiltered: daily?.tickers.length ?? universe.universeSize,
+    }).catch((err) => console.warn('[TradingCycle] Premium report failed:', err))
 
     // Guardar en memoria global para el dashboard (en prod usar DB)
     global.__lastTradingCycle = result

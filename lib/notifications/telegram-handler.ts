@@ -19,10 +19,12 @@ import {
   queueTickerForCycle,
   removeWatchlistTicker,
 } from "@/lib/alerts/alert-manager";
-import { refreshDailyMarketUniverse } from "@/lib/investment/market-daily-universe";
+import { refreshDailyMarketUniverse, getDailyMarketUniverse } from "@/lib/investment/market-daily-universe";
+import { sendCyclePremiumReport } from "@/lib/notifications/cycle-premium-report";
 import {
   executeCommitteeSales,
   getCommitteeAnalysis,
+  runPortfolioCommitteeAnalysis,
 } from "@/lib/investment/portfolio-committee";
 import {
   loadTradingState,
@@ -145,9 +147,12 @@ export async function handleTelegramCommand(text: string): Promise<void> {
         const universe = resolveTradingCycleTickers(100);
         const result = await engine.runCycle(universe.tickers);
         global.__lastTradingCycle = result;
-        await sendTelegramMessage(
-          `✅ Ciclo ${result.cycleId} — ${result.orders.length} tickers (${universe.source}) · halted=${result.systemHalted}`,
-        );
+        const daily = getDailyMarketUniverse();
+        await sendCyclePremiumReport(result, {
+          analyzed: universe.tickers.length,
+          universeScanned: daily?.screenerCount ?? universe.universeSize,
+          universeFiltered: daily?.tickers.length ?? universe.universeSize,
+        });
         publishInvestmentEvent({ type: "cycle_complete", at: new Date().toISOString(), payload: result });
       } catch (err) {
         await sendTelegramMessage(`❌ Ciclo falló: ${err instanceof Error ? err.message : "error"}`);
@@ -184,6 +189,43 @@ export async function handleTelegramCallback(
 
   if (data === "view_portfolio" || data === "report_portfolio") {
     await sendTelegramMessage(await portfolioText());
+    return;
+  }
+
+  if (data === "run_cycle") {
+    await handleTelegramCommand("/cycle");
+    return;
+  }
+
+  if (data === "view_settings") {
+    await sendTelegramMessage(await statusText());
+    return;
+  }
+
+  if (data === "view_history") {
+    const { loadOptimizerState } = await import("@/src/core/trading/portfolio-optimizer");
+    const rows = loadOptimizerState().closedOutcomes.slice(0, 10);
+    if (rows.length === 0) {
+      await sendTelegramMessage("📈 Sin operaciones cerradas recientes.");
+      return;
+    }
+    const lines = rows.map(
+      (o) =>
+        `${(o.pnlUSD ?? 0) >= 0 ? "🟢" : "🔴"} ${o.ticker} ${o.kind} | P&L ${(o.pnlPct ?? 0).toFixed(1)}% | $${(o.pnlUSD ?? 0).toFixed(2)}`,
+    );
+    await sendTelegramMessage(["📈 <b>HISTÓRICO RECIENTE</b>", ...lines].join("\n"));
+    return;
+  }
+
+  if (data === "committee_run") {
+    await sendTelegramMessage("🧠 Ejecutando AI Committee…");
+    try {
+      await runPortfolioCommitteeAnalysis();
+    } catch (err) {
+      await sendTelegramMessage(
+        `❌ Committee failed: ${err instanceof Error ? err.message : "error"}`,
+      );
+    }
     return;
   }
 

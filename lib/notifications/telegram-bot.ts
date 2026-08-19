@@ -263,7 +263,7 @@ export async function notifySignalDetected(payload: SignalTelegramPayload): Prom
 /** Circuit breaker halted. */
 export async function notifyCircuitBreaker(dailyLossPct: number): Promise<void> {
   if (!notifyEnabled("halt")) return;
-  const text = `🛑 <b>SISTEMA DETENIDO</b> — Pérdida diaria ${dailyLossPct.toFixed(1)}%`;
+  const text = `🚨 RISK GATE ACTIVADO: Pérdida -${dailyLossPct.toFixed(1)}% NAV. Trading pausado hasta mañana.`;
   await sendTelegramMessage(text, [
     [
       { text: "▶️ REANUDAR", callback_data: "resume_trading" },

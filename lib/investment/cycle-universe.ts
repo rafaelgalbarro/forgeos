@@ -31,6 +31,9 @@ export function getScannerCandidateTickers(): string[] {
 export function isTickerAllowedForTrading(ticker: string): boolean {
   const id = ticker.trim().toUpperCase();
   if (!id) return false;
+  const daily = getDailyMarketUniverse();
+  if ((daily?.excludedEarnings ?? []).includes(id)) return false;
+  if ((daily?.tickers ?? []).some((t) => t.symbol === id)) return true;
   if (allowedSet().has(id)) return true;
   return getScannerCandidateTickers().includes(id);
 }

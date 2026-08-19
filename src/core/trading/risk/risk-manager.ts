@@ -132,7 +132,8 @@ export class RiskManager {
     // 2. Límite de pérdida diaria
     const dailyLossLimit = account.navUSD * TRADING_CONFIG.risk.dailyLossLimitPct
     if (account.dailyPnlUSD <= -dailyLossLimit) {
-      this.halt(`Pérdida diaria de ${Math.abs(account.dailyPnlUSD).toFixed(2)}$ supera límite de ${dailyLossLimit.toFixed(2)}$`)
+      const lossPct = account.navUSD > 0 ? (Math.abs(account.dailyPnlUSD) / account.navUSD) * 100 : 10
+      this.halt(`Pérdida diaria de ${Math.abs(account.dailyPnlUSD).toFixed(2)}$ supera límite de ${dailyLossLimit.toFixed(2)}$`, lossPct)
       return { allowed: false, reason: this.haltReason }
     }
 
@@ -248,7 +249,7 @@ export class RiskManager {
     this.persist()
   }
 
-  halt(reason: string) {
+  halt(reason: string, dailyLossPct = 10) {
     this.ensureHydrated()
     this.halted = true
     this.haltReason = reason
@@ -263,7 +264,7 @@ export class RiskManager {
         at: new Date().toISOString(),
         payload: { reason },
       })
-      await notifyCircuitBreaker(10)
+      await notifyCircuitBreaker(dailyLossPct)
     })()
   }
 

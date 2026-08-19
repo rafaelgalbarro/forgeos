@@ -28,6 +28,7 @@ type DailyTicker = {
   momentum5d: number;
   relStrengthVsSpy: number;
   dist52wHigh: number;
+  rsi14: number;
   score: number;
   category: "Top Gainers" | "Top Volume" | "Momentum" | "Oversold" | "Near 52w High" | "General";
 };
@@ -136,12 +137,30 @@ async function fetchSpyMomentum5d(): Promise<number> {
 }
 
 function pickCategory(t: DailyTicker): DailyTicker["category"] {
+  if (t.rsi14 > 0 && t.rsi14 < 30) return "Oversold";
   if (t.changePct >= 3) return "Top Gainers";
   const volRatio = t.avgVolume > 0 ? t.volume / t.avgVolume : 0;
   if (volRatio >= 2) return "Top Volume";
   if (t.momentum5d >= 5) return "Momentum";
   if (t.dist52wHigh >= 0.98) return "Near 52w High";
   return "General";
+}
+
+function calcRsi14(closesDesc: number[]): number {
+  if (closesDesc.length < 15) return 0;
+  const closes = [...closesDesc].reverse();
+  let gains = 0;
+  let losses = 0;
+  for (let i = 1; i < closes.length; i += 1) {
+    const d = closes[i]! - closes[i - 1]!;
+    if (d > 0) gains += d;
+    else losses += Math.abs(d);
+  }
+  const avgGain = gains / 14;
+  const avgLoss = losses / 14;
+  if (avgLoss <= 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
 }
 
 async function fetchEarningsToday(): Promise<string[]> {
@@ -216,13 +235,14 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
           ? ((h as { historical: unknown[] }).historical ?? [])
           : [];
       const closes = rows
-        .slice(0, 6)
+        .slice(0, 20)
         .map((x) => Number((x as { close?: number }).close ?? NaN))
         .filter((n) => Number.isFinite(n) && n > 0);
       const momentum5d =
-        closes.length >= 2
-          ? ((closes[0]! - closes[closes.length - 1]!) / closes[closes.length - 1]!) * 100
+        closes.length >= 6
+          ? ((closes[0]! - closes[5]!) / closes[5]!) * 100
           : 0;
+      const rsi14 = calcRsi14(closes.slice(0, 15));
       const relStrengthVsSpy = momentum5d - spy5d;
       const volRatio = r.avgVolume > 0 ? r.volume / r.avgVolume : 1;
       const dist52wHigh = r.yearHigh > 0 ? Math.max(0, Math.min(1, r.price / r.yearHigh)) : 0;
@@ -241,6 +261,7 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
         momentum5d,
         relStrengthVsSpy,
         dist52wHigh,
+        rsi14,
         score,
         category: "General",
       };

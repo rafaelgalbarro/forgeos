@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import socket
@@ -16,6 +17,13 @@ from decimal import Decimal, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
+
+log = logging.getLogger("ibkr-broker")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
@@ -234,6 +242,7 @@ class IBKRClient(EWrapper, EClient):
         self._quote_req_seq = 9600
 
     def nextValidId(self, orderId: int) -> None:
+        log.info("nextValidId=%s (connection ready)", orderId)
         self.next_order_id = orderId
 
     def managedAccounts(self, accountsList: str) -> None:
@@ -242,12 +251,16 @@ class IBKRClient(EWrapper, EClient):
         self.accounts = list(dict.fromkeys([*from_tws, *configured]))
 
     def error(self, reqId, errorCode, errorString, advancedOrderRejectJson="") -> None:
-        self.errors.append({"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson})
+        entry = {"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson}
+        self.errors.append(entry)
+        # Always log order-related errors loudly
         if isinstance(reqId, int) and reqId in self.place_ack_events:
-            self.place_ack_errors.setdefault(reqId, []).append(
-                {"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson}
-            )
+            log.warning("ORDER error orderId=%s code=%s: %s %s", reqId, errorCode, errorString, advancedOrderRejectJson or "")
+            self.place_ack_errors.setdefault(reqId, []).append(entry)
             self.place_ack_events[reqId].set()
+        elif int(errorCode) not in {2104, 2106, 2158, 2119}:
+            # Skip noisy market-data-farm connectivity messages
+            log.info("IBKR error reqId=%s code=%s: %s", reqId, errorCode, errorString)
         # Hard historical-data failures should unblock waiters (never invent bars).
         if reqId in self.history_bars and int(errorCode) in {162, 200, 354, 366, 420, 10168}:
             self.history_done.set()
@@ -292,7 +305,22 @@ class IBKRClient(EWrapper, EClient):
     def positionEnd(self) -> None:
         self.positions_done.set()
 
+    def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice=0.0) -> None:
+        log.info(
+            "ORDER STATUS orderId=%s status=%s filled=%s remaining=%s avgFill=%.4f permId=%s whyHeld=%s",
+            orderId, status, filled, remaining, avgFillPrice, permId, whyHeld,
+        )
+        if orderId in self.place_ack_events:
+            self.place_ack_status[orderId] = status
+            self.place_ack_events[orderId].set()
+
     def openOrder(self, orderId, contract, order, orderState) -> None:
+        log.info(
+            "OPEN ORDER orderId=%s %s %s %s qty=%s lmt=%s status=%s acct=%s",
+            orderId, order.action, contract.symbol, order.orderType,
+            order.totalQuantity, order.lmtPrice, orderState.status,
+            getattr(order, "account", "?"),
+        )
         self.orders_data.append({
             "orderId": orderId,
             "symbol": contract.symbol,
@@ -301,12 +329,14 @@ class IBKRClient(EWrapper, EClient):
             "quantity": float(order.totalQuantity),
             "limitPrice": float(order.lmtPrice) if order.lmtPrice else None,
             "status": orderState.status,
+            "account": getattr(order, "account", None),
         })
         if orderId in self.place_ack_events:
             self.place_ack_status[orderId] = orderState.status
             self.place_ack_events[orderId].set()
 
     def openOrderEnd(self) -> None:
+        log.info("OPEN ORDER END — %d orders in snapshot", len(self.orders_data))
         self.orders_done.set()
 
     def historicalData(self, reqId, bar) -> None:
@@ -888,6 +918,11 @@ class IBKRClient(EWrapper, EClient):
         if account:
             order.account = account
         apply_whatif_legacy_attr_compat(order)
+        log.info(
+            "PLACING ORDER id=%s %s %s qty=%s lmt=%s transmit=%s whatIf=%s acct=%s",
+            order_id, order.action, contract.symbol, normalized_qty,
+            normalized_price, transmit, what_if, order.account if hasattr(order, "account") else "?",
+        )
         ack = threading.Event()
         self.place_ack_events[order_id] = ack
         self.place_ack_status.pop(order_id, None)
@@ -895,9 +930,23 @@ class IBKRClient(EWrapper, EClient):
         self.placeOrder(order_id, contract, order)
         ack.wait(6)
         errors = self.place_ack_errors.get(order_id, [])
+        status = self.place_ack_status.get(order_id, "NO_ACK")
+        log.info("PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))
+        for err in errors:
+            log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
         reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
         if any(int(err["code"]) in reject_codes for err in errors):
             raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
+        # Post-place verification: request open orders to confirm TWS received it
+        try:
+            time.sleep(1)
+            verify_orders = self.open_orders()
+            found = any(o.get("orderId") == order_id for o in verify_orders)
+            log.info("POST-PLACE VERIFY id=%s found_in_open_orders=%s total_open=%d", order_id, found, len(verify_orders))
+            if not found and not errors:
+                log.warning("ORDER id=%s NOT FOUND in open orders — may have been instantly filled, cancelled, or rejected silently", order_id)
+        except Exception as exc:
+            log.warning("POST-PLACE VERIFY failed: %s", exc)
         return order_id
 
     def place_forex_limit_order(
@@ -974,6 +1023,10 @@ class IBKRClient(EWrapper, EClient):
         if account:
             order.account = account
         apply_whatif_legacy_attr_compat(order)
+        log.info(
+            "PLACING FOREX ORDER id=%s %s %s/%s qty=%s lmt=%s transmit=%s acct=%s",
+            order_id, side, contract.symbol, contract.currency, qty, price, transmit, account,
+        )
         ack = threading.Event()
         self.place_ack_events[order_id] = ack
         self.place_ack_status.pop(order_id, None)
@@ -981,9 +1034,23 @@ class IBKRClient(EWrapper, EClient):
         self.placeOrder(order_id, contract, order)
         ack.wait(6)
         errors = self.place_ack_errors.get(order_id, [])
+        status = self.place_ack_status.get(order_id, "NO_ACK")
+        log.info("FOREX PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))
+        for err in errors:
+            log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
         reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
         if any(int(err["code"]) in reject_codes for err in errors):
             raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
+        # Post-place verification
+        try:
+            time.sleep(1)
+            verify_orders = self.open_orders()
+            found = any(o.get("orderId") == order_id for o in verify_orders)
+            log.info("FOREX POST-PLACE VERIFY id=%s found=%s total_open=%d", order_id, found, len(verify_orders))
+            if not found and not errors:
+                log.warning("FOREX ORDER id=%s NOT FOUND in open orders — may be filled, cancelled, or silently rejected", order_id)
+        except Exception as exc:
+            log.warning("FOREX POST-PLACE VERIFY failed: %s", exc)
         return order_id
 
 

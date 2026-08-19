@@ -2,6 +2,7 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { invalidateIbkrReadCache } from "@/lib/trading/ibkr-cache";
+import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
 export type IbkrReconnectResult = {
   connected: boolean;
@@ -46,6 +47,7 @@ export async function ensureIbkrBrokerConnected(): Promise<boolean> {
 }
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
+let consecutiveReconnectFailures = 0;
 
 /** Background reconnect when TWS is up but API socket dropped. */
 export function startIbkrReconnectMonitor(): void {
@@ -61,7 +63,25 @@ async function tickReconnectMonitor(): Promise<void> {
       "/api/ibkr/status",
     );
     if (!status.connected && status.twsReachable !== false) {
-      await reconnectIbkrBroker();
+      let ok = false;
+      for (let i = 0; i < 3; i += 1) {
+        const reconnected = await reconnectIbkrBroker();
+        if (reconnected.connected) {
+          ok = true;
+          consecutiveReconnectFailures = 0;
+          break;
+        }
+      }
+      if (!ok) {
+        consecutiveReconnectFailures += 1;
+        if (consecutiveReconnectFailures === 1) {
+          await sendTelegramMessage(
+            "⚠️ IBKR desconectado — revisión manual necesaria (falló reconexión tras 3 intentos)",
+          );
+        }
+      }
+    } else if (status.connected) {
+      consecutiveReconnectFailures = 0;
     }
   } catch {
     /* FastAPI offline — next tick */

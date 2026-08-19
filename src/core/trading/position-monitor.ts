@@ -21,9 +21,11 @@ const STALE_HOURS = 24;
 const TRAILING_STOP_PCT = TRADING_CONFIG.risk.trailingStopPct;
 const HARD_STOP_LOSS_PCT = -5;
 const PROFIT_APPROVAL_PCT = 8;
+const MADRID_TZ = "Europe/Madrid";
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let running = false;
+let lastDailySummaryDate = "";
 
 function madridHourMinuteNow(): { hour: number; minute: number } {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -134,6 +136,8 @@ async function tick(): Promise<void> {
     const { monitoredPositions } = loadTradingState();
     if (monitoredPositions.length === 0) return;
 
+    let dayCloseCount = 0;
+    let dayClosePnl = 0;
     for (const raw of monitoredPositions) {
       let pos: MonitoredPosition = {
         ...raw,
@@ -146,14 +150,17 @@ async function tick(): Promise<void> {
         const tm = madridHourMinuteNow();
         const afterDayClose = tm.hour > 21 || (tm.hour === 21 && tm.minute >= 45);
         if (afterDayClose) {
+          const pnlUSD = (price - pos.entryPrice) * pos.shares;
           const liveOrderId = await closePositionLiveIfEnabled(
             pos,
             price,
             `Day trading close before overnight for ${pos.ticker}`,
           );
-          await sendTelegramMessage(
-            `🌙 CIERRE DÍA: ${pos.ticker} cerrada @$${price.toFixed(2)} antes de overnight${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
-          );
+          dayCloseCount += 1;
+          dayClosePnl += pnlUSD;
+          if (liveOrderId) {
+            console.log(`[PositionMonitor] day-close ${pos.ticker} ibkr=${liveOrderId}`);
+          }
           await closePosition(pos, price, "TP");
           continue;
         }
@@ -169,10 +176,30 @@ async function tick(): Promise<void> {
         }
 
         if (price >= pos.takeProfit) {
+          const liveOrderId = await closePositionLiveIfEnabled(
+            pos,
+            price,
+            `Auto take profit +8% for ${pos.ticker}`,
+          );
+          const pnlUSD = (price - pos.entryPrice) * pos.shares;
+          const sign = pnlUSD >= 0 ? "+" : "";
+          await sendTelegramMessage(
+            `🎯 TAKE PROFIT AUTO: ${pos.ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+          );
           await closePosition(pos, price, "TP");
           continue;
         }
         if (price <= pos.stopLoss) {
+          const liveOrderId = await closePositionLiveIfEnabled(
+            pos,
+            price,
+            `Auto stop loss -3% for ${pos.ticker}`,
+          );
+          const pnlUSD = (price - pos.entryPrice) * pos.shares;
+          const sign = pnlUSD >= 0 ? "+" : "";
+          await sendTelegramMessage(
+            `🛑 STOP LOSS AUTO: ${pos.ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+          );
           await closePosition(pos, price, "SL");
           continue;
         }
@@ -187,7 +214,7 @@ async function tick(): Promise<void> {
           const pnlUSD = (price - pos.entryPrice) * pos.shares;
           const sign = pnlUSD >= 0 ? "+" : "";
           await sendTelegramMessage(
-            `🛑 STOP LOSS: ${pos.ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+            `🛑 STOP LOSS AUTO: ${pos.ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
           );
           await closePosition(pos, price, "SL");
           continue;
@@ -213,6 +240,39 @@ async function tick(): Promise<void> {
       } catch (err) {
         console.warn(`[PositionMonitor] ${pos.ticker}:`, err instanceof Error ? err.message : err);
       }
+    }
+    if (dayCloseCount > 0) {
+      const sign = dayClosePnl >= 0 ? "+" : "";
+      await sendTelegramMessage(
+        `🌙 CIERRE DÍA: ${dayCloseCount} posiciones cerradas | P&L día: ${sign}$${dayClosePnl.toFixed(2)}`,
+      );
+    }
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: MADRID_TZ,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(now);
+    const hh = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+    const mm = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+    const dateKey = `${parts.find((p) => p.type === "year")?.value}-${parts.find((p) => p.type === "month")?.value}-${parts.find((p) => p.type === "day")?.value}`;
+    if (hh === 22 && mm === 0 && lastDailySummaryDate !== dateKey) {
+      lastDailySummaryDate = dateKey;
+      const { loadOptimizerState } = await import("./portfolio-optimizer");
+      const state = loadOptimizerState();
+      const daily = state.closedOutcomes.filter((o) => (o.closedAt ?? "").startsWith(dateKey));
+      const trades = daily.length;
+      const wins = daily.filter((o) => (o.pnlUSD ?? 0) > 0).length;
+      const pnl = daily.reduce((s, o) => s + (o.pnlUSD ?? 0), 0);
+      const winRate = trades > 0 ? (wins / trades) * 100 : 0;
+      const sign = pnl >= 0 ? "+" : "";
+      await sendTelegramMessage(
+        `📊 RESUMEN DÍA: Operaciones: ${trades} | Ganadoras: ${wins} | P&L: ${sign}$${pnl.toFixed(2)} | Win rate: ${winRate.toFixed(0)}%`,
+      );
     }
   } finally {
     running = false;

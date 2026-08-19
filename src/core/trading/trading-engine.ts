@@ -11,7 +11,6 @@ import { TradingAgent } from './ai/trading-agent'
 import { TRADING_CONFIG } from './trading.config'
 import { OrderApprovalGate } from './order-approval'
 import {
-  evaluateAutoApproval,
   incrementAutoApprovalCount,
 } from './auto-approval'
 import { registerExecutedPosition } from './position-monitor'
@@ -20,6 +19,7 @@ import { aggregateSentiment, sentimentToAgentContext } from '@/lib/market-data/s
 import { getMacroContext, macroToAgentContext } from '@/lib/market-data/macro-context'
 import { analyzeTimeframes, mtfToAgentContext } from '@/lib/market-data/multi-timeframe'
 import { sendSignalAlert, notifyCircuitBreaker, notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
+import { sendTelegramMessage } from '@/lib/notifications/telegram-bot'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -711,20 +711,13 @@ export class TradingEngine {
       analysis?.patterns.price[0]?.name ??
       undefined
 
-    const divergences = analysis?.patterns.divergences ?? []
-    const hasConflictingDivergence =
-      divergences.some((d) => d.type === 'BULLISH') &&
-      divergences.some((d) => d.type === 'BEARISH')
-
-    const approvalDecision = evaluateAutoApproval(signal.direction, {
-      confidence: signal.confidence,
-      orderValueUSD,
-      news: analysis?.news ?? null,
-      patterns: analysis?.patterns ?? null,
-      rsi: analysis?.technicals.momentum.rsi ?? null,
-      squeezeActive: analysis?.technicals.volatility.squeeze?.active ?? false,
-      hasConflictingDivergence,
-    })
+    const confidence = signal.confidence
+    const approvalDecision =
+      confidence >= 0.75
+        ? ({ action: 'AUTO_APPROVE', reason: 'Confianza >= 75%' } as const)
+        : confidence >= 0.6
+          ? ({ action: 'NOTIFY_WAIT', reason: 'Confianza 60-74%', waitMinutes: 5 } as const)
+          : ({ action: 'HOLD', reason: 'Confianza < 60% (ignorada)' } as const)
 
     if (approvalDecision.action === 'HOLD') {
       return {
@@ -821,12 +814,16 @@ export class TradingEngine {
       console.warn('[TradingEngine] sendSignalAlert error:', err instanceof Error ? err.message : err)
     })
 
-    if (
-      approvalDecision.action === 'AUTO_APPROVE' &&
-      !TRADING_CONFIG.semiAutomatic.telegramApprovalRequired
-    ) {
+    if (approvalDecision.action === 'AUTO_APPROVE') {
       incrementAutoApprovalCount()
       const executed = await this.approveAndExecute(pending.approvalId)
+      if (executed.status === 'EXECUTED') {
+        await sendTelegramMessage(
+          `⚡ AUTO-EJECUTADO: ${ticker} ${signal.direction} ${resolvedShares}@$${priceData.currentPrice.toFixed(2)} | ` +
+            `SL: $${effectiveStopLoss.toFixed(2)} | TP: $${effectiveTakeProfit.toFixed(2)} | ` +
+            `Conf: ${(signal.confidence * 100).toFixed(0)}%`,
+        )
+      }
       return executed
     }
 

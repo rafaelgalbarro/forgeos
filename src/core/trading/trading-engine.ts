@@ -91,6 +91,9 @@ export class TradingEngine {
   private approvals = OrderApprovalGate.getInstance()
 
   private static readonly TICKER_TIMEOUT_MS = 5_000
+  private static readonly MIN_DAILY_VOL_PCT = 3
+  private static readonly MIN_DAILY_VOLUME = 1_000_000
+  private static readonly MAX_SHARES_PER_ORDER = 10
 
   private static async withTickerTimeout<T>(
     promise: Promise<T>,
@@ -321,6 +324,20 @@ export class TradingEngine {
     }
 
     const existingPosition = await this.fetchPosition(ticker)
+    if (
+      existingPosition &&
+      Number.isFinite(existingPosition.shares) &&
+      Math.abs(existingPosition.shares) > 0
+    ) {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: ya existe posición abierta (diversificación 1 posición por ticker)`,
+        signal: { confidence: 0, reasoning: 'Ticker already open', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
     const marketSession = usSession
       ? {
           exchange: 'SMART',
@@ -454,6 +471,41 @@ export class TradingEngine {
       }
     }
 
+    // Intraday momentum + liquidity gates
+    if (Math.abs(priceData.change1d) < TradingEngine.MIN_DAILY_VOL_PCT) {
+      return {
+        status: 'REJECTED_RISK',
+        ticker,
+        direction: signal.direction,
+        reason: `Movimiento intradía ${priceData.change1d.toFixed(2)}% < ${TradingEngine.MIN_DAILY_VOL_PCT}%`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+    if ((priceData.volume ?? 0) < TradingEngine.MIN_DAILY_VOLUME) {
+      return {
+        status: 'REJECTED_RISK',
+        ticker,
+        direction: signal.direction,
+        reason: `Volumen ${(priceData.volume ?? 0).toLocaleString()} < ${TradingEngine.MIN_DAILY_VOLUME.toLocaleString()}`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    // Account-aware price filter (small accounts)
+    const maxPriceForAccount = account.cashUSD < 25 ? 15 : 50
+    if (priceData.currentPrice > maxPriceForAccount) {
+      return {
+        status: 'REJECTED_RISK',
+        ticker,
+        direction: signal.direction,
+        reason: `Precio $${priceData.currentPrice.toFixed(2)} > umbral cuenta ($${maxPriceForAccount})`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     const minConfidence = usExtendedHours
       ? TRADING_CONFIG.schedule.extendedHoursMinConfidence
       : TRADING_CONFIG.ai.minConfidenceToTrade
@@ -546,23 +598,18 @@ export class TradingEngine {
     }
 
     const orderValueUSD = riskCheck.maxOrderValueUSD
-    const shares = Math.floor(orderValueUSD / priceData.currentPrice)
-    let finalShares = shares
-    if (shares < 1 && priceData.currentPrice > 1) {
-      const fractionalShares = parseFloat((orderValueUSD / priceData.currentPrice).toFixed(4))
-      if (fractionalShares < 0.01) {
-        return {
-          status: 'REJECTED_RISK', ticker, direction: signal.direction,
-          reason: `Capital insuficiente para operar ${ticker} a $${priceData.currentPrice}`,
-          signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-          timestamp: new Date().toISOString(),
-        }
+    const formulaShares = Math.floor((account.cashUSD * 0.5) / priceData.currentPrice)
+    if (formulaShares <= 0) {
+      return {
+        status: 'REJECTED_RISK',
+        ticker,
+        direction: signal.direction,
+        reason: `Sizing=0 con cash $${account.cashUSD.toFixed(2)} y precio $${priceData.currentPrice.toFixed(2)}`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
       }
-      finalShares = fractionalShares
     }
-
-    const resolvedShares =
-      finalShares || parseFloat((orderValueUSD / priceData.currentPrice).toFixed(4))
+    const resolvedShares = Math.max(1, Math.min(TradingEngine.MAX_SHARES_PER_ORDER, formulaShares))
 
     const suggested =
       signal.suggestedLimitPrice != null && signal.suggestedLimitPrice > 0

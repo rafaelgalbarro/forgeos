@@ -7,6 +7,7 @@ import "server-only";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { getForexPair, clampForexUnits } from "@/lib/investment/forex/config";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
+import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
 import { fetchLiveLimitPrice } from "@/lib/trading/ibkr-data";
 import { OrderApprovalGate } from "@/src/core/trading/order-approval";
 import type { PendingOrderRecord } from "@/src/core/trading/trading-state-store";
@@ -54,6 +55,21 @@ export async function executeApprovedForexOrder(
   const flags = getInvestmentRuntimeFlags();
   const transmit =
     flags.liveTradingEnabled && !flags.ibkrReadOnly && flags.forexEnabled;
+  // Keep FOREX available, but live execution only in margin account with strong cash.
+  const targetAccount = process.env.IBKR_ACCOUNT_ID?.trim() || "";
+  if (transmit) {
+    if (targetAccount && targetAccount !== "U15513057") {
+      throw new Error(
+        `FOREX live bloqueado: cuenta ${targetAccount} no permitida (usar U15513057)`,
+      );
+    }
+    const snap = await fetchTradingAccountSnapshot();
+    if (snap.cashUSD < 2000) {
+      throw new Error(
+        `FOREX live bloqueado: cash insuficiente ($${snap.cashUSD.toFixed(2)} < $2000)`,
+      );
+    }
+  }
   const quantity = clampForexUnits(record.shares);
   const limitPrice = await fetchLiveLimitPrice({
     symbol: pair.pairId,
@@ -75,6 +91,7 @@ export async function executeApprovedForexOrder(
       exchange: "IDEALPRO",
       rationale: record.reason.slice(0, 4000),
       transmit,
+      account: targetAccount || undefined,
     }),
   });
   const orderId = data.ibkrOrderId != null ? String(data.ibkrOrderId) : `FX_${Date.now()}`;

@@ -13,12 +13,12 @@ export const TRADING_CONFIG = {
     maxPositionPct: 0.20,
     /** Si el P&L del día supera esta pérdida, el sistema se detiene */
     dailyLossLimitPct: 0.10,
-    /** Legacy fallback — replaced by dynamic maxOpenPositions (floor(cash/50), cap 10) */
-    maxOpenPositions: 10,
-    /** Stop-loss dinámico: 2% del precio de entrada */
-    defaultStopLossPct: 0.02,
-    /** Take-profit dinámico: stop × 2 (ratio 1:2) → 4% */
-    defaultTakeProfitPct: 0.04,
+    /** Hard cap diversification (daily trading): max 3 concurrent positions */
+    maxOpenPositions: 3,
+    /** Default SL: -3% */
+    defaultStopLossPct: 0.03,
+    /** Default TP: +8% (RR ~= 1:2.6) */
+    defaultTakeProfitPct: 0.08,
     /** Trailing stop: 1.5% desde el máximo alcanzado */
     trailingStopPct: 0.015,
     /** Cash-based dynamic sizing (see dynamic-sizing.ts) */
@@ -29,16 +29,16 @@ export const TRADING_CONFIG = {
       minOrderUSD: 10,
       minCashToTradeUSD: 50,
       analysisOnlyCashUSD: 30,
-      deployableCashPct: 0.70,
+      deployableCashPct: 0.50,
       positionCashDivisor: 50,
-      maxOpenPositionsCap: 10,
+      maxOpenPositionsCap: 3,
       minOpenPositions: 1,
-      takeProfitRatio: 2,
+      takeProfitRatio: 2.6,
     },
     /** FOREX IDEALPRO sizing gates */
     forex: {
-      /** Do not open FOREX when primary-account cash is below this. */
-      minCashUSD: 50,
+      /** Keep FOREX enabled but only execute when cash is strong enough. */
+      minCashUSD: 2_000,
       /** @deprecated use minCashUSD — kept so older snapshots still type-check. */
       minNavUSD: 50,
       riskPctNav: 1.0,
@@ -53,10 +53,10 @@ export const TRADING_CONFIG = {
   // ── Motor de IA ────────────────────────────────────────────────
   ai: {
     model: 'claude-sonnet-4-6',
-    /** Ciclo de análisis en ms (5 min por defecto) */
-    analysisCycleMs: 5 * 60 * 1000,
-    /** Confianza mínima (0-1) para ejecutar una orden — temporal pruebas */
-    minConfidenceToTrade: 0.65,
+    /** Ciclo rápido: 3 minutos */
+    analysisCycleMs: 3 * 60 * 1000,
+    /** Confianza mínima (0-1) */
+    minConfidenceToTrade: 0.60,
     /** Máximo de operaciones por día */
     maxDailyTrades: 20,
   },
@@ -125,10 +125,10 @@ export const TRADING_CONFIG = {
     preMarketStartMinute: 0,
     preMarketEndHour: 15,
     preMarketEndMinute: 29,
-    /** Mercado regular USA: 15:30 - 22:00 hora española (≈ 09:30-16:00 ET) */
+    /** Mercado regular USA: 15:30 - 21:00 hora española */
     regularOpenHour: 15,
     regularOpenMinute: 30,
-    regularCloseHour: 22,
+    regularCloseHour: 21,
     regularCloseMinute: 0,
     /** Aftermarket USA: 22:00 - 01:00 hora española (≈ 16:00-19:00 ET) */
     afterMarketStartHour: 22,

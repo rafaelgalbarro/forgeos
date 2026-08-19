@@ -5,8 +5,11 @@ import {
   notifyOrderExecuted,
   notifyPositionClosed,
   notifyStalePosition,
+  sendTelegramMessage,
 } from "@/lib/notifications/telegram-bot";
 import { fetchTradingAccountSnapshot, fetchTradingPrice } from "@/lib/trading/ibkr-data";
+import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
+import { submitSupervisedLiveLimitOrder } from "@/lib/investment/ibkr-supervised-submit";
 import { TRADING_CONFIG } from "./trading.config";
 import { removeMonitoredPosition } from "./auto-approval";
 import { loadTradingState, updateTradingState, type MonitoredPosition } from "./trading-state-store";
@@ -16,9 +19,23 @@ import { recordClosedTradeOutcome } from "./portfolio-optimizer";
 const MONITOR_INTERVAL_MS = 60_000;
 const STALE_HOURS = 24;
 const TRAILING_STOP_PCT = TRADING_CONFIG.risk.trailingStopPct;
+const HARD_STOP_LOSS_PCT = -5;
+const PROFIT_APPROVAL_PCT = 8;
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let running = false;
+
+function madridHourMinuteNow(): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date());
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return { hour: h, minute: m };
+}
 
 async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" | "SL"): Promise<void> {
   const pnlUSD = (price - pos.entryPrice) * pos.shares;
@@ -80,6 +97,26 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
   }
 }
 
+async function closePositionLiveIfEnabled(pos: MonitoredPosition, price: number, rationale: string): Promise<string | null> {
+  const flags = getInvestmentRuntimeFlags();
+  if (!flags.liveTradingEnabled || flags.ibkrReadOnly) return null;
+  try {
+    const res = await submitSupervisedLiveLimitOrder({
+      symbol: pos.ticker,
+      side: "SELL",
+      quantity: Math.max(1, Math.floor(pos.shares)),
+      limitPrice: price,
+      rationale,
+      outsideRth: false,
+      account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
+    });
+    return res.ibkrOrderId;
+  } catch (err) {
+    console.warn(`[PositionMonitor] live close failed ${pos.ticker}:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 function applyTrailingStop(pos: MonitoredPosition, currentPrice: number): MonitoredPosition {
   if (pos.trailingStopPct == null) return pos;
   const highest = Math.max(pos.highestPrice ?? pos.entryPrice, currentPrice);
@@ -106,6 +143,20 @@ async function tick(): Promise<void> {
         const quote = await fetchTradingPrice(pos.ticker);
         const price = quote.currentPrice;
         if (!Number.isFinite(price) || price <= 0) continue;
+        const tm = madridHourMinuteNow();
+        const afterDayClose = tm.hour > 21 || (tm.hour === 21 && tm.minute >= 45);
+        if (afterDayClose) {
+          const liveOrderId = await closePositionLiveIfEnabled(
+            pos,
+            price,
+            `Day trading close before overnight for ${pos.ticker}`,
+          );
+          await sendTelegramMessage(
+            `🌙 CIERRE DÍA: ${pos.ticker} cerrada @$${price.toFixed(2)} antes de overnight${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+          );
+          await closePosition(pos, price, "TP");
+          continue;
+        }
 
         pos = applyTrailingStop(pos, price);
         if (pos.stopLoss !== raw.stopLoss || pos.highestPrice !== raw.highestPrice) {
@@ -124,6 +175,29 @@ async function tick(): Promise<void> {
         if (price <= pos.stopLoss) {
           await closePosition(pos, price, "SL");
           continue;
+        }
+
+        const pnlPct = pos.entryPrice > 0 ? ((price - pos.entryPrice) / pos.entryPrice) * 100 : 0;
+        if (pnlPct <= HARD_STOP_LOSS_PCT) {
+          const liveOrderId = await closePositionLiveIfEnabled(
+            pos,
+            price,
+            `Auto hard stop ${HARD_STOP_LOSS_PCT}% for ${pos.ticker}`,
+          );
+          const pnlUSD = (price - pos.entryPrice) * pos.shares;
+          const sign = pnlUSD >= 0 ? "+" : "";
+          await sendTelegramMessage(
+            `🛑 STOP LOSS: ${pos.ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+          );
+          await closePosition(pos, price, "SL");
+          continue;
+        }
+        if (pnlPct >= PROFIT_APPROVAL_PCT) {
+          const pnlUSD = (price - pos.entryPrice) * pos.shares;
+          const sign = pnlUSD >= 0 ? "+" : "";
+          await sendTelegramMessage(
+            `🎯 TAKE PROFIT: ${pos.ticker} +${pnlPct.toFixed(1)}% | P&L: ${sign}$${pnlUSD.toFixed(2)} — aprobar SELL sugerido`,
+          );
         }
 
         const hoursOpen = (Date.now() - new Date(pos.openedAt).getTime()) / 3_600_000;

@@ -13,7 +13,7 @@ import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const PROFILE_ENDPOINT = "/profile";
 const HISTORY_ENDPOINT = "/historical-price-eod/full";
-const QUOTE_TTL_MS = 60_000;
+const QUOTE_TTL_MS = 120_000;
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
 /** Starter plan: 300 calls/min — cap parallel profile fetches. */
 const BATCH_CONCURRENCY = 10;

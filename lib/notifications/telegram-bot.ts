@@ -242,18 +242,14 @@ export async function notifySignalDetected(payload: SignalTelegramPayload): Prom
   );
 
   const text = [
-    "🚨 <b>SEÑAL DETECTADA — ForgeOS</b>",
-    `${dirEmoji} <b>TICKER:</b> ${payload.ticker}`,
-    `📊 <b>Dirección:</b> ${payload.direction}`,
-    `💰 <b>Entry:</b> $${payload.entry.toFixed(2)}`,
-    `🛑 <b>Stop Loss:</b> $${payload.stopLoss.toFixed(2)} (${slPct}%)`,
-    `🎯 <b>Take Profit:</b> $${payload.takeProfit.toFixed(2)} (+${tpPct}%)`,
-    `💵 <b>Tamaño:</b> ${sizeUsd} (${sharesLabel})`,
-    `🔮 <b>Confianza:</b> ${(payload.confidence * 100).toFixed(0)}%`,
-    `📋 <b>Estrategia:</b> ${payload.reasoning ?? payload.patternName ?? "—"}`,
-    "",
-    `⏱ Tienes ${timeoutMin} min para responder`,
-  ].join("\n");
+    `🚀 <b>SEÑAL:</b> ${payload.ticker} ${payload.direction} ${payload.shares ?? "?"}@$${payload.entry.toFixed(2)}`,
+    `SL: $${payload.stopLoss.toFixed(2)} (${slPct}%) | TP: $${payload.takeProfit.toFixed(2)} (+${tpPct}%)`,
+    `Conf: ${(payload.confidence * 100).toFixed(0)}%`,
+    payload.reasoning ? `Motivo: ${payload.reasoning}` : "",
+    `⏱ Responder en ${timeoutMin} min`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const aid = payload.approvalId ?? "none";
   await sendTelegramMessage(text, [
@@ -303,13 +299,7 @@ export async function notifyOrderExecuted(params: {
   takeProfit?: number;
 }): Promise<void> {
   if (!notifyEnabled("execution")) return;
-  const text = [
-    `✅ Orden ejecutada: ${params.ticker} ${params.shares}@$${params.price.toFixed(2)}`,
-    params.stopLoss != null ? `SL: $${params.stopLoss.toFixed(2)}` : "",
-    params.takeProfit != null ? `TP: $${params.takeProfit.toFixed(2)}` : "",
-  ]
-    .filter(Boolean)
-    .join(" | ");
+  const text = `✅ Ejecutado: ${params.ticker} ${params.shares}@$${params.price.toFixed(2)} | ${params.stopLoss != null ? "SL activo" : "SL n/a"} | ${params.takeProfit != null ? "TP activo" : "TP n/a"}`;
   await sendTelegramMessage(text);
 }
 
@@ -322,9 +312,9 @@ export async function notifyPositionClosed(params: {
   navUSD: number;
 }): Promise<void> {
   if (!notifyEnabled("execution")) return;
-  const icon = params.kind === "TP" ? "🎯 TP ALCANZADO" : "🛑 SL ALCANZADO";
+  const icon = params.kind === "TP" ? "🎯 TAKE PROFIT" : "🛑 STOP LOSS";
   const sign = params.pnlUSD >= 0 ? "+" : "";
-  const text = `${icon}\n${params.ticker} ${sign}$${params.pnlUSD.toFixed(2)} (${sign}${params.pnlPct.toFixed(1)}%) | NAV: $${params.navUSD.toFixed(2)}`;
+  const text = `${icon}: ${params.ticker} | P&L: ${sign}$${params.pnlUSD.toFixed(2)} (${sign}${params.pnlPct.toFixed(1)}%) | NAV: $${params.navUSD.toFixed(2)}`;
   await sendTelegramMessage(text);
 }
 

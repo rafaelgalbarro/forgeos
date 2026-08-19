@@ -64,11 +64,13 @@ export async function runPhase1MathFilter(
   const started = Date.now();
   const quotes = await getBatchPrices(tickers);
   const preFiltered: Phase1Candidate[] = [];
-  const minChange = opts?.minChangePct ?? 1.5;
+  const minChange = opts?.minChangePct ?? 2.0;
   const minRel = opts?.minRelVol ?? 1.5;
+  const minAbsVolume = 1_000_000;
 
   for (const [ticker, quote] of quotes) {
     if (Math.abs(quote.changePct) < minChange) continue;
+    if ((quote.volume ?? 0) < minAbsVolume) continue;
     const rel = relativeVolume(quote);
     if (rel < minRel) continue;
     if (minChange >= 1.5 && !notAt52WeekExtreme(quote)) continue;

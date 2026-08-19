@@ -306,22 +306,36 @@ class IBKRClient(EWrapper, EClient):
         self.positions_done.set()
 
     def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice=0.0) -> None:
-        log.info(
-            "ORDER STATUS orderId=%s status=%s filled=%s remaining=%s avgFill=%.4f permId=%s whyHeld=%s",
-            orderId, status, filled, remaining, avgFillPrice, permId, whyHeld,
+        level = logging.WARNING if status in ("Inactive", "Cancelled", "ApiCancelled") else logging.INFO
+        log.log(
+            level,
+            "ORDER STATUS orderId=%s status=%s filled=%s remaining=%s avgFill=%.4f lastFill=%.4f permId=%s clientId=%s whyHeld=%s mktCapPrice=%s",
+            orderId, status, filled, remaining, avgFillPrice, lastFillPrice, permId, clientId, whyHeld, mktCapPrice,
         )
+        if status == "Inactive":
+            log.warning(
+                "⚠ ORDER %s INACTIVE — IBKR silently rejected. Common causes: "
+                "insufficient buying power, margin violation, outside market hours without outsideRth, "
+                "invalid price increment, or account restrictions. Check TWS Messages window.",
+                orderId,
+            )
         if orderId in self.place_ack_events:
             self.place_ack_status[orderId] = status
             self.place_ack_events[orderId].set()
 
     def openOrder(self, orderId, contract, order, orderState) -> None:
+        warning_text = getattr(orderState, "warningText", "") or ""
+        init_margin = getattr(orderState, "initMarginChange", "") or ""
+        maint_margin = getattr(orderState, "maintMarginChange", "") or ""
         log.info(
-            "OPEN ORDER orderId=%s %s %s %s qty=%s lmt=%s status=%s acct=%s",
+            "OPEN ORDER orderId=%s %s %s %s qty=%s lmt=%s status=%s acct=%s initMargin=%s maintMargin=%s",
             orderId, order.action, contract.symbol, order.orderType,
             order.totalQuantity, order.lmtPrice, orderState.status,
-            getattr(order, "account", "?"),
+            getattr(order, "account", "?"), init_margin, maint_margin,
         )
-        self.orders_data.append({
+        if warning_text:
+            log.warning("OPEN ORDER orderId=%s warningText: %s", orderId, warning_text)
+        entry = {
             "orderId": orderId,
             "symbol": contract.symbol,
             "action": order.action,
@@ -330,7 +344,11 @@ class IBKRClient(EWrapper, EClient):
             "limitPrice": float(order.lmtPrice) if order.lmtPrice else None,
             "status": orderState.status,
             "account": getattr(order, "account", None),
-        })
+            "warningText": warning_text if warning_text else None,
+            "initMarginChange": init_margin if init_margin else None,
+            "maintMarginChange": maint_margin if maint_margin else None,
+        }
+        self.orders_data.append(entry)
         if orderId in self.place_ack_events:
             self.place_ack_status[orderId] = orderState.status
             self.place_ack_events[orderId].set()
@@ -888,6 +906,18 @@ class IBKRClient(EWrapper, EClient):
             raise RuntimeError("Cantidad inválida tras normalización")
         return float(normalized)
 
+    def _log_buying_power(self, account: str) -> None:
+        """Log available buying power before placing an order."""
+        try:
+            summary = self.account_summary()
+            acct_data = summary.get(account, {})
+            bp = acct_data.get("BuyingPower", {}).get("value", "?")
+            avail = acct_data.get("AvailableFunds", {}).get("value", "?")
+            nav = acct_data.get("NetLiquidation", {}).get("value", "?")
+            log.info("PRE-ORDER account=%s NAV=%s AvailableFunds=%s BuyingPower=%s", account, nav, avail, bp)
+        except Exception as exc:
+            log.warning("PRE-ORDER buying power check failed: %s", exc)
+
     def place_limit_order_validated(self, proposal: dict[str, Any], *, transmit: bool, what_if: bool) -> int:
         self.ensure_connected()
         if self.next_order_id is None:
@@ -918,11 +948,15 @@ class IBKRClient(EWrapper, EClient):
         if account:
             order.account = account
         apply_whatif_legacy_attr_compat(order)
+
+        notional = normalized_qty * normalized_price
         log.info(
-            "PLACING ORDER id=%s %s %s qty=%s lmt=%s transmit=%s whatIf=%s acct=%s",
+            "PLACING ORDER id=%s %s %s qty=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s",
             order_id, order.action, contract.symbol, normalized_qty,
-            normalized_price, transmit, what_if, order.account if hasattr(order, "account") else "?",
+            normalized_price, notional, transmit, what_if, account, order.outsideRth,
         )
+        self._log_buying_power(account)
+
         ack = threading.Event()
         self.place_ack_events[order_id] = ack
         self.place_ack_status.pop(order_id, None)
@@ -934,19 +968,39 @@ class IBKRClient(EWrapper, EClient):
         log.info("PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))
         for err in errors:
             log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
+
         reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
         if any(int(err["code"]) in reject_codes for err in errors):
             raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
-        # Post-place verification: request open orders to confirm TWS received it
+
+        if status == "Inactive":
+            log.error(
+                "ORDER %s went INACTIVE immediately — IBKR silently rejected. "
+                "symbol=%s qty=%s lmt=%s notional=%.2f acct=%s. "
+                "Check TWS Messages log for the reason (margin, permissions, hours, price).",
+                order_id, contract.symbol, normalized_qty, normalized_price, notional, account,
+            )
+
+        # Post-place verification
         try:
-            time.sleep(1)
+            time.sleep(2)
             verify_orders = self.open_orders()
-            found = any(o.get("orderId") == order_id for o in verify_orders)
-            log.info("POST-PLACE VERIFY id=%s found_in_open_orders=%s total_open=%d", order_id, found, len(verify_orders))
-            if not found and not errors:
-                log.warning("ORDER id=%s NOT FOUND in open orders — may have been instantly filled, cancelled, or rejected silently", order_id)
+            matched = [o for o in verify_orders if o.get("orderId") == order_id]
+            if matched:
+                v = matched[0]
+                log.info(
+                    "POST-PLACE VERIFY id=%s status=%s warningText=%s",
+                    order_id, v.get("status"), v.get("warningText") or "none",
+                )
+            else:
+                log.warning(
+                    "ORDER id=%s NOT FOUND in open orders after 2s — "
+                    "instantly filled, auto-cancelled, or silently rejected",
+                    order_id,
+                )
         except Exception as exc:
             log.warning("POST-PLACE VERIFY failed: %s", exc)
+
         return order_id
 
     def place_forex_limit_order(
@@ -1023,10 +1077,13 @@ class IBKRClient(EWrapper, EClient):
         if account:
             order.account = account
         apply_whatif_legacy_attr_compat(order)
+        notional = qty * price
         log.info(
-            "PLACING FOREX ORDER id=%s %s %s/%s qty=%s lmt=%s transmit=%s acct=%s",
-            order_id, side, contract.symbol, contract.currency, qty, price, transmit, account,
+            "PLACING FOREX ORDER id=%s %s %s/%s qty=%s lmt=%s notional=%.2f transmit=%s acct=%s",
+            order_id, side, contract.symbol, contract.currency, qty, price, notional, transmit, account,
         )
+        self._log_buying_power(account)
+
         ack = threading.Event()
         self.place_ack_events[order_id] = ack
         self.place_ack_status.pop(order_id, None)
@@ -1038,19 +1095,38 @@ class IBKRClient(EWrapper, EClient):
         log.info("FOREX PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))
         for err in errors:
             log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
+
         reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
         if any(int(err["code"]) in reject_codes for err in errors):
             raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
+
+        if status == "Inactive":
+            log.error(
+                "FOREX ORDER %s went INACTIVE — IBKR silently rejected. "
+                "pair=%s/%s qty=%s lmt=%s notional=%.2f acct=%s. "
+                "Check TWS Messages log.",
+                order_id, contract.symbol, contract.currency, qty, price, notional, account,
+            )
+
         # Post-place verification
         try:
-            time.sleep(1)
+            time.sleep(2)
             verify_orders = self.open_orders()
-            found = any(o.get("orderId") == order_id for o in verify_orders)
-            log.info("FOREX POST-PLACE VERIFY id=%s found=%s total_open=%d", order_id, found, len(verify_orders))
-            if not found and not errors:
-                log.warning("FOREX ORDER id=%s NOT FOUND in open orders — may be filled, cancelled, or silently rejected", order_id)
+            matched = [o for o in verify_orders if o.get("orderId") == order_id]
+            if matched:
+                v = matched[0]
+                log.info(
+                    "FOREX POST-PLACE VERIFY id=%s status=%s warningText=%s",
+                    order_id, v.get("status"), v.get("warningText") or "none",
+                )
+            else:
+                log.warning(
+                    "FOREX ORDER id=%s NOT FOUND in open orders after 2s",
+                    order_id,
+                )
         except Exception as exc:
             log.warning("FOREX POST-PLACE VERIFY failed: %s", exc)
+
         return order_id
 
 
@@ -1365,13 +1441,18 @@ def execute(proposal_id: str, request: ExecuteRequest):
     verify_token(request.approval_token, proposal_id, proposal["approval_nonce"])
     try:
         order_id = ibkr.place_limit_order(proposal)
+        ack_status = ibkr.place_ack_status.get(order_id, "UNKNOWN")
         with db() as connection:
             current = connection.execute("SELECT status FROM proposals WHERE id=?", (proposal_id,)).fetchone()
             if not current or current["status"] != "APPROVED":
                 raise HTTPException(409, "La propuesta ya fue consumida")
             connection.execute("UPDATE proposals SET status='EXECUTED',executed_at=?,ibkr_order_id=? WHERE id=?", (utcnow().isoformat(), order_id, proposal_id))
-        audit("ORDER_SUBMITTED", proposal_id, {"ibkrOrderId": order_id})
-        return get_proposal(proposal_id)
+        audit("ORDER_SUBMITTED", proposal_id, {"ibkrOrderId": order_id, "ibkrStatus": ack_status})
+        result = get_proposal(proposal_id)
+        result["ibkrStatus"] = ack_status
+        if ack_status == "Inactive":
+            result["ibkrWarning"] = "Order went Inactive — IBKR silently rejected. Check TWS Messages."
+        return result
     except HTTPException:
         raise
     except Exception as exc:
@@ -1580,20 +1661,25 @@ def forex_order(payload: ForexOrderRequest):
             transmit=transmit,
             account=account,
         )
+        ack_status = ibkr.place_ack_status.get(order_id, "UNKNOWN")
         audit(
             "FOREX_ORDER_STAGED" if not transmit else "FOREX_ORDER_SUBMITTED",
             selected["pair_id"],
-            {"orderId": order_id, "transmit": transmit, **proposal},
+            {"orderId": order_id, "transmit": transmit, "ibkrStatus": ack_status, **proposal},
         )
-        return {
+        result = {
             "ok": True,
             "pairId": selected["pair_id"],
             "ibkrOrderId": order_id,
+            "ibkrStatus": ack_status,
             "transmit": transmit,
             "staged": not transmit,
             "proposal": proposal,
             "mode": "STAGED" if not transmit else "LIVE_GATED",
         }
+        if ack_status == "Inactive":
+            result["ibkrWarning"] = "Order went Inactive — IBKR silently rejected. Check TWS Messages."
+        return result
     except Exception as exc:
         audit("FOREX_ORDER_FAILED", selected["pair_id"], {"error": str(exc), **proposal})
         raise HTTPException(503, str(exc)) from exc

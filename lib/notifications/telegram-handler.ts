@@ -20,6 +20,10 @@ import {
   removeWatchlistTicker,
 } from "@/lib/alerts/alert-manager";
 import {
+  executeCommitteeSales,
+  getCommitteeAnalysis,
+} from "@/lib/investment/portfolio-committee";
+import {
   loadTradingState,
   updateTradingState,
   type RecentSignalRecord,
@@ -234,6 +238,40 @@ export async function handleTelegramCallback(
       disableAlertById(payload);
       await sendTelegramMessage(`🔕 Alerta desactivada: ${payload}`);
     }
+    return;
+  }
+
+  if (action === "committee_view") {
+    const analysis = getCommitteeAnalysis(payload);
+    if (!analysis) {
+      await sendTelegramMessage("⚠️ Análisis no encontrado o expirado");
+      return;
+    }
+    const lines = analysis.positions.slice(0, 40).map((p) => {
+      return `${p.governor.decision === "VENDER" ? "🔴" : "🟢"} ${p.symbol} | PnL ${p.pnl_pct.toFixed(1)}% | Conf ${(p.governor.confidence * 100).toFixed(0)}% | ${p.governor.reason}`;
+    });
+    await sendTelegramMessage(
+      ["📋 <b>ANÁLISIS COMPLETO COMMITTEE</b>", ...lines].join("\n"),
+    );
+    return;
+  }
+
+  if (action === "committee_execute") {
+    try {
+      const result = await executeCommitteeSales(payload);
+      await sendTelegramMessage(
+        `✅ Vendidas ${result.sold} posiciones | Capital liberado: $${result.capitalFreed.toFixed(2)}`,
+      );
+    } catch (err) {
+      await sendTelegramMessage(
+        `❌ Committee execute failed: ${err instanceof Error ? err.message : "error"}`,
+      );
+    }
+    return;
+  }
+
+  if (action === "committee_cancel") {
+    await sendTelegramMessage("❌ Comité cancelado por usuario");
     return;
   }
 

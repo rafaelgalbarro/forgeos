@@ -235,6 +235,7 @@ class IBKRClient(EWrapper, EClient):
         self.place_ack_events: dict[int, threading.Event] = {}
         self.place_ack_status: dict[int, str] = {}
         self.place_ack_errors: dict[int, list[dict[str, Any]]] = {}
+        self.order_context: dict[int, dict[str, Any]] = {}
         self.tick_data: dict[int, dict[str, Any]] = {}
         self.tick_done: dict[int, threading.Event] = {}
         self._tick_lock = threading.Lock()
@@ -255,7 +256,9 @@ class IBKRClient(EWrapper, EClient):
         self.errors.append(entry)
         # Always log order-related errors loudly
         if isinstance(reqId, int) and reqId in self.place_ack_events:
-            log.warning("ORDER error orderId=%s code=%s: %s %s", reqId, errorCode, errorString, advancedOrderRejectJson or "")
+            ctx = self.order_context.get(reqId, {})
+            kind = ctx.get("kind", "ORDER")
+            log.warning("%s error orderId=%s code=%s: %s %s", kind, reqId, errorCode, errorString, advancedOrderRejectJson or "")
             self.place_ack_errors.setdefault(reqId, []).append(entry)
             self.place_ack_events[reqId].set()
         elif int(errorCode) not in {2104, 2106, 2158, 2119}:
@@ -306,11 +309,13 @@ class IBKRClient(EWrapper, EClient):
         self.positions_done.set()
 
     def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice=0.0) -> None:
+        ctx = self.order_context.get(orderId, {})
+        kind = ctx.get("kind", "ORDER")
         level = logging.WARNING if status in ("Inactive", "Cancelled", "ApiCancelled") else logging.INFO
         log.log(
             level,
-            "ORDER STATUS orderId=%s status=%s filled=%s remaining=%s avgFill=%.4f lastFill=%.4f permId=%s clientId=%s whyHeld=%s mktCapPrice=%s",
-            orderId, status, filled, remaining, avgFillPrice, lastFillPrice, permId, clientId, whyHeld, mktCapPrice,
+            "%s STATUS orderId=%s status=%s filled=%s remaining=%s avgFill=%.4f lastFill=%.4f permId=%s clientId=%s whyHeld=%s mktCapPrice=%s",
+            kind, orderId, status, filled, remaining, avgFillPrice, lastFillPrice, permId, clientId, whyHeld, mktCapPrice,
         )
         if status == "Inactive":
             log.warning(
@@ -961,6 +966,12 @@ class IBKRClient(EWrapper, EClient):
         self.place_ack_events[order_id] = ack
         self.place_ack_status.pop(order_id, None)
         self.place_ack_errors.pop(order_id, None)
+        self.order_context[order_id] = {
+            "kind": "ORDER",
+            "symbol": contract.symbol,
+            "currency": contract.currency,
+            "account": account,
+        }
         self.placeOrder(order_id, contract, order)
         ack.wait(6)
         errors = self.place_ack_errors.get(order_id, [])
@@ -1000,6 +1011,7 @@ class IBKRClient(EWrapper, EClient):
                 )
         except Exception as exc:
             log.warning("POST-PLACE VERIFY failed: %s", exc)
+        self.order_context.pop(order_id, None)
 
         return order_id
 
@@ -1088,6 +1100,11 @@ class IBKRClient(EWrapper, EClient):
         self.place_ack_events[order_id] = ack
         self.place_ack_status.pop(order_id, None)
         self.place_ack_errors.pop(order_id, None)
+        self.order_context[order_id] = {
+            "kind": "FOREX",
+            "pair": f"{contract.symbol}/{contract.currency}",
+            "account": account,
+        }
         self.placeOrder(order_id, contract, order)
         ack.wait(6)
         errors = self.place_ack_errors.get(order_id, [])
@@ -1097,6 +1114,12 @@ class IBKRClient(EWrapper, EClient):
             log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
 
         reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
+        forex_201 = next((err for err in errors if int(err.get("code", 0)) == 201), None)
+        if forex_201 is not None:
+            raise RuntimeError(
+                "FOREX_ORDER_REJECTED_201: "
+                f"{forex_201.get('message')} — probable falta de permisos FX para la cuenta {account}"
+            )
         if any(int(err["code"]) in reject_codes for err in errors):
             raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
 
@@ -1126,6 +1149,7 @@ class IBKRClient(EWrapper, EClient):
                 )
         except Exception as exc:
             log.warning("FOREX POST-PLACE VERIFY failed: %s", exc)
+        self.order_context.pop(order_id, None)
 
         return order_id
 
@@ -1608,6 +1632,15 @@ def forex_order(payload: ForexOrderRequest):
     if emergency_stop():
         raise HTTPException(423, "Emergency stop activo")
     selected = _forex_pair_or_404(payload.pair_id)
+    log.info(
+        "FOREX API REQUEST pair=%s side=%s qty=%s lmt=%s transmit=%s requestedAccount=%s",
+        selected["pair_id"],
+        payload.side,
+        payload.quantity,
+        payload.limit_price,
+        payload.transmit,
+        payload.account or "default",
+    )
 
     cap = min(float(settings.max_forex_order_units), 25_000.0)
     floor = float(settings.forex_min_units)
@@ -1653,6 +1686,15 @@ def forex_order(payload: ForexOrderRequest):
         "rationale": payload.rationale,
     }
     try:
+        log.info(
+            "FOREX DISPATCH pair=%s side=%s qty=%s lmt=%s account=%s transmit=%s",
+            selected["pair_id"],
+            payload.side,
+            quantity,
+            payload.limit_price,
+            account or "default",
+            transmit,
+        )
         order_id = ibkr.place_forex_limit_order(
             selected,
             side=payload.side,
@@ -1679,6 +1721,13 @@ def forex_order(payload: ForexOrderRequest):
         }
         if ack_status == "Inactive":
             result["ibkrWarning"] = "Order went Inactive — IBKR silently rejected. Check TWS Messages."
+        log.info(
+            "FOREX API RESULT pair=%s orderId=%s ibkrStatus=%s staged=%s",
+            selected["pair_id"],
+            order_id,
+            ack_status,
+            not transmit,
+        )
         return result
     except Exception as exc:
         audit("FOREX_ORDER_FAILED", selected["pair_id"], {"error": str(exc), **proposal})

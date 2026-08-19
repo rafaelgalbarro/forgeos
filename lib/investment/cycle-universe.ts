@@ -6,6 +6,7 @@ import "server-only";
 
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { readMultiScannerResults } from "@/lib/market-data/scanner-store";
+import { getDailyMarketUniverse } from "@/lib/investment/market-daily-universe";
 
 const DEFAULT_CYCLE_LIMIT = 12;
 
@@ -36,14 +37,24 @@ export function isTickerAllowedForTrading(ticker: string): boolean {
 
 export type CycleUniverseResult = {
   tickers: string[];
-  source: "scanner" | "allowedTickers";
+  source: "daily-top100" | "scanner" | "allowedTickers";
   scannedAt: string | null;
   universeSize: number;
 };
 
 /** Best BUY/SELL names from the 8000-ticker scanner; fallback to allowedTickers. */
 export function resolveTradingCycleTickers(limit = DEFAULT_CYCLE_LIMIT): CycleUniverseResult {
-  const cap = Math.max(1, Math.min(limit, 25));
+  const cap = Math.max(1, Math.min(limit, 100));
+  const daily = getDailyMarketUniverse();
+  const fromDaily = (daily?.tickers ?? []).slice(0, cap).map((t) => t.symbol);
+  if (fromDaily.length > 0) {
+    return {
+      tickers: fromDaily,
+      source: "daily-top100",
+      scannedAt: daily?.generatedAt ?? null,
+      universeSize: daily?.tickers.length ?? 0,
+    };
+  }
   const snap = readMultiScannerResults();
   const ranked = (snap?.opportunities ?? [])
     .filter((o) => (o.side === "BUY" || o.side === "SELL") && o.ticker)

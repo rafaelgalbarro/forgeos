@@ -19,6 +19,7 @@ import { expireStalePendingApprovals, countPendingApprovals } from '@/lib/invest
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { popCycleQueue } from '@/lib/alerts/alert-manager'
 import { resolveTradingCycleTickers } from '@/lib/investment/cycle-universe'
+import { refreshDailyMarketUniverse } from '@/lib/investment/market-daily-universe'
 
 const engine = new TradingEngine()
 
@@ -74,8 +75,9 @@ export async function POST(req: NextRequest) {
   // Ciclo de trading — queues PENDING_APPROVAL; does not auto-execute
   try {
     await expireStalePendingApprovals()
+    await refreshDailyMarketUniverse()
     const body = await req.json().catch(() => ({})) as { tickers?: string[] }
-    const universe = resolveTradingCycleTickers(12)
+    const universe = resolveTradingCycleTickers(100)
     const requested: string[] = Array.isArray(body.tickers) && body.tickers.length > 0
       ? body.tickers
       : universe.tickers
@@ -136,6 +138,7 @@ export async function GET() {
   const approvals = OrderApprovalGate.getInstance()
 
   await expireStalePendingApprovals()
+  await refreshDailyMarketUniverse().catch(() => undefined)
 
   let dynamicSizing = null
   try {
@@ -157,7 +160,7 @@ export async function GET() {
     telegramApprovalRequired: TRADING_CONFIG.semiAutomatic.telegramApprovalRequired,
     approvalTimeoutMinutes: TRADING_CONFIG.semiAutomatic.approvalTimeoutMinutes,
     lastCycle: global.__lastTradingCycle ?? null,
-    cycleUniverse: resolveTradingCycleTickers(12),
+    cycleUniverse: resolveTradingCycleTickers(100),
     dynamicSizing,
     config: {
       maxPositionPct: TRADING_CONFIG.risk.maxPositionPct,

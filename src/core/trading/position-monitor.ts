@@ -5,6 +5,9 @@
 
 import "server-only";
 
+import fs from "node:fs";
+import path from "node:path";
+
 import { publishInvestmentEvent } from "@/lib/notifications/investment-events";
 import {
   notifyOrderExecuted,
@@ -31,6 +34,9 @@ const DEFAULT_TP_PCT = 0.05; // +5%
 const HARD_STOP_LOSS_PCT = -5;
 const PROFIT_APPROVAL_PCT = 8;
 const MADRID_TZ = "Europe/Madrid";
+/** Prevent re-SELL while IBKR still shows the position after first exit order. */
+const SELL_LOCK_TTL_MS = 15 * 60 * 1000;
+const SELL_LOCK_FILE = path.resolve(process.cwd(), ".forgeos", "cache", "position-sell-locks.json");
 
 /** In-memory SL/TP registry (survives within the Node process). */
 type PositionSLTP = {
@@ -43,6 +49,8 @@ type PositionSLTP = {
   openedAt: string;
   trailingStopPct?: number;
   highestPrice?: number;
+  /** True while a SELL is in flight — skip ticker on later ticks. */
+  selling?: boolean;
 };
 
 const positionSLTP = new Map<string, PositionSLTP>();
@@ -50,6 +58,49 @@ const positionSLTP = new Map<string, PositionSLTP>();
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 let lastDailySummaryDate = "";
+
+function readSellLocks(): Record<string, number> {
+  try {
+    if (!fs.existsSync(SELL_LOCK_FILE)) return {};
+    const raw = JSON.parse(fs.readFileSync(SELL_LOCK_FILE, "utf8")) as Record<string, number>;
+    const now = Date.now();
+    const out: Record<string, number> = {};
+    for (const [k, at] of Object.entries(raw ?? {})) {
+      if (typeof at === "number" && now - at < SELL_LOCK_TTL_MS) out[k.toUpperCase()] = at;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeSellLocks(locks: Record<string, number>): void {
+  fs.mkdirSync(path.dirname(SELL_LOCK_FILE), { recursive: true });
+  fs.writeFileSync(SELL_LOCK_FILE, JSON.stringify(locks, null, 2), "utf8");
+}
+
+/** Cross-process lock: returns false if already locked (another SELL in progress / recent). */
+function tryAcquireSellLock(ticker: string): boolean {
+  const key = ticker.toUpperCase();
+  const locks = readSellLocks();
+  if (locks[key] != null && Date.now() - locks[key]! < SELL_LOCK_TTL_MS) {
+    return false;
+  }
+  locks[key] = Date.now();
+  writeSellLocks(locks);
+  return true;
+}
+
+function isSellLocked(ticker: string): boolean {
+  const at = readSellLocks()[ticker.toUpperCase()];
+  return at != null && Date.now() - at < SELL_LOCK_TTL_MS;
+}
+
+function dropFromRegistry(ticker: string): void {
+  const key = ticker.toUpperCase();
+  positionSLTP.delete(key);
+  removeMonitoredPosition(key);
+}
 
 function defaultSl(entry: number): number {
   return Number((entry * (1 - DEFAULT_SL_PCT)).toFixed(4));
@@ -136,6 +187,7 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   const { monitoredPositions } = loadTradingState();
   for (const p of monitoredPositions) {
     const t = p.ticker.toUpperCase();
+    if (isSellLocked(t)) continue;
     if (!positionSLTP.has(t)) {
       upsertMemory({
         ticker: t,
@@ -153,10 +205,18 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   for (const row of ibkrRows) {
     const ticker = String(row.symbol ?? "").trim().toUpperCase();
     if (!ticker) continue;
+    if (isSellLocked(ticker)) {
+      console.log(`[PositionMonitor] ${ticker} en sell-lock — no re-registrar / no SELL`);
+      continue;
+    }
     const qty = Math.abs(Number(row.position ?? 0));
     const avgCost = Number(row.avgCost ?? 0);
     active.push(ticker);
     const existing = positionSLTP.get(ticker);
+    if (existing?.selling) {
+      console.log(`[PositionMonitor] ${ticker} selling=true — skip sync update`);
+      continue;
+    }
     if (!existing) {
       const entry = avgCost > 0 ? avgCost : 0;
       if (!(entry > 0)) continue;
@@ -171,7 +231,6 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
       console.log(
         `[PositionMonitor] ${ticker} sin SL/TP guardado → defaults SL=$${defaultSl(entry).toFixed(2)} TP=$${defaultTp(entry).toFixed(2)} (avgCost)`,
       );
-      // Persist so restarts keep defaults
       const mem = positionSLTP.get(ticker)!;
       updateTradingState((state) => ({
         ...state,
@@ -188,9 +247,8 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
     }
   }
 
-  // Prefer live IBKR open set. Fall back to memory/state if IBKR empty (fill lag).
   if (active.length > 0) return [...new Set(active)];
-  return [...positionSLTP.keys()];
+  return [...positionSLTP.keys()].filter((t) => !isSellLocked(t) && !positionSLTP.get(t)?.selling);
 }
 
 async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" | "SL"): Promise<void> {
@@ -202,8 +260,8 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
       ` P&L $${pnlUSD.toFixed(2)}`,
   );
 
-  removeMonitoredPosition(pos.ticker);
-  positionSLTP.delete(pos.ticker.toUpperCase());
+  // Registry already cleared in beginExitSell — belt and suspenders
+  dropFromRegistry(pos.ticker);
 
   let nav = 0;
   try {
@@ -254,31 +312,84 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
   }
 }
 
-async function closePositionLiveIfEnabled(
+function stillOpenInIbkr(rows: IbkrPosRow[], ticker: string): { open: boolean; qty: number } {
+  const key = ticker.toUpperCase();
+  let qty = 0;
+  for (const r of rows) {
+    if (String(r.symbol ?? "").trim().toUpperCase() !== key) continue;
+    qty += Math.abs(Number(r.position ?? 0));
+  }
+  return { open: qty > 0, qty };
+}
+
+type ExitSellResult =
+  | { status: "sold"; orderId: string | null }
+  | { status: "skipped"; reason: string };
+
+/**
+ * Single-flight exit: lock → remove registry → verify IBKR → one SELL.
+ */
+async function beginExitSell(
   pos: MonitoredPosition,
   price: number,
+  kind: "TP" | "SL",
   rationale: string,
-): Promise<string | null> {
+): Promise<ExitSellResult> {
+  const ticker = pos.ticker.toUpperCase();
+  const mem = positionSLTP.get(ticker);
+
+  if (mem?.selling || isSellLocked(ticker)) {
+    console.log(`[PositionMonitor] ${ticker} ya en selling/lock — skip SELL duplicado`);
+    return { status: "skipped", reason: "already-selling" };
+  }
+
+  // 1) Flag + cross-process lock BEFORE any await
+  if (!tryAcquireSellLock(ticker)) {
+    console.log(`[PositionMonitor] ${ticker} sell-lock ocupado — skip SELL duplicado`);
+    return { status: "skipped", reason: "lock-held" };
+  }
+  if (mem) {
+    mem.selling = true;
+    positionSLTP.set(ticker, mem);
+  }
+
+  // 2) Remove from registry immediately so next tick cannot re-SELL
+  dropFromRegistry(ticker);
+  console.log(`[PositionMonitor] ${ticker} eliminada del registro (pre-SELL ${kind})`);
+
+  // 3) Re-check live IBKR — only SELL if still open
+  const liveRows = await fetchOpenIbkrStockPositions();
+  const { open, qty } = stillOpenInIbkr(liveRows, ticker);
+  if (!open) {
+    console.log(`[PositionMonitor] ${ticker} ya no está en IBKR — no enviar SELL`);
+    return { status: "sold", orderId: null };
+  }
+
+  const sellQty = Math.max(1, Math.floor(qty > 0 ? qty : pos.shares));
   const flags = getInvestmentRuntimeFlags();
-  if (!flags.liveTradingEnabled || flags.ibkrReadOnly) return null;
+  if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
+    console.log(`[PositionMonitor] ${ticker} PAPER SELL qty=${sellQty} @$${price.toFixed(2)}`);
+    return { status: "sold", orderId: null };
+  }
+
   try {
-    const mem = positionSLTP.get(pos.ticker.toUpperCase());
     const res = await submitSupervisedLiveLimitOrder({
-      symbol: pos.ticker,
+      symbol: ticker,
       side: "SELL",
-      quantity: Math.max(1, Math.floor(pos.shares)),
+      quantity: sellQty,
       limitPrice: price,
       rationale,
       outsideRth: true,
       account: mem?.account ?? (process.env.IBKR_ACCOUNT_ID?.trim() || undefined),
     });
-    return res.ibkrOrderId;
+    console.log(`[PositionMonitor] ${ticker} SELL enviado ibkrId=${res.ibkrOrderId} (único)`);
+    return { status: "sold", orderId: res.ibkrOrderId };
   } catch (err) {
     console.warn(
-      `[PositionMonitor] live close failed ${pos.ticker}:`,
+      `[PositionMonitor] live close failed ${ticker}:`,
       err instanceof Error ? err.message : err,
     );
-    return null;
+    return { status: "sold", orderId: null };
   }
 }
 
@@ -314,8 +425,9 @@ async function tick(): Promise<void> {
     console.log(`[PositionMonitor] Monitoreando ${tickers.length} posiciones: ${summary}`);
 
     for (const ticker of tickers) {
+      if (isSellLocked(ticker)) continue;
       const mem = positionSLTP.get(ticker);
-      if (!mem || !(mem.entryPrice > 0) || !(mem.qty > 0)) continue;
+      if (!mem || mem.selling || !(mem.entryPrice > 0) || !(mem.qty > 0)) continue;
 
       let pos = toMonitored(ticker, mem);
       try {
@@ -326,13 +438,13 @@ async function tick(): Promise<void> {
           continue;
         }
 
-        const beforeSl = pos.stopLoss
-        const beforeHigh = pos.highestPrice
-        pos = applyTrailingStop(pos, price)
-        mem.sl = pos.stopLoss
-        mem.tp = pos.takeProfit
-        mem.highestPrice = pos.highestPrice
-        positionSLTP.set(ticker, mem)
+        const beforeSl = pos.stopLoss;
+        const beforeHigh = pos.highestPrice;
+        pos = applyTrailingStop(pos, price);
+        mem.sl = pos.stopLoss;
+        mem.tp = pos.takeProfit;
+        mem.highestPrice = pos.highestPrice;
+        positionSLTP.set(ticker, mem);
 
         if (pos.stopLoss !== beforeSl || pos.highestPrice !== beforeHigh) {
           updateTradingState((state) => ({
@@ -340,20 +452,17 @@ async function tick(): Promise<void> {
             monitoredPositions: state.monitoredPositions.map((p) =>
               p.ticker.toUpperCase() === ticker ? pos : p,
             ),
-          }))
+          }));
         }
 
         if (price >= pos.takeProfit) {
           console.log(`[PositionMonitor] ${ticker} TP tocado @$${price.toFixed(2)} → SELL`);
-          const liveOrderId = await closePositionLiveIfEnabled(
-            pos,
-            price,
-            `Auto take profit for ${ticker}`,
-          );
+          const exit = await beginExitSell(pos, price, "TP", `Auto take profit for ${ticker}`);
+          if (exit.status === "skipped") continue;
           const pnlUSD = (price - pos.entryPrice) * pos.shares;
           const sign = pnlUSD >= 0 ? "+" : "";
           await sendTelegramMessage(
-            `🎯 TAKE PROFIT AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+            `🎯 TAKE PROFIT AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${exit.orderId ? ` | IBKR #${exit.orderId}` : ""}`,
           );
           await closePosition(pos, price, "TP");
           continue;
@@ -361,15 +470,12 @@ async function tick(): Promise<void> {
 
         if (price <= pos.stopLoss) {
           console.log(`[PositionMonitor] ${ticker} SL tocado @$${price.toFixed(2)} → SELL`);
-          const liveOrderId = await closePositionLiveIfEnabled(
-            pos,
-            price,
-            `Auto stop loss for ${ticker}`,
-          );
+          const exit = await beginExitSell(pos, price, "SL", `Auto stop loss for ${ticker}`);
+          if (exit.status === "skipped") continue;
           const pnlUSD = (price - pos.entryPrice) * pos.shares;
           const sign = pnlUSD >= 0 ? "+" : "";
           await sendTelegramMessage(
-            `🛑 STOP LOSS AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+            `🛑 STOP LOSS AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${exit.orderId ? ` | IBKR #${exit.orderId}` : ""}`,
           );
           await closePosition(pos, price, "SL");
           continue;
@@ -380,15 +486,17 @@ async function tick(): Promise<void> {
           console.log(
             `[PositionMonitor] ${ticker} SL tocado @$${price.toFixed(2)} → SELL (hard ${HARD_STOP_LOSS_PCT}%)`,
           );
-          const liveOrderId = await closePositionLiveIfEnabled(
+          const exit = await beginExitSell(
             pos,
             price,
+            "SL",
             `Auto hard stop ${HARD_STOP_LOSS_PCT}% for ${ticker}`,
           );
+          if (exit.status === "skipped") continue;
           const pnlUSD = (price - pos.entryPrice) * pos.shares;
           const sign = pnlUSD >= 0 ? "+" : "";
           await sendTelegramMessage(
-            `🛑 STOP LOSS AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${liveOrderId ? ` | IBKR #${liveOrderId}` : ""}`,
+            `🛑 STOP LOSS AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${exit.orderId ? ` | IBKR #${exit.orderId}` : ""}`,
           );
           await closePosition(pos, price, "SL");
           continue;
@@ -493,6 +601,13 @@ export async function registerExecutedPosition(params: {
     account: params.account,
     trailingStopPct: params.trailingStopPct,
   });
+
+  // New BUY clears any prior sell-lock for this ticker
+  const locks = readSellLocks();
+  if (locks[ticker] != null) {
+    delete locks[ticker];
+    writeSellLocks(locks);
+  }
 
   const position = toMonitored(ticker, mem);
 

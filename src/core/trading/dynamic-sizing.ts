@@ -72,9 +72,9 @@ export function computeDynamicSizing(params: {
 
   const pctLabel = Math.round(maxOrderPct * 100);
   const operationSizeLabel = canTradeStocks
-    ? `Tamaño por operación: $${maxOrderValueUSD.toFixed(2)} (${pctLabel}% cash)`
+    ? `Tamaño por operación: $${maxOrderValueUSD.toFixed(2)} (${pctLabel}% cash) · máx ${maxOpenPositions} pos`
     : analysisOnly
-      ? "Modo solo análisis — cash < $30"
+      ? `Modo solo análisis — cash < $${ds.analysisOnlyCashUSD}`
       : `Sin operaciones — cash mín $${ds.minCashToTradeUSD}`;
 
   return {

@@ -14,7 +14,6 @@ import {
 } from './auto-approval'
 import { registerExecutedPosition } from './position-monitor'
 import { evaluateProStrategies } from './strategies/pro-strategies'
-import { getHistory } from '@/lib/market-data/fmp'
 import { getMacroContext } from '@/lib/market-data/macro-context'
 import { notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
 import { sendTelegramMessage } from '@/lib/notifications/telegram-bot'
@@ -32,6 +31,7 @@ import {
 import { midFromBidAsk } from '@/lib/trading/limit-price'
 import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
 import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
+import { getDailyUniverse } from '@/lib/investment/market-daily-universe'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
 import { getUsMarketSession } from './market-session'
 import { recordMlSignal } from '@/lib/ml/signal-trainer'
@@ -51,6 +51,23 @@ import {
 } from './portfolio-optimizer'
 import { getInstitutionalMacroCaution24h } from '@/lib/market-data/institutional-scanner'
 import { loadTradingState } from './trading-state-store'
+
+/** Per-account capital filters for small IBKR accounts. */
+function resolveAccountCapitalPolicy(
+  accountId: string | null | undefined,
+  cashUSD: number,
+): { accountId: string; minPrice: number; maxPrice: number; deployableUSD: number } {
+  const id = String(accountId ?? '').trim().toUpperCase()
+  const cash = Math.max(0, cashUSD)
+  const half = cash * 0.5
+  if (id === 'U24225949') {
+    return { accountId: id, minPrice: 0.5, maxPrice: 15, deployableUSD: half }
+  }
+  if (id === 'U15513057') {
+    return { accountId: id, minPrice: 1, maxPrice: 50, deployableUSD: half }
+  }
+  return { accountId: id, minPrice: 0.5, maxPrice: 50, deployableUSD: half }
+}
 
 export type OrderResult = {
   orderId?: string
@@ -87,7 +104,10 @@ export class TradingEngine {
   private risk = RiskManager.getInstance()
   private approvals = OrderApprovalGate.getInstance()
 
-  private static readonly TICKER_TIMEOUT_MS = 20_000
+  /** Analysis / strategy timeout — must NOT kill IBKR submit once auto-execute starts. */
+  private static readonly TICKER_TIMEOUT_MS = 25_000
+  /** Soft ceiling once submitSupervisedLiveLimitOrder is in flight. */
+  private static readonly AUTO_EXECUTE_TIMEOUT_MS = 120_000
   private static readonly MAX_SHARES_PER_ORDER = 10
   private static readonly CYCLE_CONCURRENCY = 4
 
@@ -139,6 +159,7 @@ export class TradingEngine {
     // 3. Procesar tickers con Pro Strategies (concurrencia limitada anti-429)
     console.log(`[ProStrategy] Ciclo ${cycleId}: evaluando ${tickers.length} tickers (concurrency=${TradingEngine.CYCLE_CONCURRENCY})`)
     const jobs: Array<Promise<OrderResult | null>> = []
+    const buySignalTickers = new Set<string>()
     let cursor = 0
     const worker = async (): Promise<void> => {
       while (cursor < tickers.length) {
@@ -146,11 +167,28 @@ export class TradingEngine {
         const i = cursor++
         const ticker = tickers[i]!
         jobs[i] = (async () => {
+          const execGate = { enteredAutoExecute: false, buySignal: false }
+          const work = this.processTicker(ticker, account, execGate)
           try {
-            const order = await TradingEngine.withTickerTimeout(
-              this.processTicker(ticker, account),
-              ticker,
-            )
+            let order: OrderResult
+            try {
+              order = await TradingEngine.withTickerTimeout(work, ticker)
+            } catch (timeoutErr) {
+              // Critical: analysis timeout must NOT abort IBKR submit already in flight.
+              if (execGate.enteredAutoExecute) {
+                console.warn(
+                  `[AutoExecute] ${ticker} → timeout de análisis ignorado; esperando submit IBKR (hasta ${TradingEngine.AUTO_EXECUTE_TIMEOUT_MS}ms)…`,
+                )
+                order = await TradingEngine.withTickerTimeout(
+                  work,
+                  ticker,
+                  TradingEngine.AUTO_EXECUTE_TIMEOUT_MS,
+                )
+              } else {
+                throw timeoutErr
+              }
+            }
+            if (execGate.buySignal || order.direction === 'BUY') buySignalTickers.add(ticker)
             if (order.status === 'PENDING_APPROVAL' && order.direction === 'BUY' && order.sharesOrValue) {
               account.cashUSD = Math.max(0, account.cashUSD - order.sharesOrValue)
             }
@@ -165,7 +203,8 @@ export class TradingEngine {
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'Error desconocido'
             console.warn(`[ProStrategy] ${ticker}: error — ${msg}`)
-            console.error(`[AutoExecute] ${ticker} → ERROR: ${msg}`)
+            console.error(`[AutoExecute] ${ticker} → ERROR: ${msg} ❌`)
+            if (execGate.buySignal || execGate.enteredAutoExecute) buySignalTickers.add(ticker)
             return {
               status: 'ERROR' as const,
               ticker,
@@ -190,16 +229,15 @@ export class TradingEngine {
       if (item) orders.push(item)
     }
 
-    const señalesBuy = orders.filter((o) => o.direction === 'BUY').length
+    const señalesBuy = Math.max(
+      buySignalTickers.size,
+      orders.filter((o) => o.direction === 'BUY').length,
+    )
     const autoEjecutadas = orders.filter((o) => o.status === 'EXECUTED' && o.direction === 'BUY').length
-    const fallidas = orders.filter(
-      (o) =>
-        o.direction === 'BUY' &&
-        (o.status === 'ERROR' ||
-          o.status === 'REJECTED_RISK' ||
-          o.status === 'REJECTED_CONFIDENCE' ||
-          o.status === 'HOLD'),
-    ).length
+    const fallidas = Math.max(
+      0,
+      señalesBuy - autoEjecutadas - orders.filter((o) => o.direction === 'BUY' && o.status === 'PENDING_APPROVAL').length,
+    )
     console.log(
       `[ProStrategy] Ciclo fin: ${orders.length} tickers | señales BUY=${señalesBuy} | auto-ejecutadas=${autoEjecutadas} | fallidas=${fallidas}`,
     )
@@ -328,10 +366,49 @@ export class TradingEngine {
     }
   }
 
-  private async processTicker(ticker: string, account: {
-    navUSD: number; cashUSD: number; dailyPnlUSD: number; openPositionsCount: number
-  }): Promise<OrderResult> {
-    const priceData = await this.fetchPrice(ticker)
+  private async processTicker(
+    ticker: string,
+    account: {
+      navUSD: number
+      cashUSD: number
+      dailyPnlUSD: number
+      openPositionsCount: number
+      primaryAccountId?: string | null
+    },
+    execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
+  ): Promise<OrderResult> {
+    console.log(`[AutoExecute] ${ticker} → obteniendo precio actual…`)
+    let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
+    try {
+      priceData = await this.fetchPrice(ticker)
+      console.log(`[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)}`)
+    } catch (err) {
+      const screener = getDailyUniverse()?.tickers.find((t) => t.symbol === ticker.toUpperCase())
+      if (screener && screener.price > 0) {
+        console.warn(
+          `[AutoExecute] ${ticker} → precio live falló; usando screener $${screener.price.toFixed(2)}`,
+        )
+        priceData = {
+          ticker,
+          currentPrice: screener.price,
+          previousClose: screener.price,
+          bid: screener.price,
+          ask: screener.price,
+          change1d: screener.changePct,
+          high52w: screener.price,
+          low52w: screener.price,
+          volume: screener.volume,
+          changePercentage: screener.changePct,
+          quoteSymbol: ticker,
+          quoteExchange: 'SMART',
+          quoteCurrency: 'USD',
+          quoteRoute: 'screener-cache',
+          quoteErrors: ['live-price-fallback-screener'],
+        }
+      } else {
+        throw err
+      }
+    }
 
     const quoteExchange = priceData.quoteExchange ?? 'SMART'
     const usSession = US_QUOTE_EXCHANGES.has(quoteExchange.toUpperCase())
@@ -367,18 +444,20 @@ export class TradingEngine {
     }
         const usExtendedHours = true // 24h: always submit with outside_rth
 
-    // Professional strategies — reuse FMP history when possible
-    const historicalData = await getHistory(ticker, 90).catch(() => [])
+    // Screener-only strategies (no FMP historical — Starter 402)
     const change1dPct =
-      priceData.previousClose > 0
+      priceData.changePercentage ||
+      (priceData.previousClose > 0
         ? ((priceData.currentPrice - priceData.previousClose) / priceData.previousClose) * 100
-        : 0
+        : 0)
     const strategy = await evaluateProStrategies(ticker, {
       price: priceData.currentPrice,
       change1dPct,
       volume: priceData.volume,
       yearHigh: priceData.high52w,
-      historicalData,
+      yearLow: priceData.low52w,
+      priceAvg50: priceData.priceAvg50,
+      priceAvg200: priceData.priceAvg200,
     })
     const signal = {
       direction: strategy.direction === 'BUY' ? ('BUY' as const) : ('HOLD' as const),
@@ -402,6 +481,8 @@ export class TradingEngine {
       }
     }
 
+    if (execGate) execGate.buySignal = true
+
     recordSignalForTelegram({
       ticker,
       direction: signal.direction,
@@ -409,17 +490,21 @@ export class TradingEngine {
       at: new Date().toISOString(),
     })
 
-    // Account-aware price filter (small accounts)
-    const maxPriceForAccount = account.cashUSD < 25 ? 15 : 50
-    if (priceData.currentPrice > maxPriceForAccount) {
+    // Account-aware price filter (capital policy by IBKR account)
+    const capital = resolveAccountCapitalPolicy(
+      account.primaryAccountId ?? process.env.IBKR_ACCOUNT_ID,
+      account.cashUSD,
+    )
+    if (priceData.currentPrice < capital.minPrice || priceData.currentPrice > capital.maxPrice) {
       console.warn(
-        `[AutoExecute] ${ticker} BLOCKED: precio $${priceData.currentPrice.toFixed(2)} > umbral $${maxPriceForAccount}`,
+        `[AutoExecute] ${ticker} BLOCKED: precio $${priceData.currentPrice.toFixed(2)} fuera de rango ` +
+          `$${capital.minPrice}-$${capital.maxPrice} (cuenta ${capital.accountId || 'default'})`,
       )
       return {
         status: 'REJECTED_RISK',
         ticker,
         direction: signal.direction,
-        reason: `Precio $${priceData.currentPrice.toFixed(2)} > umbral cuenta ($${maxPriceForAccount})`,
+        reason: `Precio $${priceData.currentPrice.toFixed(2)} fuera de rango cuenta $${capital.minPrice}-$${capital.maxPrice}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -525,18 +610,27 @@ export class TradingEngine {
     }
 
     const orderValueUSD = riskOk.maxOrderValueUSD
-    const formulaShares = Math.floor((account.cashUSD * 0.5) / priceData.currentPrice)
-    if (formulaShares <= 0) {
+    // Capital filters: qty = floor(deployable/price), min 1 max 10
+    let resolvedShares = Math.floor(capital.deployableUSD / priceData.currentPrice)
+    console.log(
+      `[AutoExecute] ${ticker} → cash disponible: $${account.cashUSD.toFixed(2)} | deployable: $${capital.deployableUSD.toFixed(2)} | precio: $${priceData.currentPrice.toFixed(2)} | qty: ${resolvedShares}`,
+    )
+    if (resolvedShares <= 0) {
+      console.warn(`[AutoExecute] ${ticker} → capital insuficiente (qty=0) — skip`)
       return {
         status: 'REJECTED_RISK',
         ticker,
         direction: signal.direction,
-        reason: `Sizing=0 con cash $${account.cashUSD.toFixed(2)} y precio $${priceData.currentPrice.toFixed(2)}`,
+        reason: `capital insuficiente — cash $${account.cashUSD.toFixed(2)} precio $${priceData.currentPrice.toFixed(2)}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
     }
-    const resolvedShares = Math.max(1, Math.min(TradingEngine.MAX_SHARES_PER_ORDER, formulaShares))
+    resolvedShares = Math.max(1, Math.min(TradingEngine.MAX_SHARES_PER_ORDER, resolvedShares))
+    console.log(
+      `[AutoExecute] ${ticker} BUY qty=${resolvedShares} precio=$${priceData.currentPrice.toFixed(2)} ` +
+        `SL=$${riskOk.stopLossPrice.toFixed(2)} TP=$${riskOk.takeProfitPrice.toFixed(2)}`,
+    )
 
     const suggested =
       signal.suggestedLimitPrice != null && signal.suggestedLimitPrice > 0
@@ -550,7 +644,7 @@ export class TradingEngine {
       undefined
     if (limitPrice == null) {
       return {
-        status: 'HOLD', ticker, direction: 'HOLD',
+        status: 'HOLD', ticker, direction: 'BUY',
         reason: `Sin limitPrice para ${ticker}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
@@ -603,7 +697,7 @@ export class TradingEngine {
         return {
           status: 'HOLD',
           ticker,
-          direction: 'HOLD',
+          direction: 'BUY',
           reason: checklist.reason,
           signal: {
             confidence: signal.confidence,
@@ -632,6 +726,10 @@ export class TradingEngine {
 
     const effectiveStopLoss = smartPlan?.bracket?.stopLoss ?? riskOk.stopLossPrice
     const effectiveTakeProfit = smartPlan?.bracket?.takeProfit ?? riskOk.takeProfitPrice
+    console.log(
+      `[AutoExecute] ${ticker} BUY qty=${resolvedShares} precio=$${priceData.currentPrice.toFixed(2)} ` +
+        `SL=$${effectiveStopLoss.toFixed(2)} TP=$${effectiveTakeProfit.toFixed(2)}`,
+    )
 
     // 100% automatic: confidence >= 60% â†’ AUTO_APPROVE
     if (signal.confidence < TRADING_CONFIG.ai.minConfidenceToTrade) {
@@ -710,6 +808,8 @@ export class TradingEngine {
     })()
 
     incrementAutoApprovalCount()
+    if (execGate) execGate.enteredAutoExecute = true
+    console.log(`[Signal] ${ticker} → auto-ejecutar`)
     console.log(
       `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → auto-ejecutar`,
     )
@@ -722,7 +822,7 @@ export class TradingEngine {
       const executed = await this.approveAndExecute(pending.approvalId, { skipPreTradeRecheck: true })
       if (executed.status === 'EXECUTED') {
         console.log(
-          `[AutoExecute] ${ticker} → orden enviada ibkrId=${executed.orderId ?? 'n/a'} status=EXECUTED`,
+          `[AutoExecute] ${ticker} → EJECUTADO ibkrId=${executed.orderId ?? 'n/a'} ✅`,
         )
         await sendTelegramMessage(
           `⚡ AUTO: ${ticker} BUY ${resolvedShares}@$${priceData.currentPrice.toFixed(2)} | ` +
@@ -731,13 +831,13 @@ export class TradingEngine {
         )
       } else {
         console.warn(
-          `[AutoExecute] ${ticker} → no EXECUTED status=${executed.status} reason=${executed.reason}`,
+          `[AutoExecute] ${ticker} → ERROR: no EXECUTED status=${executed.status} reason=${executed.reason} ❌`,
         )
       }
       return executed
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`[AutoExecute] ${ticker} → ERROR: ${msg}`)
+      console.error(`[AutoExecute] ${ticker} → ERROR: ${msg} ❌`)
       return {
         approvalId: pending.approvalId,
         status: 'ERROR',

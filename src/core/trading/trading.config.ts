@@ -13,8 +13,8 @@ export const TRADING_CONFIG = {
     maxPositionPct: 0.20,
     /** Si el P&L del día supera esta pérdida, el sistema se detiene */
     dailyLossLimitPct: 0.10,
-    /** Hard cap diversification (daily trading): max 3 concurrent positions */
-    maxOpenPositions: 3,
+    /** Diversification soft cap (legacy); live limit from dynamicSizing */
+    maxOpenPositions: 20,
     /** Default SL: -1.5% scalping baseline */
     defaultStopLossPct: 0.015,
     /** Default TP: +3% scalping baseline */
@@ -27,12 +27,13 @@ export const TRADING_CONFIG = {
       maxPctHighConfidence: 0.30,
       highConfidenceThreshold: 0.80,
       minOrderUSD: 10,
-      minCashToTradeUSD: 50,
-      analysisOnlyCashUSD: 30,
+      minCashToTradeUSD: 10,
+      analysisOnlyCashUSD: 10,
       deployableCashPct: 0.50,
-      positionCashDivisor: 50,
-      maxOpenPositionsCap: 3,
-      minOpenPositions: 1,
+      /** maxPositions = floor(cash / 15), clamped [3, 20] */
+      positionCashDivisor: 15,
+      maxOpenPositionsCap: 20,
+      minOpenPositions: 3,
       takeProfitRatio: 2.6,
     },
     /** FOREX IDEALPRO sizing gates */

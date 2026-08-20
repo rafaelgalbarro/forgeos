@@ -142,18 +142,29 @@ export class RiskManager {
       return { allowed: false, reason: `${price.ticker} no está en allowlist ni en el scanner del día` }
     }
 
-    // 4. Máximo de posiciones abiertas (solo en compras) — dinámico floor(cash/50)
+    // 4. Máximo de posiciones — dinámico floor(cash/15) min3 max20.
+    // Nunca bloquear si hay cash disponible para otra orden (≥ minOrderUSD).
     if (direction === 'BUY' && account.openPositionsCount >= sizing.maxOpenPositions) {
-      return {
-        allowed: false,
-        reason: `Límite de ${sizing.maxOpenPositions} posiciones abiertas alcanzado (cash $${account.cashUSD.toFixed(0)})`,
+      const minOrder = TRADING_CONFIG.risk.dynamicSizing.minOrderUSD
+      if (account.cashUSD >= minOrder) {
+        console.warn(
+          `[RiskManager] ${price.ticker}: ${account.openPositionsCount} pos ≥ máx ${sizing.maxOpenPositions} ` +
+            `(cash $${account.cashUSD.toFixed(0)}) — cash disponible, NO se bloquea`,
+        )
+      } else {
+        return {
+          allowed: false,
+          reason:
+            `Límite de ${sizing.maxOpenPositions} posiciones y cash insuficiente ` +
+            `($${account.cashUSD.toFixed(2)} < $${minOrder})`,
+        }
       }
     }
 
     if (direction === 'BUY' && sizing.analysisOnly) {
       return {
         allowed: false,
-        reason: 'Modo solo análisis — cash < $30 (reserva de liquidez)',
+        reason: `Modo solo análisis — cash < $${TRADING_CONFIG.risk.dynamicSizing.analysisOnlyCashUSD}`,
       }
     }
 

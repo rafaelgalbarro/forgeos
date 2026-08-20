@@ -1,22 +1,19 @@
 /**
- * Professional intraday strategies — signal engine (no PatternRecognition / Sentiment).
- * Uses FMP EOD history + live quote. BUY-only for long scalping/swing.
+ * Professional strategies — screener-only (FMP profile / movers).
+ * NO historical-price-eod (Starter plan → HTTP 402).
  */
 
 import "server-only";
 
-import { getHistory, getQuote, type FmpBar } from "@/lib/market-data/fmp";
-import { ema, rsi } from "@/lib/market-data/technical-indicators";
+import { getQuote } from "@/lib/market-data/fmp";
 
 export type ProStrategyId =
-  | "MOMENTUM_BREAKOUT"
-  | "VWAP_BOUNCE"
-  | "RSI_OVERSOLD_BOUNCE"
   | "GAP_AND_GO"
-  | "VOLUME_SPIKE_REVERSAL"
-  | "MA_CROSSOVER"
+  | "MOMENTUM_BREAKOUT"
   | "NEAR_52W_HIGH"
-  | "EARNINGS_MOMENTUM";
+  | "OVERSOLD_BOUNCE"
+  | "VOLUME_SPIKE"
+  | "MA_CROSSOVER";
 
 export type ProStrategyHit = {
   id: ProStrategyId;
@@ -51,356 +48,168 @@ export type ProStrategySignal = {
   };
 };
 
+export type ScreenerInputs = {
+  price: number;
+  change1dPct: number;
+  volume: number;
+  yearHigh?: number;
+  yearLow?: number;
+  priceAvg50?: number;
+  priceAvg200?: number;
+};
+
 const BASE: Record<
   ProStrategyId,
   { name: string; base: number; sl: number; tp: number; style: ProStrategyHit["style"] }
 > = {
+  GAP_AND_GO: { name: "Gap & Go", base: 0.75, sl: 0.01, tp: 0.03, style: "scalping" },
   MOMENTUM_BREAKOUT: { name: "Momentum Breakout", base: 0.7, sl: 0.015, tp: 0.03, style: "scalping" },
-  VWAP_BOUNCE: { name: "VWAP Bounce", base: 0.68, sl: 0.015, tp: 0.03, style: "scalping" },
-  RSI_OVERSOLD_BOUNCE: { name: "RSI Oversold Bounce", base: 0.72, sl: 0.02, tp: 0.05, style: "swing" },
-  GAP_AND_GO: { name: "Gap & Go", base: 0.75, sl: 0.01, tp: 0.04, style: "scalping" },
-  VOLUME_SPIKE_REVERSAL: { name: "Volume Spike Reversal", base: 0.65, sl: 0.02, tp: 0.04, style: "swing" },
-  MA_CROSSOVER: { name: "MA Crossover", base: 0.67, sl: 0.02, tp: 0.04, style: "swing" },
   NEAR_52W_HIGH: { name: "Near 52w High", base: 0.73, sl: 0.02, tp: 0.05, style: "momentum" },
-  EARNINGS_MOMENTUM: { name: "Earnings Momentum", base: 0.8, sl: 0.02, tp: 0.06, style: "momentum" },
+  OVERSOLD_BOUNCE: { name: "Oversold Bounce", base: 0.68, sl: 0.02, tp: 0.05, style: "swing" },
+  VOLUME_SPIKE: { name: "Volume Spike", base: 0.65, sl: 0.015, tp: 0.04, style: "swing" },
+  MA_CROSSOVER: { name: "MA Crossover", base: 0.67, sl: 0.02, tp: 0.04, style: "swing" },
 };
 
-function closes(bars: FmpBar[]): number[] {
-  return bars.map((b) => b.close).filter((n) => Number.isFinite(n) && n > 0);
+function hit(
+  id: ProStrategyId,
+  reason: string,
+): ProStrategyHit {
+  const b = BASE[id];
+  return {
+    id,
+    name: b.name,
+    baseConfidence: b.base,
+    reason,
+    stopLossPct: b.sl,
+    takeProfitPct: b.tp,
+    style: b.style,
+  };
 }
 
-function avgVolume(bars: FmpBar[], n: number): number {
-  const slice = bars.slice(-n);
-  if (slice.length === 0) return 0;
-  return slice.reduce((s, b) => s + (b.volume || 0), 0) / slice.length;
-}
-
-function isHammerOrDoji(bar: FmpBar): boolean {
-  const body = Math.abs(bar.close - bar.open);
-  const range = Math.max(bar.high - bar.low, 1e-9);
-  const lower = Math.min(bar.open, bar.close) - bar.low;
-  const upper = bar.high - Math.max(bar.open, bar.close);
-  const doji = body / range < 0.12;
-  const hammer = lower >= body * 2 && upper <= body * 0.5 && body / range < 0.4;
-  return doji || hammer;
-}
-
-function vwapApprox(bar: FmpBar): number {
-  return (bar.high + bar.low + bar.close) / 3;
-}
-
-async function recentEarningsBeat(symbol: string): Promise<boolean> {
-  const set = await loadEarningsBeatSet();
-  return set.has(symbol);
-}
-
-let earningsCache: { at: number; beats: Set<string> } | null = null;
-
-async function loadEarningsBeatSet(): Promise<Set<string>> {
-  if (earningsCache && Date.now() - earningsCache.at < 30 * 60 * 1000) {
-    return earningsCache.beats;
-  }
-  const key = process.env.FMP_API_KEY?.trim();
-  const beats = new Set<string>();
-  if (!key) {
-    earningsCache = { at: Date.now(), beats };
-    return beats;
-  }
-  const to = new Date();
-  const from = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  try {
-    const url = new URL("https://financialmodelingprep.com/stable/earning-calendar-confirmed");
-    url.searchParams.set("from", fmt(from));
-    url.searchParams.set("to", fmt(to));
-    url.searchParams.set("apikey", key);
-    const res = await fetch(url.toString(), { cache: "no-store", signal: AbortSignal.timeout(12_000) });
-    if (res.ok) {
-      const body = (await res.json()) as Array<{ symbol?: string; epsEstimated?: number; eps?: number }>;
-      if (Array.isArray(body)) {
-        for (const row of body) {
-          const sym = String(row.symbol ?? "").toUpperCase();
-          if (!sym) continue;
-          const est = Number(row.epsEstimated);
-          const act = Number(row.eps);
-          if (!Number.isFinite(est) || !Number.isFinite(act) || act >= est) beats.add(sym);
-        }
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  earningsCache = { at: Date.now(), beats };
-  return beats;
-}
-
-export type ProStrategyInput = {
-  /** Live price override (skip FMP profile if set). */
-  price?: number;
-  /** Daily change in percent (e.g. 2.5 = +2.5%). */
-  change1dPct?: number;
-  volume?: number;
-  yearHigh?: number;
-  /** Pre-fetched OHLCV bars (ascending). */
-  historicalData?: FmpBar[];
-};
-
+/** Evaluate using screener/profile fields only — never fetches EOD history. */
 export async function evaluateProStrategies(
-  ticker: string,
-  historicalDataOrInput?: FmpBar[] | ProStrategyInput,
+  symbol: string,
+  inputs?: Partial<ScreenerInputs>,
 ): Promise<ProStrategySignal> {
-  const symbol = ticker.trim().toUpperCase();
-  const input: ProStrategyInput = Array.isArray(historicalDataOrInput)
-    ? { historicalData: historicalDataOrInput }
-    : (historicalDataOrInput ?? {});
-
-  let hist = input.historicalData ?? [];
-  let quotePrice = input.price ?? 0;
-  let quoteChange = input.change1dPct;
-  let quoteVolume = input.volume;
-  let quoteYearHigh = input.yearHigh;
-
-  if (hist.length < 25 || !(quotePrice > 0)) {
-    const [quote, fetchedHist] = await Promise.all([
-      quotePrice > 0
-        ? Promise.resolve(null)
-        : getQuote(symbol).catch(() => null),
-      hist.length >= 25
-        ? Promise.resolve(hist)
-        : getHistory(symbol, 90).catch(() => [] as FmpBar[]),
-    ]);
-    if (fetchedHist.length) hist = fetchedHist;
-    if (quote) {
-      quotePrice = quote.price;
-      quoteChange = quote.changePercentage;
-      quoteVolume = quote.volume;
-      quoteYearHigh = quote.yearHigh;
-    }
-  }
-
-  const price = quotePrice > 0 ? quotePrice : hist.at(-1)?.close ?? 0;
-  if (!(price > 0) || hist.length < 25) {
-    console.log(`[ProStrategy] ${symbol}: ninguna estrategia activa (datos insuficientes bars=${hist.length})`);
-    return {
-      direction: "HOLD",
-      confidence: 0,
-      reasoning: "Datos insuficientes para estrategias",
-      urgency: "LOW",
-      strategyIds: [],
-      primaryStrategy: "NONE",
-      stopLossPct: 0.015,
-      takeProfitPct: 0.03,
-      stopLoss: price,
-      takeProfit: price,
-      rsi: null,
-      metrics: {
-        change1d: 0,
-        relVolume: 0,
-        ema9: null,
-        ema21: null,
-        ema50: null,
-        vwapApprox: null,
-        dist52wHigh: null,
-      },
-    };
-  }
-
-  const c = closes(hist);
-  const last = hist[hist.length - 1]!;
-  const prev = hist[hist.length - 2] ?? last;
-  const vol20 = avgVolume(hist.slice(0, -1), 20);
-  const volToday = quoteVolume ?? last.volume ?? 0;
-  const relVolume = vol20 > 0 ? volToday / vol20 : 1;
+  const quote = await getQuote(symbol).catch(() => null);
+  const price = inputs?.price ?? quote?.price ?? 0;
   const change1d =
-    quoteChange != null && Number.isFinite(quoteChange)
-      ? quoteChange
-      : prev.close > 0
-        ? ((price - prev.close) / prev.close) * 100
-        : 0;
-  const rsi14 = rsi(c, 14);
-  const ema9 = ema(c, 9);
-  const ema21 = ema(c, 21);
-  const ema50 = ema(c, 50);
-  const ema9Prev = ema(c.slice(0, -1), 9);
-  const ema21Prev = ema(c.slice(0, -1), 21);
-  const high20 = Math.max(...hist.slice(-21, -1).map((b) => b.high));
-  const low5 = Math.min(...hist.slice(-5).map((b) => b.low));
-  const yearHigh = quoteYearHigh ?? Math.max(...hist.map((b) => b.high));
-  const dist52w = yearHigh > 0 ? price / yearHigh : 0;
-  const vwap = vwapApprox(last);
-  const gapPct = prev.close > 0 ? ((last.open - prev.close) / prev.close) * 100 : 0;
-  const gapHeld = price >= last.open * 0.995;
-  const drop2d =
-    hist.length >= 3
-      ? ((price - hist[hist.length - 3]!.close) / hist[hist.length - 3]!.close) * 100
-      : change1d;
-  const volGrowing3d =
-    hist.length >= 4 &&
-    hist[hist.length - 1]!.volume > hist[hist.length - 2]!.volume &&
-    hist[hist.length - 2]!.volume > hist[hist.length - 3]!.volume;
+    inputs?.change1dPct ?? quote?.changePercentage ?? 0;
+  const volume = inputs?.volume ?? quote?.volume ?? 0;
+  const yearHigh = inputs?.yearHigh ?? quote?.yearHigh ?? 0;
+  const yearLow = inputs?.yearLow ?? quote?.yearLow ?? 0;
+  const priceAvg50 = inputs?.priceAvg50 ?? quote?.priceAvg50 ?? 0;
+  const priceAvg200 = inputs?.priceAvg200 ?? quote?.priceAvg200 ?? 0;
+
+  const hold = (reason: string): ProStrategySignal => ({
+    direction: "HOLD",
+    confidence: 0,
+    reasoning: reason,
+    urgency: "LOW",
+    strategyIds: [],
+    primaryStrategy: "none",
+    stopLossPct: 0.02,
+    takeProfitPct: 0.04,
+    stopLoss: 0,
+    takeProfit: 0,
+    rsi: null,
+    metrics: {
+      change1d,
+      relVolume: 0,
+      ema9: null,
+      ema21: null,
+      ema50: priceAvg50 > 0 ? priceAvg50 : null,
+      vwapApprox: null,
+      dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
+    },
+  });
+
+  if (!(price > 0)) {
+    console.log(`[ProStrategy] ${symbol}: ninguna (sin precio screener)`);
+    return hold("Sin precio screener");
+  }
 
   const hits: ProStrategyHit[] = [];
 
-  // 1. MOMENTUM BREAKOUT
-  if (price > high20 && relVolume >= 2 && change1d > 2) {
-    const b = BASE.MOMENTUM_BREAKOUT;
-    hits.push({
-      id: "MOMENTUM_BREAKOUT",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "Ruptura de resistencia con volumen fuerte",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
+  // 1. GAP_AND_GO
+  if (change1d > 3 && volume > 1_000_000 && (priceAvg50 <= 0 || price > priceAvg50)) {
+    hits.push(
+      hit(
+        "GAP_AND_GO",
+        `Gap +${change1d.toFixed(1)}% vol=${(volume / 1e6).toFixed(1)}M` +
+          (priceAvg50 > 0 ? ` >MA50` : ""),
+      ),
+    );
   }
 
-  // 2. VWAP BOUNCE
+  // 2. MOMENTUM_BREAKOUT
+  if (change1d > 2 && volume > 500_000 && (priceAvg50 <= 0 || price > priceAvg50)) {
+    hits.push(
+      hit(
+        "MOMENTUM_BREAKOUT",
+        `Mom +${change1d.toFixed(1)}% vol=${(volume / 1e3).toFixed(0)}k` +
+          (priceAvg50 > 0 ? ` >MA50` : ""),
+      ),
+    );
+  }
+
+  // 3. NEAR_52W_HIGH
+  if (yearHigh > 0 && price > yearHigh * 0.95 && change1d > 0) {
+    hits.push(
+      hit(
+        "NEAR_52W_HIGH",
+        `Precio $${price.toFixed(2)} a ${((price / yearHigh) * 100).toFixed(0)}% del high $${yearHigh.toFixed(2)}`,
+      ),
+    );
+  }
+
+  // 4. OVERSOLD_BOUNCE
+  if (yearLow > 0 && price < yearLow * 1.15 && change1d > 1) {
+    hits.push(
+      hit(
+        "OVERSOLD_BOUNCE",
+        `Cerca low52 $${yearLow.toFixed(2)} + rebote ${change1d.toFixed(1)}%`,
+      ),
+    );
+  }
+
+  // 5. VOLUME_SPIKE
+  if (volume > 2_000_000 && Math.abs(change1d) > 2) {
+    hits.push(
+      hit(
+        "VOLUME_SPIKE",
+        `Vol spike ${(volume / 1e6).toFixed(1)}M Δ${change1d.toFixed(1)}%`,
+      ),
+    );
+  }
+
+  // 6. MA_CROSSOVER
   if (
-    vwap > 0 &&
-    Math.abs(price - vwap) / vwap <= 0.003 &&
-    rsi14 != null &&
-    rsi14 >= 40 &&
-    rsi14 <= 60 &&
-    relVolume >= 1.2
+    priceAvg50 > 0 &&
+    priceAvg200 > 0 &&
+    price > priceAvg50 &&
+    priceAvg50 > priceAvg200 &&
+    change1d > 0
   ) {
-    const b = BASE.VWAP_BOUNCE;
-    hits.push({
-      id: "VWAP_BOUNCE",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "Rebote en VWAP con momentum",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
-  }
-
-  // 3. RSI OVERSOLD BOUNCE
-  if (rsi14 != null && rsi14 < 30 && price <= low5 * 1.01 && isHammerOrDoji(last)) {
-    const b = BASE.RSI_OVERSOLD_BOUNCE;
-    hits.push({
-      id: "RSI_OVERSOLD_BOUNCE",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "RSI oversold + soporte clave",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
-  }
-
-  // 4. GAP AND GO
-  if (gapPct > 2 && relVolume >= 3 && gapHeld && change1d > 0) {
-    const b = BASE.GAP_AND_GO;
-    hits.push({
-      id: "GAP_AND_GO",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "Gap alcista con volumen institucional",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
-  }
-
-  // 5. VOLUME SPIKE REVERSAL
-  if (relVolume >= 5 && drop2d <= -3 && rsi14 != null && rsi14 < 35) {
-    const b = BASE.VOLUME_SPIKE_REVERSAL;
-    hits.push({
-      id: "VOLUME_SPIKE_REVERSAL",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "Agotamiento vendedor con volumen extremo",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
-  }
-
-  // 6. MA CROSSOVER
-  if (
-    ema9 != null &&
-    ema21 != null &&
-    ema50 != null &&
-    ema9Prev != null &&
-    ema21Prev != null &&
-    ema9Prev <= ema21Prev &&
-    ema9 > ema21 &&
-    price > ema50 &&
-    relVolume >= 1.1
-  ) {
-    const b = BASE.MA_CROSSOVER;
-    hits.push({
-      id: "MA_CROSSOVER",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "Cruce alcista EMAs con tendencia positiva",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
-  }
-
-  // 7. NEAR 52W HIGH
-  if (dist52w >= 0.95 && (volGrowing3d || relVolume >= 1.5) && change1d > 0) {
-    const b = BASE.NEAR_52W_HIGH;
-    hits.push({
-      id: "NEAR_52W_HIGH",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "Momentum máximos históricos",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
-  }
-
-  // 8. EARNINGS MOMENTUM
-  const earningsBeat = await recentEarningsBeat(symbol);
-  if (earningsBeat && change1d > 5 && relVolume >= 1.5) {
-    const b = BASE.EARNINGS_MOMENTUM;
-    hits.push({
-      id: "EARNINGS_MOMENTUM",
-      name: b.name,
-      baseConfidence: b.base,
-      reason: "Post-earnings momentum sostenido",
-      stopLossPct: b.sl,
-      takeProfitPct: b.tp,
-      style: b.style,
-    });
+    hits.push(
+      hit(
+        "MA_CROSSOVER",
+        `Price>MA50>MA200 ($${priceAvg50.toFixed(2)}>$${priceAvg200.toFixed(2)})`,
+      ),
+    );
   }
 
   if (hits.length === 0) {
-    console.log(`[ProStrategy] ${symbol}: ninguna estrategia activa`);
-    return {
-      direction: "HOLD",
-      confidence: 0,
-      reasoning: "Ninguna estrategia profesional activa",
-      urgency: "LOW",
-      strategyIds: [],
-      primaryStrategy: "NONE",
-      stopLossPct: 0.015,
-      takeProfitPct: 0.03,
-      stopLoss: price * 0.985,
-      takeProfit: price * 1.03,
-      rsi: rsi14,
-      metrics: {
-        change1d,
-        relVolume,
-        ema9,
-        ema21,
-        ema50,
-        vwapApprox: vwap,
-        dist52wHigh: dist52w,
-      },
-    };
+    console.log(`[ProStrategy] ${symbol}: ninguna señal screener`);
+    return hold("Ninguna estrategia screener");
   }
 
   hits.sort((a, b) => b.baseConfidence - a.baseConfidence);
   const primary = hits[0]!;
-  const confidence = Math.min(0.92, primary.baseConfidence + Math.max(0, hits.length - 1) * 0.08);
+  const boost = hits.length >= 3 ? 0.15 : hits.length === 2 ? 0.08 : 0;
+  const confidence = Math.min(0.92, primary.baseConfidence + boost);
   const names = hits.map((h) => h.name).join(" + ");
+
   console.log(
     `[ProStrategy] ${symbol}: ${primary.id} conf=${(confidence * 100).toFixed(0)}% BUY` +
       (hits.length > 1 ? ` (+${hits.length - 1} más)` : ""),
@@ -417,20 +226,20 @@ export async function evaluateProStrategies(
     takeProfitPct: primary.takeProfitPct,
     stopLoss: Number((price * (1 - primary.stopLossPct)).toFixed(4)),
     takeProfit: Number((price * (1 + primary.takeProfitPct)).toFixed(4)),
-    rsi: rsi14,
+    rsi: null,
     metrics: {
       change1d,
-      relVolume,
-      ema9,
-      ema21,
-      ema50,
-      vwapApprox: vwap,
-      dist52wHigh: dist52w,
+      relVolume: 0,
+      ema9: null,
+      ema21: null,
+      ema50: priceAvg50 > 0 ? priceAvg50 : null,
+      vwapApprox: null,
+      dist52wHigh: yearHigh > 0 ? price / yearHigh : null,
     },
   };
 }
 
-/** Regional focus tickers by Madrid hour for 24h coverage. */
+/** Regional focus ETFs by Madrid hour (lightweight cycle bias, not a fixed stock list). */
 export function regionalFocusTickersMadrid(): string[] {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Madrid",
@@ -438,8 +247,7 @@ export function regionalFocusTickersMadrid(): string[] {
     hour12: false,
   }).formatToParts(new Date());
   const hh = Number(parts.find((p) => p.type === "hour")?.value ?? "12");
-  if (hh >= 0 && hh < 9) return ["EWJ", "FXI", "EWA", "EWY"];
-  if (hh >= 9 && hh < 15) return ["EZU", "VGK", "EWG", "EWU"];
-  if (hh >= 22 || hh < 2) return ["IBIT", "FETH", "GLD", "USO"];
-  return [];
+  if (hh >= 9 && hh < 16) return ["SPY", "QQQ", "IWM"];
+  if (hh >= 16 && hh < 22) return ["SPY", "QQQ", "XLK"];
+  return ["SPY", "QQQ", "GLD"];
 }

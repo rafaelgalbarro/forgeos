@@ -34,6 +34,8 @@ export type FmpQuote = {
   avgVolume?: number;
   marketCap?: number;
   exchange?: string;
+  priceAvg50?: number;
+  priceAvg200?: number;
 };
 
 export type FmpBar = {
@@ -159,6 +161,8 @@ function parseQuote(row: Record<string, unknown>): FmpQuote | null {
   const yearLow = asFinite(row.yearLow) ?? rangeBounds.yearLow;
   const avgVolume = asFinite(row.avgVolume) ?? asFinite(row.volAvg) ?? undefined;
   const marketCap = asFinite(row.marketCap) ?? asFinite(row.mktCap) ?? undefined;
+  const priceAvg50 = asFinite(row.priceAvg50) ?? asFinite(row.ma50) ?? undefined;
+  const priceAvg200 = asFinite(row.priceAvg200) ?? asFinite(row.ma200) ?? undefined;
   const exchange =
     typeof row.exchange === "string"
       ? row.exchange
@@ -179,6 +183,8 @@ function parseQuote(row: Record<string, unknown>): FmpQuote | null {
     avgVolume,
     marketCap,
     exchange,
+    priceAvg50,
+    priceAvg200,
   };
 }
 
@@ -264,23 +270,10 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
 }
 
 export async function getHistory(ticker: string, days: number): Promise<FmpBar[]> {
-  if (!isFmpEnabled()) return [];
-  const symbol = ticker.trim().toUpperCase();
-  if (!symbol) return [];
-  const safeDays = Math.max(1, Math.floor(Number(days)) || 90);
-  const key = cacheKey("fmp-hist", symbol);
-  const hit = getCached<FmpBar[]>(key);
-  if (hit) return hit.slice(-safeDays);
-
-  const body = await fmpFetchJson(HISTORY_ENDPOINT, { symbol });
-  if (body == null) return [];
-  const bars = extractHistoricalRows(body)
-    .map(parseBar)
-    .filter((b): b is FmpBar => b != null)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  if (bars.length === 0) return [];
-  setCached(key, bars, HISTORY_TTL_MS);
-  return bars.slice(-safeDays);
+  // Starter plan: /historical-price-eod/full → HTTP 402. Never call it.
+  void ticker;
+  void days;
+  return [];
 }
 
 export async function getForexQuote(pair: string): Promise<FmpQuote | null> {

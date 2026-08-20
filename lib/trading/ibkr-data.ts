@@ -3,7 +3,6 @@ import "server-only";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import {
   getForexQuote as fmpGetForexQuote,
-  getHistory as fmpGetHistory,
   getQuote as fmpGetQuote,
   isFmpEnabled,
 } from "@/lib/market-data/fmp";
@@ -55,6 +54,9 @@ export type TradingPriceSnapshot = {
   high52w: number;
   low52w: number;
   volume: number;
+  changePercentage: number;
+  priceAvg50?: number;
+  priceAvg200?: number;
   quoteSymbol: string;
   quoteExchange: string;
   quoteCurrency: string;
@@ -99,12 +101,40 @@ async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot
     );
   }, 0);
 
+  const ZERO_VALUE_SYMBOLS = new Set([
+    "RWAX",
+    "IVPR",
+    "INND",
+    "APLT.CVR",
+    "CGBSF",
+    "APTX.OLD",
+    "APLT",
+  ]);
+
   const openPositionsCount = Array.isArray(positions)
     ? positions.filter((p) => {
-        const row = p as { position?: number; account?: string };
+        const row = p as {
+          position?: number;
+          account?: string;
+          symbol?: string;
+          avgCost?: number;
+          marketValue?: number;
+        };
         if (typeof row.position !== "number" || Math.abs(row.position) <= 0) return false;
         if (primary && row.account && row.account !== primary) return false;
-        return true;
+        const symbol = String(row.symbol ?? "")
+          .trim()
+          .toUpperCase();
+        if (symbol && ZERO_VALUE_SYMBOLS.has(symbol)) return false;
+        // Solo contar posiciones con valor actual > $5
+        const qty = Math.abs(row.position);
+        const avgCost = Number(row.avgCost ?? 0);
+        const marketValue = Number(row.marketValue ?? 0);
+        const notional =
+          Number.isFinite(marketValue) && Math.abs(marketValue) > 0
+            ? Math.abs(marketValue)
+            : qty * (Number.isFinite(avgCost) ? avgCost : 0);
+        return notional > 5;
       }).length
     : 0;
 
@@ -133,18 +163,14 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     throw new Error(`FMP_API_KEY required for price data — ${ticker}`);
   }
 
+  // Starter plan: profile/quote only — never /historical-price-eod (HTTP 402)
   const quote = await fmpGetQuote(ticker);
   if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
     throw new Error(`FMP sin precio para ${ticker}`);
   }
 
-  const candles = await fmpGetHistory(ticker, 90);
-  const last = candles[candles.length - 1];
-  const prev = candles[candles.length - 2] ?? last;
   const currentPrice = quote.price;
-  const prevClose = prev?.close ?? quote.previousClose ?? currentPrice;
-  const highs = candles.map((b) => b.high).filter((n) => n > 0);
-  const lows = candles.map((b) => b.low).filter((n) => n > 0);
+  const prevClose = quote.previousClose > 0 ? quote.previousClose : currentPrice;
   const route = routes[0];
 
   return {
@@ -154,20 +180,16 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     bid: currentPrice,
     ask: currentPrice,
     change1d: currentPrice - prevClose,
-    high52w: Math.max(
-      ...(highs.length > 0 ? highs : [currentPrice]),
-      quote.yearHigh ?? quote.dayHigh,
-      currentPrice,
-    ),
-    low52w: Math.min(
-      ...(lows.length > 0 ? lows : [currentPrice]),
-      quote.yearLow && quote.yearLow > 0 ? quote.yearLow : quote.dayLow > 0 ? quote.dayLow : currentPrice,
-    ),
-    volume: last?.volume ?? quote.volume ?? 0,
+    high52w: quote.yearHigh && quote.yearHigh > 0 ? quote.yearHigh : currentPrice,
+    low52w: quote.yearLow && quote.yearLow > 0 ? quote.yearLow : currentPrice,
+    volume: quote.volume ?? 0,
+    changePercentage: quote.changePercentage ?? 0,
+    priceAvg50: quote.priceAvg50,
+    priceAvg200: quote.priceAvg200,
     quoteSymbol: route?.symbol ?? ticker,
     quoteExchange: route?.exchange ?? "FMP",
     quoteCurrency: route?.currency ?? "USD",
-    quoteRoute: route?.label ?? "FMP",
+    quoteRoute: route?.label ?? "FMP-profile",
     quoteErrors,
   };
 }

@@ -187,9 +187,8 @@ async function analyzeOnePosition(pos: BrokerPosition): Promise<CommitteeTickerR
   const entry = Number(pos.avgCost ?? 0);
   if (!symbol || !Number.isFinite(shares) || shares <= 0 || !Number.isFinite(entry) || entry <= 0) return null;
 
-  const [profileRaw, histRaw, newsRaw] = await Promise.all([
+  const [profileRaw, newsRaw] = await Promise.all([
     fmpJson("/profile", { symbol }),
-    fmpJson("/historical-price-eod/full", { symbol }),
     fmpJson("/news/stock", { symbols: symbol, limit: "5" }),
   ]);
   const profile = Array.isArray(profileRaw) ? profileRaw[0] : null;
@@ -197,15 +196,11 @@ async function analyzeOnePosition(pos: BrokerPosition): Promise<CommitteeTickerR
   if (!Number.isFinite(currentPrice) || currentPrice <= 0) return null;
   const pnlPct = ((currentPrice - entry) / entry) * 100;
   const currentValue = currentPrice * shares;
-  const histRows = Array.isArray(histRaw)
-    ? histRaw
-    : Array.isArray((histRaw as { historical?: unknown })?.historical)
-      ? ((histRaw as { historical: unknown[] }).historical ?? [])
-      : [];
-  const hist30 = histRows.slice(0, 30);
-  const closes = hist30
-    .map((r) => Number((r as { close?: number }).close ?? NaN))
-    .filter((n) => Number.isFinite(n));
+  const changePct = Number(
+    (profile as { changesPercentage?: number; changePercentage?: number })?.changesPercentage ??
+      (profile as { changePercentage?: number })?.changePercentage ??
+      0,
+  );
   const news = Array.isArray(newsRaw) ? newsRaw.slice(0, 5) : [];
   const newsHeadlines = news
     .map((n) => String((n as { title?: string }).title ?? "").slice(0, 80))
@@ -213,7 +208,7 @@ async function analyzeOnePosition(pos: BrokerPosition): Promise<CommitteeTickerR
     .slice(0, 3);
 
   const alphaPrompt = `Analiza ${symbol} PnL=${pnlPct.toFixed(1)}%. ${JSON_REPLY_HINT}`;
-  const momentumPrompt = `Tendencia ${symbol}. Cierres recientes: ${JSON.stringify(closes.slice(0, 10))}. ${JSON_REPLY_HINT}`;
+  const momentumPrompt = `Tendencia ${symbol}. Cambio día ${changePct.toFixed(2)}% (screener, sin histórico). ${JSON_REPLY_HINT}`;
   const sentinelPrompt = `Riesgo ${symbol}: PnL ${pnlPct.toFixed(1)}%, valor $${currentValue.toFixed(2)}. ${JSON_REPLY_HINT}`;
   const oraclePrompt = `Noticias ${symbol}: ${newsHeadlines.join(" | ") || "sin noticias"}. ${JSON_REPLY_HINT}`;
 

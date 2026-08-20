@@ -344,18 +344,16 @@ function calcRsi14(closesDesc: number[]): number {
 }
 
 async function fetchSpyMomentum5d(): Promise<number> {
-  const hist = await fmpJson("/historical-price-eod/full", { symbol: "SPY" });
-  const rows = Array.isArray(hist)
-    ? hist
-    : Array.isArray((hist as { historical?: unknown })?.historical)
-      ? ((hist as { historical: unknown[] }).historical ?? [])
-      : [];
-  const closes = rows
-    .slice(0, 6)
-    .map((r) => Number((r as { close?: number }).close ?? NaN))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  if (closes.length < 2) return 0;
-  return ((closes[0]! - closes[closes.length - 1]!) / closes[closes.length - 1]!) * 100;
+  // No historical endpoint on Starter — use SPY profile change% as proxy.
+  const body = await fmpJson("/profile", { symbol: "SPY" });
+  const row = Array.isArray(body) ? body[0] : body;
+  if (!row || typeof row !== "object") return 0;
+  const cp = Number(
+    (row as { changesPercentage?: number; changePercentage?: number }).changesPercentage ??
+      (row as { changePercentage?: number }).changePercentage ??
+      0,
+  );
+  return Number.isFinite(cp) ? cp : 0;
 }
 
 async function fetchEarningsToday(): Promise<string[]> {
@@ -465,31 +463,10 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
       const ranked = [...filtered].sort((a, b) => seedScore(b) - seedScore(a));
       const candidates = ranked.slice(0, HISTORY_CANDIDATES);
 
-      // Light momentum enrichment (rate-limited concurrency=3).
-      const withMomentum = await mapWithConcurrency(candidates, HISTORY_CONCURRENCY, async (r) => {
-        if (r.sources.includes("portfolio") || r.sources.some((s) => s.startsWith("fmp-") || s.startsWith("ibkr-"))) {
-          // Skip heavy history for most names when movers already have changePct.
-          if (Math.abs(r.changePct) >= 1) return tickerFromSeed(r, spy5d, r.changePct, 0);
-        }
-        try {
-          const h = await fmpJson("/historical-price-eod/full", { symbol: r.symbol });
-          const histRows = Array.isArray(h)
-            ? h
-            : Array.isArray((h as { historical?: unknown })?.historical)
-              ? ((h as { historical: unknown[] }).historical ?? [])
-              : [];
-          const closes = histRows
-            .slice(0, 20)
-            .map((x) => Number((x as { close?: number }).close ?? NaN))
-            .filter((n) => Number.isFinite(n) && n > 0);
-          const momentum5d =
-            closes.length >= 6 ? ((closes[0]! - closes[5]!) / closes[5]!) * 100 : r.changePct;
-          const rsi14 = calcRsi14(closes.slice(0, 15));
-          return tickerFromSeed(r, spy5d, momentum5d, rsi14);
-        } catch {
-          return tickerFromSeed(r, spy5d, r.changePct, 0);
-        }
-      });
+      // Screener-only enrichment — never call historical-price-eod (Starter 402)
+      const withMomentum = candidates.map((r) =>
+        tickerFromSeed(r, spy5d, r.changePct, 0),
+      );
 
       const excluded = new Set(excludedEarnings);
       // Always keep portfolio names even on earnings day (user already holds them).

@@ -13,9 +13,9 @@ import {
   notifyOrderExecuted,
   notifyPositionClosed,
   notifyStalePosition,
-  sendTelegramMessage,
 } from "@/lib/notifications/telegram-bot";
 import { sendDailyClosePremiumReport } from "@/lib/notifications/cycle-premium-report";
+import { maybeSendHourlyTelegramSummary } from "@/lib/notifications/telegram-policy";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { fetchTradingAccountSnapshot, fetchTradingPrice } from "@/lib/trading/ibkr-data";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
@@ -459,11 +459,6 @@ async function tick(): Promise<void> {
           console.log(`[PositionMonitor] ${ticker} TP tocado @$${price.toFixed(2)} → SELL`);
           const exit = await beginExitSell(pos, price, "TP", `Auto take profit for ${ticker}`);
           if (exit.status === "skipped") continue;
-          const pnlUSD = (price - pos.entryPrice) * pos.shares;
-          const sign = pnlUSD >= 0 ? "+" : "";
-          await sendTelegramMessage(
-            `🎯 TAKE PROFIT AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${exit.orderId ? ` | IBKR #${exit.orderId}` : ""}`,
-          );
           await closePosition(pos, price, "TP");
           continue;
         }
@@ -472,11 +467,6 @@ async function tick(): Promise<void> {
           console.log(`[PositionMonitor] ${ticker} SL tocado @$${price.toFixed(2)} → SELL`);
           const exit = await beginExitSell(pos, price, "SL", `Auto stop loss for ${ticker}`);
           if (exit.status === "skipped") continue;
-          const pnlUSD = (price - pos.entryPrice) * pos.shares;
-          const sign = pnlUSD >= 0 ? "+" : "";
-          await sendTelegramMessage(
-            `🛑 STOP LOSS AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${exit.orderId ? ` | IBKR #${exit.orderId}` : ""}`,
-          );
           await closePosition(pos, price, "SL");
           continue;
         }
@@ -493,19 +483,13 @@ async function tick(): Promise<void> {
             `Auto hard stop ${HARD_STOP_LOSS_PCT}% for ${ticker}`,
           );
           if (exit.status === "skipped") continue;
-          const pnlUSD = (price - pos.entryPrice) * pos.shares;
-          const sign = pnlUSD >= 0 ? "+" : "";
-          await sendTelegramMessage(
-            `🛑 STOP LOSS AUTO: ${ticker} vendida @$${price.toFixed(2)} | P&L: ${sign}$${pnlUSD.toFixed(2)}${exit.orderId ? ` | IBKR #${exit.orderId}` : ""}`,
-          );
           await closePosition(pos, price, "SL");
           continue;
         }
         if (pnlPct >= PROFIT_APPROVAL_PCT) {
-          const pnlUSD = (price - pos.entryPrice) * pos.shares;
-          const sign = pnlUSD >= 0 ? "+" : "";
-          await sendTelegramMessage(
-            `🎯 TAKE PROFIT: ${ticker} +${pnlPct.toFixed(1)}% | P&L: ${sign}$${pnlUSD.toFixed(2)} — aprobar SELL sugerido`,
+          // Suggestion only — no Telegram spam (hourly digest)
+          console.log(
+            `[PositionMonitor] ${ticker} cerca TP +${pnlPct.toFixed(1)}% — sin alert Telegram`,
           );
         }
 
@@ -546,6 +530,7 @@ async function tick(): Promise<void> {
       lastDailySummaryDate = dateKey;
       await sendDailyClosePremiumReport();
     }
+    await maybeSendHourlyTelegramSummary();
   } finally {
     running = false;
   }

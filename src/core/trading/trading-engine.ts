@@ -16,7 +16,6 @@ import { registerExecutedPosition } from './position-monitor'
 import { evaluateProStrategies } from './strategies/pro-strategies'
 import { getMacroContext } from '@/lib/market-data/macro-context'
 import { notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
-import { sendTelegramMessage } from '@/lib/notifications/telegram-bot'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -838,11 +837,7 @@ export class TradingEngine {
         console.log(
           `[AutoExecute] ${ticker} → EJECUTADO ibkrId=${executed.orderId ?? 'n/a'} ✅`,
         )
-        await sendTelegramMessage(
-          `⚡ AUTO: ${ticker} BUY ${resolvedShares}@$${priceData.currentPrice.toFixed(2)} | ` +
-            `Conf: ${(signal.confidence * 100).toFixed(0)}% | ${signal.primaryStrategy} | ` +
-            `SL: $${effectiveStopLoss.toFixed(2)} | TP: $${effectiveTakeProfit.toFixed(2)}`,
-        )
+        // Telegram immediate alert via registerExecutedPosition → notifyOrderExecuted
       } else {
         console.warn(
           `[AutoExecute] ${ticker} → ERROR: no EXECUTED status=${executed.status} reason=${executed.reason} ❌`,

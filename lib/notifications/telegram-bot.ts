@@ -263,13 +263,9 @@ export async function notifySignalDetected(payload: SignalTelegramPayload): Prom
 /** Circuit breaker halted. */
 export async function notifyCircuitBreaker(dailyLossPct: number): Promise<void> {
   if (!notifyEnabled("halt")) return;
-  const text = `🚨 RISK GATE ACTIVADO: Pérdida -${dailyLossPct.toFixed(1)}% NAV. Trading pausado hasta mañana.`;
-  await sendTelegramMessage(text, [
-    [
-      { text: "▶️ REANUDAR", callback_data: "resume_trading" },
-      { text: "📊 VER CARTERA", callback_data: "view_portfolio" },
-    ],
-  ]);
+  const { sendCriticalTelegramAlert } = await import("@/lib/notifications/telegram-policy");
+  const text = `🚨 RISK GATE ACTIVADO: Pérdida -${dailyLossPct.toFixed(1)}% NAV. Trading pausado.`;
+  await sendCriticalTelegramAlert(text);
 }
 
 /** Pre-trade checklist HOLD — uses signal notify flag (same channel as trade alerts). */
@@ -278,16 +274,9 @@ export async function notifyPreTradeHold(params: {
   reason: string;
   htmlBody?: string;
 }): Promise<void> {
-  if (!notifyEnabled("signal")) return;
-  console.log(`[Telegram] notifyPreTradeHold: ${params.ticker} — ${params.reason.slice(0, 120)}`);
-  const text =
-    params.htmlBody?.trim() ||
-    [
-      "⏸ <b>PRETRADE HOLD</b> — ForgeOS",
-      `📈 <b>${params.ticker}</b>`,
-      params.reason,
-    ].join("\n");
-  await sendTelegramMessage(text);
+  // Noise — do not spam Telegram (hourly digest covers activity)
+  console.log(`[Telegram] notifyPreTradeHold omitido (no spam): ${params.ticker}`);
+  void params;
 }
 
 /** Order executed. */
@@ -299,8 +288,24 @@ export async function notifyOrderExecuted(params: {
   takeProfit?: number;
 }): Promise<void> {
   if (!notifyEnabled("execution")) return;
-  const text = `✅ Ejecutado: ${params.ticker} ${params.shares}@$${params.price.toFixed(2)} | ${params.stopLoss != null ? "SL activo" : "SL n/a"} | ${params.takeProfit != null ? "TP activo" : "TP n/a"}`;
-  await sendTelegramMessage(text);
+  const { recordHourlyExecution, sendImmediateTradeAlert } = await import(
+    "@/lib/notifications/telegram-policy"
+  );
+  recordHourlyExecution({
+    ticker: params.ticker,
+    side: "BUY",
+    shares: params.shares,
+    price: params.price,
+  });
+  const sl =
+    params.stopLoss != null && params.stopLoss > 0 ? `SL $${params.stopLoss.toFixed(2)}` : "SL n/a";
+  const tp =
+    params.takeProfit != null && params.takeProfit > 0
+      ? `TP $${params.takeProfit.toFixed(2)}`
+      : "TP n/a";
+  await sendImmediateTradeAlert(
+    `⚡ AUTO: ${params.ticker} BUY ${params.shares}@$${params.price.toFixed(2)} | ${sl} | ${tp}`,
+  );
 }
 
 /** Take profit or stop loss hit. */
@@ -312,17 +317,26 @@ export async function notifyPositionClosed(params: {
   navUSD: number;
 }): Promise<void> {
   if (!notifyEnabled("execution")) return;
-  const icon = params.kind === "TP" ? "🎯 TAKE PROFIT" : "🛑 STOP LOSS";
+  const { recordHourlyClose, sendImmediateTradeAlert } = await import(
+    "@/lib/notifications/telegram-policy"
+  );
+  recordHourlyClose({
+    ticker: params.ticker,
+    pnlUSD: params.pnlUSD,
+    kind: params.kind,
+  });
   const sign = params.pnlUSD >= 0 ? "+" : "";
-  const text = `${icon}: ${params.ticker} | P&L: ${sign}$${params.pnlUSD.toFixed(2)} (${sign}${params.pnlPct.toFixed(1)}%) | NAV: $${params.navUSD.toFixed(2)}`;
-  await sendTelegramMessage(text);
+  const text =
+    params.kind === "TP"
+      ? `🎯 TAKE PROFIT: ${params.ticker} ${sign}$${params.pnlUSD.toFixed(2)} ✅`
+      : `🛑 STOP LOSS: ${params.ticker} ${sign}$${params.pnlUSD.toFixed(2)} ❌`;
+  await sendImmediateTradeAlert(text);
 }
 
 /** Stale position (>24h). */
 export async function notifyStalePosition(ticker: string, hoursOpen: number): Promise<void> {
-  await sendTelegramMessage(
-    `⏰ <b>Posición abierta ${hoursOpen.toFixed(0)}h</b> — ${ticker} sin alcanzar SL/TP`,
-  );
+  // Noise — skip Telegram
+  console.log(`[Telegram] stale omitido: ${ticker} ${hoursOpen.toFixed(0)}h`);
 }
 
 /** Phase G — Portfolio optimizer entered DEFENSIVE mode (recommendations only). */

@@ -247,157 +247,23 @@ export async function sendCyclePremiumReport(
   result: TradeCycleResult,
   meta: { analyzed: number; universeScanned: number; universeFiltered: number },
 ): Promise<void> {
-  const stats = recordCycleStats(result);
-  const { dayName, dateLabel, timeLabel } = madridParts();
-  const validSignals = result.orders.filter(isValidSignal);
-  const accountSnap = await fetchTradingAccountSnapshot().catch(() => null);
-  const navEur = accountSnap?.combinedNav ?? accountSnap?.navUSD ?? result.accountSnapshot.navUSD;
-  const navPct = navEur > 0 ? (result.accountSnapshot.dailyPnlUSD / navEur) * 100 : 0;
-
-  if (validSignals.length === 0) {
-    await sendTelegramMessage(
-      `✅ FORGEOS ${timeLabel} | ${meta.analyzed} analizados | Sin señales (conf&lt;60%) | NAV: ${fmtEur(navEur)} | Próximo: 3min`,
-    );
-    return;
-  }
-
-  const [macro, macroSentiment, portfolio, brokerOk, daily] = await Promise.all([
-    fetchMacroLines(),
-    getMacroSentimentContext(),
-    fetchPortfolioRows(),
-    fetchBrokerConnected(),
-    Promise.resolve(getDailyMarketUniverse()),
-  ]);
-
-  const leader = macro.sectors[0];
-  const laggard = macro.sectors[macro.sectors.length - 1];
-  const monitored = loadTradingState().monitoredPositions;
-  const slLines = monitored.map((p) => `${p.ticker} @${fmtUsd(p.stopLoss)}`).join(" | ");
-  const tpLines = monitored.map((p) => `${p.ticker} @${fmtUsd(p.takeProfit)}`).join(" | ");
-
-  const todayKey = madridParts().dateKey;
-  const outcomes = loadOptimizerState().closedOutcomes;
-  const todayTrades = outcomes.filter((o) => (o.closedAt ?? "").startsWith(todayKey));
-  const weekTrades = outcomes.filter((o) => {
-    const t = new Date(o.closedAt).getTime();
-    return Date.now() - t <= 7 * 24 * 60 * 60 * 1000;
-  });
-  const todayPnl = todayTrades.reduce((s, o) => s + (o.pnlUSD ?? 0), 0);
-  const weekPnl = weekTrades.reduce((s, o) => s + (o.pnlUSD ?? 0), 0);
-  const winsToday = todayTrades.filter((o) => (o.pnlUSD ?? 0) > 0).length;
-  const winRate = todayTrades.length > 0 ? (winsToday / todayTrades.length) * 100 : 0;
-  const bestToday = todayTrades.sort((a, b) => (b.pnlPct ?? 0) - (a.pnlPct ?? 0))[0];
-
-  const dailyPnlUSD = accountSnap?.dailyPnlUSD ?? result.accountSnapshot.dailyPnlUSD;
-  const exposureUsd = portfolio.reduce((s, r) => s + Math.abs(r.shares * r.price), 0);
-  const exposurePct = navEur > 0 ? (exposureUsd / navEur) * 100 : 0;
-  const maxRisk = navEur * TRADING_CONFIG.risk.dailyLossLimitPct;
-
-  const acctU242 = accountSnap?.accounts.find((a) => a.accountId === "U24225949");
-  const acctU155 = accountSnap?.accounts.find((a) => a.accountId === "U15513057");
-
-  const signalBlocks = validSignals.slice(0, 4).map((o) => {
-    const metaTicker = daily?.tickers.find((t) => t.symbol === o.ticker);
-    return signalBox(o, metaTicker);
-  });
-
-  const autoLines = result.orders
-    .filter((o) => o.status === "EXECUTED")
-    .map((o) => `⚡ AUTO-EJECUTADO: ${o.ticker} ${o.direction} @${fmtUsd(o.price ?? 0)} | Conf: ${Math.round(o.signal.confidence * 100)}%`)
-    .join("\n");
-
-  const alerts: string[] = [];
-  for (const t of daily?.tickers ?? []) {
-    if (t.avgVolume > 0 && t.volume / t.avgVolume >= 2) {
-      alerts.push(`🔥 ${t.symbol}: Volumen ${(t.volume / t.avgVolume).toFixed(1)}x media inusual`);
-    }
-    if (t.dist52wHigh >= 0.98) {
-      alerts.push(`📈 ${t.symbol}: Cerca de máximo anual (${(t.dist52wHigh * 100).toFixed(0)}%)`);
-    }
-  }
-  for (const e of daily?.excludedEarnings ?? []) {
-    alerts.push(`📅 ${e} earnings hoy — excluido del ciclo`);
-  }
-  for (const r of portfolio.filter((p) => p.pnlPct >= 8)) {
-    alerts.push(`📈 ${r.symbol}: Cerca de tomar profit (${fmtPct(r.pnlPct)})`);
-  }
-
-  const vixLabel =
-    macro.vix.price != null && macro.vix.price < 20
-      ? "Baja volatilidad ✅"
-      : macro.vix.price != null && macro.vix.price >= 25
-        ? "Alta volatilidad ⚠️"
-        : "Volatilidad moderada";
-
-  const text = [
-    "🤖 FORGEOS AI INVESTMENT SYSTEM",
-    `📅 ${dayName} ${dateLabel} | 🕐 ${timeLabel} Madrid`,
-    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-    "",
-    "🌍 MACRO &amp; MERCADO",
-    `- S&amp;P 500: ${macro.spy.price != null ? macro.spy.price.toFixed(0) : "N/A"} (${fmtPct(macro.spy.changePct)}) | NASDAQ: ${macro.qqq.price != null ? macro.qqq.price.toFixed(0) : "N/A"} (${fmtPct(macro.qqq.changePct)})`,
-    `- VIX: ${macro.vix.price?.toFixed(1) ?? "N/A"} (${vixLabel})`,
-    `- DXY: ${macro.dxy.price?.toFixed(1) ?? "N/A"} (${fmtPct(macro.dxy.changePct)}) | Gold: ${macro.gold.price != null ? fmtUsd(macro.gold.price) : "N/A"} (${fmtPct(macro.gold.changePct)})`,
-    `- 10Y Yield: ${macro.tnx.price?.toFixed(2) ?? "N/A"}% | Fear &amp; Greed: ${macroSentiment.fearGreedIndex ?? "N/A"} (${macroSentiment.fearGreedLabel ?? "N/A"})`,
-    `- Sector líder hoy: ${leader?.name ?? "N/A"} 🏆 (${leader?.etf ?? ""} ${fmtPct(leader?.changePct)})`,
-    `- Sector rezagado: ${laggard?.name ?? "N/A"} (${laggard?.etf ?? ""} ${fmtPct(laggard?.changePct)})`,
-    "",
-    "🧠 AI COMMITTEE — ANÁLISIS",
-    `- Universo escaneado: ${meta.universeScanned.toLocaleString("es-ES")} tickers USA`,
-    `- Filtrados por criterios: ${meta.universeFiltered} candidatos`,
-    `- Analizados por IA: ${meta.analyzed} | Señales válidas: ${validSignals.length}`,
-    "- Agentes activos: ALPHA + MOMENTUM + SENTINEL + ORACLE + GOVERNOR",
-    "",
-    "📊 SEÑALES DETECTADAS",
-    signalBlocks.join("\n"),
-    autoLines || "",
-    "",
-    "💼 PORTFOLIO ACTUAL",
-    portfolioTable(portfolio),
-    slLines ? `- SL activos: ${slLines}` : "",
-    tpLines ? `- TP activos: ${tpLines}` : "",
-    "",
-    "💰 CAPITAL &amp; RIESGO",
-    `- U24225949 (Cash): ${fmtEur(acctU242?.cash ?? 0)} disponible`,
-    `- U15513057 (Margin): ${fmtEur(acctU155?.cash ?? 0)} disponible`,
-    `- NAV Total: ${fmtEur(navEur)} (${fmtPct(navPct)})`,
-    `- Exposición: ${exposurePct.toFixed(0)}% del portfolio`,
-    `- Riesgo máximo día: ${fmtEur(maxRisk)} (-10% NAV)`,
-    `- Drawdown actual: ${dailyPnlUSD < 0 && navEur > 0 ? fmtPct((dailyPnlUSD / navEur) * 100) : "0%"}`,
-    "",
-    "📈 RENDIMIENTO",
-    `- Hoy: ${todayPnl >= 0 ? "+" : ""}${fmtUsd(todayPnl)} (${fmtPct(navPct)})`,
-    `- Semana: ${weekPnl >= 0 ? "+" : ""}${fmtUsd(weekPnl)} (${navEur > 0 ? fmtPct((weekPnl / navEur) * 100) : "N/A"})`,
-    `- Operaciones hoy: ${todayTrades.length} | Ganadoras: ${winsToday} | Win rate: ${winRate.toFixed(0)}%`,
-    "- Ratio R/R medio: 1:2.6",
-    bestToday ? `- Mejor operación: ${bestToday.ticker} ${fmtPct(bestToday.pnlPct)}` : "",
-    "",
-    "🔔 ALERTAS ACTIVAS",
-    ...(alerts.length ? alerts.map((a) => `- ${a}`) : ["- Sin alertas críticas"]),
-    "",
-    "⚙️ SISTEMA",
-    `- Estado: ${RiskManager.getInstance().isHalted() ? "🔴 PAUSADO" : "🟢 OPERATIVO"}`,
-    `- Broker: ${brokerOk ? "🟢 CONECTADO (IBKR)" : "🔴 DESCONECTADO"}`,
-    "- Próximo ciclo: 3 min",
-    `- Ciclos hoy: ${stats.cyclesRun} | Señales: ${stats.signalsDetected} | Auto-ejecutadas: ${stats.autoExecuted}`,
-    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  await sendTelegramMessage(text, [
-    [
-      { text: "⚡ CICLO AHORA", callback_data: "run_cycle" },
-      { text: "🧠 AI COMMITTEE", callback_data: "committee_run" },
-    ],
-    [
-      { text: "💼 PORTFOLIO", callback_data: "view_portfolio" },
-      { text: "⚙️ SETTINGS", callback_data: "view_settings" },
-    ],
-  ]);
+  // Per-cycle Telegram reports removed (spam every 3 min).
+  // Stats still recorded; hourly digest + immediate trade alerts handle notifications.
+  void meta;
+  recordCycleStats(result);
+  const { onTradingCycleTelegramHook } = await import("@/lib/notifications/telegram-policy");
+  await onTradingCycleTelegramHook();
+  console.log(
+    `[Telegram] ciclo registrado sin spam | orders=${result.orders.length} analyzed=${meta.analyzed}`,
+  );
 }
 
 export async function sendDailyClosePremiumReport(): Promise<void> {
+  const { canSendTelegramAlert } = await import("@/lib/notifications/telegram-policy");
+  // Daily close at 22:00 — allowed even near night edge; not in 23-08 silence window
+  if (!canSendTelegramAlert("digest") && !canSendTelegramAlert("trade")) {
+    // Still send daily at 22:00 explicitly (digest blocked only 23-08)
+  }
   const { dateLabel } = madridParts();
   const dateKey = madridParts().dateKey;
   const account = await fetchTradingAccountSnapshot().catch(() => null);
@@ -427,7 +293,7 @@ export async function sendDailyClosePremiumReport(): Promise<void> {
     `⚡ Auto-ejecutadas: ${stats.autoExecuted} | Semi-auto: ${stats.semiAuto}`,
     best ? `🥇 Mejor: ${best.ticker} ${fmtPct(best.pnlPct)}` : "",
     worst ? `📉 Peor: ${worst.ticker} ${fmtPct(worst.pnlPct)}` : "",
-    "🌙 Posiciones cerradas: todas (day trading)",
+    "🌙 Posiciones: SL/TP monitor activo",
     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
     "📅 Mañana: Apertura Europa 09:00",
   ]

@@ -2,7 +2,7 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { invalidateIbkrReadCache } from "@/lib/trading/ibkr-cache";
-import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
+import { sendCriticalTelegramAlert } from "@/lib/notifications/telegram-policy";
 
 export type IbkrReconnectResult = {
   connected: boolean;
@@ -75,7 +75,7 @@ async function tickReconnectMonitor(): Promise<void> {
       if (!ok) {
         consecutiveReconnectFailures += 1;
         if (consecutiveReconnectFailures === 1) {
-          await sendTelegramMessage(
+          await sendCriticalTelegramAlert(
             "⚠️ IBKR desconectado — revisión manual necesaria (falló reconexión tras 3 intentos)",
           );
         }

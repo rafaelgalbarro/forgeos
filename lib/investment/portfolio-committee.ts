@@ -3,8 +3,6 @@ import "server-only";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { submitSupervisedLiveLimitOrder } from "@/lib/investment/ibkr-supervised-submit";
-import { parseJsonFromModelText } from "@/lib/ai/trading-prompt";
-
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const COMMITTEE_MODEL = "claude-sonnet-4-6";
 const MAX_PARALLEL_POSITIONS = 3;
@@ -61,6 +59,15 @@ function asDecision(v: unknown): CommitteeDecision {
   return String(v).toUpperCase().includes("VEN") ? "VENDER" : "MANTENER";
 }
 
+/** Strip markdown fences (```json ... ```) before JSON.parse — all committee agents. */
+function parseCommitteeJson(response: string): Record<string, unknown> {
+  const cleanJson = response
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
+  return JSON.parse(cleanJson) as Record<string, unknown>;
+}
+
 async function callCommitteeAgent(systemRole: string, userPrompt: string): Promise<CommitteeVote> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) {
@@ -85,7 +92,7 @@ async function callCommitteeAgent(systemRole: string, userPrompt: string): Promi
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
   const data = (await res.json()) as { content?: Array<{ text?: string }> };
-  const parsed = parseJsonFromModelText(data.content?.[0]?.text ?? "{}");
+  const parsed = parseCommitteeJson(data.content?.[0]?.text ?? "{}");
   return {
     decision: asDecision(parsed.decision),
     confidence: clampConfidence(parsed.confidence),

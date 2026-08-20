@@ -90,8 +90,22 @@ function vwapApprox(bar: FmpBar): number {
 }
 
 async function recentEarningsBeat(symbol: string): Promise<boolean> {
+  const set = await loadEarningsBeatSet();
+  return set.has(symbol);
+}
+
+let earningsCache: { at: number; beats: Set<string> } | null = null;
+
+async function loadEarningsBeatSet(): Promise<Set<string>> {
+  if (earningsCache && Date.now() - earningsCache.at < 30 * 60 * 1000) {
+    return earningsCache.beats;
+  }
   const key = process.env.FMP_API_KEY?.trim();
-  if (!key) return false;
+  const beats = new Set<string>();
+  if (!key) {
+    earningsCache = { at: Date.now(), beats };
+    return beats;
+  }
   const to = new Date();
   const from = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -101,29 +115,72 @@ async function recentEarningsBeat(symbol: string): Promise<boolean> {
     url.searchParams.set("to", fmt(to));
     url.searchParams.set("apikey", key);
     const res = await fetch(url.toString(), { cache: "no-store", signal: AbortSignal.timeout(12_000) });
-    if (!res.ok) return false;
-    const body = (await res.json()) as Array<{ symbol?: string; epsEstimated?: number; eps?: number }>;
-    if (!Array.isArray(body)) return false;
-    const row = body.find((r) => String(r.symbol ?? "").toUpperCase() === symbol);
-    if (!row) return false;
-    const est = Number(row.epsEstimated);
-    const act = Number(row.eps);
-    if (!Number.isFinite(est) || !Number.isFinite(act)) return true; // calendar hit without EPS → treat as event
-    return act >= est;
+    if (res.ok) {
+      const body = (await res.json()) as Array<{ symbol?: string; epsEstimated?: number; eps?: number }>;
+      if (Array.isArray(body)) {
+        for (const row of body) {
+          const sym = String(row.symbol ?? "").toUpperCase();
+          if (!sym) continue;
+          const est = Number(row.epsEstimated);
+          const act = Number(row.eps);
+          if (!Number.isFinite(est) || !Number.isFinite(act) || act >= est) beats.add(sym);
+        }
+      }
+    }
   } catch {
-    return false;
+    /* ignore */
   }
+  earningsCache = { at: Date.now(), beats };
+  return beats;
 }
 
-export async function evaluateProStrategies(ticker: string): Promise<ProStrategySignal> {
-  const symbol = ticker.trim().toUpperCase();
-  const [quote, hist] = await Promise.all([
-    getQuote(symbol),
-    getHistory(symbol, 90),
-  ]);
+export type ProStrategyInput = {
+  /** Live price override (skip FMP profile if set). */
+  price?: number;
+  /** Daily change in percent (e.g. 2.5 = +2.5%). */
+  change1dPct?: number;
+  volume?: number;
+  yearHigh?: number;
+  /** Pre-fetched OHLCV bars (ascending). */
+  historicalData?: FmpBar[];
+};
 
-  const price = quote?.price ?? hist.at(-1)?.close ?? 0;
+export async function evaluateProStrategies(
+  ticker: string,
+  historicalDataOrInput?: FmpBar[] | ProStrategyInput,
+): Promise<ProStrategySignal> {
+  const symbol = ticker.trim().toUpperCase();
+  const input: ProStrategyInput = Array.isArray(historicalDataOrInput)
+    ? { historicalData: historicalDataOrInput }
+    : (historicalDataOrInput ?? {});
+
+  let hist = input.historicalData ?? [];
+  let quotePrice = input.price ?? 0;
+  let quoteChange = input.change1dPct;
+  let quoteVolume = input.volume;
+  let quoteYearHigh = input.yearHigh;
+
+  if (hist.length < 25 || !(quotePrice > 0)) {
+    const [quote, fetchedHist] = await Promise.all([
+      quotePrice > 0
+        ? Promise.resolve(null)
+        : getQuote(symbol).catch(() => null),
+      hist.length >= 25
+        ? Promise.resolve(hist)
+        : getHistory(symbol, 90).catch(() => [] as FmpBar[]),
+    ]);
+    if (fetchedHist.length) hist = fetchedHist;
+    if (quote) {
+      quotePrice = quote.price;
+      quoteChange = quote.changePercentage;
+      quoteVolume = quote.volume;
+      quoteYearHigh = quote.yearHigh;
+    }
+  }
+
+  const price = quotePrice > 0 ? quotePrice : hist.at(-1)?.close ?? 0;
   if (!(price > 0) || hist.length < 25) {
+    console.log(`[ProStrategy] ${symbol}: ninguna estrategia activa (datos insuficientes bars=${hist.length})`);
     return {
       direction: "HOLD",
       confidence: 0,
@@ -152,19 +209,23 @@ export async function evaluateProStrategies(ticker: string): Promise<ProStrategy
   const last = hist[hist.length - 1]!;
   const prev = hist[hist.length - 2] ?? last;
   const vol20 = avgVolume(hist.slice(0, -1), 20);
-  const volToday = quote?.volume ?? last.volume ?? 0;
+  const volToday = quoteVolume ?? last.volume ?? 0;
   const relVolume = vol20 > 0 ? volToday / vol20 : 1;
-  const change1d = quote?.changePercentage ?? ((price - prev.close) / prev.close) * 100;
+  const change1d =
+    quoteChange != null && Number.isFinite(quoteChange)
+      ? quoteChange
+      : prev.close > 0
+        ? ((price - prev.close) / prev.close) * 100
+        : 0;
   const rsi14 = rsi(c, 14);
   const ema9 = ema(c, 9);
   const ema21 = ema(c, 21);
   const ema50 = ema(c, 50);
-  // Prior bar EMA for crossover detection
   const ema9Prev = ema(c.slice(0, -1), 9);
   const ema21Prev = ema(c.slice(0, -1), 21);
   const high20 = Math.max(...hist.slice(-21, -1).map((b) => b.high));
   const low5 = Math.min(...hist.slice(-5).map((b) => b.low));
-  const yearHigh = quote?.yearHigh ?? Math.max(...hist.map((b) => b.high));
+  const yearHigh = quoteYearHigh ?? Math.max(...hist.map((b) => b.high));
   const dist52w = yearHigh > 0 ? price / yearHigh : 0;
   const vwap = vwapApprox(last);
   const gapPct = prev.close > 0 ? ((last.open - prev.close) / prev.close) * 100 : 0;
@@ -311,6 +372,7 @@ export async function evaluateProStrategies(ticker: string): Promise<ProStrategy
   }
 
   if (hits.length === 0) {
+    console.log(`[ProStrategy] ${symbol}: ninguna estrategia activa`);
     return {
       direction: "HOLD",
       confidence: 0,
@@ -339,6 +401,10 @@ export async function evaluateProStrategies(ticker: string): Promise<ProStrategy
   const primary = hits[0]!;
   const confidence = Math.min(0.92, primary.baseConfidence + Math.max(0, hits.length - 1) * 0.08);
   const names = hits.map((h) => h.name).join(" + ");
+  console.log(
+    `[ProStrategy] ${symbol}: ${primary.id} conf=${(confidence * 100).toFixed(0)}% BUY` +
+      (hits.length > 1 ? ` (+${hits.length - 1} más)` : ""),
+  );
 
   return {
     direction: "BUY",

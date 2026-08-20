@@ -14,6 +14,7 @@ import {
 } from './auto-approval'
 import { registerExecutedPosition } from './position-monitor'
 import { evaluateProStrategies } from './strategies/pro-strategies'
+import { getHistory } from '@/lib/market-data/fmp'
 import { getMacroContext } from '@/lib/market-data/macro-context'
 import { notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
 import { sendTelegramMessage } from '@/lib/notifications/telegram-bot'
@@ -86,8 +87,9 @@ export class TradingEngine {
   private risk = RiskManager.getInstance()
   private approvals = OrderApprovalGate.getInstance()
 
-  private static readonly TICKER_TIMEOUT_MS = 5_000
+  private static readonly TICKER_TIMEOUT_MS = 20_000
   private static readonly MAX_SHARES_PER_ORDER = 10
+  private static readonly CYCLE_CONCURRENCY = 4
 
   private static async withTickerTimeout<T>(
     promise: Promise<T>,
@@ -134,33 +136,59 @@ export class TradingEngine {
       }
     }
 
-    // 3. Procesar tickers en paralelo (5s mÃ¡x por ticker)
-    const jobs = tickers.map(async (ticker) => {
-      if (this.risk.isHalted()) return null
-      try {
-        const order = await TradingEngine.withTickerTimeout(
-          this.processTicker(ticker, account),
-          ticker,
-        )
-        if (order.status === 'PENDING_APPROVAL' && order.direction === 'BUY' && order.sharesOrValue) {
-          account.cashUSD = Math.max(0, account.cashUSD - order.sharesOrValue)
-        }
-        return order
-      } catch (err) {
-        return {
-          status: 'ERROR' as const,
-          ticker,
-          direction: 'HOLD' as const,
-          reason: err instanceof Error ? err.message : 'Error desconocido',
-          signal: { confidence: 0, reasoning: 'Error en ciclo', urgency: 'LOW' as const },
-          timestamp: new Date().toISOString(),
-        }
+    // 3. Procesar tickers con Pro Strategies (concurrencia limitada anti-429)
+    console.log(`[ProStrategy] Ciclo ${cycleId}: evaluando ${tickers.length} tickers (concurrency=${TradingEngine.CYCLE_CONCURRENCY})`)
+    const jobs: Array<Promise<OrderResult | null>> = []
+    let cursor = 0
+    const worker = async (): Promise<void> => {
+      while (cursor < tickers.length) {
+        if (this.risk.isHalted()) return
+        const i = cursor++
+        const ticker = tickers[i]!
+        jobs[i] = (async () => {
+          try {
+            const order = await TradingEngine.withTickerTimeout(
+              this.processTicker(ticker, account),
+              ticker,
+            )
+            if (order.status === 'PENDING_APPROVAL' && order.direction === 'BUY' && order.sharesOrValue) {
+              account.cashUSD = Math.max(0, account.cashUSD - order.sharesOrValue)
+            }
+            if (order.status === 'EXECUTED') {
+              console.log(`[Signal] ${ticker}: EXECUTED conf=${(order.signal.confidence * 100).toFixed(0)}%`)
+            }
+            return order
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Error desconocido'
+            console.warn(`[ProStrategy] ${ticker}: error — ${msg}`)
+            return {
+              status: 'ERROR' as const,
+              ticker,
+              direction: 'HOLD' as const,
+              reason: msg,
+              signal: { confidence: 0, reasoning: 'Error en ciclo', urgency: 'LOW' as const },
+              timestamp: new Date().toISOString(),
+            }
+          }
+        })()
+        await jobs[i]
       }
-    })
-    const settled = await Promise.allSettled(jobs)
-    for (const item of settled) {
-      if (item.status === 'fulfilled' && item.value) orders.push(item.value)
     }
+    await Promise.all(
+      Array.from({ length: Math.min(TradingEngine.CYCLE_CONCURRENCY, Math.max(1, tickers.length)) }, () =>
+        worker(),
+      ),
+    )
+    for (const job of jobs) {
+      if (!job) continue
+      const item = await job
+      if (item) orders.push(item)
+    }
+
+    const buys = orders.filter((o) => o.direction === 'BUY' && (o.status === 'EXECUTED' || o.status === 'PENDING_APPROVAL'))
+    console.log(
+      `[ProStrategy] Ciclo fin: ${orders.length} tickers | señales BUY=${buys.length} | executed=${orders.filter((o) => o.status === 'EXECUTED').length}`,
+    )
 
     return {
       cycleId, startedAt, completedAt: new Date().toISOString(),
@@ -325,8 +353,19 @@ export class TradingEngine {
     }
         const usExtendedHours = true // 24h: always submit with outside_rth
 
-    // Professional strategies only - no PatternRecognition / Sentiment
-    const strategy = await evaluateProStrategies(ticker)
+    // Professional strategies — reuse FMP history when possible
+    const historicalData = await getHistory(ticker, 90).catch(() => [])
+    const change1dPct =
+      priceData.previousClose > 0
+        ? ((priceData.currentPrice - priceData.previousClose) / priceData.previousClose) * 100
+        : 0
+    const strategy = await evaluateProStrategies(ticker, {
+      price: priceData.currentPrice,
+      change1dPct,
+      volume: priceData.volume,
+      yearHigh: priceData.high52w,
+      historicalData,
+    })
     const signal = {
       direction: strategy.direction === 'BUY' ? ('BUY' as const) : ('HOLD' as const),
       confidence: strategy.confidence,
@@ -339,14 +378,8 @@ export class TradingEngine {
       primaryStrategy: strategy.primaryStrategy,
     }
 
-    recordSignalForTelegram({
-      ticker,
-      direction: signal.direction,
-      confidence: signal.confidence,
-      at: new Date().toISOString(),
-    })
-
     if (signal.direction === 'HOLD') {
+      // evaluateProStrategies already logged "[ProStrategy] TICKER: ninguna..."
       return {
         status: 'HOLD', ticker, direction: 'HOLD',
         reason: signal.reasoning,
@@ -354,6 +387,17 @@ export class TradingEngine {
         timestamp: new Date().toISOString(),
       }
     }
+
+    console.log(
+      `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → auto-ejecutar`,
+    )
+
+    recordSignalForTelegram({
+      ticker,
+      direction: signal.direction,
+      confidence: signal.confidence,
+      at: new Date().toISOString(),
+    })
 
     // Account-aware price filter (small accounts)
     const maxPriceForAccount = account.cashUSD < 25 ? 15 : 50

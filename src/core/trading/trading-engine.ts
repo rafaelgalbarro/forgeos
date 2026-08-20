@@ -51,21 +51,16 @@ import {
 import { getInstitutionalMacroCaution24h } from '@/lib/market-data/institutional-scanner'
 import { loadTradingState } from './trading-state-store'
 
-/** Per-account capital filters for small IBKR accounts. */
+/** Per-account capital policy — price band + 30% cash sizing. */
 function resolveAccountCapitalPolicy(
   accountId: string | null | undefined,
   cashUSD: number,
 ): { accountId: string; minPrice: number; maxPrice: number; deployableUSD: number } {
   const id = String(accountId ?? '').trim().toUpperCase()
   const cash = Math.max(0, cashUSD)
-  const half = cash * 0.5
-  if (id === 'U24225949') {
-    return { accountId: id, minPrice: 0.5, maxPrice: 15, deployableUSD: half }
-  }
-  if (id === 'U15513057') {
-    return { accountId: id, minPrice: 1, maxPrice: 50, deployableUSD: half }
-  }
-  return { accountId: id, minPrice: 0.5, maxPrice: 50, deployableUSD: half }
+  const deployableUSD = cash * 0.3
+  // Ambas cuentas: cualquier precio accesible con capital ($0.10–$500)
+  return { accountId: id, minPrice: 0.1, maxPrice: 500, deployableUSD }
 }
 
 export type OrderResult = {
@@ -107,7 +102,6 @@ export class TradingEngine {
   private static readonly TICKER_TIMEOUT_MS = 25_000
   /** Soft ceiling once submitSupervisedLiveLimitOrder is in flight. */
   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 120_000
-  private static readonly MAX_SHARES_PER_ORDER = 10
   private static readonly CYCLE_CONCURRENCY = 4
 
   private static async withTickerTimeout<T>(
@@ -623,10 +617,10 @@ export class TradingEngine {
     }
 
     const orderValueUSD = riskOk.maxOrderValueUSD
-    // Capital filters: qty = floor(deployable/price), min 1 max 10
+    // Sizing dinámico: qty = floor(cash * 0.3 / precio), mínimo 1
     let resolvedShares = Math.floor(capital.deployableUSD / priceData.currentPrice)
     console.log(
-      `[AutoExecute] ${ticker} → cash disponible: $${account.cashUSD.toFixed(2)} | deployable: $${capital.deployableUSD.toFixed(2)} | precio: $${priceData.currentPrice.toFixed(2)} | qty: ${resolvedShares}`,
+      `[AutoExecute] ${ticker} → cash disponible: $${account.cashUSD.toFixed(2)} | 30%: $${capital.deployableUSD.toFixed(2)} | precio: $${priceData.currentPrice.toFixed(2)} | qty: ${resolvedShares}`,
     )
     if (resolvedShares <= 0) {
       console.warn(`[AutoExecute] ${ticker} → capital insuficiente (qty=0) — skip`)
@@ -639,7 +633,7 @@ export class TradingEngine {
         timestamp: new Date().toISOString(),
       }
     }
-    resolvedShares = Math.max(1, Math.min(TradingEngine.MAX_SHARES_PER_ORDER, resolvedShares))
+    resolvedShares = Math.max(1, resolvedShares)
     console.log(
       `[AutoExecute] ${ticker} BUY qty=${resolvedShares} precio=$${priceData.currentPrice.toFixed(2)} ` +
         `SL=$${riskOk.stopLossPrice.toFixed(2)} TP=$${riskOk.takeProfitPrice.toFixed(2)}`,

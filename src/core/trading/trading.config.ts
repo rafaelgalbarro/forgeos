@@ -15,22 +15,22 @@ export const TRADING_CONFIG = {
     dailyLossLimitPct: 0.10,
     /** Diversification soft cap (legacy); live limit from dynamicSizing */
     maxOpenPositions: 20,
-    /** Default SL: -1.5% scalping baseline */
-    defaultStopLossPct: 0.015,
-    /** Default TP: +3% scalping baseline */
-    defaultTakeProfitPct: 0.03,
+    /** Default SL: -3% por posición */
+    defaultStopLossPct: 0.03,
+    /** Default TP: +5% baseline (estrategias pueden override) */
+    defaultTakeProfitPct: 0.05,
     /** Trailing stop: 1.5% desde el máximo alcanzado */
     trailingStopPct: 0.015,
     /** Cash-based dynamic sizing (see dynamic-sizing.ts) */
     dynamicSizing: {
-      maxPctNormal: 0.20,
+      maxPctNormal: 0.30,
       maxPctHighConfidence: 0.30,
       highConfidenceThreshold: 0.80,
       minOrderUSD: 10,
       minCashToTradeUSD: 10,
       analysisOnlyCashUSD: 10,
-      deployableCashPct: 0.50,
-      /** maxPositions = floor(cash / 15), clamped [3, 20] */
+      deployableCashPct: 0.30,
+      /** Soft diversification hint only — not a hard order block when cash remains */
       positionCashDivisor: 15,
       maxOpenPositionsCap: 20,
       minOpenPositions: 3,
@@ -59,7 +59,7 @@ export const TRADING_CONFIG = {
     /** Confianza mínima (0-1) */
     minConfidenceToTrade: 0.60,
     /** Máximo de operaciones por día */
-    maxDailyTrades: 20,
+    maxDailyTrades: 50,
   },
 
   // ── Multi-IA (scanner masivo + confirmación) ───────────────────

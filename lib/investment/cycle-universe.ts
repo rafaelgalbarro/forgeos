@@ -11,6 +11,7 @@ import {
   getDailyUniverse,
   getDailyMarketUniverse,
 } from "@/lib/investment/market-daily-universe";
+import { regionalFocusTickersMadrid } from "@/src/core/trading/strategies/pro-strategies";
 
 const DEFAULT_CYCLE_LIMIT = 100;
 
@@ -51,11 +52,13 @@ export type CycleUniverseResult = {
 
 function resolveFromCache(limit: number): CycleUniverseResult {
   const cap = Math.max(1, Math.min(limit, 100));
+  const regional = regionalFocusTickersMadrid();
   const daily = getDailyUniverse() ?? getDailyMarketUniverse();
   const fromDaily = (daily?.tickers ?? []).slice(0, cap).map((t) => t.symbol.toUpperCase());
   if (fromDaily.length > 0) {
+    const tickers = [...new Set([...regional, ...fromDaily])].slice(0, cap);
     return {
-      tickers: fromDaily,
+      tickers,
       source: "daily-top100",
       scannedAt: daily?.generatedAt ?? null,
       universeSize: daily?.screenerCount ?? daily?.tickers.length ?? 0,

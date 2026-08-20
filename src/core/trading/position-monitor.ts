@@ -110,7 +110,7 @@ async function closePositionLiveIfEnabled(pos: MonitoredPosition, price: number,
       quantity: Math.max(1, Math.floor(pos.shares)),
       limitPrice: price,
       rationale,
-      outsideRth: false,
+      outsideRth: true,
       account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
     });
     return res.ibkrOrderId;
@@ -137,8 +137,6 @@ async function tick(): Promise<void> {
     const { monitoredPositions } = loadTradingState();
     if (monitoredPositions.length === 0) return;
 
-    let dayCloseCount = 0;
-    let dayClosePnl = 0;
     for (const raw of monitoredPositions) {
       let pos: MonitoredPosition = {
         ...raw,
@@ -148,23 +146,7 @@ async function tick(): Promise<void> {
         const quote = await fetchTradingPrice(pos.ticker);
         const price = quote.currentPrice;
         if (!Number.isFinite(price) || price <= 0) continue;
-        const tm = madridHourMinuteNow();
-        const afterDayClose = tm.hour > 21 || (tm.hour === 21 && tm.minute >= 45);
-        if (afterDayClose) {
-          const pnlUSD = (price - pos.entryPrice) * pos.shares;
-          const liveOrderId = await closePositionLiveIfEnabled(
-            pos,
-            price,
-            `Day trading close before overnight for ${pos.ticker}`,
-          );
-          dayCloseCount += 1;
-          dayClosePnl += pnlUSD;
-          if (liveOrderId) {
-            console.log(`[PositionMonitor] day-close ${pos.ticker} ibkr=${liveOrderId}`);
-          }
-          await closePosition(pos, price, "TP");
-          continue;
-        }
+        // No overnight forced close — only SL/TP exits
 
         pos = applyTrailingStop(pos, price);
         if (pos.stopLoss !== raw.stopLoss || pos.highestPrice !== raw.highestPrice) {
@@ -241,12 +223,6 @@ async function tick(): Promise<void> {
       } catch (err) {
         console.warn(`[PositionMonitor] ${pos.ticker}:`, err instanceof Error ? err.message : err);
       }
-    }
-    if (dayCloseCount > 0) {
-      const sign = dayClosePnl >= 0 ? "+" : "";
-      await sendTelegramMessage(
-        `🌙 CIERRE DÍA: ${dayCloseCount} posiciones cerradas | P&L día: ${sign}$${dayClosePnl.toFixed(2)}`,
-      );
     }
     const now = new Date();
     const parts = new Intl.DateTimeFormat("en-GB", {

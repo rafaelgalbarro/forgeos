@@ -197,9 +197,9 @@ export function getUsMarketSession(): UsMarketSession {
       phase: "CLOSED",
       timeZone: tz,
       localTime,
-      sessionLabel: "01:00-09:00 (mercado cerrado)",
-      isTradeable: false,
-      isExtendedHours: false,
+      sessionLabel: "01:00-09:00 (Asia / extended 24h)",
+      isTradeable: true,
+      isExtendedHours: true,
     }
   }
 
@@ -207,9 +207,9 @@ export function getUsMarketSession(): UsMarketSession {
     phase: "CLOSED",
     timeZone: tz,
     localTime,
-    sessionLabel: "Fuera de sesión",
-    isTradeable: false,
-    isExtendedHours: false,
+    sessionLabel: "Extended 24h (outside RTH)",
+    isTradeable: true,
+    isExtendedHours: true,
   }
 }
 

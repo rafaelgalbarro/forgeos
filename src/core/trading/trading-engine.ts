@@ -1,24 +1,21 @@
-/**
+﻿/**
  * ForgeOS TradingEngine
- * Orquesta el ciclo completo: análisis IA → validación de riesgo → PENDING_APPROVAL → ejecución IBKR
- * Solo servidor (API routes) — llama IBKR FastAPI directamente, sin loopback HTTP a Next.js.
+ * Orquesta el ciclo completo: anÃ¡lisis IA â†’ validaciÃ³n de riesgo â†’ PENDING_APPROVAL â†’ ejecuciÃ³n IBKR
+ * Solo servidor (API routes) â€” llama IBKR FastAPI directamente, sin loopback HTTP a Next.js.
  */
 
 import 'server-only'
 
 import { RiskManager } from './risk/risk-manager'
-import { TradingAgent } from './ai/trading-agent'
 import { TRADING_CONFIG } from './trading.config'
 import { OrderApprovalGate } from './order-approval'
 import {
   incrementAutoApprovalCount,
 } from './auto-approval'
 import { registerExecutedPosition } from './position-monitor'
-import { getFullMarketAnalysis } from '@/lib/market-data/full-analysis'
-import { aggregateSentiment, sentimentToAgentContext } from '@/lib/market-data/sentiment-aggregator'
-import { getMacroContext, macroToAgentContext } from '@/lib/market-data/macro-context'
-import { analyzeTimeframes, mtfToAgentContext } from '@/lib/market-data/multi-timeframe'
-import { sendSignalAlert, notifyCircuitBreaker, notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
+import { evaluateProStrategies } from './strategies/pro-strategies'
+import { getMacroContext } from '@/lib/market-data/macro-context'
+import { notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
 import { sendTelegramMessage } from '@/lib/notifications/telegram-bot'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
@@ -35,7 +32,7 @@ import { midFromBidAsk } from '@/lib/trading/limit-price'
 import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
 import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
-import { getMarketSessionForExchange, getMarketSessionInfo, getUsMarketSession } from './market-session'
+import { getUsMarketSession } from './market-session'
 import { recordMlSignal } from '@/lib/ml/signal-trainer'
 import { getTickerInfo } from '@/lib/market-data/yahoo-finance'
 import {
@@ -87,12 +84,9 @@ export type TradeCycleResult = {
 
 export class TradingEngine {
   private risk = RiskManager.getInstance()
-  private agent = new TradingAgent()
   private approvals = OrderApprovalGate.getInstance()
 
   private static readonly TICKER_TIMEOUT_MS = 5_000
-  private static readonly MIN_DAILY_VOL_PCT = 3
-  private static readonly MIN_DAILY_VOLUME = 1_000_000
   private static readonly MAX_SHARES_PER_ORDER = 10
 
   private static async withTickerTimeout<T>(
@@ -119,7 +113,7 @@ export class TradingEngine {
   /**
    * Ejecuta un ciclo de trading completo para una lista de tickers.
    * Llamado por el API route de Next.js cada X minutos.
-   * Órdenes válidas quedan en PENDING_APPROVAL (no se ejecutan automáticamente).
+   * Ã“rdenes vÃ¡lidas quedan en PENDING_APPROVAL (no se ejecutan automÃ¡ticamente).
    */
   async runCycle(tickers: string[]): Promise<TradeCycleResult> {
     const cycleId = `cycle_${Date.now()}`
@@ -131,7 +125,7 @@ export class TradingEngine {
     // 1. Obtener snapshot de cuenta
     const account = await this.fetchAccountSnapshot()
 
-    // 2. Verificar si ya está detenido
+    // 2. Verificar si ya estÃ¡ detenido
     if (this.risk.isHalted()) {
       return {
         cycleId, startedAt, completedAt: new Date().toISOString(),
@@ -140,7 +134,7 @@ export class TradingEngine {
       }
     }
 
-    // 3. Procesar tickers en paralelo (5s máx por ticker)
+    // 3. Procesar tickers en paralelo (5s mÃ¡x por ticker)
     const jobs = tickers.map(async (ticker) => {
       if (this.risk.isHalted()) return null
       try {
@@ -303,21 +297,12 @@ export class TradingEngine {
       : null
 
     if (usSession) {
+      // 24h mode: always tradeable weekdays via outside_rth
       if (!usSession.isTradeable) {
         return {
           status: 'HOLD', ticker, direction: 'HOLD',
-          reason: `${ticker}: mercado USA cerrado (${usSession.sessionLabel})`,
+          reason: `${ticker}: fin de semana / no operable (${usSession.sessionLabel})`,
           signal: { confidence: 0, reasoning: 'Fuera de horario USA', urgency: 'LOW' },
-          timestamp: new Date().toISOString(),
-        }
-      }
-    } else {
-      const marketSession = getMarketSessionForExchange(quoteExchange, ticker)
-      if (marketSession && !marketSession.isOpenNow) {
-        return {
-          status: 'HOLD', ticker, direction: 'HOLD',
-          reason: `${ticker} (${marketSession.exchange}) fuera de horario local ${marketSession.sessionLabel} ${marketSession.timeZone}`,
-          signal: { confidence: 0, reasoning: 'Mercado local cerrado', urgency: 'LOW' },
           timestamp: new Date().toISOString(),
         }
       }
@@ -333,128 +318,27 @@ export class TradingEngine {
         status: 'HOLD',
         ticker,
         direction: 'HOLD',
-        reason: `${ticker}: ya existe posición abierta (diversificación 1 posición por ticker)`,
+        reason: `${ticker}: ya existe posiciÃ³n abierta (diversificaciÃ³n 1 posiciÃ³n por ticker)`,
         signal: { confidence: 0, reasoning: 'Ticker already open', urgency: 'LOW' },
         timestamp: new Date().toISOString(),
       }
     }
-    const marketSession = usSession
-      ? {
-          exchange: 'SMART',
-          timeZone: usSession.timeZone,
-          sessionLabel: usSession.sessionLabel,
-          localTime: usSession.localTime,
-          isOpenNow: usSession.isTradeable,
-          usPhase: usSession.phase,
-        }
-      : getMarketSessionForExchange(quoteExchange, ticker) ??
-        getMarketSessionInfo(ticker, { quoteExchange })
+        const usExtendedHours = true // 24h: always submit with outside_rth
 
-    const usExtendedHours = usSession?.isExtendedHours ?? false
-
-    const [analysis, sentimentAgg, macroCtx, mtf] = await Promise.all([
-      getFullMarketAnalysis(ticker).catch(() => null),
-      aggregateSentiment(ticker).catch(() => null),
-      getMacroContext().catch(() => null),
-      analyzeTimeframes(ticker).catch(() => null),
-    ])
-
-    const signal = await this.agent.analyzeAndSignal({
-      ticker,
-      currentPrice: priceData.currentPrice,
-      change1d: priceData.change1d,
-      high52w: priceData.high52w,
-      low52w: priceData.low52w,
-      volume: priceData.volume,
-      bid: priceData.bid,
-      ask: priceData.ask,
-      marketSession,
-      usExtendedHours,
-      news: analysis
-        ? {
-            items: analysis.news.items.map((n) => ({
-              title: n.title,
-              source: n.source,
-              sentiment: n.sentiment,
-              hoursAgo: n.hoursAgo,
-            })),
-            overallSentiment: analysis.news.overallSentiment,
-            newsCount24h: analysis.news.newsCount24h,
-          }
-        : undefined,
-      sentiment: sentimentAgg ? sentimentToAgentContext(sentimentAgg) : undefined,
-      macro: macroCtx ? macroToAgentContext(macroCtx) : undefined,
-      multiTimeframe: mtf ? mtfToAgentContext(mtf) : undefined,
-      technicals: analysis
-        ? {
-            trend: {
-              ema20: analysis.technicals.trend.ema20,
-              ema50: analysis.technicals.trend.ema50,
-              ema200: analysis.technicals.trend.ema200,
-              macd: analysis.technicals.trend.macd,
-              ichimoku: analysis.technicals.trend.ichimoku
-                ? {
-                    aboveCloud: analysis.technicals.trend.ichimoku.aboveCloud,
-                    tenkan: analysis.technicals.trend.ichimoku.tenkan,
-                    kijun: analysis.technicals.trend.ichimoku.kijun,
-                  }
-                : null,
-              adx: analysis.technicals.trend.adx,
-            },
-            momentum: analysis.technicals.momentum,
-            volatility: {
-              bollingerBands: analysis.technicals.volatility.bollingerBands,
-              atr: analysis.technicals.volatility.atr,
-              squeeze: analysis.technicals.volatility.squeeze,
-            },
-            volume: {
-              vwap: analysis.technicals.volume.vwap,
-              obv: analysis.technicals.volume.obv,
-              relativeVolume: analysis.technicals.volume.relativeVolume,
-            },
-            levels: {
-              fibonacci: [...analysis.technicals.levels.fibonacci],
-              support: [...analysis.technicals.levels.support],
-              resistance: [...analysis.technicals.levels.resistance],
-            },
-          }
-        : undefined,
-      patterns: analysis
-        ? {
-            candlesticks: [...analysis.patterns.candlesticks],
-            price: [...analysis.patterns.price],
-            divergences: [...analysis.patterns.divergences],
-            signals: [...analysis.patterns.signals],
-          }
-        : undefined,
-      portfolioContext: {
-        navUSD: account.navUSD,
-        cashUSD: account.cashUSD,
-        dailyPnlUSD: account.dailyPnlUSD,
-        existingPosition,
-      },
-    })
-
-    // Phase K — weak multi-TF confluence: do not trade
-    if (mtf?.doNotTrade && signal.direction !== 'HOLD') {
-      return {
-        status: 'HOLD',
-        ticker,
-        direction: 'HOLD',
-        reason: `Señal débil multi-TF (${mtf.confluenceLabel}) — no operar`,
-        signal: {
-          confidence: signal.confidence,
-          reasoning: `${signal.reasoning} | ${mtf.confluenceLabel}`,
-          urgency: 'LOW',
-        },
-        timestamp: new Date().toISOString(),
-      }
+    // Professional strategies only - no PatternRecognition / Sentiment
+    const strategy = await evaluateProStrategies(ticker)
+    const signal = {
+      direction: strategy.direction === 'BUY' ? ('BUY' as const) : ('HOLD' as const),
+      confidence: strategy.confidence,
+      reasoning: strategy.reasoning,
+      urgency: strategy.urgency,
+      suggestedOrderType: 'LMT' as const,
+      suggestedLimitPrice: priceData.currentPrice,
+      stopLoss: strategy.stopLoss,
+      takeProfit: strategy.takeProfit,
+      primaryStrategy: strategy.primaryStrategy,
     }
 
-    // Boost confidence when ≥3/4 TFs agree (cap at 1.0)
-    if (mtf?.highConfidence && signal.direction !== 'HOLD') {
-      signal.confidence = Math.min(1, Number((signal.confidence * 1.2).toFixed(3)))
-    }
     recordSignalForTelegram({
       ticker,
       direction: signal.direction,
@@ -466,28 +350,6 @@ export class TradingEngine {
       return {
         status: 'HOLD', ticker, direction: 'HOLD',
         reason: signal.reasoning,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-        timestamp: new Date().toISOString(),
-      }
-    }
-
-    // Intraday momentum + liquidity gates
-    if (Math.abs(priceData.change1d) < TradingEngine.MIN_DAILY_VOL_PCT) {
-      return {
-        status: 'REJECTED_RISK',
-        ticker,
-        direction: signal.direction,
-        reason: `Movimiento intradía ${priceData.change1d.toFixed(2)}% < ${TradingEngine.MIN_DAILY_VOL_PCT}%`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-        timestamp: new Date().toISOString(),
-      }
-    }
-    if ((priceData.volume ?? 0) < TradingEngine.MIN_DAILY_VOLUME) {
-      return {
-        status: 'REJECTED_RISK',
-        ticker,
-        direction: signal.direction,
-        reason: `Volumen ${(priceData.volume ?? 0).toLocaleString()} < ${TradingEngine.MIN_DAILY_VOLUME.toLocaleString()}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -506,20 +368,18 @@ export class TradingEngine {
       }
     }
 
-    const minConfidence = usExtendedHours
-      ? TRADING_CONFIG.schedule.extendedHoursMinConfidence
-      : TRADING_CONFIG.ai.minConfidenceToTrade
+    const minConfidence = TRADING_CONFIG.ai.minConfidenceToTrade
 
     if (signal.confidence < minConfidence) {
       return {
         status: 'REJECTED_CONFIDENCE', ticker, direction: signal.direction,
-        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mínimo ${(minConfidence * 100).toFixed(0)}%${usExtendedHours ? ' (extended hours)' : ''}`,
+        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mÃ­nimo ${(minConfidence * 100).toFixed(0)}%`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
     }
 
-    // Phase G — Portfolio optimizer (Kelly + correlation + defensive caps)
+    // Phase G â€” Portfolio optimizer (Kelly + correlation + defensive caps)
     let optimizerOverrides:
       | {
           maxPositionPct?: number
@@ -597,7 +457,16 @@ export class TradingEngine {
       }
     }
 
-    const orderValueUSD = riskCheck.maxOrderValueUSD
+    // Strategy SL/TP override
+    const strategyStopLoss = signal.stopLoss
+    const strategyTakeProfit = signal.takeProfit
+    const riskOk = {
+      ...riskCheck,
+      stopLossPrice: strategyStopLoss > 0 ? strategyStopLoss : riskCheck.stopLossPrice,
+      takeProfitPrice: strategyTakeProfit > 0 ? strategyTakeProfit : riskCheck.takeProfitPrice,
+    }
+
+    const orderValueUSD = riskOk.maxOrderValueUSD
     const formulaShares = Math.floor((account.cashUSD * 0.5) / priceData.currentPrice)
     if (formulaShares <= 0) {
       return {
@@ -624,13 +493,13 @@ export class TradingEngine {
     if (limitPrice == null) {
       return {
         status: 'HOLD', ticker, direction: 'HOLD',
-        reason: `Sin limitPrice para ${ticker} (IA y mercado vacíos)`,
+        reason: `Sin limitPrice para ${ticker}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
     }
 
-    // Phase F — Pre-trade checklist gates PENDING_APPROVAL / auto-approve path
+    // Phase F â€” Pre-trade checklist gates
     let smartPlan: SmartOrderPlan | undefined
     let checklistSnapshot:
       | {
@@ -642,6 +511,7 @@ export class TradingEngine {
       | undefined
 
     if (isPreTradeChecklistEnabled()) {
+      const macroCtx = await getMacroContext().catch(() => null)
       const macroCaution24h = await getInstitutionalMacroCaution24h().catch(() => null)
       const checklist = await runPreTradeChecklist({
         ticker,
@@ -683,8 +553,8 @@ export class TradingEngine {
             urgency: signal.urgency,
           },
           timestamp: new Date().toISOString(),
-          stopLoss: riskCheck.stopLossPrice,
-          takeProfit: riskCheck.takeProfitPrice,
+          stopLoss: riskOk.stopLossPrice,
+          takeProfit: riskOk.takeProfitPrice,
         }
       }
     }
@@ -696,33 +566,20 @@ export class TradingEngine {
         shares: resolvedShares,
         currentPrice: priceData.currentPrice,
         limitPrice,
-        stopLoss: riskCheck.stopLossPrice,
-        takeProfit: riskCheck.takeProfitPrice,
-        atr: analysis?.technicals.volatility.atr ?? null,
+        stopLoss: riskOk.stopLossPrice,
+        takeProfit: riskOk.takeProfitPrice,
+        atr: null,
       })
     }
 
-    const effectiveStopLoss = smartPlan?.bracket?.stopLoss ?? riskCheck.stopLossPrice
-    const effectiveTakeProfit = smartPlan?.bracket?.takeProfit ?? riskCheck.takeProfitPrice
+    const effectiveStopLoss = smartPlan?.bracket?.stopLoss ?? riskOk.stopLossPrice
+    const effectiveTakeProfit = smartPlan?.bracket?.takeProfit ?? riskOk.takeProfitPrice
 
-    // PENDING_APPROVAL layer — evaluar auto-aprobación antes de encolar
-    const topPattern =
-      analysis?.patterns.candlesticks[0]?.name ??
-      analysis?.patterns.price[0]?.name ??
-      undefined
-
-    const confidence = signal.confidence
-    const approvalDecision =
-      confidence >= 0.75
-        ? ({ action: 'AUTO_APPROVE', reason: 'Confianza >= 75%' } as const)
-        : confidence >= 0.6
-          ? ({ action: 'NOTIFY_WAIT', reason: 'Confianza 60-74%', waitMinutes: 5 } as const)
-          : ({ action: 'HOLD', reason: 'Confianza < 60% (ignorada)' } as const)
-
-    if (approvalDecision.action === 'HOLD') {
+    // 100% automatic: confidence >= 60% â†’ AUTO_APPROVE
+    if (signal.confidence < TRADING_CONFIG.ai.minConfidenceToTrade) {
       return {
         status: 'HOLD', ticker, direction: 'HOLD',
-        reason: approvalDecision.reason,
+        reason: 'Confianza < 60% (descartada)',
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -740,7 +597,7 @@ export class TradingEngine {
       takeProfit: effectiveTakeProfit,
       reason: signal.reasoning,
       signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-      outsideRth: usExtendedHours,
+      outsideRth: true,
       preTradeChecklist: checklistSnapshot,
       smartPlan: smartPlan
         ? {
@@ -764,28 +621,26 @@ export class TradingEngine {
       payload: { ticker, direction: signal.direction, confidence: signal.confidence, approvalId: pending.approvalId },
     })
 
-    // Phase H — record actionable signal for ML trainer (never places orders)
     void (async () => {
       try {
         const info = await getTickerInfo(ticker).catch(() => null)
-        const patternSignals = analysis?.patterns.signals ?? []
         recordMlSignal({
           ticker,
-          direction: signal.direction === 'SELL' ? 'SELL' : 'BUY',
+          direction: 'BUY',
           confidence: signal.confidence,
-          pattern: topPattern ?? null,
+          pattern: signal.primaryStrategy,
           sector: info?.sector ?? null,
-          vix: macroCtx?.vix.price ?? null,
+          vix: null,
           source: 'trading-engine',
           approvalId: pending.approvalId,
           indicators: {
-            rsi: analysis?.technicals.momentum.rsi ?? null,
-            squeezeActive: analysis?.technicals.volatility.squeeze?.active ?? false,
-            relativeVolume: analysis?.technicals.volume.relativeVolume ?? null,
-            macdHist: analysis?.technicals.trend.macd?.histogram ?? null,
-            adx: analysis?.technicals.trend.adx ?? null,
-            goldenCross: patternSignals.some((p) => p.name === 'Golden Cross'),
-            deathCross: patternSignals.some((p) => p.name === 'Death Cross'),
+            rsi: strategy.rsi,
+            squeezeActive: false,
+            relativeVolume: strategy.metrics.relVolume,
+            macdHist: null,
+            adx: null,
+            goldenCross: strategy.strategyIds.includes('MA_CROSSOVER'),
+            deathCross: false,
           },
         })
       } catch (err) {
@@ -796,50 +651,16 @@ export class TradingEngine {
       }
     })()
 
-    await sendSignalAlert({
-      ticker,
-      direction: signal.direction,
-      entry: priceData.currentPrice,
-      stopLoss: effectiveStopLoss,
-      takeProfit: effectiveTakeProfit,
-      confidence: signal.confidence,
-      newsSentiment: analysis?.news.overallSentiment,
-      rsi: analysis?.technicals.momentum.rsi,
-      patternName: topPattern,
-      approvalId: pending.approvalId,
-      orderValueUSD,
-      shares: resolvedShares,
-      reasoning: signal.reasoning,
-    }).catch((err) => {
-      console.warn('[TradingEngine] sendSignalAlert error:', err instanceof Error ? err.message : err)
-    })
-
-    if (approvalDecision.action === 'AUTO_APPROVE') {
-      incrementAutoApprovalCount()
-      const executed = await this.approveAndExecute(pending.approvalId)
-      if (executed.status === 'EXECUTED') {
-        await sendTelegramMessage(
-          `⚡ AUTO-EJECUTADO: ${ticker} ${signal.direction} ${resolvedShares}@$${priceData.currentPrice.toFixed(2)} | ` +
-            `SL: $${effectiveStopLoss.toFixed(2)} | TP: $${effectiveTakeProfit.toFixed(2)} | ` +
-            `Conf: ${(signal.confidence * 100).toFixed(0)}%`,
-        )
-      }
-      return executed
+    incrementAutoApprovalCount()
+    const executed = await this.approveAndExecute(pending.approvalId, { skipPreTradeRecheck: true })
+    if (executed.status === 'EXECUTED') {
+      await sendTelegramMessage(
+        `⚡ AUTO: ${ticker} BUY ${resolvedShares}@$${priceData.currentPrice.toFixed(2)} | ` +
+          `Conf: ${(signal.confidence * 100).toFixed(0)}% | ${signal.primaryStrategy} | ` +
+          `SL: $${effectiveStopLoss.toFixed(2)} | TP: $${effectiveTakeProfit.toFixed(2)}`,
+      )
     }
-
-    return {
-      approvalId: pending.approvalId,
-      status: 'PENDING_APPROVAL',
-      ticker,
-      direction: signal.direction,
-      sharesOrValue: orderValueUSD,
-      price: priceData.currentPrice,
-      reason: `Queued for approval: ${signal.reasoning}`,
-      signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-      timestamp: new Date().toISOString(),
-      stopLoss: effectiveStopLoss,
-      takeProfit: effectiveTakeProfit,
-    }
+    return executed
   }
 
   private async fetchAccountSnapshot() {
@@ -869,7 +690,7 @@ export class TradingEngine {
 
   /**
    * Solo ejecutable tras APPROVED.
-   * When LIVE_TRADING_ENABLED=true and IBKR_READ_ONLY=false, completes IBKR proposal → execute (TWS).
+   * When LIVE_TRADING_ENABLED=true and IBKR_READ_ONLY=false, completes IBKR proposal â†’ execute (TWS).
    * Smart plans: REAL submit remains LMT; bracket/VWAP/iceberg fields stay PLANNED in rationale.
    */
   private async executeOrder(params: {
@@ -935,7 +756,7 @@ export class TradingEngine {
       side,
       quantity: Number(params.shares),
       limitPrice,
-      outsideRth: params.outsideRth ?? false,
+      outsideRth: params.outsideRth ?? true,
       rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
       account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
     })

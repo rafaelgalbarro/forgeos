@@ -15,10 +15,10 @@ export const TRADING_CONFIG = {
     dailyLossLimitPct: 0.10,
     /** Hard cap diversification (daily trading): max 3 concurrent positions */
     maxOpenPositions: 3,
-    /** Default SL: -3% */
-    defaultStopLossPct: 0.03,
-    /** Default TP: +8% (RR ~= 1:2.6) */
-    defaultTakeProfitPct: 0.08,
+    /** Default SL: -1.5% scalping baseline */
+    defaultStopLossPct: 0.015,
+    /** Default TP: +3% scalping baseline */
+    defaultTakeProfitPct: 0.03,
     /** Trailing stop: 1.5% desde el máximo alcanzado */
     trailingStopPct: 0.015,
     /** Cash-based dynamic sizing (see dynamic-sizing.ts) */
@@ -101,12 +101,10 @@ export const TRADING_CONFIG = {
     'SPY', 'QQQ', 'IWM', 'EEM', 'TLT', 'ARKK',
     // USA — Acciones de alta liquidez
     'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META',
-    // Europa (ADRs NYSE/NASDAQ — horario USA)
-    'EZU', 'VGK', 'ASML', 'SAP', 'SHOP',
-    // Europa internacional (LSE/XETRA — ADR USA)
-    'SHEL', 'BP',
-    // Asia (horario 1:00-9:30 España)
-    'EWJ', 'FXI', 'EWY', 'BABA', 'NIO', 'TSM',
+    // Europa ETFs / ADRs
+    'EZU', 'VGK', 'EWG', 'EWU', 'ASML', 'SAP', 'SHOP', 'SHEL', 'BP',
+    // Asia ETFs / ADRs
+    'EWJ', 'FXI', 'EWY', 'EWA', 'BABA', 'NIO', 'TSM',
     // Emergentes
     'MELI', 'GRAB', 'DLO', 'IBN',
     // Crypto ETFs (casi 24h)
@@ -152,36 +150,36 @@ export const TRADING_CONFIG = {
 
   // ── Modo semi-automático (Telegram) ─────────────────────────────
   semiAutomatic: {
-    /** All orders require Telegram approve/reject when true (default). */
+    /** 100% automático: no requiere aprobación Telegram. */
     telegramApprovalRequired:
-      String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "true").trim().toLowerCase() !== "false",
+      String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "false").trim().toLowerCase() === "true",
     approvalTimeoutMinutes: Math.max(
       1,
       Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5,
     ),
   },
 
-  // ── Aprobación semi-automática ────────────────────────────────
+  // ── Aprobación automática ────────────────────────────────
   autoApproval: {
-    /** Disabled when telegramApprovalRequired — no auto-execute without founder tap. */
+    /** Auto-ejecutar si confianza >= minConfidence. */
     enabled:
-      String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "true").trim().toLowerCase() === "false",
+      String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "false").trim().toLowerCase() !== "true",
     autoApproveThreshold: {
-      minConfidence: 0.65,
-      requirePattern: true,
-      requireNewsSentiment: true,
-      maxPositionValueUSD: 50,
-      maxDailyAutoTrades: 5,
+      minConfidence: 0.6,
+      requirePattern: false,
+      requireNewsSentiment: false,
+      maxPositionValueUSD: 500,
+      maxDailyAutoTrades: 40,
     },
     notifyAndWait: {
-      confidenceRange: [0.50, 0.65] as const,
+      confidenceRange: [0.5, 0.6] as const,
       waitMinutes: Math.max(1, Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5),
       executeIfNoResponse: false,
     },
     alwaysHold: {
-      belowConfidence: 0.65,
-      marketVolatilityHigh: true,
-      newsConflicting: true,
+      belowConfidence: 0.6,
+      marketVolatilityHigh: false,
+      newsConflicting: false,
     },
   },
 } as const

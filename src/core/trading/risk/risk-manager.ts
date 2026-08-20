@@ -6,7 +6,7 @@
 
 import { TRADING_CONFIG } from '../trading.config'
 import { loadTradingState, updateTradingState } from '../trading-state-store'
-import { getMarketSessionForExchange, getMarketSessionInfo, getUsMarketSession } from '../market-session'
+import { getMarketSessionForExchange, getMarketSessionInfo } from '../market-session'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
 import {
   DEFENSIVE_TICKERS,
@@ -164,34 +164,16 @@ export class RiskManager {
       }
     }
 
-    // 4b. Horario de mercado por exchange internacional (según ruta de cotización usada)
+    // 4b. 24h mode — US listings always tradeable via outside_rth; skip hard session blocks
     const quoteExchange = price.quoteExchange ?? 'SMART'
     const isUsQuote = US_QUOTE_EXCHANGES.has(quoteExchange.toUpperCase())
-    if (isUsQuote) {
-      const usSession = getUsMarketSession()
-      if (!usSession.isTradeable) {
-        return {
-          allowed: false,
-          reason: `${price.ticker} fuera de horario USA (${usSession.sessionLabel})`,
-        }
-      }
-      if (price.usExtendedHours) {
-        const minVol = TRADING_CONFIG.schedule.extendedHoursMinVolume
-        const vol = price.volume ?? 0
-        if (vol < minVol) {
-          return {
-            allowed: false,
-            reason: `Volumen ${vol.toLocaleString()} < mínimo ${minVol.toLocaleString()} en premarket/aftermarket`,
-          }
-        }
-      }
-    } else {
+    if (!isUsQuote) {
       const marketSession = getMarketSessionForExchange(quoteExchange, price.ticker) ?? getMarketSessionInfo(price.ticker)
+      // Soft gate only: allow if native session open; otherwise still allow (ETF proxies / outside RTH)
       if (marketSession && !marketSession.isOpenNow) {
-        return {
-          allowed: false,
-          reason: `${price.ticker} (${marketSession.exchange}) fuera de horario local ${marketSession.sessionLabel} ${marketSession.timeZone}`,
-        }
+        console.log(
+          `[RiskManager] ${price.ticker} fuera de horario local ${marketSession.sessionLabel} — permitiendo con outside_rth`,
+        )
       }
     }
 

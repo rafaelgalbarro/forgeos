@@ -156,15 +156,20 @@ export class TradingEngine {
             }
             if (order.status === 'EXECUTED') {
               console.log(`[Signal] ${ticker}: EXECUTED conf=${(order.signal.confidence * 100).toFixed(0)}%`)
+            } else if (order.direction === 'BUY') {
+              console.log(
+                `[Signal] ${ticker}: BUY status=${order.status} conf=${(order.signal.confidence * 100).toFixed(0)}% reason=${order.reason}`,
+              )
             }
             return order
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'Error desconocido'
             console.warn(`[ProStrategy] ${ticker}: error — ${msg}`)
+            console.error(`[AutoExecute] ${ticker} → ERROR: ${msg}`)
             return {
               status: 'ERROR' as const,
               ticker,
-              direction: 'HOLD' as const,
+              direction: 'BUY' as const,
               reason: msg,
               signal: { confidence: 0, reasoning: 'Error en ciclo', urgency: 'LOW' as const },
               timestamp: new Date().toISOString(),
@@ -185,9 +190,18 @@ export class TradingEngine {
       if (item) orders.push(item)
     }
 
-    const buys = orders.filter((o) => o.direction === 'BUY' && (o.status === 'EXECUTED' || o.status === 'PENDING_APPROVAL'))
+    const señalesBuy = orders.filter((o) => o.direction === 'BUY').length
+    const autoEjecutadas = orders.filter((o) => o.status === 'EXECUTED' && o.direction === 'BUY').length
+    const fallidas = orders.filter(
+      (o) =>
+        o.direction === 'BUY' &&
+        (o.status === 'ERROR' ||
+          o.status === 'REJECTED_RISK' ||
+          o.status === 'REJECTED_CONFIDENCE' ||
+          o.status === 'HOLD'),
+    ).length
     console.log(
-      `[ProStrategy] Ciclo fin: ${orders.length} tickers | señales BUY=${buys.length} | executed=${orders.filter((o) => o.status === 'EXECUTED').length}`,
+      `[ProStrategy] Ciclo fin: ${orders.length} tickers | señales BUY=${señalesBuy} | auto-ejecutadas=${autoEjecutadas} | fallidas=${fallidas}`,
     )
 
     return {
@@ -388,10 +402,6 @@ export class TradingEngine {
       }
     }
 
-    console.log(
-      `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → auto-ejecutar`,
-    )
-
     recordSignalForTelegram({
       ticker,
       direction: signal.direction,
@@ -402,6 +412,9 @@ export class TradingEngine {
     // Account-aware price filter (small accounts)
     const maxPriceForAccount = account.cashUSD < 25 ? 15 : 50
     if (priceData.currentPrice > maxPriceForAccount) {
+      console.warn(
+        `[AutoExecute] ${ticker} BLOCKED: precio $${priceData.currentPrice.toFixed(2)} > umbral $${maxPriceForAccount}`,
+      )
       return {
         status: 'REJECTED_RISK',
         ticker,
@@ -493,6 +506,7 @@ export class TradingEngine {
       signal.confidence,
     )
     if (!riskCheck.allowed) {
+      console.warn(`[AutoExecute] ${ticker} BLOCKED risk: ${riskCheck.reason}`)
       return {
         status: 'REJECTED_RISK', ticker, direction: signal.direction,
         reason: riskCheck.reason,
@@ -696,15 +710,48 @@ export class TradingEngine {
     })()
 
     incrementAutoApprovalCount()
-    const executed = await this.approveAndExecute(pending.approvalId, { skipPreTradeRecheck: true })
-    if (executed.status === 'EXECUTED') {
-      await sendTelegramMessage(
-        `⚡ AUTO: ${ticker} BUY ${resolvedShares}@$${priceData.currentPrice.toFixed(2)} | ` +
-          `Conf: ${(signal.confidence * 100).toFixed(0)}% | ${signal.primaryStrategy} | ` +
-          `SL: $${effectiveStopLoss.toFixed(2)} | TP: $${effectiveTakeProfit.toFixed(2)}`,
-      )
+    console.log(
+      `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → auto-ejecutar`,
+    )
+    console.log(
+      `[AutoExecute] ${ticker} BUY conf=${(signal.confidence * 100).toFixed(0)}% qty=${resolvedShares} ` +
+        `limit=$${limitPrice.toFixed(2)} → llamando approveAndExecute/submitSupervisedLiveLimitOrder`,
+    )
+
+    try {
+      const executed = await this.approveAndExecute(pending.approvalId, { skipPreTradeRecheck: true })
+      if (executed.status === 'EXECUTED') {
+        console.log(
+          `[AutoExecute] ${ticker} → orden enviada ibkrId=${executed.orderId ?? 'n/a'} status=EXECUTED`,
+        )
+        await sendTelegramMessage(
+          `⚡ AUTO: ${ticker} BUY ${resolvedShares}@$${priceData.currentPrice.toFixed(2)} | ` +
+            `Conf: ${(signal.confidence * 100).toFixed(0)}% | ${signal.primaryStrategy} | ` +
+            `SL: $${effectiveStopLoss.toFixed(2)} | TP: $${effectiveTakeProfit.toFixed(2)}`,
+        )
+      } else {
+        console.warn(
+          `[AutoExecute] ${ticker} → no EXECUTED status=${executed.status} reason=${executed.reason}`,
+        )
+      }
+      return executed
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[AutoExecute] ${ticker} → ERROR: ${msg}`)
+      return {
+        approvalId: pending.approvalId,
+        status: 'ERROR',
+        ticker,
+        direction: 'BUY',
+        sharesOrValue: orderValueUSD,
+        price: priceData.currentPrice,
+        reason: `AutoExecute failed: ${msg}`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+        stopLoss: effectiveStopLoss,
+        takeProfit: effectiveTakeProfit,
+      }
     }
-    return executed
   }
 
   private async fetchAccountSnapshot() {
@@ -767,6 +814,9 @@ export class TradingEngine {
 
     const flags = getInvestmentRuntimeFlags()
     if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
+      console.warn(
+        `[AutoExecute] ${params.ticker} PAPER (LIVE_TRADING_ENABLED=${flags.liveTradingEnabled} IBKR_READ_ONLY=${flags.ibkrReadOnly})`,
+      )
       console.log('[TradingEngine] PAPER TRADE (post-approval, gate not OPEN):', {
         ...params,
         liveTradingEnabled: flags.liveTradingEnabled,
@@ -777,12 +827,26 @@ export class TradingEngine {
     }
 
     const side = params.direction === 'SELL' ? 'SELL' : 'BUY'
-    const limitPrice = await fetchLiveLimitPrice({
-      symbol: params.ticker,
-      side,
-      asset: 'STK',
-      suggested: params.limitPrice,
-    })
+    const account = process.env.IBKR_ACCOUNT_ID?.trim() || undefined
+    console.log(
+      `[AutoExecute] ${params.ticker} ${side} → llamando submitSupervisedLiveLimitOrder ` +
+        `qty=${params.shares} limitSuggested=$${params.limitPrice ?? 'n/a'} account=${account ?? 'default'} outsideRth=${params.outsideRth ?? true}`,
+    )
+
+    let limitPrice: number
+    try {
+      limitPrice = await fetchLiveLimitPrice({
+        symbol: params.ticker,
+        side,
+        asset: 'STK',
+        suggested: params.limitPrice,
+      })
+      console.log(`[AutoExecute] ${params.ticker} → precio obtenido: $${limitPrice.toFixed(4)}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[AutoExecute] ${params.ticker} → ERROR: fetchLiveLimitPrice: ${msg}`)
+      throw err
+    }
 
     const plannedNote = params.smartPlan
       ? ` | SMART_PLAN ${params.smartPlan.planId} REAL=LMT PLANNED=${params.smartPlan.plannedFields.join(',')}` +
@@ -795,23 +859,32 @@ export class TradingEngine {
           : '')
       : ''
 
-    const submitted = await submitSupervisedLiveLimitOrder({
-      symbol: String(params.ticker).toUpperCase(),
-      side,
-      quantity: Number(params.shares),
-      limitPrice,
-      outsideRth: params.outsideRth ?? true,
-      rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
-      account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
-    })
-    console.log('[TradingEngine] LIVE ORDER SUBMITTED:', {
-      approvalId: params.approvalId,
-      ticker: params.ticker,
-      limitPrice,
-      ibkrOrderId: submitted.ibkrOrderId,
-      proposalId: submitted.proposalId,
-    })
-    return submitted.ibkrOrderId
+    try {
+      const submitted = await submitSupervisedLiveLimitOrder({
+        symbol: String(params.ticker).toUpperCase(),
+        side,
+        quantity: Number(params.shares),
+        limitPrice,
+        outsideRth: params.outsideRth ?? true,
+        rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
+        account,
+      })
+      console.log(
+        `[AutoExecute] ${params.ticker} → orden enviada ibkrId=${submitted.ibkrOrderId} proposal=${submitted.proposalId}`,
+      )
+      console.log('[TradingEngine] LIVE ORDER SUBMITTED:', {
+        approvalId: params.approvalId,
+        ticker: params.ticker,
+        limitPrice,
+        ibkrOrderId: submitted.ibkrOrderId,
+        proposalId: submitted.proposalId,
+      })
+      return submitted.ibkrOrderId
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[AutoExecute] ${params.ticker} → ERROR: ${msg}`)
+      throw err
+    }
   }
 
   private sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }

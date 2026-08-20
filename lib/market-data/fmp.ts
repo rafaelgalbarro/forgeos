@@ -15,8 +15,9 @@ const PROFILE_ENDPOINT = "/profile";
 const HISTORY_ENDPOINT = "/historical-price-eod/full";
 const QUOTE_TTL_MS = 120_000;
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
-/** Starter plan: 300 calls/min — cap parallel profile fetches. */
-const BATCH_CONCURRENCY = 10;
+/** Starter plan: keep profile concurrency low to avoid HTTP 429. */
+const BATCH_CONCURRENCY = 3;
+const BATCH_CHUNK_DELAY_MS = 300;
 const FETCH_TIMEOUT_MS = 20_000;
 
 export type FmpQuote = {
@@ -248,6 +249,9 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
   if (missing.length === 0) return out;
 
   for (let i = 0; i < missing.length; i += BATCH_CONCURRENCY) {
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, BATCH_CHUNK_DELAY_MS));
+    }
     const chunk = missing.slice(i, i + BATCH_CONCURRENCY);
     const quotes = await Promise.all(chunk.map((symbol) => getQuote(symbol)));
     for (const quote of quotes) {

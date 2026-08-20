@@ -38,6 +38,7 @@ if official_api_path and Path(official_api_path).exists():
 from ibapi.client import EClient
 from ibapi.contract import Contract
 from ibapi.order import Order
+from ibapi.scanner import ScannerSubscription
 from ibapi.wrapper import EWrapper
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -241,6 +242,10 @@ class IBKRClient(EWrapper, EClient):
         self._tick_lock = threading.Lock()
         self._forex_req_seq = 9300
         self._quote_req_seq = 9600
+        self._scanner_req_seq = 9700
+        self.scanner_data: dict[int, list[dict[str, Any]]] = {}
+        self.scanner_done: dict[int, threading.Event] = {}
+        self._scanner_lock = threading.Lock()
 
     def nextValidId(self, orderId: int) -> None:
         log.info("nextValidId=%s (connection ready)", orderId)
@@ -264,6 +269,11 @@ class IBKRClient(EWrapper, EClient):
         elif int(errorCode) not in {2104, 2106, 2158, 2119}:
             # Skip noisy market-data-farm connectivity messages
             log.info("IBKR error reqId=%s code=%s: %s", reqId, errorCode, errorString)
+        # Unblock scanner waiters on hard failures
+        if isinstance(reqId, int) and reqId in self.scanner_done:
+            done = self.scanner_done.get(reqId)
+            if done:
+                done.set()
         # Hard historical-data failures should unblock waiters (never invent bars).
         if reqId in self.history_bars and int(errorCode) in {162, 200, 354, 366, 420, 10168}:
             self.history_done.set()
@@ -307,6 +317,26 @@ class IBKRClient(EWrapper, EClient):
 
     def positionEnd(self) -> None:
         self.positions_done.set()
+
+    def scannerData(self, reqId, rank, contractDetails, distance, benchmark, projection, legsStr) -> None:
+        contract = contractDetails.contract
+        row = {
+            "rank": int(rank),
+            "symbol": str(getattr(contract, "symbol", "") or "").upper(),
+            "secType": str(getattr(contract, "secType", "") or ""),
+            "exchange": str(getattr(contract, "exchange", "") or ""),
+            "currency": str(getattr(contract, "currency", "") or ""),
+            "distance": str(distance or ""),
+            "benchmark": str(benchmark or ""),
+            "projection": str(projection or ""),
+        }
+        with self._scanner_lock:
+            self.scanner_data.setdefault(reqId, []).append(row)
+
+    def scannerDataEnd(self, reqId: int) -> None:
+        done = self.scanner_done.get(reqId)
+        if done:
+            done.set()
 
     def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld, mktCapPrice=0.0) -> None:
         ctx = self.order_context.get(orderId, {})
@@ -533,6 +563,77 @@ class IBKRClient(EWrapper, EClient):
             raise TimeoutError("Timeout leyendo posiciones")
         self.cancelPositions()
         return self.positions_data
+
+    def market_scanner(self, scan_code: str = "TOP_PERC_GAIN", limit: int = 50) -> list[dict[str, Any]]:
+        """
+        IBKR market scanner via reqScannerSubscription.
+        scan_code: TOP_PERC_GAIN | TOP_PERC_LOSE | MOST_ACTIVE
+        """
+        self.ensure_connected()
+        code = (scan_code or "TOP_PERC_GAIN").upper().strip()
+        if code not in {"TOP_PERC_GAIN", "TOP_PERC_LOSE", "MOST_ACTIVE"}:
+            code = "TOP_PERC_GAIN"
+        rows_n = max(1, min(int(limit or 50), 100))
+
+        with self._scanner_lock:
+            self._scanner_req_seq += 1
+            req_id = self._scanner_req_seq
+            self.scanner_data[req_id] = []
+            done = threading.Event()
+            self.scanner_done[req_id] = done
+
+        sub = ScannerSubscription()
+        sub.instrument = "STK"
+        sub.locationCode = "STK.US.MAJOR"
+        sub.scanCode = code
+        sub.numberOfRows = rows_n
+
+        log.info("SCANNER reqId=%s code=%s limit=%s", req_id, code, rows_n)
+        try:
+            self.reqScannerSubscription(req_id, sub, [], [])
+            if not done.wait(20):
+                log.warning("SCANNER timeout reqId=%s code=%s", req_id, code)
+            with self._scanner_lock:
+                rows = list(self.scanner_data.get(req_id, []))
+        finally:
+            try:
+                self.cancelScannerSubscription(req_id)
+            except Exception:
+                pass
+            with self._scanner_lock:
+                self.scanner_data.pop(req_id, None)
+                self.scanner_done.pop(req_id, None)
+
+        # Prefer unique US stock symbols
+        out: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for row in rows:
+            sym = str(row.get("symbol") or "").upper()
+            if not sym or sym in seen:
+                continue
+            if row.get("secType") and str(row["secType"]).upper() not in {"STK", ""}:
+                continue
+            seen.add(sym)
+            # distance often encodes % change for TOP_PERC_* scans
+            change_pct = None
+            distance = str(row.get("distance") or "").replace("%", "").strip()
+            try:
+                if distance:
+                    change_pct = float(distance)
+            except ValueError:
+                change_pct = None
+            out.append({
+                "symbol": sym,
+                "rank": row.get("rank"),
+                "changePct": change_pct,
+                "volume": None,
+                "scanCode": code,
+                "exchange": row.get("exchange"),
+            })
+            if len(out) >= rows_n:
+                break
+        log.info("SCANNER ok code=%s symbols=%s", code, len(out))
+        return out
 
     def open_orders(self) -> list[dict[str, Any]]:
         self.ensure_connected()
@@ -1303,6 +1404,24 @@ def positions():
     try:
         return ibkr.positions()
     except Exception as exc:
+        raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
+
+
+@app.get("/api/ibkr/scanner", dependencies=auth)
+def ibkr_scanner(type: str = "TOP_PERC_GAIN", limit: int = 50):
+    """Market scanner: type=TOP_PERC_GAIN|TOP_PERC_LOSE|MOST_ACTIVE."""
+    try:
+        rows = ibkr.market_scanner(scan_code=type, limit=limit)
+        return {
+            "ok": True,
+            "type": (type or "TOP_PERC_GAIN").upper(),
+            "limit": limit,
+            "count": len(rows),
+            "symbols": [r["symbol"] for r in rows],
+            "rows": rows,
+        }
+    except Exception as exc:
+        log.warning("scanner failed type=%s: %s", type, exc)
         raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
 
 

@@ -26,11 +26,13 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true,
       source: daily?.source ?? cycle.source,
+      sourcesUsed: daily?.sourcesUsed ?? [],
       cycleSource: cycle.source,
       generatedAt: daily?.generatedAt ?? null,
       nextRefreshAt: daily?.nextRefreshAt ?? null,
       screenerCount: daily?.screenerCount ?? 0,
       topCount: daily?.tickers.length ?? 0,
+      cacheTtlMinutes: 30,
       tickers: (daily?.tickers ?? []).map((t) => ({
         symbol: t.symbol,
         price: t.price,
@@ -40,6 +42,7 @@ export async function GET(request: Request) {
         rsi14: t.rsi14,
         volume: t.volume,
         avgVolume: t.avgVolume,
+        sources: t.sources,
       })),
       cycleTickers: cycle.tickers,
       excludedEarnings: daily?.excludedEarnings ?? [],

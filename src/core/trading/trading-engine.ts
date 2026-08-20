@@ -319,15 +319,29 @@ export class TradingEngine {
     this.approvals.markExecuted(approvalId, orderId)
     this.risk.recordTrade()
 
-    if (approved.direction === 'BUY' && approved.stopLoss && approved.takeProfit) {
+    if (approved.direction === 'BUY') {
+      const entry = approved.price > 0 ? approved.price : approved.limitPrice ?? 0
+      const stopLoss =
+        approved.stopLoss && approved.stopLoss > 0
+          ? approved.stopLoss
+          : entry > 0
+            ? entry * 0.97
+            : 0
+      const takeProfit =
+        approved.takeProfit && approved.takeProfit > 0
+          ? approved.takeProfit
+          : entry > 0
+            ? entry * 1.05
+            : 0
       await registerExecutedPosition({
         ticker: approved.ticker,
         shares: approved.shares,
-        entryPrice: approved.price,
-        stopLoss: approved.stopLoss,
-        takeProfit: approved.takeProfit,
+        entryPrice: entry,
+        stopLoss,
+        takeProfit,
         orderId,
         trailingStopPct: approved.smartPlan?.trailingStopPct,
+        account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
       })
     }
 

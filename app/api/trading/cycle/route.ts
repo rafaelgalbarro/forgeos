@@ -21,10 +21,12 @@ import { popCycleQueue } from '@/lib/alerts/alert-manager'
 import { resolveTradingCycleTickersAsync } from '@/lib/investment/cycle-universe'
 import { getDailyMarketUniverse } from '@/lib/investment/market-daily-universe'
 import { sendCyclePremiumReport } from '@/lib/notifications/cycle-premium-report'
+import { startPositionMonitor } from '@/src/core/trading/position-monitor'
 
 const engine = new TradingEngine()
 
 export async function POST(req: NextRequest) {
+  startPositionMonitor()
   const { searchParams } = new URL(req.url)
   const action = searchParams.get('action')
 

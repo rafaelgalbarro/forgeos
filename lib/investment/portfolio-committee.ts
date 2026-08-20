@@ -56,48 +56,114 @@ function clampConfidence(v: unknown): number {
 }
 
 function asDecision(v: unknown): CommitteeDecision {
-  return String(v).toUpperCase().includes("VEN") ? "VENDER" : "MANTENER";
+  const s = String(v).toUpperCase();
+  if (s.includes("VEN")) return "VENDER";
+  return "MANTENER";
 }
 
-/** Strip markdown fences (```json ... ```) before JSON.parse — all committee agents. */
-function parseCommitteeJson(response: string): Record<string, unknown> {
-  const cleanJson = response
-    .replace(/```json\n?/g, "")
-    .replace(/```\n?/g, "")
-    .trim();
-  return JSON.parse(cleanJson) as Record<string, unknown>;
+const JSON_REPLY_HINT =
+  'Responde SOLO con este JSON exacto sin explicaciones largas: {"decision":"VENDER","confidence":0.85,"reason":"una frase corta"}';
+
+function safeParseJson(text: string): Record<string, unknown> | null {
+  try {
+    const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    return JSON.parse(clean) as Record<string, unknown>;
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
-async function callCommitteeAgent(systemRole: string, userPrompt: string): Promise<CommitteeVote> {
+/** PnL-based fallback when Claude JSON is truncated or invalid. */
+function fallbackVoteFromPnl(pnlPct: number, agent: string): CommitteeVote {
+  if (pnlPct < -85) {
+    return {
+      decision: "VENDER",
+      confidence: 0.85,
+      reason: `${agent}: fallback PnL ${pnlPct.toFixed(0)}% (JSON inválido)`,
+    };
+  }
+  if (pnlPct > 20) {
+    return {
+      decision: "MANTENER",
+      confidence: 0.8,
+      reason: `${agent}: fallback PnL +${pnlPct.toFixed(0)}% (JSON inválido)`,
+    };
+  }
+  return {
+    decision: "MANTENER",
+    confidence: 0.6,
+    reason: `${agent}: EVALUAR — JSON inválido/truncado (PnL ${pnlPct.toFixed(0)}%)`,
+  };
+}
+
+function voteFromParsed(parsed: Record<string, unknown> | null, pnlPct: number, agent: string): CommitteeVote {
+  if (!parsed) return fallbackVoteFromPnl(pnlPct, agent);
+  const decisionRaw = String(parsed.decision ?? "").toUpperCase();
+  if (decisionRaw.includes("EVALUAR")) {
+    return {
+      decision: "MANTENER",
+      confidence: clampConfidence(parsed.confidence ?? 0.6),
+      reason: `EVALUAR: ${String(parsed.reason ?? "revisión manual").slice(0, 120)}`,
+    };
+  }
+  return {
+    decision: asDecision(parsed.decision),
+    confidence: clampConfidence(parsed.confidence),
+    reason: String(parsed.reason ?? "Sin razón").slice(0, 160),
+  };
+}
+
+async function callCommitteeAgent(
+  systemRole: string,
+  userPrompt: string,
+  pnlPct: number,
+  agent: string,
+): Promise<CommitteeVote> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) {
     return { decision: "MANTENER", confidence: 0.5, reason: "ANTHROPIC_API_KEY no configurada" };
   }
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: COMMITTEE_MODEL,
-      max_tokens: 350,
-      temperature: 0.2,
-      system: systemRole,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(25_000),
-  });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
-  const data = (await res.json()) as { content?: Array<{ text?: string }> };
-  const parsed = parseCommitteeJson(data.content?.[0]?.text ?? "{}");
-  return {
-    decision: asDecision(parsed.decision),
-    confidence: clampConfidence(parsed.confidence),
-    reason: String(parsed.reason ?? "Sin razón"),
-  };
+  try {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: COMMITTEE_MODEL,
+        max_tokens: 500,
+        temperature: 0.2,
+        system: `${systemRole}. ${JSON_REPLY_HINT}`,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) {
+      console.warn(`[Committee] ${agent} HTTP ${res.status}`);
+      return fallbackVoteFromPnl(pnlPct, agent);
+    }
+    const data = (await res.json()) as { content?: Array<{ text?: string }> };
+    const text = data.content?.[0]?.text ?? "";
+    const parsed = safeParseJson(text);
+    if (!parsed) {
+      console.warn(`[Committee] ${agent} JSON parse failed (len=${text.length})`);
+    }
+    return voteFromParsed(parsed, pnlPct, agent);
+  } catch (err) {
+    console.warn(`[Committee] ${agent} failed:`, err instanceof Error ? err.message : err);
+    return fallbackVoteFromPnl(pnlPct, agent);
+  }
 }
 
 async function fmpJson(path: string, query: Record<string, string>): Promise<unknown> {
@@ -137,23 +203,30 @@ async function analyzeOnePosition(pos: BrokerPosition): Promise<CommitteeTickerR
       ? ((histRaw as { historical: unknown[] }).historical ?? [])
       : [];
   const hist30 = histRows.slice(0, 30);
+  const closes = hist30
+    .map((r) => Number((r as { close?: number }).close ?? NaN))
+    .filter((n) => Number.isFinite(n));
   const news = Array.isArray(newsRaw) ? newsRaw.slice(0, 5) : [];
+  const newsHeadlines = news
+    .map((n) => String((n as { title?: string }).title ?? "").slice(0, 80))
+    .filter(Boolean)
+    .slice(0, 3);
 
-  const alphaPrompt = `Eres un analista fundamental experto. Analiza ${symbol} con PnL=${pnlPct.toFixed(1)}%. Considera fundamentales, sector y perspectivas de recuperación. Responde SOLO JSON: {"decision":"VENDER|MANTENER","confidence":0-1,"reason":string}`;
-  const momentumPrompt = `Eres un trader técnico experto. Analiza la tendencia de ${symbol} con estos datos históricos: ${JSON.stringify(hist30)}. Responde SOLO JSON: {"decision":"VENDER|MANTENER","confidence":0-1,"reason":string}`;
-  const sentinelPrompt = `Eres un gestor de riesgo. Evalúa si mantener ${symbol} con pérdida ${pnlPct.toFixed(1)}% y valor actual $${currentValue.toFixed(2)} tiene sentido desde el punto de vista del riesgo. Responde SOLO JSON: {"decision":"VENDER|MANTENER","confidence":0-1,"reason":string}`;
-  const oraclePrompt = `Eres analista de sentimiento. Basándote en estas noticias recientes de ${symbol}: ${JSON.stringify(news)}. ¿Hay catalizadores que justifiquen mantener? Responde SOLO JSON: {"decision":"VENDER|MANTENER","confidence":0-1,"reason":string}`;
+  const alphaPrompt = `Analiza ${symbol} PnL=${pnlPct.toFixed(1)}%. ${JSON_REPLY_HINT}`;
+  const momentumPrompt = `Tendencia ${symbol}. Cierres recientes: ${JSON.stringify(closes.slice(0, 10))}. ${JSON_REPLY_HINT}`;
+  const sentinelPrompt = `Riesgo ${symbol}: PnL ${pnlPct.toFixed(1)}%, valor $${currentValue.toFixed(2)}. ${JSON_REPLY_HINT}`;
+  const oraclePrompt = `Noticias ${symbol}: ${newsHeadlines.join(" | ") || "sin noticias"}. ${JSON_REPLY_HINT}`;
 
   const [ALPHA, MOMENTUM, SENTINEL, ORACLE] = await Promise.all([
-    callCommitteeAgent("Analista fundamental", alphaPrompt),
-    callCommitteeAgent("Trader técnico", momentumPrompt),
-    callCommitteeAgent("Gestor de riesgo", sentinelPrompt),
-    callCommitteeAgent("Analista de noticias/sentimiento", oraclePrompt),
+    callCommitteeAgent("Analista fundamental", alphaPrompt, pnlPct, "ALPHA"),
+    callCommitteeAgent("Trader técnico", momentumPrompt, pnlPct, "MOMENTUM"),
+    callCommitteeAgent("Gestor de riesgo", sentinelPrompt, pnlPct, "SENTINEL"),
+    callCommitteeAgent("Analista de sentimiento", oraclePrompt, pnlPct, "ORACLE"),
   ]);
 
   const votes = { ALPHA, MOMENTUM, SENTINEL, ORACLE };
-  const governorPrompt = `Eres el árbitro final de un comité de inversión. Estos son los votos de tus 4 analistas sobre ${symbol}: ${JSON.stringify(votes)}. Toma la decisión final considerando todos los argumentos. Responde SOLO JSON: {"decision":"VENDER|MANTENER","confidence":0-1,"reason":string,"action":string}`;
-  const gov = await callCommitteeAgent("Árbitro final de comité", governorPrompt);
+  const governorPrompt = `Votos sobre ${symbol} (PnL ${pnlPct.toFixed(1)}%): ${JSON.stringify(votes)}. ${JSON_REPLY_HINT}`;
+  const gov = await callCommitteeAgent("Árbitro final de comité", governorPrompt, pnlPct, "GOVERNOR");
   const governor = {
     ...gov,
     action:

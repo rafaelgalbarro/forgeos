@@ -1,14 +1,18 @@
 /**
- * Trading-cycle universe — prefer multi-scanner top candidates over the static allowlist.
+ * Trading-cycle universe — prefer FMP daily TOP100, then multi-scanner, then allowlist.
  */
 
 import "server-only";
 
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { readMultiScannerResults } from "@/lib/market-data/scanner-store";
-import { getDailyMarketUniverse } from "@/lib/investment/market-daily-universe";
+import {
+  ensureDailyUniverse,
+  getDailyUniverse,
+  getDailyMarketUniverse,
+} from "@/lib/investment/market-daily-universe";
 
-const DEFAULT_CYCLE_LIMIT = 12;
+const DEFAULT_CYCLE_LIMIT = 100;
 
 function allowedSet(): Set<string> {
   return new Set((TRADING_CONFIG.allowedTickers as readonly string[]).map((t) => t.toUpperCase()));
@@ -31,7 +35,7 @@ export function getScannerCandidateTickers(): string[] {
 export function isTickerAllowedForTrading(ticker: string): boolean {
   const id = ticker.trim().toUpperCase();
   if (!id) return false;
-  const daily = getDailyMarketUniverse();
+  const daily = getDailyUniverse();
   if ((daily?.excludedEarnings ?? []).includes(id)) return false;
   if ((daily?.tickers ?? []).some((t) => t.symbol === id)) return true;
   if (allowedSet().has(id)) return true;
@@ -45,19 +49,19 @@ export type CycleUniverseResult = {
   universeSize: number;
 };
 
-/** Best BUY/SELL names from the 8000-ticker scanner; fallback to allowedTickers. */
-export function resolveTradingCycleTickers(limit = DEFAULT_CYCLE_LIMIT): CycleUniverseResult {
+function resolveFromCache(limit: number): CycleUniverseResult {
   const cap = Math.max(1, Math.min(limit, 100));
-  const daily = getDailyMarketUniverse();
-  const fromDaily = (daily?.tickers ?? []).slice(0, cap).map((t) => t.symbol);
+  const daily = getDailyUniverse() ?? getDailyMarketUniverse();
+  const fromDaily = (daily?.tickers ?? []).slice(0, cap).map((t) => t.symbol.toUpperCase());
   if (fromDaily.length > 0) {
     return {
       tickers: fromDaily,
       source: "daily-top100",
       scannedAt: daily?.generatedAt ?? null,
-      universeSize: daily?.tickers.length ?? 0,
+      universeSize: daily?.screenerCount ?? daily?.tickers.length ?? 0,
     };
   }
+
   const snap = readMultiScannerResults();
   const ranked = (snap?.opportunities ?? [])
     .filter((o) => (o.side === "BUY" || o.side === "SELL") && o.ticker)
@@ -79,4 +83,28 @@ export function resolveTradingCycleTickers(limit = DEFAULT_CYCLE_LIMIT): CycleUn
     scannedAt: snap?.scannedAt ?? null,
     universeSize: snap?.universeSize ?? 0,
   };
+}
+
+/** Sync read of current universe (may be empty until ensure/refresh). */
+export function resolveTradingCycleTickers(limit = DEFAULT_CYCLE_LIMIT): CycleUniverseResult {
+  return resolveFromCache(limit);
+}
+
+/** Prefer FMP daily TOP100 — loads screener immediately if cache empty. */
+export async function resolveTradingCycleTickersAsync(
+  limit = DEFAULT_CYCLE_LIMIT,
+): Promise<CycleUniverseResult> {
+  try {
+    await ensureDailyUniverse();
+  } catch (err) {
+    console.warn(
+      "[Universe] ensureDailyUniverse failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+  const result = resolveFromCache(limit);
+  console.log(
+    `[Universe] Ciclo source=${result.source} tickers=${result.tickers.length} universe=${result.universeSize}`,
+  );
+  return result;
 }

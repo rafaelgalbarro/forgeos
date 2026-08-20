@@ -18,8 +18,8 @@ import { fetchTradingAccountSnapshot } from '@/lib/trading/ibkr-data'
 import { expireStalePendingApprovals, countPendingApprovals } from '@/lib/investment/order-approval-service'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { popCycleQueue } from '@/lib/alerts/alert-manager'
-import { resolveTradingCycleTickers } from '@/lib/investment/cycle-universe'
-import { refreshDailyMarketUniverse, getDailyMarketUniverse } from '@/lib/investment/market-daily-universe'
+import { resolveTradingCycleTickersAsync } from '@/lib/investment/cycle-universe'
+import { getDailyMarketUniverse } from '@/lib/investment/market-daily-universe'
 import { sendCyclePremiumReport } from '@/lib/notifications/cycle-premium-report'
 
 const engine = new TradingEngine()
@@ -76,9 +76,8 @@ export async function POST(req: NextRequest) {
   // Ciclo de trading — queues PENDING_APPROVAL; does not auto-execute
   try {
     await expireStalePendingApprovals()
-    await refreshDailyMarketUniverse()
     const body = await req.json().catch(() => ({})) as { tickers?: string[] }
-    const universe = resolveTradingCycleTickers(100)
+    const universe = await resolveTradingCycleTickersAsync(100)
     const requested: string[] = Array.isArray(body.tickers) && body.tickers.length > 0
       ? body.tickers
       : universe.tickers
@@ -87,7 +86,8 @@ export async function POST(req: NextRequest) {
 
     console.log(
       `[TradingCycle] 🚀 Iniciando ciclo con ${tickers.length} tickers (source=${universe.source} universe=${universe.universeSize}):`,
-      tickers,
+      tickers.slice(0, 20),
+      tickers.length > 20 ? `…(+${tickers.length - 20})` : '',
       queued.length ? `(cola Telegram ${queued.join(",")})` : "",
     )
 
@@ -146,7 +146,7 @@ export async function GET() {
   const approvals = OrderApprovalGate.getInstance()
 
   await expireStalePendingApprovals()
-  await refreshDailyMarketUniverse().catch(() => undefined)
+  const cycleUniverse = await resolveTradingCycleTickersAsync(100)
 
   let dynamicSizing = null
   try {
@@ -168,7 +168,7 @@ export async function GET() {
     telegramApprovalRequired: TRADING_CONFIG.semiAutomatic.telegramApprovalRequired,
     approvalTimeoutMinutes: TRADING_CONFIG.semiAutomatic.approvalTimeoutMinutes,
     lastCycle: global.__lastTradingCycle ?? null,
-    cycleUniverse: resolveTradingCycleTickers(100),
+    cycleUniverse,
     dynamicSizing,
     config: {
       maxPositionPct: TRADING_CONFIG.risk.maxPositionPct,

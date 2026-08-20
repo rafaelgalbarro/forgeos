@@ -19,7 +19,7 @@ import {
   queueTickerForCycle,
   removeWatchlistTicker,
 } from "@/lib/alerts/alert-manager";
-import { refreshDailyMarketUniverse, getDailyMarketUniverse } from "@/lib/investment/market-daily-universe";
+import { getDailyMarketUniverse } from "@/lib/investment/market-daily-universe";
 import { sendCyclePremiumReport } from "@/lib/notifications/cycle-premium-report";
 import {
   executeCommitteeSales,
@@ -142,9 +142,8 @@ export async function handleTelegramCommand(text: string): Promise<void> {
       await sendTelegramMessage("🚀 Ejecutando ciclo manual…");
       try {
         const engine = await getTradingEngine();
-        const { resolveTradingCycleTickers } = await import("@/lib/investment/cycle-universe");
-        await refreshDailyMarketUniverse().catch(() => undefined);
-        const universe = resolveTradingCycleTickers(100);
+        const { resolveTradingCycleTickersAsync } = await import("@/lib/investment/cycle-universe");
+        const universe = await resolveTradingCycleTickersAsync(100);
         const result = await engine.runCycle(universe.tickers);
         global.__lastTradingCycle = result;
         const daily = getDailyMarketUniverse();

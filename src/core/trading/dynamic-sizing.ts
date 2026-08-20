@@ -68,6 +68,7 @@ export function computeDynamicSizing(params: {
   );
 
   const forexMinCashUSD = TRADING_CONFIG.risk.forex.minCashUSD;
+  /** FOREX 24h solo con capital suficiente (U15513057 > €2000). */
   const canTradeForex = cashUSD >= forexMinCashUSD;
 
   const pctLabel = Math.round(maxOrderPct * 100);

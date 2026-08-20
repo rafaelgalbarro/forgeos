@@ -103,10 +103,14 @@ export type MarketSessionInfo = {
 /** Sesiones USA referenciadas en hora española (Europe/Madrid). */
 const US_SESSION_SPAIN = {
   timeZone: "Europe/Madrid",
-  preMarket: { startH: 9, startM: 0, endH: 15, endM: 29 },
-  regular: { startH: 15, startM: 30, endH: 22, endM: 0 },
-  afterMarket: { startH: 22, startM: 0, endH: 1, endM: 0 },
-  closed: { startH: 1, startM: 0, endH: 9, endM: 0 },
+  /** Premarket 14:00-14:30 outside_rth */
+  preMarket: { startH: 14, startM: 0, endH: 14, endM: 29 },
+  /** Regular 14:30-22:00 */
+  regular: { startH: 14, startM: 30, endH: 22, endM: 0 },
+  /** After-hours 22:00-02:00 outside_rth */
+  afterMarket: { startH: 22, startM: 0, endH: 2, endM: 0 },
+  /** Closed 02:00-14:00 */
+  closed: { startH: 2, startM: 0, endH: 14, endM: 0 },
 } as const
 
 function toMadridParts() {
@@ -140,7 +144,7 @@ function inMinuteRange(nowMinutes: number, startH: number, startM: number, endH:
 
 /**
  * Sesión USA en hora española:
- * PRE_MARKET 09:00-15:29 | REGULAR 15:30-22:00 | AFTER_MARKET 22:00-01:00 | CLOSED 01:00-09:00
+ * PRE_MARKET 14:00-14:29 | REGULAR 14:30-22:00 | AFTER_MARKET 22:00-02:00 | CLOSED 02:00-14:00
  */
 export function getUsMarketSession(): UsMarketSession {
   const local = toMadridParts()
@@ -167,7 +171,7 @@ export function getUsMarketSession(): UsMarketSession {
       phase: "PRE_MARKET",
       timeZone: tz,
       localTime,
-      sessionLabel: "09:00-15:29 (premarket USA)",
+      sessionLabel: "14:00-14:30 (premarket USA, outside_rth)",
       isTradeable: true,
       isExtendedHours: true,
     }
@@ -177,7 +181,7 @@ export function getUsMarketSession(): UsMarketSession {
       phase: "REGULAR",
       timeZone: tz,
       localTime,
-      sessionLabel: "15:30-22:00 (mercado regular USA)",
+      sessionLabel: "14:30-22:00 (mercado regular USA)",
       isTradeable: true,
       isExtendedHours: false,
     }
@@ -187,7 +191,7 @@ export function getUsMarketSession(): UsMarketSession {
       phase: "AFTER_MARKET",
       timeZone: tz,
       localTime,
-      sessionLabel: "22:00-01:00 (aftermarket USA)",
+      sessionLabel: "22:00-02:00 (aftermarket USA, outside_rth)",
       isTradeable: true,
       isExtendedHours: true,
     }
@@ -197,7 +201,8 @@ export function getUsMarketSession(): UsMarketSession {
       phase: "CLOSED",
       timeZone: tz,
       localTime,
-      sessionLabel: "01:00-09:00 (Asia / extended 24h)",
+      sessionLabel: "02:00-14:00 (USA cerrado — ETFs regionales / outside_rth)",
+      // Keep tradeable so Asia/Europe ETF proxies can still fire with outside_rth
       isTradeable: true,
       isExtendedHours: true,
     }

@@ -423,7 +423,6 @@ export class TradingEngine {
       : null
 
     if (usSession) {
-      // 24h mode: always tradeable weekdays via outside_rth
       if (!usSession.isTradeable) {
         return {
           status: 'HOLD', ticker, direction: 'HOLD',
@@ -444,12 +443,13 @@ export class TradingEngine {
         status: 'HOLD',
         ticker,
         direction: 'HOLD',
-        reason: `${ticker}: ya existe posiciÃ³n abierta (diversificaciÃ³n 1 posiciÃ³n por ticker)`,
+        reason: `${ticker}: ya existe posición abierta (diversificación 1 posición por ticker)`,
         signal: { confidence: 0, reasoning: 'Ticker already open', urgency: 'LOW' },
         timestamp: new Date().toISOString(),
       }
     }
-        const usExtendedHours = true // 24h: always submit with outside_rth
+    // Regular RTH: outside_rth=false; pre/after/closed extended: outside_rth=true
+    const usExtendedHours = usSession ? usSession.isExtendedHours : true
 
     // Screener-only strategies (no FMP historical — Starter 402)
     const change1dPct =
@@ -760,7 +760,7 @@ export class TradingEngine {
       takeProfit: effectiveTakeProfit,
       reason: signal.reasoning,
       signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-      outsideRth: true,
+      outsideRth: usExtendedHours,
       preTradeChecklist: checklistSnapshot,
       smartPlan: smartPlan
         ? {

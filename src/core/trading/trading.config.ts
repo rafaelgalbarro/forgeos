@@ -36,9 +36,9 @@ export const TRADING_CONFIG = {
       minOpenPositions: 3,
       takeProfitRatio: 2.6,
     },
-    /** FOREX IDEALPRO sizing gates */
+    /** FOREX IDEALPRO — 24h cuando capital U15513057 > €2000 */
     forex: {
-      /** Keep FOREX enabled but only execute when cash is strong enough. */
+      /** Margen U15513057: solo FOREX si cash ≥ €2000. */
       minCashUSD: 2_000,
       /** @deprecated use minCashUSD — kept so older snapshots still type-check. */
       minNavUSD: 50,
@@ -58,8 +58,11 @@ export const TRADING_CONFIG = {
     analysisCycleMs: 3 * 60 * 1000,
     /** Confianza mínima (0-1) */
     minConfidenceToTrade: 0.60,
-    /** Máximo de operaciones por día */
-    maxDailyTrades: 50,
+    /**
+     * @deprecated Sin tope artificial — el capital disponible es el único límite de volumen.
+     * Conservado por compatibilidad de tipos/snapshots.
+     */
+    maxDailyTrades: Number.MAX_SAFE_INTEGER,
   },
 
   // ── Multi-IA (scanner masivo + confirmación) ───────────────────
@@ -119,34 +122,34 @@ export const TRADING_CONFIG = {
   // ── Horario de trading (hora española — Europe/Madrid) ────────
   schedule: {
     timeZone: 'Europe/Madrid',
-    /** Premarket USA: 09:00 - 15:29 hora española (≈ 04:00-09:29 ET) */
-    preMarketStartHour: 9,
+    /** Premarket USA: 14:00 - 14:29 (outside_rth) */
+    preMarketStartHour: 14,
     preMarketStartMinute: 0,
-    preMarketEndHour: 15,
+    preMarketEndHour: 14,
     preMarketEndMinute: 29,
-    /** Mercado regular USA: 15:30 - 21:00 hora española */
-    regularOpenHour: 15,
+    /** Mercado regular USA: 14:30 - 22:00 */
+    regularOpenHour: 14,
     regularOpenMinute: 30,
-    regularCloseHour: 21,
+    regularCloseHour: 22,
     regularCloseMinute: 0,
-    /** Aftermarket USA: 22:00 - 01:00 hora española (≈ 16:00-19:00 ET) */
+    /** Aftermarket USA: 22:00 - 02:00 (outside_rth) */
     afterMarketStartHour: 22,
     afterMarketStartMinute: 0,
-    afterMarketEndHour: 1,
+    afterMarketEndHour: 2,
     afterMarketEndMinute: 0,
-    /** Mercado cerrado: 01:00 - 09:00 hora española */
-    closedStartHour: 1,
+    /** Mercado cerrado USA: 02:00 - 14:00 */
+    closedStartHour: 2,
     closedStartMinute: 0,
-    closedEndHour: 9,
+    closedEndHour: 14,
     closedEndMinute: 0,
-    /** Confianza mínima en premarket/aftermarket (temporal pruebas) */
+    /** Confianza mínima en premarket/aftermarket */
     extendedHoursMinConfidence: 0.60,
-    /** Tamaño máximo de orden en extended hours (50% del normal) */
-    extendedHoursMaxOrderSizeFactor: 0.50,
+    /** Sin penalización de tamaño en extended hours (24h mode) */
+    extendedHoursMaxOrderSizeFactor: 1.0,
     /** Volumen mínimo en premarket/aftermarket (acciones) */
     extendedHoursMinVolume: 100_000,
     /** No operar los últimos 15 min antes del cierre regular */
-    noTradeBeforeCloseMin: 15,
+    noTradeBeforeCloseMin: 0,
   },
 
   // ── Modo semi-automático (Telegram) ─────────────────────────────

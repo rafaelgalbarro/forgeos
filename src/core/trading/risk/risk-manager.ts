@@ -201,19 +201,17 @@ export class RiskManager {
       sizing.deployableCashUSD,
     )
     if (price.usExtendedHours) {
+      // 24h mode: no size penalty in pre/after market
       maxOrderValue *= TRADING_CONFIG.schedule.extendedHoursMaxOrderSizeFactor
     }
     if (direction === 'BUY' && sizing.deployableCashUSD < TRADING_CONFIG.risk.dynamicSizing.minOrderUSD) {
       return {
         allowed: false,
-        reason: `Cash desplegable insuficiente: $${sizing.deployableCashUSD.toFixed(2)} (70% de $${account.cashUSD.toFixed(2)})`,
+        reason: `Cash desplegable insuficiente: $${sizing.deployableCashUSD.toFixed(2)}`,
       }
     }
 
-    // 6. Máximo de operaciones diarias
-    if (this.dailyTradeCount >= TRADING_CONFIG.ai.maxDailyTrades) {
-      return { allowed: false, reason: `Límite diario de ${TRADING_CONFIG.ai.maxDailyTrades} operaciones alcanzado` }
-    }
+    // Sin límite artificial de operaciones/día — solo capital + pérdida diaria -10% NAV
 
     // 7. Precio razonable (evitar gaps extremos bid/ask)
     const spread = (price.ask - price.bid) / price.currentPrice

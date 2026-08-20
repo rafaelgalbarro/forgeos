@@ -67,13 +67,13 @@ function sessionBadge(
 ): { text: string; className: string } {
   switch (phase) {
     case "REGULAR":
-      return { text: "🟢 USA ABIERTO 15:30-22:00", className: stylesMap.hdrSessionOpen };
+      return { text: "🟢 USA ABIERTO 14:30-22:00", className: stylesMap.hdrSessionOpen };
     case "PRE_MARKET":
-      return { text: "🟡 PREMARKET 09:00-15:29", className: stylesMap.hdrSessionPre };
+      return { text: "🟡 PREMARKET 14:00-14:30", className: stylesMap.hdrSessionPre };
     case "AFTER_MARKET":
-      return { text: "🟡 AFTERMARKET 22:00-01:00", className: stylesMap.hdrSessionPre };
+      return { text: "🟡 AFTERMARKET 22:00-02:00", className: stylesMap.hdrSessionPre };
     default:
-      return { text: "🔴 MERCADO CERRADO", className: stylesMap.hdrSessionClosed };
+      return { text: "🔴 MERCADO CERRADO / EXT", className: stylesMap.hdrSessionClosed };
   }
 }
 

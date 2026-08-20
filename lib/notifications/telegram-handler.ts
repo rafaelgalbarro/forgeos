@@ -9,7 +9,6 @@ import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { OrderApprovalGate } from "@/src/core/trading/order-approval";
 import { RiskManager } from "@/src/core/trading/risk/risk-manager";
-import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import {
   isFounderTelegramChat,
   processOrderApproval,
@@ -98,7 +97,7 @@ async function statusText(): Promise<string> {
     state.tradingPaused ? "⏸ Trading automático pausado" : "▶️ Trading automático ON",
     `NAV: $${nav.toFixed(2)} | Cash: $${cash.toFixed(2)}`,
     `P&L día: ${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}`,
-    `Ops hoy: ${risk.getDailyTradeCount()}/${TRADING_CONFIG.ai.maxDailyTrades}`,
+    `Ops hoy: ${risk.getDailyTradeCount()} (sin tope diario — solo capital)`,
     `Pendientes: ${OrderApprovalGate.getInstance().listPending().length}`,
   ].join("\n");
 }

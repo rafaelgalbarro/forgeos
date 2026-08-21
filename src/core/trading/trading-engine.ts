@@ -50,6 +50,7 @@ import {
 } from './portfolio-optimizer'
 import { getInstitutionalMacroCaution24h } from '@/lib/market-data/institutional-scanner'
 import { loadTradingState } from './trading-state-store'
+import { shouldSkipUntradeableTicker } from './untradeable-tickers'
 
 /** Per-account capital policy — price band + 30% cash sizing. */
 function resolveAccountCapitalPolicy(
@@ -384,6 +385,18 @@ export class TradingEngine {
     },
     execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
   ): Promise<OrderResult> {
+    if (shouldSkipUntradeableTicker(ticker)) {
+      console.log(`[AutoExecute] ${ticker} → skip permanente (junk / .OLD / .CVR)`)
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: ticker excluido (sin precio FMP / heredado)`,
+        signal: { confidence: 0, reasoning: 'Untradeable inherited ticker', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     console.log(`[AutoExecute] ${ticker} → obteniendo precio actual…`)
     let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
     try {
@@ -414,6 +427,18 @@ export class TradingEngine {
         }
       } else {
         throw err
+      }
+    }
+
+    if (shouldSkipUntradeableTicker(ticker, priceData.currentPrice)) {
+      console.log(`[AutoExecute] ${ticker} → skip precio $0.00 / no operable`)
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: precio $0.00 o ticker excluido`,
+        signal: { confidence: 0, reasoning: 'Zero price / untradeable', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
       }
     }
 

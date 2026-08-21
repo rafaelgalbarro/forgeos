@@ -25,6 +25,7 @@ import { removeMonitoredPosition } from "./auto-approval";
 import { loadTradingState, updateTradingState, type MonitoredPosition } from "./trading-state-store";
 import { labelMlSignalOutcome } from "@/lib/ml/signal-trainer";
 import { recordClosedTradeOutcome } from "./portfolio-optimizer";
+import { shouldSkipUntradeableTicker } from "./untradeable-tickers";
 
 const MONITOR_INTERVAL_MS = 60_000;
 const STALE_HOURS = 24;
@@ -157,7 +158,9 @@ async function fetchOpenIbkrStockPositions(): Promise<IbkrPosRow[]> {
       const sec = String(p.secType ?? "STK").toUpperCase();
       if (sec && sec !== "STK" && sec !== "STOCK") return false;
       if (primary && p.account && p.account !== primary) return false;
-      return Boolean(String(p.symbol ?? "").trim());
+      const symbol = String(p.symbol ?? "").trim();
+      if (!symbol || shouldSkipUntradeableTicker(symbol)) return false;
+      return true;
     });
   } catch (err) {
     console.warn(
@@ -182,11 +185,39 @@ function toMonitored(ticker: string, row: PositionSLTP): MonitoredPosition {
   };
 }
 
-/** Merge persisted + memory + live IBKR into the in-memory SL/TP map. */
+/** Merge persisted + memory + live IBKR into the in-memory SL/TP map. Only IBKR-open tickers are monitored. */
 function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
+  const ibkrOpen = new Set<string>();
+  for (const row of ibkrRows) {
+    const ticker = String(row.symbol ?? "").trim().toUpperCase();
+    if (!ticker || shouldSkipUntradeableTicker(ticker)) continue;
+    const qty = Math.abs(Number(row.position ?? 0));
+    if (qty > 0) ibkrOpen.add(ticker);
+  }
+
+  // Drop registry entries that are no longer open in IBKR (unless mid-SELL)
+  for (const t of [...positionSLTP.keys()]) {
+    if (ibkrOpen.has(t)) continue;
+    if (positionSLTP.get(t)?.selling || isSellLocked(t)) continue;
+    dropFromRegistry(t);
+    console.log(`[PositionMonitor] ${t} qty=0 en IBKR — eliminada del registro`);
+  }
+
+  // Also purge stale state for junk / closed names
+  updateTradingState((state) => ({
+    ...state,
+    monitoredPositions: state.monitoredPositions.filter((p) => {
+      const t = p.ticker.toUpperCase();
+      if (shouldSkipUntradeableTicker(t)) return false;
+      return ibkrOpen.has(t) || isSellLocked(t);
+    }),
+  }));
+
   const { monitoredPositions } = loadTradingState();
   for (const p of monitoredPositions) {
     const t = p.ticker.toUpperCase();
+    if (shouldSkipUntradeableTicker(t)) continue;
+    if (!ibkrOpen.has(t)) continue;
     if (isSellLocked(t)) continue;
     if (!positionSLTP.has(t)) {
       upsertMemory({
@@ -204,12 +235,13 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   const active: string[] = [];
   for (const row of ibkrRows) {
     const ticker = String(row.symbol ?? "").trim().toUpperCase();
-    if (!ticker) continue;
+    if (!ticker || shouldSkipUntradeableTicker(ticker)) continue;
     if (isSellLocked(ticker)) {
       console.log(`[PositionMonitor] ${ticker} en sell-lock — no re-registrar / no SELL`);
       continue;
     }
     const qty = Math.abs(Number(row.position ?? 0));
+    if (!(qty > 0)) continue;
     const avgCost = Number(row.avgCost ?? 0);
     active.push(ticker);
     const existing = positionSLTP.get(ticker);
@@ -239,7 +271,7 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
           ...state.monitoredPositions.filter((p) => p.ticker.toUpperCase() !== ticker),
         ].slice(0, 50),
       }));
-    } else if (qty > 0) {
+    } else {
       existing.qty = Math.max(1, Math.floor(qty));
       if (avgCost > 0 && !(existing.entryPrice > 0)) existing.entryPrice = avgCost;
       if (row.account) existing.account = row.account;
@@ -247,8 +279,8 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
     }
   }
 
-  if (active.length > 0) return [...new Set(active)];
-  return [...positionSLTP.keys()].filter((t) => !isSellLocked(t) && !positionSLTP.get(t)?.selling);
+  // Never fall back to state-only closed positions
+  return [...new Set(active)].filter((t) => !isSellLocked(t) && !positionSLTP.get(t)?.selling);
 }
 
 async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" | "SL"): Promise<void> {
@@ -327,7 +359,8 @@ type ExitSellResult =
   | { status: "skipped"; reason: string };
 
 /**
- * Single-flight exit: lock → remove registry → verify IBKR → one SELL.
+ * Single-flight exit: lock → verify IBKR qty>0 → one SELL → drop registry.
+ * Never re-SELL if already closed or sell already executed.
  */
 async function beginExitSell(
   pos: MonitoredPosition,
@@ -353,43 +386,53 @@ async function beginExitSell(
     positionSLTP.set(ticker, mem);
   }
 
-  // 2) Remove from registry immediately so next tick cannot re-SELL
-  dropFromRegistry(ticker);
-  console.log(`[PositionMonitor] ${ticker} eliminada del registro (pre-SELL ${kind})`);
-
-  // 3) Re-check live IBKR — only SELL if still open
+  // 2) Re-check live IBKR — only SELL if still open with qty > 0
   const liveRows = await fetchOpenIbkrStockPositions();
   const { open, qty } = stillOpenInIbkr(liveRows, ticker);
-  if (!open) {
-    console.log(`[PositionMonitor] ${ticker} ya no está en IBKR — no enviar SELL`);
+  if (!open || !(qty > 0)) {
+    dropFromRegistry(ticker);
+    console.log(`[PositionMonitor] ${ticker} qty=0 en IBKR — eliminada del registro, skip SELL`);
+    return { status: "skipped", reason: "already-closed" };
+  }
+
+  const sellQty = Math.max(1, Math.floor(qty));
+  const flags = getInvestmentRuntimeFlags();
+  if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
+    dropFromRegistry(ticker);
+    console.log(`[PositionMonitor] ${ticker} PAPER SELL qty=${sellQty} @$${price.toFixed(2)}`);
     return { status: "sold", orderId: null };
   }
 
-  const sellQty = Math.max(1, Math.floor(qty > 0 ? qty : pos.shares));
-  const flags = getInvestmentRuntimeFlags();
-  if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
-    console.log(`[PositionMonitor] ${ticker} PAPER SELL qty=${sellQty} @$${price.toFixed(2)}`);
-    return { status: "sold", orderId: null };
+  // 3) Final IBKR re-check immediately before submit
+  const recheck = stillOpenInIbkr(await fetchOpenIbkrStockPositions(), ticker);
+  if (!recheck.open || !(recheck.qty > 0)) {
+    dropFromRegistry(ticker);
+    console.log(`[PositionMonitor] ${ticker} cerrada antes de submit — skip SELL`);
+    return { status: "skipped", reason: "already-closed" };
   }
 
   try {
     const res = await submitSupervisedLiveLimitOrder({
       symbol: ticker,
       side: "SELL",
-      quantity: sellQty,
+      quantity: Math.max(1, Math.floor(recheck.qty)),
       limitPrice: price,
       rationale,
       outsideRth: true,
       account: mem?.account ?? (process.env.IBKR_ACCOUNT_ID?.trim() || undefined),
     });
+    // 4) Drop registry only after successful submit so we never re-try the same exit
+    dropFromRegistry(ticker);
     console.log(`[PositionMonitor] ${ticker} SELL enviado ibkrId=${res.ibkrOrderId} (único)`);
     return { status: "sold", orderId: res.ibkrOrderId };
   } catch (err) {
+    // Keep sell-lock so we do not spam retries; leave registry out via lock
+    dropFromRegistry(ticker);
     console.warn(
       `[PositionMonitor] live close failed ${ticker}:`,
       err instanceof Error ? err.message : err,
     );
-    return { status: "sold", orderId: null };
+    return { status: "skipped", reason: "submit-failed" };
   }
 }
 
@@ -425,7 +468,7 @@ async function tick(): Promise<void> {
     console.log(`[PositionMonitor] Monitoreando ${tickers.length} posiciones: ${summary}`);
 
     for (const ticker of tickers) {
-      if (isSellLocked(ticker)) continue;
+      if (isSellLocked(ticker) || shouldSkipUntradeableTicker(ticker)) continue;
       const mem = positionSLTP.get(ticker);
       if (!mem || mem.selling || !(mem.entryPrice > 0) || !(mem.qty > 0)) continue;
 
@@ -433,7 +476,7 @@ async function tick(): Promise<void> {
       try {
         const quote = await fetchTradingPrice(ticker);
         const price = quote.currentPrice;
-        if (!Number.isFinite(price) || price <= 0) {
+        if (!Number.isFinite(price) || price <= 0 || shouldSkipUntradeableTicker(ticker, price)) {
           console.warn(`[PositionMonitor] ${ticker}: sin precio — skip tick`);
           continue;
         }

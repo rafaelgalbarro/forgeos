@@ -240,6 +240,8 @@ class IBKRClient(EWrapper, EClient):
         self.tick_data: dict[int, dict[str, Any]] = {}
         self.tick_done: dict[int, threading.Event] = {}
         self._tick_lock = threading.Lock()
+        self._order_id_lock = threading.Lock()
+        self._pending_next_id_event: threading.Event | None = None
         self._forex_req_seq = 9300
         self._quote_req_seq = 9600
         self._scanner_req_seq = 9700
@@ -249,7 +251,29 @@ class IBKRClient(EWrapper, EClient):
 
     def nextValidId(self, orderId: int) -> None:
         log.info("nextValidId=%s (connection ready)", orderId)
-        self.next_order_id = orderId
+        self.next_order_id = int(orderId)
+        pending = self._pending_next_id_event
+        if pending is not None:
+            pending.set()
+
+    def _allocate_order_id(self) -> int:
+        """Always request a fresh nextValidId from TWS before placeOrder — never reuse."""
+        self.ensure_connected()
+        event = threading.Event()
+        self._pending_next_id_event = event
+        try:
+            self.reqIds(-1)
+            if not event.wait(timeout=5.0):
+                raise RuntimeError("Timeout esperando nextValidId() antes de placeOrder")
+            if self.next_order_id is None:
+                raise RuntimeError("No existe un identificador de orden válido (nextValidId)")
+            order_id = int(self.next_order_id)
+            # Local bump until the next reqIds; never reuses the just-allocated id.
+            self.next_order_id = order_id + 1
+            log.info("Allocated fresh orderId=%s via reqIds/nextValidId", order_id)
+            return order_id
+        finally:
+            self._pending_next_id_event = None
 
     def managedAccounts(self, accountsList: str) -> None:
         from_tws = [account for account in accountsList.split(",") if account]
@@ -1026,10 +1050,6 @@ class IBKRClient(EWrapper, EClient):
 
     def place_limit_order_validated(self, proposal: dict[str, Any], *, transmit: bool, what_if: bool) -> int:
         self.ensure_connected()
-        if self.next_order_id is None:
-            raise RuntimeError("No existe un identificador de orden válido")
-        order_id = self.next_order_id
-        self.next_order_id += 1
         contract = Contract()
         contract.symbol = proposal["symbol"]
         contract.secType = proposal.get("sec_type", "STK")
@@ -1056,24 +1076,27 @@ class IBKRClient(EWrapper, EClient):
         apply_whatif_legacy_attr_compat(order)
 
         notional = normalized_qty * normalized_price
-        log.info(
-            "PLACING ORDER id=%s %s %s qty=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s",
-            order_id, order.action, contract.symbol, normalized_qty,
-            normalized_price, notional, transmit, what_if, account, order.outsideRth,
-        )
-        self._log_buying_power(account)
+        # Serialize allocate+placeOrder so two threads never share the same order id (IBKR 103).
+        with self._order_id_lock:
+            order_id = self._allocate_order_id()
+            log.info(
+                "PLACING ORDER id=%s %s %s qty=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s",
+                order_id, order.action, contract.symbol, normalized_qty,
+                normalized_price, notional, transmit, what_if, account, order.outsideRth,
+            )
+            self._log_buying_power(account)
 
-        ack = threading.Event()
-        self.place_ack_events[order_id] = ack
-        self.place_ack_status.pop(order_id, None)
-        self.place_ack_errors.pop(order_id, None)
-        self.order_context[order_id] = {
-            "kind": "ORDER",
-            "symbol": contract.symbol,
-            "currency": contract.currency,
-            "account": account,
-        }
-        self.placeOrder(order_id, contract, order)
+            ack = threading.Event()
+            self.place_ack_events[order_id] = ack
+            self.place_ack_status.pop(order_id, None)
+            self.place_ack_errors.pop(order_id, None)
+            self.order_context[order_id] = {
+                "kind": "ORDER",
+                "symbol": contract.symbol,
+                "currency": contract.currency,
+                "account": account,
+            }
+            self.placeOrder(order_id, contract, order)
         ack.wait(6)
         errors = self.place_ack_errors.get(order_id, [])
         status = self.place_ack_status.get(order_id, "NO_ACK")
@@ -1133,8 +1156,6 @@ class IBKRClient(EWrapper, EClient):
             from forex_pairs import build_cash_contract  # type: ignore
 
         self.ensure_connected()
-        if self.next_order_id is None:
-            raise RuntimeError("No existe un identificador de orden válido")
 
         contract = build_cash_contract(pair)
         details = None
@@ -1176,8 +1197,6 @@ class IBKRClient(EWrapper, EClient):
             tick = 0.01 if pair.get("jpy_quoted") else 0.00005
             price = float(int(price / tick) * tick) if tick > 0 else price
 
-        order_id = self.next_order_id
-        self.next_order_id += 1
         order = Order()
         order.action = side
         order.orderType = "LMT"
@@ -1191,22 +1210,25 @@ class IBKRClient(EWrapper, EClient):
             order.account = account
         apply_whatif_legacy_attr_compat(order)
         notional = qty * price
-        log.info(
-            "PLACING FOREX ORDER id=%s %s %s/%s qty=%s lmt=%s notional=%.2f transmit=%s acct=%s",
-            order_id, side, contract.symbol, contract.currency, qty, price, notional, transmit, account,
-        )
-        self._log_buying_power(account)
 
-        ack = threading.Event()
-        self.place_ack_events[order_id] = ack
-        self.place_ack_status.pop(order_id, None)
-        self.place_ack_errors.pop(order_id, None)
-        self.order_context[order_id] = {
-            "kind": "FOREX",
-            "pair": f"{contract.symbol}/{contract.currency}",
-            "account": account,
-        }
-        self.placeOrder(order_id, contract, order)
+        with self._order_id_lock:
+            order_id = self._allocate_order_id()
+            log.info(
+                "PLACING FOREX ORDER id=%s %s %s/%s qty=%s lmt=%s notional=%.2f transmit=%s acct=%s",
+                order_id, side, contract.symbol, contract.currency, qty, price, notional, transmit, account,
+            )
+            self._log_buying_power(account)
+
+            ack = threading.Event()
+            self.place_ack_events[order_id] = ack
+            self.place_ack_status.pop(order_id, None)
+            self.place_ack_errors.pop(order_id, None)
+            self.order_context[order_id] = {
+                "kind": "FOREX",
+                "pair": f"{contract.symbol}/{contract.currency}",
+                "account": account,
+            }
+            self.placeOrder(order_id, contract, order)
         ack.wait(6)
         errors = self.place_ack_errors.get(order_id, [])
         status = self.place_ack_status.get(order_id, "NO_ACK")

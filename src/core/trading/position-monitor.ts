@@ -26,6 +26,7 @@ import { loadTradingState, updateTradingState, type MonitoredPosition } from "./
 import { labelMlSignalOutcome } from "@/lib/ml/signal-trainer";
 import { recordClosedTradeOutcome } from "./portfolio-optimizer";
 import { shouldSkipUntradeableTicker } from "./untradeable-tickers";
+import { recordClosedTrade } from "@/lib/db/database";
 
 const MONITOR_INTERVAL_MS = 60_000;
 const STALE_HOURS = 24;
@@ -291,6 +292,26 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
     `[PositionMonitor] ${pos.ticker} ${kind} tocado @$${price.toFixed(2)} → SELL` +
       ` P&L $${pnlUSD.toFixed(2)}`,
   );
+
+  try {
+    recordClosedTrade({
+      symbol: pos.ticker,
+      side: "SELL",
+      qty: pos.shares,
+      price,
+      pnl: pnlUSD,
+      account: process.env.IBKR_ACCOUNT_ID?.trim() || null,
+      kind,
+    });
+    console.log(
+      `[PositionMonitor] ${pos.ticker} ${kind} tocado → guardar en DB: pnl=${pnlUSD >= 0 ? "+" : ""}$${pnlUSD.toFixed(2)}`,
+    );
+  } catch (err) {
+    console.warn(
+      "[PositionMonitor] SQLite recordClosedTrade failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   // Registry already cleared in beginExitSell — belt and suspenders
   dropFromRegistry(pos.ticker);

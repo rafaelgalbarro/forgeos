@@ -51,6 +51,7 @@ import {
 import { getInstitutionalMacroCaution24h } from '@/lib/market-data/institutional-scanner'
 import { loadTradingState } from './trading-state-store'
 import { shouldSkipUntradeableTicker } from './untradeable-tickers'
+import { cancelStaleIbkrOrders } from '@/lib/trading/ibkr-reconnect'
 
 /** Per-account capital policy — price band + 30% cash sizing. */
 function resolveAccountCapitalPolicy(
@@ -137,6 +138,17 @@ export class TradingEngine {
     const orders: OrderResult[] = []
 
     await expireStalePendingApprovals()
+
+    // Cancel stuck PreSubmitted/Submitted (>5 min) before analyzing
+    try {
+      const stale = await cancelStaleIbkrOrders(300)
+      if (stale.count > 0) {
+        console.log(`[Cycle] Cancelando ${stale.count} órdenes PreSubmitted/Submitted antiguas...`)
+        await new Promise((r) => setTimeout(r, 2000))
+      }
+    } catch (err) {
+      console.warn('[Cycle] cancel stale failed:', err instanceof Error ? err.message : err)
+    }
 
     // 1. Obtener snapshot de cuenta
     const account = await this.fetchAccountSnapshot()

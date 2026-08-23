@@ -7,6 +7,7 @@ import logging
 import os
 import secrets
 import socket
+import subprocess
 import sqlite3
 import sys
 import threading
@@ -187,7 +188,7 @@ class ProposalCreate(BaseModel):
     symbol: str = Field(min_length=1, max_length=20)
     side: Literal["BUY", "SELL"]
     quantity: float = Field(gt=0)
-    order_type: Literal["LMT"] = "LMT"
+    order_type: Literal["LMT", "MKT"] = "LMT"
     limit_price: float = Field(gt=0)
     sec_type: str = Field(default="STK", min_length=1, max_length=10)
     currency: str = Field(default="USD", min_length=3, max_length=3)
@@ -242,6 +243,7 @@ class IBKRClient(EWrapper, EClient):
         self._tick_lock = threading.Lock()
         self._order_id_lock = threading.Lock()
         self._pending_next_id_event: threading.Event | None = None
+        self.presubmitted_seen_at: dict[int, float] = {}
         self._forex_req_seq = 9300
         self._quote_req_seq = 9600
         self._scanner_req_seq = 9700
@@ -381,6 +383,16 @@ class IBKRClient(EWrapper, EClient):
         if orderId in self.place_ack_events:
             self.place_ack_status[orderId] = status
             self.place_ack_events[orderId].set()
+        # Track PreSubmitted age for stale cancel
+        try:
+            oid = int(orderId)
+        except (TypeError, ValueError):
+            oid = None
+        if oid is not None:
+            if status in ("PreSubmitted", "Submitted", "PendingSubmit"):
+                self.presubmitted_seen_at.setdefault(oid, time.time())
+            elif status in ("Filled", "Cancelled", "ApiCancelled", "Inactive"):
+                self.presubmitted_seen_at.pop(oid, None)
 
     def openOrder(self, orderId, contract, order, orderState) -> None:
         warning_text = getattr(orderState, "warningText", "") or ""
@@ -406,7 +418,17 @@ class IBKRClient(EWrapper, EClient):
             "warningText": warning_text if warning_text else None,
             "initMarginChange": init_margin if init_margin else None,
             "maintMarginChange": maint_margin if maint_margin else None,
+            "presubmittedAgeSec": None,
         }
+        try:
+            oid = int(orderId)
+            if orderState.status == "PreSubmitted":
+                self.presubmitted_seen_at.setdefault(oid, time.time())
+            seen = self.presubmitted_seen_at.get(oid)
+            if seen is not None:
+                entry["presubmittedAgeSec"] = round(time.time() - seen, 1)
+        except (TypeError, ValueError):
+            pass
         self.orders_data.append(entry)
         if orderId in self.place_ack_events:
             self.place_ack_status[orderId] = orderState.status
@@ -1286,6 +1308,61 @@ class IBKRClient(EWrapper, EClient):
             self.cancelOrder(oid, OrderCancel())
         except (ImportError, TypeError):
             self.cancelOrder(oid)  # type: ignore[call-arg]
+        self.presubmitted_seen_at.pop(oid, None)
+
+    def cancel_all_orders(self) -> dict[str, Any]:
+        """Cancel every working order via IBKR reqGlobalCancel()."""
+        self.ensure_connected()
+        log.warning("GLOBAL CANCEL — reqGlobalCancel() for all open orders")
+        self.reqGlobalCancel()
+        self.presubmitted_seen_at.clear()
+        return {"ok": True, "cancelled": "all", "method": "reqGlobalCancel"}
+
+    def cancel_stale_presubmitted(self, max_age_seconds: float = 300.0) -> dict[str, Any]:
+        """Cancel PreSubmitted orders older than max_age_seconds."""
+        self.ensure_connected()
+        now = time.time()
+        open_rows = self.open_orders()
+        cancelled: list[dict[str, Any]] = []
+        open_ids: set[int] = set()
+        for row in open_rows:
+            try:
+                oid = int(row.get("orderId"))
+            except (TypeError, ValueError):
+                continue
+            open_ids.add(oid)
+            status = str(row.get("status") or "")
+            # PreSubmitted and Submitted can stall and block new orders
+            if status not in {"PreSubmitted", "Submitted", "PendingSubmit"}:
+                self.presubmitted_seen_at.pop(oid, None)
+                continue
+            first = self.presubmitted_seen_at.setdefault(oid, now)
+            age = now - first
+            if age < max_age_seconds:
+                continue
+            try:
+                self.cancel_order(oid)
+                cancelled.append(
+                    {
+                        "orderId": oid,
+                        "symbol": row.get("symbol"),
+                        "status": status,
+                        "ageSec": round(age, 1),
+                    }
+                )
+                log.warning(
+                    "Cancelled stale %s orderId=%s symbol=%s age=%.0fs",
+                    status,
+                    oid,
+                    row.get("symbol"),
+                    age,
+                )
+            except Exception as exc:
+                log.warning("Failed cancelling stale %s %s: %s", status, oid, exc)
+        for oid in list(self.presubmitted_seen_at):
+            if oid not in open_ids:
+                self.presubmitted_seen_at.pop(oid, None)
+        return {"ok": True, "cancelled": cancelled, "count": len(cancelled)}
 
 
 ibkr = IBKRClient()
@@ -1390,6 +1467,135 @@ def reconnect():
         return {**result, "reconnected": True}
     except Exception as exc:
         audit("IBKR_RECONNECT_FAILED", None, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.post("/api/ibkr/auto-reconnect", dependencies=auth)
+def auto_reconnect():
+    """
+    Autonomous reconnect: soft reconnect → docker restart ib-gateway → wait 45s → retry (max 3).
+    Container name from IB_GATEWAY_CONTAINER (default: ib-gateway).
+    """
+    container = (os.getenv("IB_GATEWAY_CONTAINER") or "ib-gateway").strip() or "ib-gateway"
+    attempts: list[dict[str, Any]] = []
+    max_attempts = 3
+
+    def _try_connect(label: str) -> dict[str, Any]:
+        try:
+            if ibkr.isConnected():
+                return {"ok": True, "label": label, **ibkr.status()}
+            ibkr._reset_socket_state()
+            result = ibkr.connect_gateway()
+            return {"ok": bool(result.get("connected")), "label": label, **result}
+        except Exception as exc:
+            return {"ok": False, "label": label, "error": str(exc), "connected": False}
+
+    for attempt in range(1, max_attempts + 1):
+        log.warning("[AutoReconnect] Intento %s/%s reconectando IBKR...", attempt, max_attempts)
+        soft = _try_connect(f"soft-{attempt}")
+        attempts.append(soft)
+        if soft.get("ok") and soft.get("connected"):
+            audit("IBKR_AUTO_RECONNECT_OK", None, {"attempt": attempt, "mode": "soft", "attempts": attempts})
+            return {
+                "ok": True,
+                "connected": True,
+                "attempt": attempt,
+                "mode": "soft",
+                "attempts": attempts,
+                **ibkr.status(),
+            }
+
+        # Hard path: restart gateway container then wait
+        restart_info: dict[str, Any] = {"container": container}
+        try:
+            proc = subprocess.run(
+                ["docker", "restart", container],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+            restart_info["returncode"] = proc.returncode
+            restart_info["stdout"] = (proc.stdout or "").strip()[-400:]
+            restart_info["stderr"] = (proc.stderr or "").strip()[-400:]
+            log.warning(
+                "[AutoReconnect] docker restart %s rc=%s",
+                container,
+                proc.returncode,
+            )
+        except FileNotFoundError:
+            restart_info["error"] = "docker CLI not found"
+            log.warning("[AutoReconnect] docker CLI not found — skip container restart")
+        except Exception as exc:
+            restart_info["error"] = str(exc)
+            log.warning("[AutoReconnect] docker restart failed: %s", exc)
+
+        log.info("[AutoReconnect] Esperando 45s tras restart...")
+        time.sleep(45)
+        hard = _try_connect(f"hard-{attempt}")
+        hard["dockerRestart"] = restart_info
+        attempts.append(hard)
+        if hard.get("ok") and hard.get("connected"):
+            audit(
+                "IBKR_AUTO_RECONNECT_OK",
+                None,
+                {"attempt": attempt, "mode": "docker-restart", "attempts": attempts},
+            )
+            return {
+                "ok": True,
+                "connected": True,
+                "attempt": attempt,
+                "mode": "docker-restart",
+                "attempts": attempts,
+                **ibkr.status(),
+            }
+
+    audit("IBKR_AUTO_RECONNECT_FAILED", None, {"attempts": attempts})
+    return {
+        "ok": False,
+        "connected": False,
+        "attempt": max_attempts,
+        "mode": "exhausted",
+        "attempts": attempts,
+        "message": "Requires manual 2FA / IBC login",
+        **ibkr.status(),
+    }
+
+
+@app.delete("/api/ibkr/orders/cancel-all", dependencies=auth)
+def cancel_all_ibkr_orders():
+    """Cancel all open IBKR orders via reqGlobalCancel()."""
+    if emergency_stop():
+        raise HTTPException(423, "Parada de emergencia activada")
+    if not settings.live_trading_enabled:
+        raise HTTPException(423, "LIVE_TRADING_ENABLED está desactivado")
+    if settings.ibkr_read_only:
+        raise HTTPException(423, "IBKR_READ_ONLY sigue activado")
+    try:
+        result = ibkr.cancel_all_orders()
+        audit("ORDERS_CANCEL_ALL", None, result)
+        return result
+    except Exception as exc:
+        audit("ORDERS_CANCEL_ALL_FAILED", None, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.post("/api/ibkr/orders/cancel-stale-presubmitted", dependencies=auth)
+def cancel_stale_presubmitted(maxAgeSec: float = 300.0):
+    """Cancel PreSubmitted/Submitted orders older than maxAgeSec (default 5 min)."""
+    if emergency_stop():
+        raise HTTPException(423, "Parada de emergencia activada")
+    if not settings.live_trading_enabled:
+        raise HTTPException(423, "LIVE_TRADING_ENABLED está desactivado")
+    if settings.ibkr_read_only:
+        raise HTTPException(423, "IBKR_READ_ONLY sigue activado")
+    try:
+        age = max(30.0, float(maxAgeSec or 300.0))
+        result = ibkr.cancel_stale_presubmitted(age)
+        audit("ORDERS_CANCEL_STALE", None, result)
+        return result
+    except Exception as exc:
+        audit("ORDERS_CANCEL_STALE_FAILED", None, {"error": str(exc)})
         raise HTTPException(503, str(exc)) from exc
 
 

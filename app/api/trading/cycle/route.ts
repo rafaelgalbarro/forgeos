@@ -25,6 +25,9 @@ import { startPositionMonitor } from '@/src/core/trading/position-monitor'
 
 const engine = new TradingEngine()
 
+/** In-process mutex — ignore concurrent cycle POSTs. */
+let cycleRunning = false
+
 export async function POST(req: NextRequest) {
   startPositionMonitor()
   const { searchParams } = new URL(req.url)
@@ -75,9 +78,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (cycleRunning) {
+    console.warn('[TradingCycle] Ciclo ya en curso — ignorando llamada duplicada')
+    return NextResponse.json(
+      { skipped: true, reason: 'cycle already running' },
+      { status: 409 },
+    )
+  }
+
   // Ciclo de trading — queues PENDING_APPROVAL; does not auto-execute
+  cycleRunning = true
   try {
     await expireStalePendingApprovals()
+    // Stale PreSubmitted/Submitted cancel runs inside TradingEngine.runCycle()
+
     const body = await req.json().catch(() => ({})) as { tickers?: string[] }
     const universe = await resolveTradingCycleTickersAsync(100)
     const requested: string[] = Array.isArray(body.tickers) && body.tickers.length > 0
@@ -140,6 +154,8 @@ export async function POST(req: NextRequest) {
       { error: err instanceof Error ? err.message : 'Error en ciclo de trading' },
       { status: 500 }
     )
+  } finally {
+    cycleRunning = false
   }
 }
 

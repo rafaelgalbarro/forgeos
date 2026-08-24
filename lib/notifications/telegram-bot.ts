@@ -79,6 +79,7 @@ function notifyEnabled(flag: "signal" | "execution" | "halt" | "alert"): boolean
 export async function sendTelegramMessage(
   text: string,
   buttons?: TelegramInlineButton[][],
+  options?: { plain?: boolean },
 ): Promise<number | null> {
   const { chatId, enabled } = cfg();
   if (!chatId) {
@@ -96,13 +97,15 @@ export async function sendTelegramMessage(
     ? { inline_keyboard: buttons.map((row) => row.map((b) => ({ text: b.text, callback_data: b.callback_data }))) }
     : undefined;
 
-  const result = await telegramRequest<{ message_id?: number }>("sendMessage", {
+  const body: Record<string, unknown> = {
     chat_id: chatId,
     text,
-    parse_mode: "HTML",
     disable_web_page_preview: true,
     reply_markup,
-  });
+  };
+  if (!options?.plain) body.parse_mode = "HTML";
+
+  const result = await telegramRequest<{ message_id?: number }>("sendMessage", body);
   if (result?.message_id) {
     console.log(`[Telegram] sendMessage OK message_id=${result.message_id}`);
   } else {
@@ -279,7 +282,7 @@ export async function notifyPreTradeHold(params: {
   void params;
 }
 
-/** Order executed. */
+/** Order executed — immediate premium alert + hourly bucket. */
 export async function notifyOrderExecuted(params: {
   ticker: string;
   shares: number;
@@ -291,46 +294,77 @@ export async function notifyOrderExecuted(params: {
   const { recordHourlyExecution, sendImmediateTradeAlert } = await import(
     "@/lib/notifications/telegram-policy"
   );
+  const { formatBuyAlert } = await import("@/lib/notifications/telegram-premium-format");
   recordHourlyExecution({
     ticker: params.ticker,
     side: "BUY",
     shares: params.shares,
     price: params.price,
   });
-  const sl =
-    params.stopLoss != null && params.stopLoss > 0 ? `SL $${params.stopLoss.toFixed(2)}` : "SL n/a";
-  const tp =
-    params.takeProfit != null && params.takeProfit > 0
-      ? `TP $${params.takeProfit.toFixed(2)}`
-      : "TP n/a";
+  const sl = params.stopLoss ?? params.price * 0.97;
+  const tp = params.takeProfit ?? params.price * 1.05;
   await sendImmediateTradeAlert(
-    `⚡ AUTO: ${params.ticker} BUY ${params.shares}@$${params.price.toFixed(2)} | ${sl} | ${tp}`,
+    formatBuyAlert({
+      ticker: params.ticker.toUpperCase(),
+      shares: params.shares,
+      price: params.price,
+      stopLoss: sl,
+      takeProfit: tp,
+    }),
   );
 }
 
-/** Take profit or stop loss hit. */
+/** Take profit or stop loss hit — immediate premium alert + hourly bucket. */
 export async function notifyPositionClosed(params: {
   kind: "TP" | "SL";
   ticker: string;
   pnlUSD: number;
   pnlPct: number;
   navUSD: number;
+  exitPrice?: number;
+  shares?: number;
+  inherited?: boolean;
 }): Promise<void> {
   if (!notifyEnabled("execution")) return;
   const { recordHourlyClose, sendImmediateTradeAlert } = await import(
     "@/lib/notifications/telegram-policy"
   );
+  const { formatSlAlert, formatTpAlert } = await import("@/lib/notifications/telegram-premium-format");
+  const price =
+    params.exitPrice ??
+    (params.shares && params.shares > 0 && params.pnlUSD !== 0
+      ? Math.max(0.0001, params.pnlUSD / params.shares)
+      : 0);
   recordHourlyClose({
     ticker: params.ticker,
     pnlUSD: params.pnlUSD,
+    pnlPct: params.pnlPct,
+    price: params.exitPrice ?? price,
     kind: params.kind,
   });
-  const sign = params.pnlUSD >= 0 ? "+" : "";
-  const text =
-    params.kind === "TP"
-      ? `🎯 TAKE PROFIT: ${params.ticker} ${sign}$${params.pnlUSD.toFixed(2)} ✅`
-      : `🛑 STOP LOSS: ${params.ticker} ${sign}$${params.pnlUSD.toFixed(2)} ❌`;
-  await sendImmediateTradeAlert(text);
+  const exitPx = params.exitPrice ?? price;
+  if (params.kind === "TP") {
+    const capitalFreed = exitPx * (params.shares ?? 0);
+    await sendImmediateTradeAlert(
+      formatTpAlert({
+        ticker: params.ticker.toUpperCase(),
+        price: exitPx,
+        pnlUSD: params.pnlUSD,
+        pnlPct: params.pnlPct,
+        capitalFreed: capitalFreed > 0 ? capitalFreed : Math.abs(params.pnlUSD),
+      }),
+    );
+  } else {
+    await sendImmediateTradeAlert(
+      formatSlAlert({
+        ticker: params.ticker.toUpperCase(),
+        price: exitPx,
+        pnlUSD: params.pnlUSD,
+        pnlPct: params.pnlPct,
+        inherited: params.inherited,
+      }),
+    );
+  }
 }
 
 /** Stale position (>24h). */

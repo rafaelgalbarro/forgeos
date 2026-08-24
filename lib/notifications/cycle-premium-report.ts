@@ -251,7 +251,10 @@ export async function sendCyclePremiumReport(
   // Stats still recorded; hourly digest + immediate trade alerts handle notifications.
   void meta;
   recordCycleStats(result);
-  const { onTradingCycleTelegramHook } = await import("@/lib/notifications/telegram-policy");
+  const { onTradingCycleTelegramHook, recordHourlyAnalyzed } = await import(
+    "@/lib/notifications/telegram-policy"
+  );
+  recordHourlyAnalyzed(meta.analyzed);
   await onTradingCycleTelegramHook();
   console.log(
     `[Telegram] ciclo registrado sin spam | orders=${result.orders.length} analyzed=${meta.analyzed}`,

@@ -414,7 +414,16 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
     /* ignore */
   }
 
-  await notifyPositionClosed({ kind, ticker, pnlUSD, pnlPct, navUSD: nav });
+  await notifyPositionClosed({
+    kind,
+    ticker,
+    pnlUSD,
+    pnlPct,
+    navUSD: nav,
+    exitPrice: price,
+    shares: pos.shares,
+    inherited: !pos.orderId,
+  });
   publishInvestmentEvent({
     type: "position_closed",
     at: new Date().toISOString(),

@@ -101,6 +101,47 @@ function detectCandlesticks(bars: readonly OhlcvBar[]): CandlestickPattern[] {
   return out;
 }
 
+function detectInverseHeadAndShoulders(bars: readonly OhlcvBar[]): PricePattern | null {
+  if (bars.length < 25) return null;
+  const lows = bars.map((b, i) => ({ i, v: b.low }));
+  const troughs: { i: number; v: number }[] = [];
+  for (let i = 2; i < lows.length - 2; i += 1) {
+    const cur = lows[i]!;
+    if (
+      cur.v <= lows[i - 1]!.v &&
+      cur.v <= lows[i - 2]!.v &&
+      cur.v <= lows[i + 1]!.v &&
+      cur.v <= lows[i + 2]!.v
+    ) {
+      troughs.push(cur);
+    }
+  }
+  if (troughs.length < 3) return null;
+
+  for (let t = 0; t <= troughs.length - 3; t += 1) {
+    const left = troughs[t]!;
+    const head = troughs[t + 1]!;
+    const right = troughs[t + 2]!;
+    const shoulderAvg = (left.v + right.v) / 2;
+    if (head.v >= shoulderAvg * 0.995) continue;
+    if (Math.abs(left.v - right.v) / shoulderAvg > 0.04) continue;
+
+    const necklineSlice = bars.slice(left.i, right.i + 1);
+    const neckline = Math.max(...necklineSlice.map((b) => b.high));
+    const price = bars.at(-1)!.close;
+    if (price <= neckline * 1.002) continue;
+
+    const height = neckline - head.v;
+    return {
+      name: "Inverse Head and Shoulders",
+      type: "BULLISH",
+      confidence: 80,
+      targetPrice: price + height,
+    };
+  }
+  return null;
+}
+
 function detectPricePatterns(bars: readonly OhlcvBar[]): PricePattern[] {
   if (bars.length < 30) return [];
   const out: PricePattern[] = [];
@@ -147,6 +188,9 @@ function detectPricePatterns(bars: readonly OhlcvBar[]): PricePattern[] {
   if (shHigh < fhHigh * 0.995 && Math.abs(shLow - fhLow) / fhLow < 0.01) {
     out.push({ name: "Descending Triangle", type: "BEARISH", confidence: 72, targetPrice: fhLow });
   }
+
+  const ihs = detectInverseHeadAndShoulders(slice);
+  if (ihs) out.push(ihs);
 
   const mid = slice.slice(10, 30);
   const flagMove = slice[0]!.close - slice[9]!.close;

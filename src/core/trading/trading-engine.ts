@@ -32,7 +32,8 @@ import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
 import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
 import { getDailyUniverse } from '@/lib/investment/market-daily-universe'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
-import { getUsMarketSession } from './market-session'
+import { getUsMarketSession, selectTickersForOpenMarkets } from './market-session'
+import { isIbkrCryptoTicker } from './crypto-ibkr'
 import { recordMlSignal } from '@/lib/ml/signal-trainer'
 import { getTickerInfo } from '@/lib/market-data/yahoo-finance'
 import {
@@ -162,16 +163,31 @@ export class TradingEngine {
       }
     }
 
-    // 3. Procesar tickers con Pro Strategies (concurrencia limitada anti-429)
-    console.log(`[ProStrategy] Ciclo ${cycleId}: evaluando ${tickers.length} tickers (concurrency=${TradingEngine.CYCLE_CONCURRENCY})`)
+    // 3. Universo según mercados abiertos (Asia / Europa / USA)
+    const scoped = selectTickersForOpenMarkets(tickers)
+    if (scoped.tickers.length === 0) {
+      console.log(
+        `[ProStrategy] Ciclo ${cycleId}: sin tickers (ni crypto); solo monitor de posiciones`,
+      )
+      return {
+        cycleId, startedAt, completedAt: new Date().toISOString(),
+        accountSnapshot: account, orders,
+        systemHalted: this.risk.isHalted(),
+        haltReason: this.risk.isHalted() ? this.risk.getHaltReason() : undefined,
+      }
+    }
+    const cycleTickers = scoped.tickers.length > 0 ? scoped.tickers : tickers
+    console.log(
+      `[ProStrategy] Ciclo ${cycleId}: modo=${scoped.mode} evaluando ${cycleTickers.length} tickers (concurrency=${TradingEngine.CYCLE_CONCURRENCY})`,
+    )
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
     let cursor = 0
     const worker = async (): Promise<void> => {
-      while (cursor < tickers.length) {
+      while (cursor < cycleTickers.length) {
         if (this.risk.isHalted()) return
         const i = cursor++
-        const ticker = tickers[i]!
+        const ticker = cycleTickers[i]!
         jobs[i] = (async () => {
           const execGate = { enteredAutoExecute: false, buySignal: false }
           const work = this.processTicker(ticker, account, execGate)
@@ -225,7 +241,7 @@ export class TradingEngine {
       }
     }
     await Promise.all(
-      Array.from({ length: Math.min(TradingEngine.CYCLE_CONCURRENCY, Math.max(1, tickers.length)) }, () =>
+      Array.from({ length: Math.min(TradingEngine.CYCLE_CONCURRENCY, Math.max(1, cycleTickers.length)) }, () =>
         worker(),
       ),
     )
@@ -455,7 +471,7 @@ export class TradingEngine {
     }
 
     const quoteExchange = priceData.quoteExchange ?? 'SMART'
-    const usSession = US_QUOTE_EXCHANGES.has(quoteExchange.toUpperCase())
+    const usSession = !isIbkrCryptoTicker(ticker) && US_QUOTE_EXCHANGES.has(quoteExchange.toUpperCase())
       ? getUsMarketSession()
       : null
 
@@ -488,7 +504,7 @@ export class TradingEngine {
     // Regular RTH: outside_rth=false; pre/after/closed extended: outside_rth=true
     const usExtendedHours = usSession ? usSession.isExtendedHours : true
 
-    // Screener-only strategies (no FMP historical — Starter 402)
+    // Mixed technical strategies (EOD + live profile)
     const change1dPct =
       priceData.changePercentage ||
       (priceData.previousClose > 0
@@ -655,7 +671,9 @@ export class TradingEngine {
 
     const orderValueUSD = riskOk.maxOrderValueUSD
     // Sizing dinámico: qty = floor(cash * 0.3 / precio), mínimo 1
-    let resolvedShares = Math.floor(capital.deployableUSD / priceData.currentPrice)
+    let resolvedShares = Math.floor(
+      (capital.deployableUSD * (strategy.positionSizeFactor ?? 1)) / priceData.currentPrice,
+    )
     console.log(
       `[AutoExecute] ${ticker} → cash disponible: $${account.cashUSD.toFixed(2)} | 30%: $${capital.deployableUSD.toFixed(2)} | precio: $${priceData.currentPrice.toFixed(2)} | qty: ${resolvedShares}`,
     )
@@ -797,7 +815,7 @@ export class TradingEngine {
       takeProfit: effectiveTakeProfit,
       reason: signal.reasoning,
       signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-      outsideRth: usExtendedHours,
+      outsideRth: isIbkrCryptoTicker(ticker) ? true : usExtendedHours,
       preTradeChecklist: checklistSnapshot,
       smartPlan: smartPlan
         ? {
@@ -839,7 +857,7 @@ export class TradingEngine {
             relativeVolume: strategy.metrics.relVolume,
             macdHist: null,
             adx: null,
-            goldenCross: strategy.strategyIds.includes('MA_CROSSOVER'),
+            goldenCross: strategy.strategyIds.includes('GOLDEN_CROSS_MOMENTUM'),
             deathCross: false,
           },
         })
@@ -1005,7 +1023,7 @@ export class TradingEngine {
         side,
         quantity: Number(params.shares),
         limitPrice,
-        outsideRth: params.outsideRth ?? true,
+        outsideRth: isIbkrCryptoTicker(params.ticker) ? true : params.outsideRth ?? true,
         rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
         account,
       })

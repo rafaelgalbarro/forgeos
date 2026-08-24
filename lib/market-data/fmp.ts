@@ -9,6 +9,12 @@
 import "server-only";
 
 import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
+import {
+  coingeckoId,
+  coingeckoIdsList,
+  fmpCryptoSymbol,
+  normalizeIbkrCryptoTicker,
+} from "@/src/core/trading/crypto-ibkr";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const PROFILE_ENDPOINT = "/profile";
@@ -223,18 +229,74 @@ function extractHistoricalRows(body: unknown): Record<string, unknown>[] {
   return [];
 }
 
+function remapQuoteSymbol(quote: FmpQuote, requested: string): FmpQuote {
+  return { ...quote, symbol: requested };
+}
+
+async function fetchCoinGeckoQuote(requested: string): Promise<FmpQuote | null> {
+  const id = coingeckoId(requested);
+  const canon = normalizeIbkrCryptoTicker(requested);
+  if (!id || !canon) return null;
+  try {
+    const url = new URL("https://api.coingecko.com/api/v3/simple/price");
+    url.searchParams.set("ids", coingeckoIdsList());
+    url.searchParams.set("vs_currencies", "usd");
+    url.searchParams.set("include_24hr_change", "true");
+    url.searchParams.set("include_24hr_vol", "true");
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      console.warn(`[FMP] CoinGecko HTTP ${res.status}`);
+      return null;
+    }
+    const body = (await res.json()) as Record<string, { usd?: number; usd_24h_change?: number; usd_24h_vol?: number }>;
+    const row = body[id];
+    const price = asFinite(row?.usd);
+    if (price == null || price <= 0) return null;
+    const change = asFinite(row?.usd_24h_change) ?? 0;
+    const vol = asFinite(row?.usd_24h_vol) ?? 0;
+    return {
+      symbol: canon,
+      price,
+      open: price,
+      dayHigh: price,
+      dayLow: price,
+      previousClose: price,
+      volume: vol,
+      changePercentage: change,
+      exchange: "CRYPTO",
+    };
+  } catch (err) {
+    console.warn("[FMP] CoinGecko fallback failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export async function getQuote(ticker: string): Promise<FmpQuote | null> {
-  if (!isFmpEnabled()) return null;
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
-  const key = cacheKey("fmp-quote", symbol);
+  const crypto = normalizeIbkrCryptoTicker(symbol);
+  const requested = crypto ?? symbol;
+  const key = cacheKey("fmp-quote", requested);
   const hit = getCached<FmpQuote>(key);
   if (hit) return hit;
 
-  const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol });
-  const row = quoteRows(body)[0];
-  if (!row) return null;
-  const quote = parseQuote(row);
+  let quote: FmpQuote | null = null;
+  if (isFmpEnabled()) {
+    const fmpSymbol = crypto ? fmpCryptoSymbol(crypto) ?? requested : requested;
+    const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol: fmpSymbol });
+    const row = quoteRows(body)[0];
+    const parsed = row ? parseQuote(row) : null;
+    if (parsed) quote = remapQuoteSymbol(parsed, requested);
+  }
+
+  if (!quote && crypto) {
+    quote = await fetchCoinGeckoQuote(requested);
+  }
+
   if (!quote) return null;
   setCached(key, quote, QUOTE_TTL_MS);
   setCached(cacheKey("fmp-quote", quote.symbol), quote, QUOTE_TTL_MS);
@@ -243,13 +305,14 @@ export async function getQuote(ticker: string): Promise<FmpQuote | null> {
 
 export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<string, FmpQuote>> {
   const out = new Map<string, FmpQuote>();
-  if (!isFmpEnabled() || tickers.length === 0) return out;
+  if (tickers.length === 0) return out;
 
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
   const missing: string[] = [];
   for (const symbol of unique) {
-    const hit = getCached<FmpQuote>(cacheKey("fmp-quote", symbol));
-    if (hit) out.set(symbol, hit);
+    const requested = normalizeIbkrCryptoTicker(symbol) ?? symbol;
+    const hit = getCached<FmpQuote>(cacheKey("fmp-quote", requested));
+    if (hit) out.set(requested, hit);
     else missing.push(symbol);
   }
   if (missing.length === 0) return out;
@@ -260,9 +323,11 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
     }
     const chunk = missing.slice(i, i + BATCH_CONCURRENCY);
     const quotes = await Promise.all(chunk.map((symbol) => getQuote(symbol)));
-    for (const quote of quotes) {
+    for (let j = 0; j < chunk.length; j += 1) {
+      const quote = quotes[j];
       if (!quote) continue;
-      out.set(quote.symbol, quote);
+      const requested = normalizeIbkrCryptoTicker(chunk[j]!) ?? chunk[j]!.toUpperCase();
+      out.set(requested, quote);
     }
   }
 
@@ -270,10 +335,57 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
 }
 
 export async function getHistory(ticker: string, days: number): Promise<FmpBar[]> {
-  // Starter plan: /historical-price-eod/full → HTTP 402. Never call it.
-  void ticker;
-  void days;
-  return [];
+  const symbol = ticker.trim().toUpperCase();
+  if (!symbol) return [];
+  const safeDays = Math.max(50, Math.min(Math.floor(days), 400));
+  const cacheId = cacheKey("fmp-history", symbol, String(safeDays));
+  const hit = getCached<FmpBar[]>(cacheId);
+  if (hit) return hit;
+
+  let bars: FmpBar[] = [];
+  if (isFmpEnabled()) {
+    const body = await fmpFetchJson(HISTORY_ENDPOINT, { symbol });
+    const rows = extractHistoricalRows(body)
+      .map(parseBar)
+      .filter((row): row is FmpBar => row != null);
+    bars = rows.sort((a, b) => a.date.localeCompare(b.date)).slice(-safeDays);
+  }
+
+  if (bars.length < 50) {
+    try {
+      const { getCandlesWithResolution, isFinnhubEnabled } = await import("@/lib/market-data/finnhub");
+      if (isFinnhubEnabled()) {
+        const to = Math.floor(Date.now() / 1000);
+        const from = to - safeDays * 86_400;
+        const finnhubBars = await getCandlesWithResolution(symbol, "D", from, to);
+        if (finnhubBars.length > bars.length) {
+          bars = finnhubBars
+            .map((b, i) => ({
+              date:
+                b.date ??
+                new Date(Date.now() - (finnhubBars.length - 1 - i) * 86_400_000)
+                  .toISOString()
+                  .slice(0, 10),
+              open: b.open,
+              high: b.high,
+              low: b.low,
+              close: b.close,
+              volume: b.volume,
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(-safeDays);
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "[FMP] Finnhub history fallback failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  if (bars.length > 0) setCached(cacheId, bars, HISTORY_TTL_MS);
+  return bars;
 }
 
 export async function getForexQuote(pair: string): Promise<FmpQuote | null> {

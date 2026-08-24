@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     max_order_quantity: float = 2
     allowed_symbols: str = DEFAULT_ALLOWED_SYMBOLS
     allowed_currencies: str = "EUR,USD"
-    allowed_exchanges: str = "SMART"
+    allowed_exchanges: str = "SMART,PAXOS"
     database_path: str = "./forgeos_ibkr.sqlite3"
     allow_outside_rth: bool = False
     forex_enabled: bool = False
@@ -208,6 +208,7 @@ class DecisionRequest(BaseModel):
 class ExecuteRequest(BaseModel):
     approval_token: str
     confirmation_phrase: str
+    skip_contract_details: bool = False
 
 
 class IBKRClient(EWrapper, EClient):
@@ -295,6 +296,13 @@ class IBKRClient(EWrapper, EClient):
         elif int(errorCode) not in {2104, 2106, 2158, 2119}:
             # Skip noisy market-data-farm connectivity messages
             log.info("IBKR error reqId=%s code=%s: %s", reqId, errorCode, errorString)
+        if isinstance(reqId, int) and reqId in self.contract_details_done:
+            event = self.contract_details_done.get(reqId)
+            if event:
+                event.set()
+        if int(errorCode) in {502, 504, 1100, 1101, 1102, 1300, 2110}:
+            for event in list(self.contract_details_done.values()):
+                event.set()
         # Unblock scanner waiters on hard failures
         if isinstance(reqId, int) and reqId in self.scanner_done:
             done = self.scanner_done.get(reqId)
@@ -711,7 +719,7 @@ class IBKRClient(EWrapper, EClient):
         Empty bars are returned as-is when TWS lacks market-data permissions — never invented.
         """
         cleaned_sec = (sec_type or "STK").upper().strip()
-        if cleaned_sec not in {"STK", "CASH"}:
+        if cleaned_sec not in {"STK", "CASH", "CRYPTO"}:
             cleaned_sec = "STK"
         if cleaned_sec == "CASH":
             exchange_value = (exchange or "IDEALPRO").upper().strip() or "IDEALPRO"
@@ -720,6 +728,12 @@ class IBKRClient(EWrapper, EClient):
             show = (what_to_show or "MIDPOINT").upper().strip() or "MIDPOINT"
             if show == "TRADES":
                 show = "MIDPOINT"
+            rth = 0 if use_rth is None else int(use_rth)
+        elif cleaned_sec == "CRYPTO":
+            exchange_value = (exchange or "PAXOS").upper().strip() or "PAXOS"
+            if exchange_value == "SMART":
+                exchange_value = "PAXOS"
+            show = (what_to_show or "TRADES").upper().strip() or "TRADES"
             rth = 0 if use_rth is None else int(use_rth)
         else:
             exchange_value = (exchange or "SMART").upper().strip() or "SMART"
@@ -783,7 +797,22 @@ class IBKRClient(EWrapper, EClient):
                 "note": note,
             }
 
-    def place_limit_order(self, proposal: dict[str, Any]) -> int:
+    def place_limit_order(self, proposal: dict[str, Any], *, skip_contract_details: bool = False) -> int:
+        if skip_contract_details:
+            try:
+                if not self.isConnected() or self.next_order_id is None:
+                    self._reconnect_and_settle(5.0)
+                return self._place_limit_order_validated_once(
+                    proposal, transmit=True, what_if=False, skip_contract_details=True
+                )
+            except Exception as exc:
+                if not self._is_disconnect_error(exc) and self.isConnected():
+                    raise
+                log.warning("placeOrder (basic contract) disconnect — reconnect + retry once: %s", exc)
+                self._reconnect_and_settle(5.0)
+                return self._place_limit_order_validated_once(
+                    proposal, transmit=True, what_if=False, skip_contract_details=True
+                )
         return self.place_limit_order_validated(proposal, transmit=True, what_if=False)
 
     def _next_forex_req_id(self) -> int:
@@ -806,12 +835,16 @@ class IBKRClient(EWrapper, EClient):
         """READ_ONLY bid/ask/last via reqMktData (STK SMART or CASH IDEALPRO)."""
         cleaned = symbol.strip().upper()
         cleaned_sec = (sec_type or "STK").upper().strip()
-        if cleaned_sec not in {"STK", "CASH"}:
+        if cleaned_sec not in {"STK", "CASH", "CRYPTO"}:
             cleaned_sec = "STK"
         if cleaned_sec == "CASH":
             exchange_value = (exchange or "IDEALPRO").upper().strip() or "IDEALPRO"
             if exchange_value == "SMART":
                 exchange_value = "IDEALPRO"
+        elif cleaned_sec == "CRYPTO":
+            exchange_value = (exchange or "PAXOS").upper().strip() or "PAXOS"
+            if exchange_value == "SMART":
+                exchange_value = "PAXOS"
         else:
             exchange_value = (exchange or "SMART").upper().strip() or "SMART"
         currency_value = (currency or "USD").upper().strip() or "USD"
@@ -968,21 +1001,69 @@ class IBKRClient(EWrapper, EClient):
                 ),
             }
 
-    def _resolve_contract_details(self, contract: Contract):
-        self.ensure_connected()
+    def _is_disconnect_error(self, exc: BaseException) -> bool:
+        msg = str(exc).lower()
+        return (
+            isinstance(exc, (ConnectionError, TimeoutError, BrokenPipeError, OSError))
+            or (not self.isConnected())
+            or "not connected" in msg
+            or "disconnected" in msg
+            or "reqcontractdetails" in msg
+            or "socket" in msg
+            or "broken pipe" in msg
+        )
+
+    def _reconnect_and_settle(self, wait_seconds: float = 5.0) -> None:
+        log.warning("IBKR reconectando y esperando %.0fs antes de reintentar…", wait_seconds)
+        self._reset_socket_state()
+        self.connect_gateway()
+        time.sleep(wait_seconds)
+
+    def _ensure_connected_for_contract_details(self) -> None:
+        if self.isConnected() and self.next_order_id is not None:
+            return
+        log.warning("IBKR desconectado antes de reqContractDetails — reconectando")
+        self._reconnect_and_settle(5.0)
+
+    @staticmethod
+    def _basic_contract_from_proposal(proposal: dict[str, Any]) -> Contract:
+        """Contrato mínimo sin reqContractDetails (STK/SMART o CRYPTO/PAXOS)."""
+        contract = Contract()
+        contract.symbol = str(proposal.get("symbol") or "").upper().strip()
+        sec_type = str(proposal.get("sec_type") or "STK").upper().strip() or "STK"
+        contract.secType = sec_type
+        contract.currency = str(proposal.get("currency") or "USD").upper().strip() or "USD"
+        exchange = str(proposal.get("exchange") or "").upper().strip()
+        if sec_type == "CRYPTO":
+            contract.exchange = "PAXOS" if exchange in {"", "SMART"} else exchange
+        else:
+            contract.secType = "STK"
+            contract.exchange = exchange or "SMART"
+            contract.currency = "USD"
+        if proposal.get("primary_exchange"):
+            contract.primaryExchange = proposal["primary_exchange"]
+        return contract
+
+    def _resolve_contract_details(self, contract: Contract, timeout: float = 30.0):
+        self._ensure_connected_for_contract_details()
         req_id = (self.next_order_id or 1000) + 100_000
         done = threading.Event()
         self.contract_details_done[req_id] = done
         self.contract_details_data.pop(req_id, None)
         self.reqContractDetails(req_id, contract)
-        if not done.wait(10):
+        if not done.wait(timeout):
             self.contract_details_done.pop(req_id, None)
-            raise TimeoutError("Timeout en reqContractDetails")
+            log.warning(
+                "Timeout %.0fs en reqContractDetails symbol=%s — usando contrato básico",
+                timeout,
+                getattr(contract, "symbol", "?"),
+            )
+            return None
         details = self.contract_details_data.get(req_id)
         self.contract_details_done.pop(req_id, None)
         self.contract_details_data.pop(req_id, None)
         if details is None:
-            raise RuntimeError("ContractDetails vacío")
+            log.warning("ContractDetails vacío symbol=%s — usando contrato básico", getattr(contract, "symbol", "?"))
         return details
 
     def _resolve_market_rules(self, market_rule_ids: str) -> dict[int, list[dict[str, float]]]:
@@ -1071,25 +1152,78 @@ class IBKRClient(EWrapper, EClient):
             log.warning("PRE-ORDER buying power check failed: %s", exc)
 
     def place_limit_order_validated(self, proposal: dict[str, Any], *, transmit: bool, what_if: bool) -> int:
-        self.ensure_connected()
-        contract = Contract()
-        contract.symbol = proposal["symbol"]
-        contract.secType = proposal.get("sec_type", "STK")
-        contract.currency = proposal["currency"]
-        contract.exchange = proposal["exchange"]
-        if proposal.get("primary_exchange"):
-            contract.primaryExchange = proposal["primary_exchange"]
-        details = self._resolve_contract_details(contract)
-        market_rules = self._resolve_market_rules(getattr(details, "marketRuleIds", "") or "")
-        normalized_qty = self._normalize_quantity(float(proposal["quantity"]), details)
-        normalized_price = self._normalize_price(float(proposal["limit_price"]), details, market_rules)
+        last_exc: BaseException | None = None
+        for attempt in (1, 2):
+            try:
+                if attempt == 2 or not self.isConnected() or self.next_order_id is None:
+                    self._reconnect_and_settle(5.0)
+                return self._place_limit_order_validated_once(
+                    proposal,
+                    transmit=transmit,
+                    what_if=what_if,
+                    skip_contract_details=attempt == 2,
+                )
+            except Exception as exc:
+                last_exc = exc
+                dropped = self._is_disconnect_error(exc) or not self.isConnected()
+                log.warning(
+                    "placeOrder attempt=%s failed dropped=%s: %s",
+                    attempt,
+                    dropped,
+                    exc,
+                )
+                if attempt == 1 and dropped:
+                    continue
+                raise
+        raise RuntimeError(str(last_exc) if last_exc else "placeOrder failed")
+
+    def _place_limit_order_validated_once(
+        self,
+        proposal: dict[str, Any],
+        *,
+        transmit: bool,
+        what_if: bool,
+        skip_contract_details: bool = False,
+    ) -> int:
+        self._ensure_connected_for_contract_details()
+        contract = self._basic_contract_from_proposal(proposal)
+        sec_type = str(contract.secType or "STK").upper()
+        details = None
+        if not skip_contract_details:
+            try:
+                details = self._resolve_contract_details(contract)
+            except Exception as exc:
+                log.warning("reqContractDetails failed (%s) — contrato básico %s SMART/USD", exc, contract.symbol)
+                details = None
+                contract = self._basic_contract_from_proposal(proposal)
+        else:
+            log.warning("skip reqContractDetails — contrato básico %s %s %s", contract.symbol, contract.secType, contract.exchange)
+
+        if details is not None:
+            qualified = getattr(details, "contract", None)
+            if qualified is not None:
+                contract = qualified
+            market_rules = self._resolve_market_rules(getattr(details, "marketRuleIds", "") or "")
+            normalized_qty = self._normalize_quantity(float(proposal["quantity"]), details)
+            normalized_price = self._normalize_price(float(proposal["limit_price"]), details, market_rules)
+        else:
+            contract = self._basic_contract_from_proposal(proposal)
+            qty = float(proposal["quantity"])
+            price = float(proposal["limit_price"])
+            if sec_type == "CRYPTO":
+                normalized_qty = qty
+                normalized_price = price
+            else:
+                normalized_qty = float(max(1, int(qty)))
+                normalized_price = round(price, 2)
         order = Order()
         order.action = proposal["side"]
         order.orderType = "LMT"
         order.totalQuantity = normalized_qty
         order.lmtPrice = normalized_price
         order.tif = "DAY"
-        order.outsideRth = bool(proposal.get("outside_rth")) and settings.allow_outside_rth
+        crypto = sec_type == "CRYPTO"
+        order.outsideRth = True if crypto else (bool(proposal.get("outside_rth")) and settings.allow_outside_rth)
         order.whatIf = what_if
         order.transmit = transmit
         account = (proposal.get("account") or settings.default_account_id(self.accounts) or "").strip()
@@ -1118,13 +1252,24 @@ class IBKRClient(EWrapper, EClient):
                 "currency": contract.currency,
                 "account": account,
             }
-            self.placeOrder(order_id, contract, order)
+            try:
+                self.placeOrder(order_id, contract, order)
+            except Exception as exc:
+                raise ConnectionError(f"placeOrder failed (socket): {exc}") from exc
+        if not self.isConnected():
+            raise ConnectionError("IBKR disconnected during placeOrder")
         ack.wait(6)
         errors = self.place_ack_errors.get(order_id, [])
         status = self.place_ack_status.get(order_id, "NO_ACK")
         log.info("PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))
         for err in errors:
             log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
+
+        disconnect_codes = {502, 504, 1100, 1101, 1102, 1300, 2110}
+        if any(int(err["code"]) in disconnect_codes for err in errors):
+            raise ConnectionError(
+                f"IBKR disconnected during placeOrder: {errors[-1]['code']} {errors[-1]['message']}"
+            )
 
         reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
         if any(int(err["code"]) in reject_codes for err in errors):
@@ -1385,7 +1530,9 @@ def evaluate_risk(p: ProposalCreate) -> list[dict[str, Any]]:
         {"name": "notional_limit", "passed": notional <= settings.max_order_notional, "detail": f"nominal {notional:.2f}; máximo {settings.max_order_notional:.2f}"},
         {"name": "symbol_allowlist", "passed": not symbols or p.symbol.upper() in symbols, "detail": symbol_detail},
         {"name": "currency_allowlist", "passed": p.currency.upper() in currencies, "detail": sorted(currencies)},
-        {"name": "exchange_allowlist", "passed": p.exchange.upper() in exchanges, "detail": sorted(exchanges)},
+        {"name": "exchange_allowlist", "passed": p.exchange.upper() in exchanges or (
+            p.sec_type.upper() == "CRYPTO" and p.exchange.upper() == "PAXOS"
+        ), "detail": sorted(exchanges) + (["PAXOS"] if "PAXOS" not in exchanges else [])},
         {"name": "limit_order_only", "passed": p.order_type == "LMT", "detail": "solo LMT"},
     ]
     return checks
@@ -1681,7 +1828,7 @@ def history(
         raise HTTPException(400, "symbol inválido")
     allowed_durations = {"1 D", "5 D", "1 W", "2 W", "1 M", "3 M", "6 M", "1 Y"}
     allowed_bars = {"1 min", "5 mins", "15 mins", "1 hour", "4 hours", "1 day"}
-    allowed_sec = {"STK", "CASH"}
+    allowed_sec = {"STK", "CASH", "CRYPTO"}
     cleaned_sec = (secType or "STK").strip().upper()
     if cleaned_sec not in allowed_sec:
         raise HTTPException(400, f"secType no permitida; use una de {sorted(allowed_sec)}")
@@ -1718,8 +1865,8 @@ def stock_quote(
     if not cleaned or len(cleaned) > 20:
         raise HTTPException(400, "symbol inválido")
     cleaned_sec = (secType or "STK").strip().upper()
-    if cleaned_sec not in {"STK", "CASH"}:
-        raise HTTPException(400, "secType inválido; use STK o CASH")
+    if cleaned_sec not in {"STK", "CASH", "CRYPTO"}:
+        raise HTTPException(400, "secType inválido; use STK, CASH o CRYPTO")
     try:
         result = ibkr.stock_quote(
             cleaned,
@@ -1748,7 +1895,12 @@ def create_proposal(payload: ProposalCreate):
             "symbol": payload.symbol.upper(),
             "sec_type": payload.sec_type.upper(),
             "currency": payload.currency.upper(),
-            "exchange": payload.exchange.upper(),
+            "exchange": (
+                "PAXOS"
+                if payload.sec_type.upper() == "CRYPTO" and payload.exchange.upper() in {"", "SMART"}
+                else payload.exchange.upper()
+            ),
+            "outside_rth": True if payload.sec_type.upper() == "CRYPTO" else payload.outside_rth,
             "account": (payload.account or settings.default_account_id(ibkr.accounts) or None),
         }
     )
@@ -1811,7 +1963,8 @@ def execute(proposal_id: str, request: ExecuteRequest):
         raise HTTPException(400, f"Escribe exactamente: {expected}")
     verify_token(request.approval_token, proposal_id, proposal["approval_nonce"])
     try:
-        order_id = ibkr.place_limit_order(proposal)
+        skip_details = bool(getattr(request, "skip_contract_details", False))
+        order_id = ibkr.place_limit_order(proposal, skip_contract_details=skip_details)
         ack_status = ibkr.place_ack_status.get(order_id, "UNKNOWN")
         with db() as connection:
             current = connection.execute("SELECT status FROM proposals WHERE id=?", (proposal_id,)).fetchone()

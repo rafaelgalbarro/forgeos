@@ -8,6 +8,12 @@ import "server-only";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { ensureIbkrBrokerConnected, reconnectIbkrBroker } from "@/lib/trading/ibkr-reconnect";
+import {
+  IBKR_CRYPTO_EXCHANGE,
+  IBKR_CRYPTO_SEC_TYPE,
+  ibkrCryptoSymbol,
+  isIbkrCryptoTicker,
+} from "@/src/core/trading/crypto-ibkr";
 
 type RiskCheck = {
   readonly name?: string;
@@ -36,9 +42,25 @@ export type SupervisedSubmitResult = {
 
 function isDisconnectError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return /not connected|disconnected|ECONNREFUSED|fetch failed|unreachable|SERVICE_UNAVAILABLE|socket|timeout|IBKR.*offline/i.test(
+  return /not connected|disconnected|ECONNREFUSED|fetch failed|unreachable|SERVICE_UNAVAILABLE|socket|timeout|reqContractDetails|IBKR.*offline/i.test(
     msg,
   );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureConnectedBeforeContractDetails(symbol: string): Promise<void> {
+  const connected = await ensureIbkrBrokerConnected();
+  if (connected) return;
+  console.warn(`[AutoExecute] ${symbol} → desconectado antes de reqContractDetails, reconectando…`);
+  const re = await reconnectIbkrBroker();
+  if (!re.connected) {
+    throw new Error(`IBKR desconectado — no se pudo reconectar (${re.error ?? "unknown"})`);
+  }
+  console.log(`[AutoExecute] ${symbol} → reconectado, esperando 5s…`);
+  await sleep(5_000);
 }
 
 async function withBrokerRetry<T>(
@@ -59,7 +81,8 @@ async function withBrokerRetry<T>(
         `IBKR reconnect failed after ${step}: ${re.error ?? "not connected"}`,
       );
     }
-    console.log(`[AutoExecute] ${symbol} → reconectado, reintentando ${step}…`);
+    console.log(`[AutoExecute] ${symbol} → reconectado, esperando 5s y reintentando ${step}…`);
+    await sleep(5_000);
     return await fn();
   }
 }
@@ -73,7 +96,10 @@ export async function submitSupervisedLiveLimitOrder(args: {
   readonly rationale: string;
   readonly account?: string;
 }): Promise<SupervisedSubmitResult> {
-  const symbol = String(args.symbol).toUpperCase();
+  const crypto = isIbkrCryptoTicker(args.symbol);
+  const symbol = crypto
+    ? (ibkrCryptoSymbol(args.symbol) ?? String(args.symbol).toUpperCase())
+    : String(args.symbol).toUpperCase();
   const flags = getInvestmentRuntimeFlags();
   if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
     throw new Error(
@@ -95,6 +121,8 @@ export async function submitSupervisedLiveLimitOrder(args: {
     if (!re.connected) {
       throw new Error(`IBKR desconectado — no se pudo reconectar (${re.error ?? "unknown"})`);
     }
+    console.log(`[AutoExecute] ${symbol} → reconectado, esperando 5s…`);
+    await sleep(5_000);
   }
 
   const rationale = (args.rationale.trim().length >= 10
@@ -116,10 +144,10 @@ export async function submitSupervisedLiveLimitOrder(args: {
         quantity: Number(args.quantity),
         order_type: "LMT",
         limit_price: args.limitPrice,
-        sec_type: "STK",
+        sec_type: crypto ? IBKR_CRYPTO_SEC_TYPE : "STK",
         currency: "USD",
-        exchange: "SMART",
-        outside_rth: args.outsideRth ?? false,
+        exchange: crypto ? IBKR_CRYPTO_EXCHANGE : "SMART",
+        outside_rth: crypto ? true : args.outsideRth ?? false,
         rationale,
         strategy_id: "forgeos-trading-engine",
         account: args.account,
@@ -160,17 +188,31 @@ export async function submitSupervisedLiveLimitOrder(args: {
     `[AutoExecute] ${symbol} → propuesta aprobada: token=${approvalToken.slice(0, 12)}…`,
   );
 
-  // Paso 5 — Ejecutar orden
+  // Paso 5 — Ejecutar orden (reqContractDetails en ibkr-broker)
+  await ensureConnectedBeforeContractDetails(symbol);
   console.log(`[AutoExecute] ${symbol} → ejecutando orden IBKR…`);
-  const executed = await withBrokerRetry(symbol, "ejecutar orden", () =>
+  const executeBody = (skipContractDetails: boolean) =>
     ibkrServiceFetch<ProposalResponse>(`/api/proposals/${proposalId}/execute`, {
       method: "POST",
       body: JSON.stringify({
         approval_token: approvalToken,
         confirmation_phrase: `EXECUTE LIVE ${proposalId}`,
+        skip_contract_details: skipContractDetails,
       }),
-    }),
-  );
+    });
+  let executed: ProposalResponse;
+  try {
+    executed = await withBrokerRetry(symbol, "ejecutar orden", () => executeBody(false));
+  } catch (err) {
+    if (!isDisconnectError(err)) throw err;
+    console.warn(
+      `[AutoExecute] ${symbol} → reqContractDetails falló, reintento con contrato básico STK/SMART/USD`,
+    );
+    await ensureConnectedBeforeContractDetails(symbol);
+    executed = await withBrokerRetry(symbol, "ejecutar orden (contrato básico)", () =>
+      executeBody(true),
+    );
+  }
 
   const ibkrOrderId = executed.ibkr_order_id ?? executed.ibkrOrderId;
   if (ibkrOrderId == null || String(ibkrOrderId).trim() === "") {

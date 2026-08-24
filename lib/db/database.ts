@@ -161,13 +161,38 @@ export function recordClosedTrade(input: {
   const db = getDb();
   const ts = input.timestamp ?? new Date().toISOString();
   const side = (input.side ?? "SELL").toUpperCase();
+  const symbol = input.symbol.toUpperCase();
+  const date = madridDateKey(ts);
+
+  // Cap identical SELL spam: max 2 rows per (symbol, side, qty) per Madrid day
+  if (side === "SELL") {
+    const all = db
+      .prepare(`SELECT id, symbol, side, qty, timestamp FROM trades WHERE upper(symbol) = ? AND upper(side) = 'SELL'`)
+      .all(symbol) as Array<{ id: number; qty: number; timestamp: string }>;
+    const same = all.filter(
+      (t) => madridDateKey(t.timestamp) === date && Number(t.qty) === Number(input.qty),
+    );
+    if (same.length >= 2) {
+      console.warn(
+        `[DB] skip duplicate SELL ${symbol} qty=${input.qty} — already ${same.length} today`,
+      );
+      db.prepare(`DELETE FROM positions WHERE symbol = ?`).run(symbol);
+      const existing = db
+        .prepare(
+          `SELECT id, symbol, side, qty, price, pnl, timestamp, account, kind FROM trades WHERE id = ?`,
+        )
+        .get(same[same.length - 1]!.id) as TradeRow;
+      return existing;
+    }
+  }
+
   const info = db
     .prepare(
       `INSERT INTO trades(symbol, side, qty, price, pnl, timestamp, account, kind)
        VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
-      input.symbol.toUpperCase(),
+      symbol,
       side,
       input.qty,
       input.price,
@@ -176,17 +201,16 @@ export function recordClosedTrade(input: {
       input.account ?? null,
       input.kind ?? null,
     );
-  const date = madridDateKey(ts);
   refreshDailyPnl(date);
   // Drop closed position row if present
-  db.prepare(`DELETE FROM positions WHERE symbol = ?`).run(input.symbol.toUpperCase());
+  db.prepare(`DELETE FROM positions WHERE symbol = ?`).run(symbol);
   const id = Number(info.lastInsertRowid);
   console.log(
-    `[DB] ${input.symbol.toUpperCase()} ${input.kind ?? side} → guardado pnl=${input.pnl >= 0 ? "+" : ""}$${input.pnl.toFixed(2)}`,
+    `[DB] ${symbol} ${input.kind ?? side} → guardado pnl=${input.pnl >= 0 ? "+" : ""}$${input.pnl.toFixed(2)}`,
   );
   return {
     id,
-    symbol: input.symbol.toUpperCase(),
+    symbol,
     side,
     qty: input.qty,
     price: input.price,
@@ -287,4 +311,77 @@ export function getPnlAggregates(): {
 
 export function getDbFilePath(): string {
   return resolveDbPath();
+}
+
+/** Symbols with at least one SELL recorded today (Madrid calendar). */
+export function listSoldSymbolsToday(date?: string): string[] {
+  const db = getDb();
+  const key = date ?? madridDateKey();
+  const all = db
+    .prepare(`SELECT symbol, side, timestamp FROM trades WHERE upper(side) = 'SELL'`)
+    .all() as Array<{ symbol: string; side: string; timestamp: string }>;
+  return [
+    ...new Set(
+      all
+        .filter((t) => madridDateKey(t.timestamp) === key)
+        .map((t) => String(t.symbol ?? "").trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+/**
+ * Keep at most 2 rows per (symbol, side, qty) on the same Madrid day.
+ * Deletes extras (highest id first) and refreshes daily_pnl for touched days.
+ */
+export function purgeDuplicateTradesToday(date?: string): {
+  deleted: number;
+  keptGroups: number;
+  date: string;
+} {
+  const db = getDb();
+  const key = date ?? madridDateKey();
+  const all = db
+    .prepare(
+      `SELECT id, symbol, side, qty, timestamp FROM trades ORDER BY id ASC`,
+    )
+    .all() as Array<{
+    id: number;
+    symbol: string;
+    side: string;
+    qty: number;
+    timestamp: string;
+  }>;
+
+  const groups = new Map<string, number[]>();
+  for (const row of all) {
+    if (madridDateKey(row.timestamp) !== key) continue;
+    const gkey = `${String(row.symbol).toUpperCase()}|${String(row.side).toUpperCase()}|${Number(row.qty)}`;
+    const ids = groups.get(gkey) ?? [];
+    ids.push(row.id);
+    groups.set(gkey, ids);
+  }
+
+  const toDelete: number[] = [];
+  let keptGroups = 0;
+  for (const ids of groups.values()) {
+    if (ids.length <= 2) {
+      if (ids.length > 0) keptGroups += 1;
+      continue;
+    }
+    keptGroups += 1;
+    // Keep the first 2 (oldest); delete the rest (repeat spam)
+    toDelete.push(...ids.slice(2));
+  }
+
+  if (toDelete.length > 0) {
+    const del = db.prepare(`DELETE FROM trades WHERE id = ?`);
+    for (const id of toDelete) del.run(id);
+    refreshDailyPnl(key);
+    console.log(
+      `[DB] purgeDuplicateTradesToday ${key}: deleted=${toDelete.length} groups=${groups.size}`,
+    );
+  }
+
+  return { deleted: toDelete.length, keptGroups, date: key };
 }

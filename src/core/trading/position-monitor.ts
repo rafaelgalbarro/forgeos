@@ -26,7 +26,11 @@ import { loadTradingState, updateTradingState, type MonitoredPosition } from "./
 import { labelMlSignalOutcome } from "@/lib/ml/signal-trainer";
 import { recordClosedTradeOutcome } from "./portfolio-optimizer";
 import { shouldSkipUntradeableTicker } from "./untradeable-tickers";
-import { recordClosedTrade } from "@/lib/db/database";
+import {
+  listSoldSymbolsToday,
+  purgeDuplicateTradesToday,
+  recordClosedTrade,
+} from "@/lib/db/database";
 
 const MONITOR_INTERVAL_MS = 60_000;
 const STALE_HOURS = 24;
@@ -36,9 +40,16 @@ const DEFAULT_TP_PCT = 0.05; // +5%
 const HARD_STOP_LOSS_PCT = -5;
 const PROFIT_APPROVAL_PCT = 8;
 const MADRID_TZ = "Europe/Madrid";
-/** Prevent re-SELL while IBKR still shows the position after first exit order. */
+/** Short lock while a SELL is in flight (cross-process). */
 const SELL_LOCK_TTL_MS = 15 * 60 * 1000;
 const SELL_LOCK_FILE = path.resolve(process.cwd(), ".forgeos", "cache", "position-sell-locks.json");
+/** Permanent for the Madrid calendar day — never re-SELL after a successful exit. */
+const SELL_BLACKLIST_FILE = path.resolve(
+  process.cwd(),
+  ".forgeos",
+  "cache",
+  "position-sell-blacklist.json",
+);
 
 /** In-memory SL/TP registry (survives within the Node process). */
 type PositionSLTP = {
@@ -55,11 +66,32 @@ type PositionSLTP = {
   selling?: boolean;
 };
 
+type SellBlacklistFile = {
+  date: string;
+  symbols: string[];
+};
+
 const positionSLTP = new Map<string, PositionSLTP>();
+/** Symbols already sold today — never re-SELL / re-monitor until next Madrid day or new BUY. */
+const sellBlacklist = new Set<string>();
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
 let running = false;
 let lastDailySummaryDate = "";
+let startupSynced = false;
+
+function madridDateKey(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: MADRID_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const y = parts.find((p) => p.type === "year")?.value ?? "1970";
+  const m = parts.find((p) => p.type === "month")?.value ?? "01";
+  const d = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${y}-${m}-${d}`;
+}
 
 function readSellLocks(): Record<string, number> {
   try {
@@ -81,9 +113,58 @@ function writeSellLocks(locks: Record<string, number>): void {
   fs.writeFileSync(SELL_LOCK_FILE, JSON.stringify(locks, null, 2), "utf8");
 }
 
+function persistSellBlacklist(): void {
+  const payload: SellBlacklistFile = {
+    date: madridDateKey(),
+    symbols: [...sellBlacklist].sort(),
+  };
+  fs.mkdirSync(path.dirname(SELL_BLACKLIST_FILE), { recursive: true });
+  fs.writeFileSync(SELL_BLACKLIST_FILE, JSON.stringify(payload, null, 2), "utf8");
+}
+
+function loadSellBlacklistFromDisk(): void {
+  sellBlacklist.clear();
+  const today = madridDateKey();
+  try {
+    if (fs.existsSync(SELL_BLACKLIST_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(SELL_BLACKLIST_FILE, "utf8")) as SellBlacklistFile;
+      if (raw?.date === today && Array.isArray(raw.symbols)) {
+        for (const s of raw.symbols) {
+          const t = String(s ?? "").trim().toUpperCase();
+          if (t) sellBlacklist.add(t);
+        }
+      }
+    }
+  } catch {
+    /* ignore corrupt file */
+  }
+  try {
+    for (const s of listSoldSymbolsToday(today)) sellBlacklist.add(s);
+  } catch (err) {
+    console.warn(
+      "[PositionMonitor] listSoldSymbolsToday failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+  persistSellBlacklist();
+}
+
+function addToSellBlacklist(ticker: string): void {
+  const key = ticker.trim().toUpperCase();
+  if (!key) return;
+  sellBlacklist.add(key);
+  persistSellBlacklist();
+  console.log(`[PositionMonitor] ${key} → sellBlacklist (no re-SELL hoy)`);
+}
+
+function isSellBlacklisted(ticker: string): boolean {
+  return sellBlacklist.has(ticker.trim().toUpperCase());
+}
+
 /** Cross-process lock: returns false if already locked (another SELL in progress / recent). */
 function tryAcquireSellLock(ticker: string): boolean {
   const key = ticker.toUpperCase();
+  if (isSellBlacklisted(key)) return false;
   const locks = readSellLocks();
   if (locks[key] != null && Date.now() - locks[key]! < SELL_LOCK_TTL_MS) {
     return false;
@@ -94,6 +175,7 @@ function tryAcquireSellLock(ticker: string): boolean {
 }
 
 function isSellLocked(ticker: string): boolean {
+  if (isSellBlacklisted(ticker)) return true;
   const at = readSellLocks()[ticker.toUpperCase()];
   return at != null && Date.now() - at < SELL_LOCK_TTL_MS;
 }
@@ -191,35 +273,39 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   const ibkrOpen = new Set<string>();
   for (const row of ibkrRows) {
     const ticker = String(row.symbol ?? "").trim().toUpperCase();
-    if (!ticker || shouldSkipUntradeableTicker(ticker)) continue;
+    if (!ticker || shouldSkipUntradeableTicker(ticker) || isSellBlacklisted(ticker)) continue;
     const qty = Math.abs(Number(row.position ?? 0));
     if (qty > 0) ibkrOpen.add(ticker);
   }
 
-  // Drop registry entries that are no longer open in IBKR (unless mid-SELL)
+  // Drop registry entries that are no longer open in IBKR, or already sold today
   for (const t of [...positionSLTP.keys()]) {
+    if (isSellBlacklisted(t)) {
+      dropFromRegistry(t);
+      console.log(`[PositionMonitor] ${t} en sellBlacklist — eliminada del registro`);
+      continue;
+    }
     if (ibkrOpen.has(t)) continue;
-    if (positionSLTP.get(t)?.selling || isSellLocked(t)) continue;
+    if (positionSLTP.get(t)?.selling) continue;
     dropFromRegistry(t);
     console.log(`[PositionMonitor] ${t} qty=0 en IBKR — eliminada del registro`);
   }
 
-  // Also purge stale state for junk / closed names
+  // Persist: only symbols that exist in IBKR with qty > 0 (never blacklist)
   updateTradingState((state) => ({
     ...state,
     monitoredPositions: state.monitoredPositions.filter((p) => {
       const t = p.ticker.toUpperCase();
-      if (shouldSkipUntradeableTicker(t)) return false;
-      return ibkrOpen.has(t) || isSellLocked(t);
+      if (shouldSkipUntradeableTicker(t) || isSellBlacklisted(t)) return false;
+      return ibkrOpen.has(t);
     }),
   }));
 
   const { monitoredPositions } = loadTradingState();
   for (const p of monitoredPositions) {
     const t = p.ticker.toUpperCase();
-    if (shouldSkipUntradeableTicker(t)) continue;
+    if (shouldSkipUntradeableTicker(t) || isSellBlacklisted(t)) continue;
     if (!ibkrOpen.has(t)) continue;
-    if (isSellLocked(t)) continue;
     if (!positionSLTP.has(t)) {
       upsertMemory({
         ticker: t,
@@ -236,9 +322,10 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   const active: string[] = [];
   for (const row of ibkrRows) {
     const ticker = String(row.symbol ?? "").trim().toUpperCase();
-    if (!ticker || shouldSkipUntradeableTicker(ticker)) continue;
-    if (isSellLocked(ticker)) {
-      console.log(`[PositionMonitor] ${ticker} en sell-lock — no re-registrar / no SELL`);
+    if (!ticker || shouldSkipUntradeableTicker(ticker) || isSellBlacklisted(ticker)) {
+      if (ticker && isSellBlacklisted(ticker)) {
+        console.log(`[PositionMonitor] ${ticker} sellBlacklist — no re-registrar / no SELL`);
+      }
       continue;
     }
     const qty = Math.abs(Number(row.position ?? 0));
@@ -280,22 +367,29 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
     }
   }
 
-  // Never fall back to state-only closed positions
-  return [...new Set(active)].filter((t) => !isSellLocked(t) && !positionSLTP.get(t)?.selling);
+  // Never monitor blacklisted / closed names — IBKR qty>0 only
+  return [...new Set(active)].filter(
+    (t) => !isSellBlacklisted(t) && !positionSLTP.get(t)?.selling,
+  );
 }
 
 async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" | "SL"): Promise<void> {
+  const ticker = pos.ticker.toUpperCase();
   const pnlUSD = (price - pos.entryPrice) * pos.shares;
   const pnlPct = pos.entryPrice > 0 ? ((price - pos.entryPrice) / pos.entryPrice) * 100 : 0;
 
   console.log(
-    `[PositionMonitor] ${pos.ticker} ${kind} tocado @$${price.toFixed(2)} → SELL` +
+    `[PositionMonitor] ${ticker} ${kind} tocado @$${price.toFixed(2)} → SELL` +
       ` P&L $${pnlUSD.toFixed(2)}`,
   );
 
+  // Always drop + blacklist first so the next tick cannot re-SELL
+  addToSellBlacklist(ticker);
+  dropFromRegistry(ticker);
+
   try {
     recordClosedTrade({
-      symbol: pos.ticker,
+      symbol: ticker,
       side: "SELL",
       qty: pos.shares,
       price,
@@ -304,7 +398,7 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
       kind,
     });
     console.log(
-      `[PositionMonitor] ${pos.ticker} ${kind} tocado → guardar en DB: pnl=${pnlUSD >= 0 ? "+" : ""}$${pnlUSD.toFixed(2)}`,
+      `[PositionMonitor] ${ticker} ${kind} tocado → guardar en DB: pnl=${pnlUSD >= 0 ? "+" : ""}$${pnlUSD.toFixed(2)}`,
     );
   } catch (err) {
     console.warn(
@@ -313,9 +407,6 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
     );
   }
 
-  // Registry already cleared in beginExitSell — belt and suspenders
-  dropFromRegistry(pos.ticker);
-
   let nav = 0;
   try {
     nav = (await fetchTradingAccountSnapshot()).navUSD;
@@ -323,16 +414,16 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
     /* ignore */
   }
 
-  await notifyPositionClosed({ kind, ticker: pos.ticker, pnlUSD, pnlPct, navUSD: nav });
+  await notifyPositionClosed({ kind, ticker, pnlUSD, pnlPct, navUSD: nav });
   publishInvestmentEvent({
     type: "position_closed",
     at: new Date().toISOString(),
-    payload: { kind, ticker: pos.ticker, price, pnlUSD, pnlPct },
+    payload: { kind, ticker, price, pnlUSD, pnlPct },
   });
 
   try {
     recordClosedTradeOutcome({
-      ticker: pos.ticker,
+      ticker,
       pnlUSD,
       pnlPct,
       kind,
@@ -347,7 +438,7 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
 
   try {
     labelMlSignalOutcome({
-      ticker: pos.ticker,
+      ticker,
       pnlUSD,
       pnlPct,
       kind,
@@ -361,7 +452,7 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
   }
 
   if (TRADING_CONFIG.ibkr.paperTrading) {
-    console.log(`[PositionMonitor] 📄 PAPER CLOSE ${pos.ticker} ${pos.shares} @ $${price}`);
+    console.log(`[PositionMonitor] 📄 PAPER CLOSE ${ticker} ${pos.shares} @ $${price}`);
   }
 }
 
@@ -392,6 +483,12 @@ async function beginExitSell(
   const ticker = pos.ticker.toUpperCase();
   const mem = positionSLTP.get(ticker);
 
+  if (isSellBlacklisted(ticker)) {
+    dropFromRegistry(ticker);
+    console.log(`[PositionMonitor] ${ticker} ya vendido hoy (blacklist) — skip SELL`);
+    return { status: "skipped", reason: "blacklisted" };
+  }
+
   if (mem?.selling || isSellLocked(ticker)) {
     console.log(`[PositionMonitor] ${ticker} ya en selling/lock — skip SELL duplicado`);
     return { status: "skipped", reason: "already-selling" };
@@ -411,14 +508,16 @@ async function beginExitSell(
   const liveRows = await fetchOpenIbkrStockPositions();
   const { open, qty } = stillOpenInIbkr(liveRows, ticker);
   if (!open || !(qty > 0)) {
+    addToSellBlacklist(ticker);
     dropFromRegistry(ticker);
-    console.log(`[PositionMonitor] ${ticker} qty=0 en IBKR — eliminada del registro, skip SELL`);
+    console.log(`[PositionMonitor] ${ticker} qty=0 en IBKR — blacklist + eliminada, skip SELL`);
     return { status: "skipped", reason: "already-closed" };
   }
 
   const sellQty = Math.max(1, Math.floor(qty));
   const flags = getInvestmentRuntimeFlags();
   if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
+    addToSellBlacklist(ticker);
     dropFromRegistry(ticker);
     console.log(`[PositionMonitor] ${ticker} PAPER SELL qty=${sellQty} @$${price.toFixed(2)}`);
     return { status: "sold", orderId: null };
@@ -427,8 +526,9 @@ async function beginExitSell(
   // 3) Final IBKR re-check immediately before submit
   const recheck = stillOpenInIbkr(await fetchOpenIbkrStockPositions(), ticker);
   if (!recheck.open || !(recheck.qty > 0)) {
+    addToSellBlacklist(ticker);
     dropFromRegistry(ticker);
-    console.log(`[PositionMonitor] ${ticker} cerrada antes de submit — skip SELL`);
+    console.log(`[PositionMonitor] ${ticker} cerrada antes de submit — blacklist, skip SELL`);
     return { status: "skipped", reason: "already-closed" };
   }
 
@@ -442,18 +542,41 @@ async function beginExitSell(
       outsideRth: true,
       account: mem?.account ?? (process.env.IBKR_ACCOUNT_ID?.trim() || undefined),
     });
-    // 4) Drop registry only after successful submit so we never re-try the same exit
+    // 4) After successful SELL → blacklist + drop registry (never re-try today)
+    addToSellBlacklist(ticker);
     dropFromRegistry(ticker);
     console.log(`[PositionMonitor] ${ticker} SELL enviado ibkrId=${res.ibkrOrderId} (único)`);
     return { status: "sold", orderId: res.ibkrOrderId };
   } catch (err) {
-    // Keep sell-lock so we do not spam retries; leave registry out via lock
+    // Do not blacklist on transport failure — but drop registry so we only retry via IBKR qty>0
     dropFromRegistry(ticker);
     console.warn(
       `[PositionMonitor] live close failed ${ticker}:`,
       err instanceof Error ? err.message : err,
     );
     return { status: "skipped", reason: "submit-failed" };
+  }
+}
+
+async function closeDayTradingPositions(): Promise<void> {
+  const tickers = [...positionSLTP.keys()];
+  if (tickers.length === 0) return;
+  console.log(`[PositionMonitor] Cierre 22:00 — evaluando ${tickers.length} posiciones para cierre de day-trading`);
+  for (const ticker of tickers) {
+    const mem = positionSLTP.get(ticker);
+    if (!mem || mem.selling) continue;
+    try {
+      const quote = await fetchTradingPrice(ticker);
+      const px = quote.currentPrice;
+      if (!(Number.isFinite(px) && px > 0)) continue;
+      const pos = toMonitored(ticker, mem);
+      const exit = await beginExitSell(pos, px, "TP", `Day-trading close 22:00 ${ticker}`);
+      if (exit.status === "sold") {
+        await closePosition(pos, px, "TP");
+      }
+    } catch (err) {
+      console.warn(`[PositionMonitor] closeDayTradingPositions ${ticker}:`, err instanceof Error ? err.message : err);
+    }
   }
 }
 
@@ -489,7 +612,9 @@ async function tick(): Promise<void> {
     console.log(`[PositionMonitor] Monitoreando ${tickers.length} posiciones: ${summary}`);
 
     for (const ticker of tickers) {
-      if (isSellLocked(ticker) || shouldSkipUntradeableTicker(ticker)) continue;
+      if (isSellBlacklisted(ticker) || isSellLocked(ticker) || shouldSkipUntradeableTicker(ticker)) {
+        continue;
+      }
       const mem = positionSLTP.get(ticker);
       if (!mem || mem.selling || !(mem.entryPrice > 0) || !(mem.qty > 0)) continue;
 
@@ -592,6 +717,7 @@ async function tick(): Promise<void> {
     const dateKey = `${parts.find((p) => p.type === "year")?.value}-${parts.find((p) => p.type === "month")?.value}-${parts.find((p) => p.type === "day")?.value}`;
     if (hh === 22 && mm === 0 && lastDailySummaryDate !== dateKey) {
       lastDailySummaryDate = dateKey;
+      await closeDayTradingPositions();
       await sendDailyClosePremiumReport();
     }
     await maybeSendHourlyTelegramSummary();
@@ -600,10 +726,40 @@ async function tick(): Promise<void> {
   }
 }
 
-/** Starts position monitor loop (60s). Idempotent. */
+/** Starts position monitor loop (60s). Idempotent. Syncs IBKR + purges fake duplicate sells. */
 export function startPositionMonitor(): void {
   if (monitorTimer) return;
-  console.log("[PositionMonitor] ▶ Monitor cada 60s (IBKR sync + SL/TP)");
+  console.log("[PositionMonitor] ▶ Monitor cada 60s (IBKR sync + SL/TP + sellBlacklist)");
+  if (!startupSynced) {
+    startupSynced = true;
+    loadSellBlacklistFromDisk();
+    try {
+      const purged = purgeDuplicateTradesToday();
+      if (purged.deleted > 0) {
+        console.log(
+          `[PositionMonitor] SQLite purge duplicados: deleted=${purged.deleted} date=${purged.date}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        "[PositionMonitor] purgeDuplicateTradesToday failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+    // Clear persisted monitors that are not live IBKR (or blacklisted)
+    updateTradingState((state) => ({
+      ...state,
+      monitoredPositions: state.monitoredPositions.filter(
+        (p) => !isSellBlacklisted(p.ticker) && !shouldSkipUntradeableTicker(p.ticker),
+      ),
+    }));
+    for (const t of [...positionSLTP.keys()]) {
+      if (isSellBlacklisted(t)) dropFromRegistry(t);
+    }
+    console.log(
+      `[PositionMonitor] startup blacklist=${[...sellBlacklist].join(",") || "(vacía)"}`,
+    );
+  }
   void tick();
   monitorTimer = setInterval(() => void tick(), MONITOR_INTERVAL_MS);
 }
@@ -651,11 +807,15 @@ export async function registerExecutedPosition(params: {
     trailingStopPct: params.trailingStopPct,
   });
 
-  // New BUY clears any prior sell-lock for this ticker
+  // New BUY clears prior sell-lock + same-day blacklist for this ticker
   const locks = readSellLocks();
   if (locks[ticker] != null) {
     delete locks[ticker];
     writeSellLocks(locks);
+  }
+  if (sellBlacklist.delete(ticker)) {
+    persistSellBlacklist();
+    console.log(`[PositionMonitor] ${ticker} BUY — quitado de sellBlacklist`);
   }
 
   const position = toMonitored(ticker, mem);

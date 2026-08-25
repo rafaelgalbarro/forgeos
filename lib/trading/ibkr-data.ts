@@ -156,42 +156,116 @@ export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSna
 }
 
 async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapshot> {
-  const routes = quoteRoutesForTicker(ticker);
+  const symbol = ticker.trim().toUpperCase();
+  const routes = quoteRoutesForTicker(symbol);
   const quoteErrors: string[] = [];
 
-  if (!isFmpEnabled()) {
-    throw new Error(`FMP_API_KEY required for price data — ${ticker}`);
+  // 1) FMP profile (Starter) — primary for US/ADR
+  if (isFmpEnabled()) {
+    try {
+      const quote = await fmpGetQuote(symbol);
+      if (quote && Number.isFinite(quote.price) && quote.price > 0) {
+        const currentPrice = quote.price;
+        const prevClose = quote.previousClose > 0 ? quote.previousClose : currentPrice;
+        const route = routes[0];
+        return {
+          ticker: symbol,
+          currentPrice,
+          previousClose: prevClose,
+          bid: currentPrice,
+          ask: currentPrice,
+          change1d: currentPrice - prevClose,
+          high52w: quote.yearHigh && quote.yearHigh > 0 ? quote.yearHigh : currentPrice,
+          low52w: quote.yearLow && quote.yearLow > 0 ? quote.yearLow : currentPrice,
+          volume: quote.volume ?? 0,
+          changePercentage: quote.changePercentage ?? 0,
+          priceAvg50: quote.priceAvg50,
+          priceAvg200: quote.priceAvg200,
+          quoteSymbol: route?.symbol ?? symbol,
+          quoteExchange: route?.exchange ?? "FMP",
+          quoteCurrency: route?.currency ?? "USD",
+          quoteRoute: route?.label ?? "FMP-profile",
+          quoteErrors,
+        };
+      }
+      quoteErrors.push("FMP sin precio");
+    } catch (err) {
+      quoteErrors.push(err instanceof Error ? err.message : "FMP error");
+    }
+  } else {
+    quoteErrors.push("FMP_API_KEY missing");
   }
 
-  // Starter plan: profile/quote only — never /historical-price-eod (HTTP 402)
-  const quote = await fmpGetQuote(ticker);
-  if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
-    throw new Error(`FMP sin precio para ${ticker}`);
+  // 2) IBKR quote / market-data with exchange-specific routes (EU/CH natives)
+  for (const route of routes) {
+    const ibkr = await fetchIbkrRouteQuote(route.symbol, route.exchange, route.currency);
+    if (ibkr && ibkr.price > 0) {
+      console.log(
+        `[Universe] ${symbol} precio IBKR $${ibkr.price.toFixed(2)} via ${route.exchange}/${route.currency}`,
+      );
+      return {
+        ticker: symbol,
+        currentPrice: ibkr.price,
+        previousClose: ibkr.price,
+        bid: ibkr.bid ?? ibkr.price,
+        ask: ibkr.ask ?? ibkr.price,
+        change1d: 0,
+        high52w: ibkr.price,
+        low52w: ibkr.price,
+        volume: 0,
+        changePercentage: 0,
+        quoteSymbol: route.symbol,
+        quoteExchange: route.exchange,
+        quoteCurrency: route.currency,
+        quoteRoute: `IBKR-${route.label}`,
+        quoteErrors,
+      };
+    }
+    quoteErrors.push(`IBKR ${route.exchange}: no price`);
   }
 
-  const currentPrice = quote.price;
-  const prevClose = quote.previousClose > 0 ? quote.previousClose : currentPrice;
-  const route = routes[0];
+  throw new Error(`sin precio disponible (${quoteErrors.join("; ")})`);
+}
 
-  return {
-    ticker,
-    currentPrice,
-    previousClose: prevClose,
-    bid: currentPrice,
-    ask: currentPrice,
-    change1d: currentPrice - prevClose,
-    high52w: quote.yearHigh && quote.yearHigh > 0 ? quote.yearHigh : currentPrice,
-    low52w: quote.yearLow && quote.yearLow > 0 ? quote.yearLow : currentPrice,
-    volume: quote.volume ?? 0,
-    changePercentage: quote.changePercentage ?? 0,
-    priceAvg50: quote.priceAvg50,
-    priceAvg200: quote.priceAvg200,
-    quoteSymbol: route?.symbol ?? ticker,
-    quoteExchange: route?.exchange ?? "FMP",
-    quoteCurrency: route?.currency ?? "USD",
-    quoteRoute: route?.label ?? "FMP-profile",
-    quoteErrors,
-  };
+async function fetchIbkrRouteQuote(
+  symbol: string,
+  exchange: string,
+  currency: string,
+): Promise<{ price: number; bid?: number; ask?: number } | null> {
+  const qs =
+    `symbol=${encodeURIComponent(symbol)}` +
+    `&exchange=${encodeURIComponent(exchange)}` +
+    `&currency=${encodeURIComponent(currency)}` +
+    `&secType=STK`;
+
+  // Prefer documented market-data alias; fall back to /quote (exists on broker)
+  const paths = [
+    `/api/ibkr/market-data?${qs}`,
+    `/api/ibkr/quote?${qs}`,
+  ];
+
+  for (const path of paths) {
+    try {
+      const raw = await ibkrServiceFetch<{
+        currentPrice?: number;
+        last?: number;
+        mid?: number;
+        bid?: number;
+        ask?: number;
+        price?: number;
+      }>(path);
+      const price = asPositive(raw?.currentPrice ?? raw?.last ?? raw?.mid ?? raw?.price);
+      if (price == null) continue;
+      return {
+        price,
+        bid: asPositive(raw?.bid) ?? undefined,
+        ask: asPositive(raw?.ask) ?? undefined,
+      };
+    } catch {
+      /* try next path / route */
+    }
+  }
+  return null;
 }
 
 export async function fetchTradingPosition(

@@ -32,7 +32,7 @@ export const TICKER_GROUPS: readonly TickerGroup[] = [
     id: 'asia',
     label: 'Asia',
     emoji: '🌏',
-    tickers: ['EWJ', 'FXI', 'EWY', 'BABA', 'NIO', 'TSM'],
+    tickers: ['EWJ', 'FXI', 'EWY', 'BABA', 'NIO', 'JD', 'BIDU', 'TCEHY', 'SE', 'GRAB', 'TSM'],
   },
   {
     id: 'emergentes',
@@ -44,7 +44,7 @@ export const TICKER_GROUPS: readonly TickerGroup[] = [
     id: 'crypto',
     label: 'Crypto',
     emoji: '₿',
-    tickers: ['IBIT', 'FETH', 'BITO', 'ARKB'],
+    tickers: ['IBIT', 'FETH', 'BITO', 'ARKB', 'BTC', 'ETH', 'LTC', 'BCH', 'XRP'],
   },
   {
     id: 'materias',

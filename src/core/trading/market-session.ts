@@ -230,7 +230,7 @@ export function isUsMarketTradeable(): boolean {
 
 /** Regional ETFs (IBKR SMART) used when native listings are unavailable. */
 export const ASIA_ETF_TICKERS = ["EWJ", "FXI", "EWA", "EWY", "EWT", "EWS"] as const
-export const ASIA_DIRECT_TICKERS = ["BABA", "NIO", "JD", "BIDU", "TCEHY"] as const
+export const ASIA_DIRECT_TICKERS = ["BABA", "NIO", "JD", "BIDU", "TCEHY", "SE", "GRAB"] as const
 export const EUROPE_ETF_TICKERS = ["EZU", "VGK", "EWG", "EWU", "EWQ", "EWI"] as const
 export const EUROPE_DIRECT_TICKERS = ["ASML", "SAP", "LVMUY", "NESN"] as const
 

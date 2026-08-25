@@ -490,7 +490,16 @@ export class TradingEngine {
           quoteErrors: ['live-price-fallback-screener'],
         }
       } else {
-        throw err
+        // Informative skip — not an error (FMP Starter + IBKR sin cotización)
+        console.log(`[Universe] ${ticker} sin precio disponible, skip`)
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `${ticker}: sin precio disponible (FMP/IBKR)`,
+          signal: { confidence: 0, reasoning: 'Sin precio disponible', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        }
       }
     }
 

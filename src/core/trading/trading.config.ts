@@ -106,13 +106,14 @@ export const TRADING_CONFIG = {
     // USA — Acciones de alta liquidez
     'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META',
     // Europa ETFs / ADRs
-    'EZU', 'VGK', 'EWG', 'EWU', 'ASML', 'SAP', 'SHOP', 'SHEL', 'BP',
-    // Asia ETFs / ADRs
-    'EWJ', 'FXI', 'EWY', 'EWA', 'BABA', 'NIO', 'TSM',
+    'EZU', 'VGK', 'EWG', 'EWU', 'EWQ', 'EWI', 'EWP', 'ASML', 'SAP', 'LVMUY', 'NESN', 'SHOP', 'SHEL', 'BP',
+    // Asia ETFs / ADRs (US listings — FMP Starter)
+    'EWJ', 'FXI', 'EWY', 'EWA', 'EWT', 'EWS', 'BABA', 'NIO', 'JD', 'BIDU', 'TCEHY', 'SE', 'GRAB', 'TSM',
     // Emergentes
-    'MELI', 'GRAB', 'DLO', 'IBN',
-    // Crypto ETFs (casi 24h)
+    'MELI', 'DLO', 'IBN',
+    // Crypto ETFs + spot IBKR PAXOS (24h)
     'IBIT', 'FETH', 'BITO', 'ARKB',
+    'BTC', 'ETH', 'LTC', 'BCH', 'XRP',
     // Materias primas (casi 24h via ETFs)
     'GLD', 'SLV', 'USO', 'UNG', 'PDBC',
     // Volatilidad y cobertura

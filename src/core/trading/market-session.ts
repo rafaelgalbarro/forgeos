@@ -1,5 +1,3 @@
-import { IBKR_CRYPTO_TICKERS } from "./crypto-ibkr"
-
 export type ExchangeCode =
   | "SMART"
   | "LSE"
@@ -11,6 +9,9 @@ export type ExchangeCode =
   | "EURONEXT"
   | "CPH"
   | "PAXOS"
+
+/** Crypto 24h (PAXOS) — lista local, sin dependencias server-only. */
+const ALWAYS_ON_CRYPTO_TICKERS = ["BTC", "ETH", "LTC", "BCH", "XRP"] as const
 
 /** US listing venues — horario USA (NYSE/NASDAQ/ETFs). */
 export const US_LISTING_EXCHANGES = new Set([
@@ -354,9 +355,13 @@ export function isEuropeFocusTicker(ticker: string): boolean {
 }
 
 function withAlwaysOnCrypto(tickers: readonly string[]): string[] {
-  // BTC/ETH/LTC mínimo 24h (+ resto PAXOS)
-  const core = ["BTC", "ETH", "LTC", ...IBKR_CRYPTO_TICKERS]
-  return [...new Set([...core, ...tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)])]
+  // BTC/ETH/LTC mínimo 24h (+ resto PAXOS) — sin import server-only
+  return [
+    ...new Set([
+      ...ALWAYS_ON_CRYPTO_TICKERS,
+      ...tickers.map((t) => t.trim().toUpperCase()).filter(Boolean),
+    ]),
+  ]
 }
 
 /**

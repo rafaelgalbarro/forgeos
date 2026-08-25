@@ -60,11 +60,6 @@ async function telegramRequest<T>(method: string, body: Record<string, unknown>)
   }
 }
 
-function pct(from: number, to: number): string {
-  if (!from) return "0.0";
-  return (((to - from) / from) * 100).toFixed(1);
-}
-
 function notifyEnabled(flag: "signal" | "execution" | "halt" | "alert"): boolean {
   const map = {
     signal: process.env.NOTIFY_ON_SIGNAL !== "false",
@@ -168,28 +163,14 @@ export async function sendTelegramDocument(params: {
   }
 }
 
-/** Signal alert — logs every attempt; alias público para el motor de trading. */
+/** Signal alert — silencio absoluto (solo resumen horario/diario). */
 export async function sendSignalAlert(payload: SignalTelegramPayload): Promise<void> {
-  const { enabled } = cfg();
-  const notifyOn = notifyEnabled("signal");
   console.log(
-    `[Telegram] sendSignalAlert intento: ${payload.ticker} ${payload.direction} ` +
-      `conf=${(payload.confidence * 100).toFixed(0)}% approvalId=${payload.approvalId ?? "none"} ` +
-      `bot=${enabled} notifyOnSignal=${notifyOn}`,
+    `[Telegram] sendSignalAlert omitido (política silencio): ${payload.ticker} ${payload.direction}`,
   );
-  if (!enabled) {
-    console.warn("[Telegram] sendSignalAlert omitido — TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID vacíos");
-    return;
-  }
-  if (!notifyOn) {
-    console.warn("[Telegram] sendSignalAlert omitido — NOTIFY_ON_SIGNAL=false");
-    return;
-  }
-  await notifySignalDetected(payload);
-  console.log(`[Telegram] sendSignalAlert completado: ${payload.ticker}`);
 }
 
-/** Alert / watchlist triggered — Telegram con botones de acción. */
+/** Alert / watchlist — silencio absoluto. */
 export async function notifyAlertTriggered(payload: {
   alertId: string;
   ticker: string;
@@ -200,71 +181,26 @@ export async function notifyAlertTriggered(payload: {
   patternName?: string;
   isWatchlist?: boolean;
 }): Promise<void> {
-  if (!notifyEnabled("alert") && !notifyEnabled("signal")) return;
-
   console.log(
-    `[Telegram] notifyAlertTriggered: ${payload.ticker} — ${payload.reason} alertId=${payload.alertId}`,
+    `[Telegram] notifyAlertTriggered omitido (política silencio): ${payload.ticker} — ${payload.reason}`,
   );
-
-  const lines = [
-    "🔔 <b>ALERTA ACTIVADA</b>",
-    `📈 <b>${payload.ticker}</b> — ${payload.label}`,
-    payload.price != null ? `💰 Precio actual: $${payload.price.toFixed(2)}` : "",
-    `📊 RSI: ${payload.rsi?.toFixed(0) ?? "N/A"} | Patrón: ${payload.patternName ?? "—"}`,
-    payload.reason,
-  ].filter(Boolean);
-
-  const prefix = payload.isWatchlist ? "watch" : "alert";
-  await sendTelegramMessage(lines.join("\n"), [
-    [
-      { text: "📊 ANALIZAR", callback_data: `${prefix}_analyze:${payload.ticker}` },
-      { text: "➕ OPERAR", callback_data: `${prefix}_trade:${payload.ticker}` },
-      { text: "🔕 DESACTIVAR", callback_data: `${prefix}_disable:${payload.alertId}` },
-    ],
-  ]);
 }
 
-/** Signal detected — semi-automatic approve/reject (founder Telegram). */
+/** Signal detected — silencio absoluto (solo resumen horario). */
 export async function notifySignalDetected(payload: SignalTelegramPayload): Promise<void> {
-  if (!notifyEnabled("signal")) return;
-
-  const slPct = pct(payload.entry, payload.stopLoss);
-  const tpPct = pct(payload.entry, payload.takeProfit);
-  const dirEmoji = payload.direction === "BUY" ? "📈" : "📉";
-  const sharesLabel =
-    payload.shares != null
-      ? `${payload.shares} acciones`
-      : payload.orderValueUSD != null
-        ? `~$${payload.orderValueUSD.toFixed(2)}`
-        : "—";
-  const sizeUsd =
-    payload.orderValueUSD != null ? `$${payload.orderValueUSD.toFixed(2)}` : "—";
-  const timeoutMin = Math.max(
-    1,
-    Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5,
+  console.log(
+    `[Telegram] notifySignalDetected omitido (política silencio): ${payload.ticker} ${payload.direction}`,
   );
-
-  const text = [
-    `🚀 <b>SEÑAL:</b> ${payload.ticker} ${payload.direction} ${payload.shares ?? "?"}@$${payload.entry.toFixed(2)}`,
-    `SL: $${payload.stopLoss.toFixed(2)} (${slPct}%) | TP: $${payload.takeProfit.toFixed(2)} (+${tpPct}%)`,
-    `Conf: ${(payload.confidence * 100).toFixed(0)}%`,
-    payload.reasoning ? `Motivo: ${payload.reasoning}` : "",
-    `⏱ Responder en ${timeoutMin} min`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  const aid = payload.approvalId ?? "none";
-  await sendTelegramMessage(text, [
-    [
-      { text: "✅ APROBAR", callback_data: `approve:${aid}` },
-      { text: "❌ RECHAZAR", callback_data: `reject:${aid}` },
-    ],
-  ]);
 }
 
-/** Circuit breaker halted. */
+/** Circuit breaker — solo alerta crítica si pérdida ≥10% NAV. */
 export async function notifyCircuitBreaker(dailyLossPct: number): Promise<void> {
+  if (!(dailyLossPct >= 10)) {
+    console.log(
+      `[Telegram] risk gate omitido (pérdida ${dailyLossPct.toFixed(1)}% < 10% NAV)`,
+    );
+    return;
+  }
   if (!notifyEnabled("halt")) return;
   const { sendCriticalTelegramAlert } = await import("@/lib/notifications/telegram-policy");
   const text = `🚨 RISK GATE ACTIVADO: Pérdida -${dailyLossPct.toFixed(1)}% NAV. Trading pausado.`;
@@ -282,49 +218,36 @@ export async function notifyPreTradeHold(params: {
   void params;
 }
 
-/** Order executed — immediate premium alert ONLY when IBKR confirmed (ibkrId). */
+/** BUY filled — solo bucket horario (sin alerta inmediata). */
 export async function notifyOrderExecuted(params: {
   ticker: string;
   shares: number;
   price: number;
   stopLoss?: number;
   takeProfit?: number;
-  /** Required for Telegram — skip if missing / PAPER. */
   ibkrOrderId?: string;
 }): Promise<void> {
   const ibkrId = String(params.ibkrOrderId ?? "").trim();
   if (!ibkrId || ibkrId.toLowerCase() === "n/a" || ibkrId.toUpperCase().startsWith("PAPER_")) {
-    console.log(
-      `[Telegram] notifyOrderExecuted omitido (sin ibkrId): ${params.ticker}`,
-    );
+    console.log(`[Telegram] notifyOrderExecuted omitido (sin ibkrId): ${params.ticker}`);
     return;
   }
-  if (!notifyEnabled("execution")) return;
-  const { recordHourlyExecution, sendImmediateTradeAlert } = await import(
-    "@/lib/notifications/telegram-policy"
-  );
-  const { formatBuyAlert } = await import("@/lib/notifications/telegram-premium-format");
+  // Silencio absoluto: solo resumen horario con trades Filled
+  const { recordHourlyExecution } = await import("@/lib/notifications/telegram-policy");
   recordHourlyExecution({
     ticker: params.ticker,
     side: "BUY",
     shares: params.shares,
     price: params.price,
   });
-  const sl = params.stopLoss ?? params.price * 0.97;
-  const tp = params.takeProfit ?? params.price * 1.05;
-  await sendImmediateTradeAlert(
-    formatBuyAlert({
-      ticker: params.ticker.toUpperCase(),
-      shares: params.shares,
-      price: params.price,
-      stopLoss: sl,
-      takeProfit: tp,
-    }),
+  console.log(
+    `[Telegram] BUY Filled → bucket horario (sin alerta): ${params.ticker} ibkrId=${ibkrId}`,
   );
-  console.log(`[Telegram] BUY confirmado ${params.ticker} ibkrId=${ibkrId}`);
+  void params.stopLoss;
+  void params.takeProfit;
 }
 
-/** Take profit or stop loss hit — immediate premium alert + hourly bucket. */
+/** TP/SL filled — solo bucket horario (sin alerta inmediata). */
 export async function notifyPositionClosed(params: {
   kind: "TP" | "SL";
   ticker: string;
@@ -335,11 +258,7 @@ export async function notifyPositionClosed(params: {
   shares?: number;
   inherited?: boolean;
 }): Promise<void> {
-  if (!notifyEnabled("execution")) return;
-  const { recordHourlyClose, sendImmediateTradeAlert } = await import(
-    "@/lib/notifications/telegram-policy"
-  );
-  const { formatSlAlert, formatTpAlert } = await import("@/lib/notifications/telegram-premium-format");
+  const { recordHourlyClose } = await import("@/lib/notifications/telegram-policy");
   const price =
     params.exitPrice ??
     (params.shares && params.shares > 0 && params.pnlUSD !== 0
@@ -352,29 +271,11 @@ export async function notifyPositionClosed(params: {
     price: params.exitPrice ?? price,
     kind: params.kind,
   });
-  const exitPx = params.exitPrice ?? price;
-  if (params.kind === "TP") {
-    const capitalFreed = exitPx * (params.shares ?? 0);
-    await sendImmediateTradeAlert(
-      formatTpAlert({
-        ticker: params.ticker.toUpperCase(),
-        price: exitPx,
-        pnlUSD: params.pnlUSD,
-        pnlPct: params.pnlPct,
-        capitalFreed: capitalFreed > 0 ? capitalFreed : Math.abs(params.pnlUSD),
-      }),
-    );
-  } else {
-    await sendImmediateTradeAlert(
-      formatSlAlert({
-        ticker: params.ticker.toUpperCase(),
-        price: exitPx,
-        pnlUSD: params.pnlUSD,
-        pnlPct: params.pnlPct,
-        inherited: params.inherited,
-      }),
-    );
-  }
+  console.log(
+    `[Telegram] ${params.kind} Filled → bucket horario (sin alerta): ${params.ticker}`,
+  );
+  void params.navUSD;
+  void params.inherited;
 }
 
 /** Stale position (>24h). */

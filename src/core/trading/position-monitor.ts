@@ -418,6 +418,14 @@ async function closePosition(
   addToSellBlacklist(ticker);
   dropFromRegistry(ticker);
 
+  // SQLite + hourly solo con Filled IBKR confirmado
+  if (!isConfirmedIbkrOrderId(ibkrOrderId)) {
+    console.log(
+      `[PositionMonitor] ${ticker} ${kind} sin ibkrId Filled — no SQLite / no Telegram`,
+    );
+    return;
+  }
+
   try {
     recordClosedTrade({
       symbol: ticker,
@@ -429,7 +437,7 @@ async function closePosition(
       kind,
     });
     console.log(
-      `[PositionMonitor] ${ticker} ${kind} tocado → guardar en DB: pnl=${pnlUSD >= 0 ? "+" : ""}$${pnlUSD.toFixed(2)}`,
+      `[PositionMonitor] ${ticker} ${kind} Filled → DB pnl=${pnlUSD >= 0 ? "+" : ""}$${pnlUSD.toFixed(2)}`,
     );
   } catch (err) {
     console.warn(
@@ -438,30 +446,17 @@ async function closePosition(
     );
   }
 
-  // Telegram solo si IBKR confirmó la orden (ibkrId real)
-  if (isConfirmedIbkrOrderId(ibkrOrderId)) {
-    let nav = 0;
-    try {
-      nav = (await fetchTradingAccountSnapshot()).navUSD;
-    } catch {
-      /* ignore */
-    }
-
-    await notifyPositionClosed({
-      kind,
-      ticker,
-      pnlUSD,
-      pnlPct,
-      navUSD: nav,
-      exitPrice: price,
-      shares: pos.shares,
-      inherited: !pos.orderId,
-    });
-  } else {
-    console.log(
-      `[Telegram] ${ticker} ${kind} omitido — sin ibkrId confirmado (no spam)`,
-    );
-  }
+  // Bucket horario (sin alerta inmediata)
+  await notifyPositionClosed({
+    kind,
+    ticker,
+    pnlUSD,
+    pnlPct,
+    navUSD: 0,
+    exitPrice: price,
+    shares: pos.shares,
+    inherited: !pos.orderId,
+  });
 
   publishInvestmentEvent({
     type: "position_closed",
@@ -565,10 +560,13 @@ async function beginExitSell(
   const sellQty = Math.max(1, Math.floor(qty));
   const flags = getInvestmentRuntimeFlags();
   if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
-    addToSellBlacklist(ticker);
-    dropFromRegistry(ticker);
-    console.log(`[PositionMonitor] ${ticker} PAPER SELL qty=${sellQty} @$${price.toFixed(2)}`);
-    return { status: "sold", orderId: null };
+    // Paper — no SQLite / no hourly (solo Filled IBKR)
+    if (mem) {
+      mem.selling = false;
+      positionSLTP.set(ticker, mem);
+    }
+    console.log(`[PositionMonitor] ${ticker} PAPER SELL qty=${sellQty} @$${price.toFixed(2)} — sin registro`);
+    return { status: "skipped", reason: "paper" };
   }
 
   // 3) Final IBKR re-check immediately before submit
@@ -590,13 +588,35 @@ async function beginExitSell(
       outsideRth: true,
       account: mem?.account ?? (process.env.IBKR_ACCOUNT_ID?.trim() || undefined),
     });
-    // 4) After successful SELL → blacklist + drop registry (never re-try today)
-    addToSellBlacklist(ticker);
-    dropFromRegistry(ticker);
-    console.log(`[PositionMonitor] ${ticker} SELL enviado ibkrId=${res.ibkrOrderId} (único)`);
-    return { status: "sold", orderId: res.ibkrOrderId };
+    console.log(`[PositionMonitor] ${ticker} SELL enviado ibkrId=${res.ibkrOrderId} — esperando Filled…`);
+
+    const { waitForIbkrFill } = await import("@/lib/investment/ibkr-fill-confirm");
+    const fill = await waitForIbkrFill({
+      ibkrOrderId: res.ibkrOrderId,
+      symbol: ticker,
+      side: "SELL",
+    });
+
+    if (fill.outcome === "filled") {
+      addToSellBlacklist(ticker);
+      dropFromRegistry(ticker);
+      console.log(`[PositionMonitor] ${ticker} SELL Filled ibkrId=${res.ibkrOrderId}`);
+      return { status: "sold", orderId: res.ibkrOrderId };
+    }
+
+    if (mem) {
+      mem.selling = false;
+      positionSLTP.set(ticker, mem);
+    }
+    console.warn(
+      `[PositionMonitor] ${ticker} SELL no Filled (${fill.outcome}/${fill.status}) — sin registro`,
+    );
+    return { status: "skipped", reason: `not-filled:${fill.outcome}` };
   } catch (err) {
-    // Do not blacklist on transport failure — but drop registry so we only retry via IBKR qty>0
+    if (mem) {
+      mem.selling = false;
+      positionSLTP.set(ticker, mem);
+    }
     dropFromRegistry(ticker);
     console.warn(
       `[PositionMonitor] live close failed ${ticker}:`,

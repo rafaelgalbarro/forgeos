@@ -1,3 +1,5 @@
+import { IBKR_CRYPTO_TICKERS } from "./crypto-ibkr"
+
 export type ExchangeCode =
   | "SMART"
   | "LSE"
@@ -8,6 +10,7 @@ export type ExchangeCode =
   | "ASX"
   | "EURONEXT"
   | "CPH"
+  | "PAXOS"
 
 /** US listing venues — horario USA (NYSE/NASDAQ/ETFs). */
 export const US_LISTING_EXCHANGES = new Set([
@@ -38,6 +41,7 @@ const EXCHANGE_SESSIONS: Record<ExchangeCode, ExchangeSession | null> = {
   ASX: { exchange: "ASX", timeZone: "Australia/Sydney", openHour: 10, openMinute: 0, closeHour: 16, closeMinute: 0 },
   EURONEXT: { exchange: "EURONEXT", timeZone: "Europe/Paris", openHour: 9, openMinute: 0, closeHour: 17, closeMinute: 30 },
   CPH: { exchange: "CPH", timeZone: "Europe/Copenhagen", openHour: 9, openMinute: 0, closeHour: 17, closeMinute: 0 },
+  PAXOS: null,
 }
 
 type ListingProfile = {
@@ -76,6 +80,7 @@ const IBKR_TO_SESSION: Record<string, ExchangeCode> = {
   PAR: "EURONEXT",
   CPH: "CPH",
   OMXC: "CPH",
+  PAXOS: "PAXOS",
 }
 
 export type UsMarketSessionPhase = "PRE_MARKET" | "REGULAR" | "AFTER_MARKET" | "CLOSED"
@@ -220,6 +225,193 @@ export function getUsMarketSession(): UsMarketSession {
 
 export function isUsMarketTradeable(): boolean {
   return getUsMarketSession().isTradeable
+}
+
+/** Regional ETFs (IBKR SMART) used when native listings are unavailable. */
+export const ASIA_ETF_TICKERS = ["EWJ", "FXI", "EWA", "EWY", "EWT", "EWS"] as const
+export const ASIA_DIRECT_TICKERS = ["BABA", "NIO", "JD", "BIDU", "TCEHY"] as const
+export const EUROPE_ETF_TICKERS = ["EZU", "VGK", "EWG", "EWU", "EWQ", "EWI"] as const
+export const EUROPE_DIRECT_TICKERS = ["ASML", "SAP", "LVMUY", "NESN"] as const
+
+export type GlobalMarketWindow = {
+  asia: boolean
+  europe: boolean
+  usa: boolean
+  usaExtended: boolean
+  anyOpen: boolean
+  standby: boolean
+  localTime: string
+  weekday: boolean
+  /** ASIA | EUROPE | USA | CLOSED — etiqueta simple */
+  label: "ASIA" | "EUROPE" | "USA" | "CLOSED"
+}
+
+function isMadridWeekday(): boolean {
+  const wd = toMadridParts().weekday.toLowerCase()
+  return !wd.startsWith("sat") && !wd.startsWith("sun")
+}
+
+/** Hora Madrid como decimal (14:30 → 14.5). */
+export function getMadridHour(): number {
+  const { hour, minute } = toMadridParts()
+  return hour + minute / 60
+}
+
+/** Tokio TSE 01:00-07:30 Madrid. */
+export function isTokyoOpen(): boolean {
+  if (!isMadridWeekday()) return false
+  return inMinuteRange(toMadridParts().nowMinutes, 1, 0, 7, 30)
+}
+
+/** Hong Kong HKEX 02:00-08:00 Madrid. */
+export function isHongKongOpen(): boolean {
+  if (!isMadridWeekday()) return false
+  return inMinuteRange(toMadridParts().nowMinutes, 2, 0, 8, 0)
+}
+
+/** Sydney ASX 00:00-06:00 Madrid. */
+export function isSydneyOpen(): boolean {
+  if (!isMadridWeekday()) return false
+  return inMinuteRange(toMadridParts().nowMinutes, 0, 0, 6, 0)
+}
+
+/** Asia operativa Madrid: 01:00–08:00. */
+export function isAsiaOpen(): boolean {
+  if (!isMadridWeekday()) return false
+  const h = getMadridHour()
+  return h >= 1 && h < 8
+}
+
+/** Europa 09:00–17:30 Madrid. */
+export function isEuropeOpen(): boolean {
+  if (!isMadridWeekday()) return false
+  const h = getMadridHour()
+  return h >= 9 && h < 17.5
+}
+
+/** USA regular 14:30–22:00 Madrid. */
+export function isUSAOpen(): boolean {
+  if (!isMadridWeekday()) return false
+  const h = getMadridHour()
+  return h >= 14.5 && h < 22
+}
+
+/** USA pre 14:00–14:30 + after 22:00–02:00 Madrid. */
+export function isUSAExtendedOpen(): boolean {
+  if (!isMadridWeekday()) return false
+  const h = getMadridHour()
+  return (h >= 14 && h < 14.5) || h >= 22 || h < 2
+}
+
+export function isAnyMarketOpen(): boolean {
+  return isAsiaOpen() || isEuropeOpen() || isUSAOpen()
+}
+
+export function getGlobalMarketWindow(): GlobalMarketWindow {
+  const { localTime } = toMadridParts()
+  const weekday = isMadridWeekday()
+  const asia = isAsiaOpen()
+  const europe = isEuropeOpen()
+  const usa = isUSAOpen()
+  const usaExtended = isUSAExtendedOpen()
+  const anyOpen = asia || europe || usa || usaExtended
+  let label: GlobalMarketWindow["label"] = "CLOSED"
+  if (asia && !usa) label = "ASIA"
+  else if (europe && !usa) label = "EUROPE"
+  else if (usa || usaExtended) label = "USA"
+  else if (asia) label = "ASIA"
+  else if (europe) label = "EUROPE"
+  return {
+    asia,
+    europe,
+    usa,
+    usaExtended,
+    anyOpen,
+    standby: !anyOpen,
+    localTime,
+    weekday,
+    label,
+  }
+}
+
+export function isAsiaFocusTicker(ticker: string): boolean {
+  const t = ticker.trim().toUpperCase()
+  return (
+    (ASIA_ETF_TICKERS as readonly string[]).includes(t) ||
+    (ASIA_DIRECT_TICKERS as readonly string[]).includes(t) ||
+    t.endsWith(".T") ||
+    t.endsWith(".HK") ||
+    t.endsWith(".AX")
+  )
+}
+
+export function isEuropeFocusTicker(ticker: string): boolean {
+  const t = ticker.trim().toUpperCase()
+  return (
+    (EUROPE_ETF_TICKERS as readonly string[]).includes(t) ||
+    (EUROPE_DIRECT_TICKERS as readonly string[]).includes(t)
+  )
+}
+
+function withAlwaysOnCrypto(tickers: readonly string[]): string[] {
+  // BTC/ETH/LTC mínimo 24h (+ resto PAXOS)
+  const core = ["BTC", "ETH", "LTC", ...IBKR_CRYPTO_TICKERS]
+  return [...new Set([...core, ...tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)])]
+}
+
+/**
+ * Filtra el universo al mercado abierto.
+ * Crypto IBKR (PAXOS) siempre entra — mercado 24h.
+ * Asia abierta → ETFs/directos Asia. Europa abierta → ETFs/directos Europa.
+ * USA → lista combinada. Standby equity → solo crypto.
+ */
+export function selectTickersForOpenMarkets(tickers: readonly string[]): {
+  tickers: string[]
+  mode: "asia" | "europe" | "combined" | "crypto"
+} {
+  const w = getGlobalMarketWindow()
+  const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
+
+  if (w.standby) {
+    return { tickers: withAlwaysOnCrypto([]), mode: "crypto" }
+  }
+
+  const usaTradeable = w.usa || w.usaExtended
+  const result: string[] = [...unique]
+
+  if (w.asia) {
+    result.push(...ASIA_ETF_TICKERS, ...ASIA_DIRECT_TICKERS)
+  }
+  if (w.europe) {
+    result.push(...EUROPE_ETF_TICKERS, ...EUROPE_DIRECT_TICKERS)
+  }
+
+  if (w.asia && !w.europe && !usaTradeable) {
+    const asia = result.filter(isAsiaFocusTicker)
+    const fallback = [...ASIA_ETF_TICKERS, ...ASIA_DIRECT_TICKERS]
+    return {
+      tickers: withAlwaysOnCrypto(asia.length ? asia : fallback),
+      mode: "asia",
+    }
+  }
+  if (w.europe && !w.asia && !usaTradeable) {
+    const eu = result.filter(isEuropeFocusTicker)
+    const fallback = [...EUROPE_ETF_TICKERS, ...EUROPE_DIRECT_TICKERS]
+    return {
+      tickers: withAlwaysOnCrypto(eu.length ? eu : fallback),
+      mode: "europe",
+    }
+  }
+  return { tickers: withAlwaysOnCrypto(result), mode: "combined" }
+}
+
+/** 1 min first USA hour; 3 min siempre (crypto 24h). */
+export function getTradingCycleIntervalMs(_now = new Date()): number {
+  void _now
+  const w = getGlobalMarketWindow()
+  const { nowMinutes } = toMadridParts()
+  if (w.weekday && inMinuteRange(nowMinutes, 14, 30, 15, 30) && w.usa) return 60 * 1000
+  return 3 * 60 * 1000
 }
 
 function toLocalParts(timeZone: string) {

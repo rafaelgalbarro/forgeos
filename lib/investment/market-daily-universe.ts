@@ -13,7 +13,6 @@ import {
   getGlobalMarketWindow,
 } from "@/src/core/trading/market-session";
 import { IBKR_CRYPTO_TICKERS, ensureCryptoInTickerList, verifyCryptoTradingStatus } from "@/src/core/trading/crypto-ibkr";
-import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
 const CACHE_DIR = path.resolve(process.cwd(), ".forgeos", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "market-daily-universe.json");
@@ -606,13 +605,13 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
 
       const now = madridNowParts();
       const dateKey = `${now.y}-${now.m}-${now.d}`;
+      // Morning brief: log only — no Telegram (política silencio)
       if (finalTop.length > 0 && now.hh === 9 && now.mm >= 5 && lastMorningBriefDate !== dateKey) {
         lastMorningBriefDate = dateKey;
         const top5 = finalTop.slice(0, 5).map((t) => `${t.symbol} (${t.score.toFixed(2)})`).join(", ");
-        await sendTelegramMessage(
-          `🌅 MERCADO HOY: Top 5 — ${top5}\n` +
-            `📡 Fuentes: ${sourcesUsed.join(", ") || "n/a"}\n` +
-            `🔄 SECTOR LÍDER: ${payload.sectorLeader.etf} (${payload.sectorLeader.changePct.toFixed(2)}%)`,
+        console.log(
+          `[Universe] MERCADO HOY top5=${top5} sources=${sourcesUsed.join(",") || "n/a"} ` +
+            `sector=${payload.sectorLeader.etf} (${payload.sectorLeader.changePct.toFixed(2)}%)`,
         );
       }
 

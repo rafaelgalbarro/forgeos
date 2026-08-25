@@ -355,16 +355,52 @@ export class TradingEngine {
           : entry > 0
             ? entry * 1.05
             : 0
-      await registerExecutedPosition({
-        ticker: approved.ticker,
-        shares: approved.shares,
-        entryPrice: entry,
-        stopLoss,
-        takeProfit,
-        orderId,
-        trailingStopPct: approved.smartPlan?.trailingStopPct,
-        account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
-      })
+
+      // Solo registrar tras Filled IBKR (sin Telegram inmediato)
+      const oid = String(orderId ?? '')
+      const isPaper = oid.toUpperCase().startsWith('PAPER_') || !oid || oid.toLowerCase() === 'n/a'
+      if (isPaper) {
+        console.log(`[AutoExecute] ${approved.ticker} PAPER — sin registro SQLite/Telegram`)
+      } else {
+        const { waitForIbkrFill } = await import('@/lib/investment/ibkr-fill-confirm')
+        const fill = await waitForIbkrFill({
+          ibkrOrderId: oid,
+          symbol: approved.ticker,
+          side: 'BUY',
+        })
+        if (fill.outcome === 'filled') {
+          const fillPx = fill.avgFillPrice && fill.avgFillPrice > 0 ? fill.avgFillPrice : entry
+          await registerExecutedPosition({
+            ticker: approved.ticker,
+            shares: approved.shares,
+            entryPrice: fillPx,
+            stopLoss,
+            takeProfit,
+            orderId: oid,
+            trailingStopPct: approved.smartPlan?.trailingStopPct,
+            account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
+          })
+          console.log(`[AutoExecute] ${approved.ticker} → Filled ibkrId=${oid} registrado`)
+        } else {
+          console.warn(
+            `[AutoExecute] ${approved.ticker} → NO registrar (fill=${fill.outcome} status=${fill.status})`,
+          )
+          return {
+            orderId: oid,
+            approvalId,
+            status: 'ERROR',
+            ticker: approved.ticker,
+            direction: approved.direction,
+            sharesOrValue: approved.orderValueUSD,
+            price: approved.price,
+            reason: `IBKR no Filled: ${fill.outcome}/${fill.status}`,
+            signal: approved.signal,
+            timestamp: new Date().toISOString(),
+            stopLoss: approved.stopLoss,
+            takeProfit: approved.takeProfit,
+          }
+        }
+      }
     }
 
     publishInvestmentEvent({

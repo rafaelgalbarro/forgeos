@@ -420,11 +420,8 @@ export async function onTradingCycleTelegramHook(): Promise<void> {
 }
 
 export async function sendImmediateTradeAlert(text: string): Promise<void> {
-  if (!canSendTelegramAlert("trade")) {
-    console.log("[Telegram] trade alert silenciada (noche 23:00-08:00)");
-    return;
-  }
-  await sendTelegramMessage(text, undefined, { plain: true });
+  // Silencio absoluto — solo resumen horario / diario / críticas
+  console.log(`[Telegram] sendImmediateTradeAlert omitido (política silencio): ${text.slice(0, 80)}`);
 }
 
 export async function sendCriticalTelegramAlert(text: string): Promise<void> {

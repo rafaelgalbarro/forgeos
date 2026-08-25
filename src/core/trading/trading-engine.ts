@@ -32,7 +32,7 @@ import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
 import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
 import { getDailyUniverse } from '@/lib/investment/market-daily-universe'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
-import { getUsMarketSession, selectTickersForOpenMarkets } from './market-session'
+import { getUsMarketSession, selectTickersForOpenMarkets, isUsaPremarketPrepareOnly, getActiveTradingPhase } from './market-session'
 import { isIbkrCryptoTicker } from './crypto-ibkr'
 import { recordMlSignal } from '@/lib/ml/signal-trainer'
 import { getTickerInfo } from '@/lib/market-data/yahoo-finance'
@@ -586,6 +586,19 @@ export class TradingEngine {
       }
     }
 
+    // USA premarket 14:00–14:30: prepare only — no execute
+    if (isUsaPremarketPrepareOnly() && !isIbkrCryptoTicker(ticker)) {
+      console.log(`[AutoExecute] ${ticker} → Premarket prepare-only (no ejecutar aún)`)
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: premarket — candidato preparado, ejecución en apertura`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     if (execGate) execGate.buySignal = true
 
     recordSignalForTelegram({
@@ -615,12 +628,16 @@ export class TradingEngine {
       }
     }
 
-    const minConfidence = TRADING_CONFIG.ai.minConfidenceToTrade
+    const phase = getActiveTradingPhase()
+    const minConfidence =
+      phase === 'USA_AFTERHOURS'
+        ? (TRADING_CONFIG.ai.minConfidenceExtendedHours ?? 0.75)
+        : TRADING_CONFIG.ai.minConfidenceToTrade
 
     if (signal.confidence < minConfidence) {
       return {
         status: 'REJECTED_CONFIDENCE', ticker, direction: signal.direction,
-        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mÃ­nimo ${(minConfidence * 100).toFixed(0)}%`,
+        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mínimo ${(minConfidence * 100).toFixed(0)}% (${phase})`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }

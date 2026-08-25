@@ -56,8 +56,12 @@ export const TRADING_CONFIG = {
     model: 'claude-sonnet-4-6',
     /** Ciclo rápido: 3 minutos */
     analysisCycleMs: 3 * 60 * 1000,
-    /** Confianza mínima (0-1) */
-    minConfidenceToTrade: 0.60,
+    /** Confianza mínima (0-1) — timing 24h global */
+    minConfidenceToTrade: 0.68,
+    /** After-hours / extended: umbral más alto */
+    minConfidenceExtendedHours: 0.75,
+    /** Mínimo de estrategias confirmando para BUY */
+    minStrategiesConfirming: 2,
     /**
      * @deprecated Sin tope artificial — el capital disponible es el único límite de volumen.
      * Conservado por compatibilidad de tipos/snapshots.
@@ -108,7 +112,7 @@ export const TRADING_CONFIG = {
     // Europa ETFs / ADRs
     'EZU', 'VGK', 'EWG', 'EWU', 'EWQ', 'EWI', 'EWP', 'ASML', 'SAP', 'LVMUY', 'NESN', 'SHOP', 'SHEL', 'BP',
     // Asia ETFs / ADRs (US listings — FMP Starter)
-    'EWJ', 'FXI', 'EWY', 'EWA', 'EWT', 'EWS', 'BABA', 'NIO', 'JD', 'BIDU', 'TCEHY', 'SE', 'GRAB', 'TSM',
+    'EWJ', 'FXI', 'EWY', 'EWA', 'EWT', 'EWS', 'BABA', 'NIO', 'JD', 'BIDU', 'TCEHY', 'SE', 'GRAB', 'SONY', 'TSM',
     // Emergentes
     'MELI', 'DLO', 'IBN',
     // Crypto ETFs + spot IBKR PAXOS (24h)
@@ -170,14 +174,14 @@ export const TRADING_CONFIG = {
     enabled:
       String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "false").trim().toLowerCase() !== "true",
     autoApproveThreshold: {
-      minConfidence: 0.6,
+      minConfidence: 0.68,
       requirePattern: false,
       requireNewsSentiment: false,
       maxPositionValueUSD: 500,
       maxDailyAutoTrades: 40,
     },
     notifyAndWait: {
-      confidenceRange: [0.5, 0.6] as const,
+      confidenceRange: [0.5, 0.68] as const,
       waitMinutes: Math.max(1, Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5),
       executeIfNoResponse: false,
     },

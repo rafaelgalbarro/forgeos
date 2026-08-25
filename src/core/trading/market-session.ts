@@ -230,9 +230,64 @@ export function isUsMarketTradeable(): boolean {
 
 /** Regional ETFs (IBKR SMART) used when native listings are unavailable. */
 export const ASIA_ETF_TICKERS = ["EWJ", "FXI", "EWA", "EWY", "EWT", "EWS"] as const
-export const ASIA_DIRECT_TICKERS = ["BABA", "NIO", "JD", "BIDU", "TCEHY", "SE", "GRAB"] as const
+export const ASIA_DIRECT_TICKERS = [
+  "BABA",
+  "NIO",
+  "JD",
+  "BIDU",
+  "TCEHY",
+  "SE",
+  "GRAB",
+  "SONY",
+  "TSM",
+] as const
 export const EUROPE_ETF_TICKERS = ["EZU", "VGK", "EWG", "EWU", "EWQ", "EWI"] as const
 export const EUROPE_DIRECT_TICKERS = ["ASML", "SAP", "LVMUY", "NESN"] as const
+
+/** Fase operativa Madrid (timing de ciclo + reglas de entrada). */
+export type ActiveTradingPhase =
+  | "ASIA"
+  | "EUROPE_OPEN"
+  | "EUROPE"
+  | "USA_PREMARKET"
+  | "USA_OPEN"
+  | "USA_REGULAR"
+  | "USA_AFTERHOURS"
+  | "STANDBY_CRYPTO"
+
+export function getActiveTradingPhase(): ActiveTradingPhase {
+  const weekday = isMadridWeekday()
+  const { nowMinutes } = toMadridParts()
+  const h = getMadridHour()
+
+  if (!weekday) {
+    if (h >= 22 || h < 2) return "USA_AFTERHOURS"
+    return "STANDBY_CRYPTO"
+  }
+
+  // USA windows take priority when overlapping Europe afternoon
+  if (inMinuteRange(nowMinutes, 14, 0, 14, 30)) return "USA_PREMARKET"
+  if (inMinuteRange(nowMinutes, 14, 30, 15, 30)) return "USA_OPEN"
+  if (inMinuteRange(nowMinutes, 15, 30, 21, 0)) return "USA_REGULAR"
+  if (h >= 22 || h < 2) return "USA_AFTERHOURS"
+
+  if (inMinuteRange(nowMinutes, 9, 0, 10, 0)) return "EUROPE_OPEN"
+  if (isEuropeOpen()) return "EUROPE"
+  if (isAsiaOpen()) return "ASIA"
+  return "STANDBY_CRYPTO"
+}
+
+export function isUsaPremarketPrepareOnly(): boolean {
+  return getActiveTradingPhase() === "USA_PREMARKET"
+}
+
+export function isUsaFirstHour(): boolean {
+  return getActiveTradingPhase() === "USA_OPEN"
+}
+
+export function isEuropeFirstHour(): boolean {
+  return getActiveTradingPhase() === "EUROPE_OPEN"
+}
 
 export type GlobalMarketWindow = {
   asia: boolean
@@ -410,13 +465,27 @@ export function selectTickersForOpenMarkets(tickers: readonly string[]): {
   return { tickers: withAlwaysOnCrypto(result), mode: "combined" }
 }
 
-/** 1 min first USA hour; 3 min siempre (crypto 24h). */
+/**
+ * Intervalo de ciclo por sesión Madrid:
+ * Asia 3m · Europa 1ªh 1m · USA pre 3m · USA 1ªh 1m · USA regular 3m · after 5m · standby 15m
+ */
 export function getTradingCycleIntervalMs(_now = new Date()): number {
   void _now
-  const w = getGlobalMarketWindow()
-  const { nowMinutes } = toMadridParts()
-  if (w.weekday && inMinuteRange(nowMinutes, 14, 30, 15, 30) && w.usa) return 60 * 1000
-  return 3 * 60 * 1000
+  switch (getActiveTradingPhase()) {
+    case "USA_OPEN":
+    case "EUROPE_OPEN":
+      return 60 * 1000
+    case "USA_AFTERHOURS":
+      return 5 * 60 * 1000
+    case "STANDBY_CRYPTO":
+      return 15 * 60 * 1000
+    case "ASIA":
+    case "EUROPE":
+    case "USA_PREMARKET":
+    case "USA_REGULAR":
+    default:
+      return 3 * 60 * 1000
+  }
 }
 
 function toLocalParts(timeZone: string) {

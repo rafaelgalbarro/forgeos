@@ -251,9 +251,9 @@ export async function maybeRunScheduledPipeline(): Promise<{ ran: PipelineSessio
   const { weekday, mins, dayKey } = madridParts();
   const weekend = weekday.startsWith("sat") || weekday.startsWith("sun");
   let session: PipelineSession | null = null;
-  if (!weekend && mins >= 360 && mins < 390) session = "overnight";
-  else if (!weekend && mins >= 525 && mins < 555) session = "europe_open";
-  else if (!weekend && mins >= 915 && mins < 945) session = "us_premarket";
+  if (!weekend && mins >= 30 && mins < 60) session = "overnight"; // 00:30 Asia prep
+  else if (!weekend && mins >= 510 && mins < 540) session = "europe_open"; // 08:30
+  else if (!weekend && mins >= 840 && mins < 870) session = "us_premarket"; // 14:00
   else if (!weekend && mins >= 1320 && mins < 1350) session = "close";
 
   if (!session || alreadyRanToday(session, dayKey)) {

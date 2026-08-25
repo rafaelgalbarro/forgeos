@@ -22,6 +22,11 @@ import { resolveTradingCycleTickersAsync } from '@/lib/investment/cycle-universe
 import { getDailyMarketUniverse } from '@/lib/investment/market-daily-universe'
 import { sendCyclePremiumReport } from '@/lib/notifications/cycle-premium-report'
 import { startPositionMonitor } from '@/src/core/trading/position-monitor'
+import {
+  getActiveTradingPhase,
+  getTradingCycleIntervalMs,
+} from '@/src/core/trading/market-session'
+import { maybeRunPremarketScanners } from '@/lib/investment/premarket-scanner'
 
 const engine = new TradingEngine()
 
@@ -30,6 +35,9 @@ let cycleRunning = false
 
 export async function POST(req: NextRequest) {
   startPositionMonitor()
+  await maybeRunPremarketScanners().catch((err) => {
+    console.warn('[Cycle] premarket scanner:', err instanceof Error ? err.message : err)
+  })
   const { searchParams } = new URL(req.url)
   const action = searchParams.get('action')
 
@@ -192,6 +200,9 @@ export async function GET() {
       maxPositionPct: TRADING_CONFIG.risk.maxPositionPct,
       dailyLossLimitPct: TRADING_CONFIG.risk.dailyLossLimitPct,
       minConfidence: TRADING_CONFIG.ai.minConfidenceToTrade,
+      minConfidenceExtendedHours: TRADING_CONFIG.ai.minConfidenceExtendedHours,
+      cycleIntervalMs: getTradingCycleIntervalMs(),
+      tradingPhase: getActiveTradingPhase(),
       paperTrading: TRADING_CONFIG.ibkr.paperTrading,
       allowedTickers: TRADING_CONFIG.allowedTickers,
       dynamicSizingPolicy: TRADING_CONFIG.risk.dynamicSizing,

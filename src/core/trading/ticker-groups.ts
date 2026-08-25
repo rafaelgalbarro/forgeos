@@ -32,7 +32,7 @@ export const TICKER_GROUPS: readonly TickerGroup[] = [
     id: 'asia',
     label: 'Asia',
     emoji: '🌏',
-    tickers: ['EWJ', 'FXI', 'EWY', 'BABA', 'NIO', 'JD', 'BIDU', 'TCEHY', 'SE', 'GRAB', 'TSM'],
+    tickers: ['EWJ', 'FXI', 'EWY', 'BABA', 'NIO', 'JD', 'BIDU', 'TCEHY', 'SE', 'GRAB', 'SONY', 'TSM'],
   },
   {
     id: 'emergentes',

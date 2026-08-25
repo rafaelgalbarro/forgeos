@@ -144,3 +144,43 @@ export async function fetchNewsSentiment(symbol: string): Promise<FinnhubProSent
     };
   });
 }
+
+const CATALYST_WORDS = [
+  "earnings beat",
+  "beats estimates",
+  "fda approval",
+  "contract",
+  "upgrade",
+  "acquires",
+  "acquisition",
+  "merger",
+  "m&a",
+  "raises guidance",
+];
+
+/**
+ * General market news → extract likely ticker symbols for session universe boost.
+ * Uses FINNHUB_API_KEY from env (never hardcode).
+ */
+export async function fetchGeneralNewsCatalysts(): Promise<string[]> {
+  if (!isFinnhubProEnabled()) return [];
+  const cacheId = cacheKey("finnhub-pro-general-catalysts", "v1");
+  return getOrSetCached(cacheId, NEWS_TTL_MS, async () => {
+    const body = await finnhubGet<
+      Array<{ headline?: string; summary?: string; related?: string }>
+    >(`/news?category=general`);
+    const tickers = new Set<string>();
+    for (const row of body ?? []) {
+      const text = `${row.headline ?? ""} ${row.summary ?? ""}`.toLowerCase();
+      const related = String(row.related ?? "")
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => /^[A-Z]{1,5}$/.test(s));
+      const isCatalyst = CATALYST_WORDS.some((w) => text.includes(w));
+      if (!isCatalyst && !isPositiveHeadline(text)) continue;
+      for (const t of related) tickers.add(t);
+    }
+    return [...tickers].slice(0, 40);
+  });
+}
+

@@ -649,11 +649,33 @@ async function closeDayTradingPositions(): Promise<void> {
 }
 
 function applyTrailingStop(pos: MonitoredPosition, currentPrice: number): MonitoredPosition {
-  if (pos.trailingStopPct == null) return pos;
-  const highest = Math.max(pos.highestPrice ?? pos.entryPrice, currentPrice);
-  const newSl = highest * (1 - (pos.trailingStopPct ?? TRAILING_STOP_PCT));
-  if (newSl > pos.stopLoss) {
-    return { ...pos, highestPrice: highest, stopLoss: newSl };
+  const entry = pos.entryPrice;
+  if (!(entry > 0) || !(currentPrice > 0)) return pos;
+  const unrealizedPct = (currentPrice - entry) / entry;
+  const highest = Math.max(pos.highestPrice ?? entry, currentPrice);
+
+  // Ladder: never let a winner become a loser
+  let floorSl = pos.stopLoss;
+  if (unrealizedPct >= 0.08) {
+    floorSl = Math.max(floorSl, entry * 1.05); // +5% lock
+  } else if (unrealizedPct >= 0.05) {
+    floorSl = Math.max(floorSl, entry * 1.02); // +2% lock
+  } else if (unrealizedPct >= 0.03) {
+    floorSl = Math.max(floorSl, entry); // breakeven
+  }
+
+  let trailSl = floorSl;
+  if (pos.trailingStopPct != null) {
+    trailSl = Math.max(trailSl, highest * (1 - (pos.trailingStopPct ?? TRAILING_STOP_PCT)));
+  }
+
+  if (trailSl > pos.stopLoss || highest !== (pos.highestPrice ?? entry)) {
+    if (trailSl > pos.stopLoss) {
+      console.log(
+        `[PositionMonitor] ${pos.ticker} trailing SL $${pos.stopLoss.toFixed(2)} → $${trailSl.toFixed(2)} (PnL ${(unrealizedPct * 100).toFixed(1)}%)`,
+      );
+    }
+    return { ...pos, highestPrice: highest, stopLoss: trailSl };
   }
   return { ...pos, highestPrice: highest };
 }

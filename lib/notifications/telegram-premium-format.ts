@@ -1,5 +1,5 @@
 /**
- * Premium Telegram message formatting — ASCII boxes + emojis (plain text, no HTML).
+ * Premium Telegram message formatting — ASCII boxes + Unicode bars (plain text).
  */
 
 import "server-only";
@@ -55,7 +55,31 @@ export type PremiumShortContext = {
   navEur: number;
 };
 
+export type DailyClosePremiumContext = {
+  dateLabel: string;
+  dailyPnlUsd: number;
+  dailyPnlPct: number;
+  ops: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  riskReward: string;
+  best: PremiumCloseLine | null;
+  worst: PremiumCloseLine | null;
+  open: PremiumOpenLine[];
+  navEur: number;
+  navBar: string;
+  winBar: string;
+};
+
 const RULE = "━━━━━━━━━━━━━━━━━━━━━━";
+
+/** Unicode progress bar: █ filled, ░ empty. pct 0–100. */
+export function unicodeBar(pct: number, width = 10): string {
+  const safe = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
+  const filled = Math.round((safe / 100) * width);
+  return `${"█".repeat(filled)}${"░".repeat(Math.max(0, width - filled))}`;
+}
 
 function fmtUsdSigned(n: number): string {
   const abs = Math.abs(n).toFixed(2);
@@ -84,6 +108,10 @@ function closeArrow(line: PremiumCloseLine): string {
 }
 
 export function formatPremiumHourlySummary(ctx: PremiumHourlyContext): string {
+  const winBar = unicodeBar(ctx.winRate, 10);
+  const pnlArrow = ctx.dailyPnlUsd >= 0 ? "▲" : "▼";
+  const navProgress = unicodeBar(Math.min(100, Math.max(0, 50 + ctx.dailyPnlPct * 8)), 10);
+
   const perfBox = [
     "┌─────────────────────────┐",
     padLine(`P&L:  ${fmtUsdSigned(ctx.dailyPnlUsd).padStart(9)} (${fmtPctSigned(ctx.dailyPnlPct)})`),
@@ -130,6 +158,12 @@ export function formatPremiumHourlySummary(ctx: PremiumHourlyContext): string {
     "",
     "📊 RENDIMIENTO HOY",
     perfBox,
+    `P&L día:  ${pnlArrow} ${fmtUsdSigned(ctx.dailyPnlUsd)} (${fmtPctSigned(ctx.dailyPnlPct)})`,
+    `Win Rate: ${winBar} ${ctx.winRate.toFixed(0)}%`,
+    "",
+    "📈 NAV Evolution:",
+    `${navProgress} ${ctx.dailyPnlPct >= 0 ? "hacia objetivo +" : "bajo objetivo "}${fmtPctSigned(Math.abs(ctx.dailyPnlPct))}`,
+    "█ = avance | ░ = pendiente",
     "",
     "🏆 MEJORES",
     bestLines,
@@ -151,6 +185,53 @@ export function formatPremiumHourlySummary(ctx: PremiumHourlyContext): string {
     "⚙️ SISTEMA",
     `${ibkr} | ${scanner} | Ciclos: ${ctx.cyclesToday}`,
     RULE,
+  ].join("\n");
+}
+
+export function formatDailyClosePremium(ctx: DailyClosePremiumContext): string {
+  const pnlArrow = ctx.dailyPnlUsd >= 0 ? "▲" : "▼";
+  const best =
+    ctx.best != null
+      ? `🥇 Mejor: ${ctx.best.ticker} ${fmtUsdSigned(ctx.best.pnlUSD)}`
+      : "🥇 Mejor: —";
+  const worst =
+    ctx.worst != null
+      ? `📉 Peor: ${ctx.worst.ticker} ${fmtUsdSigned(ctx.worst.pnlUSD)}`
+      : "📉 Peor: —";
+  const openLines =
+    ctx.open.length > 0
+      ? ctx.open
+          .slice(0, 8)
+          .map(
+            (p) =>
+              `${p.pnlPct >= 0 ? "🟢" : "🔴"} ${p.ticker} ${Math.floor(p.shares)}acc ${fmtPctSigned(p.pnlPct)}`,
+          )
+          .join("\n")
+      : "Sin posiciones abiertas";
+
+  return [
+    RULE,
+    `📊 FORGEOS — CIERRE DEL DÍA ${ctx.dateLabel}`,
+    RULE,
+    "",
+    `P&L día:  ${pnlArrow} ${fmtUsdSigned(ctx.dailyPnlUsd)} (${fmtPctSigned(ctx.dailyPnlPct)})`,
+    `Win Rate: ${ctx.winBar} ${ctx.winRate.toFixed(0)}%`,
+    `Ops: ${ctx.ops} | ✅ ${ctx.wins} | ❌ ${ctx.losses} | R/R: ${ctx.riskReward}`,
+    "",
+    "📈 NAV Evolution:",
+    `${ctx.navBar} ${ctx.dailyPnlPct >= 0 ? "+" : ""}${ctx.dailyPnlPct.toFixed(1)}% vs NAV`,
+    "█ = $ avance | ░ = objetivo pendiente",
+    "",
+    best,
+    worst,
+    "",
+    "💼 ABIERTAS",
+    openLines,
+    "",
+    `💰 NAV ~${fmtEur(ctx.navEur)}`,
+    "📎 Informe PDF adjunto",
+    RULE,
+    "📅 Mañana: Apertura Europa 09:00",
   ].join("\n");
 }
 

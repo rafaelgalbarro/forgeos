@@ -16,6 +16,7 @@ import {
 } from "@/lib/notifications/telegram-bot";
 import { sendDailyClosePremiumReport } from "@/lib/notifications/cycle-premium-report";
 import { maybeSendHourlyTelegramSummary } from "@/lib/notifications/telegram-policy";
+import { recordNavSample } from "@/lib/notifications/daily-close-report";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { fetchTradingAccountSnapshot, fetchTradingPrice } from "@/lib/trading/ibkr-data";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
@@ -768,6 +769,12 @@ async function tick(): Promise<void> {
       await sendDailyClosePremiumReport();
     }
     await maybeSendHourlyTelegramSummary();
+    try {
+      const snap = await fetchTradingAccountSnapshot();
+      recordNavSample(snap.combinedNav ?? snap.navUSD ?? 0);
+    } catch {
+      /* ignore NAV sample */
+    }
   } finally {
     running = false;
   }

@@ -5,6 +5,14 @@ import path from "node:path";
 import { getBatchQuotes } from "@/lib/market-data/fmp";
 import { getTickerUniverse } from "@/lib/market-data/ticker-universe";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import {
+  ASIA_DIRECT_TICKERS,
+  ASIA_ETF_TICKERS,
+  EUROPE_DIRECT_TICKERS,
+  EUROPE_ETF_TICKERS,
+  getGlobalMarketWindow,
+} from "@/src/core/trading/market-session";
+import { IBKR_CRYPTO_TICKERS, ensureCryptoInTickerList, verifyCryptoTradingStatus } from "@/src/core/trading/crypto-ibkr";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
 const CACHE_DIR = path.resolve(process.cwd(), ".forgeos", "cache");
@@ -141,6 +149,47 @@ function parseMoverRows(body: unknown, source: string): SeedRow[] {
     });
   }
   return out;
+}
+
+/** Crypto spot IBKR (PAXOS) — siempre en el universo, mercado 24h. */
+async function fetchCryptoSeeds(): Promise<SeedRow[]> {
+  const unique = [...IBKR_CRYPTO_TICKERS];
+  console.log(`[Universe] Crypto 24h IBKR (${unique.join(", ")})`);
+  const quotes = await getBatchQuotes(unique);
+  return unique.map((symbol) => {
+    const q = quotes.get(symbol);
+    return {
+      symbol,
+      price: q?.price ?? 0,
+      changePct: q?.changePercentage ?? 0,
+      volume: q?.volume ?? 0,
+      avgVolume: q?.avgVolume ?? q?.volume ?? 0,
+      yearHigh: q?.yearHigh ?? q?.price ?? 0,
+      sources: ["ibkr-crypto-paxos"],
+    };
+  });
+}
+async function fetchRegionalEtfSeeds(): Promise<SeedRow[]> {
+  const w = getGlobalMarketWindow();
+  const symbols: string[] = [];
+  if (w.asia) symbols.push(...ASIA_ETF_TICKERS, ...ASIA_DIRECT_TICKERS);
+  if (w.europe) symbols.push(...EUROPE_ETF_TICKERS, ...EUROPE_DIRECT_TICKERS);
+  if (symbols.length === 0) return [];
+  const unique = [...new Set(symbols.map((s) => s.toUpperCase()))];
+  console.log(`[Universe] FMP profile regional ETFs (${unique.join(", ")})`);
+  const quotes = await getBatchQuotes(unique);
+  return unique.map((symbol) => {
+    const q = quotes.get(symbol);
+    return {
+      symbol,
+      price: q?.price ?? 0,
+      changePct: q?.changePercentage ?? 0,
+      volume: q?.volume ?? 0,
+      avgVolume: q?.avgVolume ?? q?.volume ?? 0,
+      yearHigh: q?.yearHigh ?? q?.price ?? 0,
+      sources: ["fmp-profile-regional"],
+    };
+  });
 }
 
 /** FUENTE 1 — FMP gainers / losers / most-active (Starter). */
@@ -437,10 +486,13 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
 
   refreshInFlight = (async () => {
     try {
-      console.log("[Universe] Cargando screener multi-fuente (FMP movers + IBKR + fallback + portfolio)...");
-      const [fmpMovers, ibkrRows, fallbackRows, portfolioRows, spy5d, excludedEarnings, sectorLeader] =
+      console.log("[Universe] Cargando screener multi-fuente (FMP movers + crypto 24h + regional profile + IBKR + fallback + portfolio)...");
+      const window = getGlobalMarketWindow();
+      const [fmpMovers, cryptoRows, regionalRows, ibkrRows, fallbackRows, portfolioRows, spy5d, excludedEarnings, sectorLeader] =
         await Promise.all([
-          fetchFmpMovers(),
+          window.usa || window.usaExtended ? fetchFmpMovers() : Promise.resolve([] as SeedRow[]),
+          fetchCryptoSeeds(),
+          fetchRegionalEtfSeeds(),
           fetchIbkrScanner(),
           fetchFallbackUniverse(),
           fetchOpenPositions(),
@@ -450,14 +502,20 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
         ]);
 
       const sourcesUsed = [
+        cryptoRows.length ? "ibkr-crypto" : "",
         fmpMovers.length ? "fmp-movers" : "",
+        regionalRows.length ? "fmp-profile-regional" : "",
         ibkrRows.length ? "ibkr-scanner" : "",
         fallbackRows.length ? "fallback-738" : "",
         portfolioRows.length ? "portfolio" : "",
       ].filter(Boolean);
 
-      const merged = mergeSeeds([fmpMovers, ibkrRows, fallbackRows, portfolioRows]);
-      const forceKeep = new Set(portfolioRows.map((r) => r.symbol));
+      const merged = mergeSeeds([cryptoRows, fmpMovers, regionalRows, ibkrRows, fallbackRows, portfolioRows]);
+      const forceKeep = new Set([
+        ...IBKR_CRYPTO_TICKERS,
+        ...portfolioRows.map((r) => r.symbol),
+        ...regionalRows.map((r) => r.symbol),
+      ]);
       const enriched = await enrichWithQuotes(merged);
       const filtered = enriched.filter((r) => passesFilters(r, forceKeep));
       const ranked = [...filtered].sort((a, b) => seedScore(b) - seedScore(a));
@@ -474,6 +532,41 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
         .filter((t) => forceKeep.has(t.symbol) || !excluded.has(t.symbol))
         .sort((a, b) => b.score - a.score)
         .slice(0, TOP_COUNT);
+
+      const cryptoKept = cryptoRows.map((r) => tickerFromSeed(r, spy5d, r.changePct, 0));
+      const missingCrypto = cryptoKept.filter((c) => !finalTop.some((t) => t.symbol === c.symbol));
+      if (missingCrypto.length > 0) {
+        finalTop = [...missingCrypto, ...finalTop].slice(0, TOP_COUNT);
+      }
+
+      // Force BTC/ETH (+ full PAXOS set) always present in analysis universe
+      const ensured = ensureCryptoInTickerList(finalTop.map((t) => t.symbol));
+      const bySym = new Map(finalTop.map((t) => [t.symbol, t]));
+      for (const sym of ensured) {
+        if (!bySym.has(sym)) {
+          const seed = cryptoRows.find((r) => r.symbol === sym);
+          bySym.set(
+            sym,
+            tickerFromSeed(
+              seed ?? {
+                symbol: sym,
+                price: 0,
+                changePct: 0,
+                volume: 0,
+                avgVolume: 0,
+                yearHigh: 0,
+                sources: ["ibkr-crypto-paxos"],
+              },
+              spy5d,
+              seed?.changePct ?? 0,
+              0,
+            ),
+          );
+        }
+      }
+      finalTop = ensured.map((s) => bySym.get(s)!).filter(Boolean).slice(0, Math.max(TOP_COUNT, IBKR_CRYPTO_TICKERS.length));
+
+      void verifyCryptoTradingStatus(finalTop.map((t) => t.symbol));
 
       if (finalTop.length === 0 && ranked.length > 0) {
         finalTop = ranked.slice(0, TOP_COUNT).map((r) => tickerFromSeed(r, spy5d, r.changePct, 0));
@@ -527,8 +620,8 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
         lastSpecialAlertAt = Date.now();
         const unusualVol = finalTop.find((t) => t.avgVolume > 0 && t.volume / t.avgVolume >= 5);
         if (unusualVol) {
-          await sendTelegramMessage(
-            `🔥 VOLUMEN INUSUAL: ${unusualVol.symbol} x${(unusualVol.volume / unusualVol.avgVolume).toFixed(1)} vol`,
+          console.log(
+            `[Universe] volumen inusual (sin Telegram): ${unusualVol.symbol} x${(unusualVol.volume / unusualVol.avgVolume).toFixed(1)}`,
           );
         }
       }

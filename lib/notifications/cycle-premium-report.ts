@@ -10,9 +10,7 @@ import { getDailyMarketUniverse } from "@/lib/investment/market-daily-universe";
 import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { loadTradingState } from "@/src/core/trading/trading-state-store";
-import { loadOptimizerState } from "@/src/core/trading/portfolio-optimizer";
 import { RiskManager } from "@/src/core/trading/risk/risk-manager";
-import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
 const MADRID_TZ = "Europe/Madrid";
 const STATS_FILE = path.resolve(process.cwd(), ".forgeos", "cache", "cycle-daily-stats.json");
@@ -262,52 +260,18 @@ export async function sendCyclePremiumReport(
 }
 
 export async function sendDailyClosePremiumReport(): Promise<void> {
-  const { canSendTelegramAlert } = await import("@/lib/notifications/telegram-policy");
-  // Daily close at 22:00 — allowed even near night edge; not in 23-08 silence window
-  if (!canSendTelegramAlert("digest") && !canSendTelegramAlert("trade")) {
-    // Still send daily at 22:00 explicitly (digest blocked only 23-08)
+  try {
+    const { generateAndSendDailyCloseReport } = await import(
+      "@/lib/notifications/daily-close-report"
+    );
+    const result = await generateAndSendDailyCloseReport();
+    console.log(
+      `[Telegram] cierre diario PDF=${result.pdfPath ?? "n/a"} sent=${result.pdfSent}`,
+    );
+  } catch (err) {
+    console.warn(
+      "[Telegram] sendDailyClosePremiumReport failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
-  const { dateLabel } = madridParts();
-  const dateKey = madridParts().dateKey;
-  const account = await fetchTradingAccountSnapshot().catch(() => null);
-  const navEur = account?.combinedNav ?? account?.navUSD ?? 0;
-  const outcomes = loadOptimizerState().closedOutcomes;
-  const daily = outcomes.filter((o) => (o.closedAt ?? "").startsWith(dateKey));
-  const stats = readStats();
-  const pnl = daily.reduce((s, o) => s + (o.pnlUSD ?? 0), 0);
-  const wins = daily.filter((o) => (o.pnlUSD ?? 0) > 0).length;
-  const losses = daily.length - wins;
-  const winRate = daily.length > 0 ? (wins / daily.length) * 100 : 0;
-  const best = [...daily].sort((a, b) => (b.pnlPct ?? 0) - (a.pnlPct ?? 0))[0];
-  const worst = [...daily].sort((a, b) => (a.pnlPct ?? 0) - (b.pnlPct ?? 0))[0];
-  const navPct = navEur > 0 ? (pnl / navEur) * 100 : 0;
-  const rr =
-    daily.length > 0
-      ? daily.reduce((s, o) => s + Math.abs(o.pnlPct ?? 0), 0) / daily.length / 3
-      : 2.6;
-
-  const text = [
-    `📊 FORGEOS — CIERRE DEL DÍA ${dateLabel}`,
-    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-    `📈 P&amp;L DÍA: ${pnl >= 0 ? "+" : ""}${fmtUsd(pnl)} (${fmtPct(navPct)})`,
-    `📊 Operaciones: ${daily.length} | Ganadoras: ${wins} | Perdedoras: ${losses}`,
-    `🏆 Win Rate: ${winRate.toFixed(0)}% | Ratio R/R: 1:${rr.toFixed(1)}`,
-    `💰 NAV Final: ${fmtEur(navEur)} (${pnl >= 0 ? "+" : ""}${fmtEur(pnl)})`,
-    `⚡ Auto-ejecutadas: ${stats.autoExecuted} | Semi-auto: ${stats.semiAuto}`,
-    best ? `🥇 Mejor: ${best.ticker} ${fmtPct(best.pnlPct)}` : "",
-    worst ? `📉 Peor: ${worst.ticker} ${fmtPct(worst.pnlPct)}` : "",
-    "🌙 Posiciones: SL/TP monitor activo",
-    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-    "📅 Mañana: Apertura Europa 09:00",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  await sendTelegramMessage(text, [
-    [
-      { text: "📊 VER DETALLE", callback_data: "view_portfolio" },
-      { text: "🧠 AI COMMITTEE", callback_data: "committee_run" },
-    ],
-    [{ text: "📈 HISTÓRICO", callback_data: "view_history" }],
-  ]);
 }

@@ -16,7 +16,6 @@ import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import {
   computeRiskRewardLabel,
   formatPremiumHourlySummary,
-  formatShortHourlySummary,
   usdToEur,
   type PremiumHourlyContext,
   type PremiumOpenLine,
@@ -296,6 +295,14 @@ async function buildOpenPositionLines(): Promise<PremiumOpenLine[]> {
 
 async function sendBucketSummary(bucket: HourBucket, store: HourlyStore): Promise<void> {
   const active = hasActivity(bucket);
+  if (!active) {
+    // Idle hour — no Telegram (elimina spam de ciclos sin actividad)
+    console.log(
+      `[Telegram] resumen horario omitido (sin trades): hour=${bucket.hourKey} analyzed=${bucket.analyzedTickers}`,
+    );
+    return;
+  }
+
   const [acct, ibkrOk, openLines, macroQuotes] = await Promise.all([
     fetchTradingAccountSnapshot().catch(() => null),
     fetchBrokerConnected(),
@@ -306,13 +313,6 @@ async function sendBucketSummary(bucket: HourBucket, store: HourlyStore): Promis
   const navUsd = acct?.combinedNav ?? acct?.navUSD ?? 0;
   const navEur = usdToEur(navUsd);
   const { hourLabel } = madridHourKey();
-
-  if (!active) {
-    const analyzed = Math.max(store.analyzedToday, bucket.analyzedTickers);
-    const text = formatShortHourlySummary({ hourLabel, analyzed, navEur });
-    await sendTelegramMessage(text, undefined, { plain: true });
-    return;
-  }
 
   const daily = getDailyPnlSummary();
   const todayTrades = listTrades(500).filter((t) => {

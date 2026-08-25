@@ -883,10 +883,19 @@ export class TradingEngine {
     try {
       const executed = await this.approveAndExecute(pending.approvalId, { skipPreTradeRecheck: true })
       if (executed.status === 'EXECUTED') {
-        console.log(
-          `[AutoExecute] ${ticker} → EJECUTADO ibkrId=${executed.orderId ?? 'n/a'} ✅`,
-        )
-        // Telegram immediate alert via registerExecutedPosition → notifyOrderExecuted
+        const oid = executed.orderId ?? ''
+        const confirmed =
+          Boolean(oid) &&
+          !String(oid).toUpperCase().startsWith('PAPER_') &&
+          String(oid).toLowerCase() !== 'n/a'
+        if (confirmed) {
+          console.log(`[AutoExecute] ${ticker} → EJECUTADO ibkrId=${oid} ✅`)
+        } else {
+          console.warn(
+            `[AutoExecute] ${ticker} → EXECUTED sin ibkrId confirmado (orderId=${oid || 'n/a'}) — sin Telegram`,
+          )
+        }
+        // Telegram solo desde registerExecutedPosition cuando ibkrId es real
       } else {
         console.warn(
           `[AutoExecute] ${ticker} → ERROR: no EXECUTED status=${executed.status} reason=${executed.reason} ❌`,

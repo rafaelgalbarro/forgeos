@@ -87,8 +87,15 @@ function getDb(): DatabaseSync {
       timestamp TEXT NOT NULL,
       qty REAL NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS sell_blacklist (
+      symbol TEXT PRIMARY KEY,
+      sold_at TEXT NOT NULL,
+      account TEXT,
+      expires TEXT NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS idx_trades_ts ON trades(timestamp);
     CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
+    CREATE INDEX IF NOT EXISTS idx_sell_blacklist_expires ON sell_blacklist(expires);
   `);
   dbSingleton = db;
   return db;
@@ -328,6 +335,115 @@ export function listSoldSymbolsToday(date?: string): string[] {
         .filter(Boolean),
     ),
   ];
+}
+
+export type SellBlacklistRow = {
+  symbol: string;
+  sold_at: string;
+  account: string | null;
+  expires: string;
+};
+
+const PERMANENT_EXPIRES = "9999-12-31";
+
+/** Next Madrid calendar day after `from` (YYYY-MM-DD). */
+function nextMadridDateKey(from: string): string {
+  const [y, m, d] = from.split("-").map((n) => Number(n));
+  if (!y || !m || !d) return from;
+  const utc = new Date(Date.UTC(y, m - 1, d + 1));
+  const yy = utc.getUTCFullYear();
+  const mm = String(utc.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(utc.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+/** Drop rows whose expires day is strictly before today (Madrid). */
+export function purgeExpiredSellBlacklist(today?: string): number {
+  const db = getDb();
+  const key = today ?? madridDateKey();
+  const info = db.prepare(`DELETE FROM sell_blacklist WHERE expires < ?`).run(key);
+  return Number(info.changes ?? 0);
+}
+
+/** Active (non-expired) symbols in sell_blacklist. */
+export function listActiveSellBlacklist(today?: string): SellBlacklistRow[] {
+  const db = getDb();
+  const key = today ?? madridDateKey();
+  purgeExpiredSellBlacklist(key);
+  return db
+    .prepare(
+      `SELECT symbol, sold_at, account, expires FROM sell_blacklist
+       WHERE expires >= ? ORDER BY symbol ASC`,
+    )
+    .all(key) as SellBlacklistRow[];
+}
+
+/**
+ * Upsert day blacklist entry (expires = next Madrid day after sold_at).
+ * Permanent seeds use expires=9999-12-31 and should not be overwritten to a short window.
+ */
+export function upsertSellBlacklist(input: {
+  symbol: string;
+  soldAt?: string;
+  account?: string | null;
+  permanent?: boolean;
+}): void {
+  const db = getDb();
+  const symbol = String(input.symbol ?? "").trim().toUpperCase();
+  if (!symbol) return;
+  const soldAt = input.soldAt ?? new Date().toISOString();
+  const soldDay = madridDateKey(soldAt);
+  const expires = input.permanent ? PERMANENT_EXPIRES : nextMadridDateKey(soldDay);
+  const account = input.account ?? null;
+
+  const existing = db
+    .prepare(`SELECT expires FROM sell_blacklist WHERE symbol = ?`)
+    .get(symbol) as { expires: string } | undefined;
+  if (existing?.expires === PERMANENT_EXPIRES && !input.permanent) {
+    // Keep permanent seed — do not shorten
+    return;
+  }
+
+  db.prepare(
+    `INSERT INTO sell_blacklist(symbol, sold_at, account, expires)
+     VALUES(?, ?, ?, ?)
+     ON CONFLICT(symbol) DO UPDATE SET
+       sold_at=excluded.sold_at,
+       account=COALESCE(excluded.account, sell_blacklist.account),
+       expires=CASE
+         WHEN sell_blacklist.expires = '${PERMANENT_EXPIRES}' THEN sell_blacklist.expires
+         ELSE excluded.expires
+       END`,
+  ).run(symbol, soldAt, account, expires);
+}
+
+/** Seed permanent closed/junk tickers (INSERT OR IGNORE). */
+export function seedPermanentSellBlacklist(symbols: readonly string[], account?: string | null): number {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO sell_blacklist(symbol, sold_at, account, expires)
+     VALUES(?, ?, ?, ?)`,
+  );
+  let inserted = 0;
+  for (const raw of symbols) {
+    const symbol = String(raw ?? "").trim().toUpperCase();
+    if (!symbol) continue;
+    const info = stmt.run(symbol, now, account ?? null, PERMANENT_EXPIRES);
+    if (Number(info.changes ?? 0) > 0) inserted += 1;
+  }
+  return inserted;
+}
+
+/** Remove from day blacklist (e.g. after new BUY). Never removes permanent seeds. */
+export function removeSellBlacklistSymbol(symbol: string): boolean {
+  const db = getDb();
+  const key = String(symbol ?? "").trim().toUpperCase();
+  if (!key) return false;
+  const info = db
+    .prepare(`DELETE FROM sell_blacklist WHERE symbol = ? AND expires != ?`)
+    .run(key, PERMANENT_EXPIRES);
+  return Number(info.changes ?? 0) > 0;
 }
 
 /**

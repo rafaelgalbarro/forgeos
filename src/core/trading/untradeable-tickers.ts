@@ -1,15 +1,24 @@
 /**
- * Inherited / delisted junk — never price via FMP or auto-trade / monitor.
+ * Inherited / delisted / closed junk — never price via FMP or auto-trade / monitor.
  */
 
 const PERMANENT_SKIP_TICKERS = new Set([
+  "BURU",
+  "FLYX",
+  "GPUS",
+  "RECX",
+  "IVPR",
+  "INND",
   "RWAX",
   "APLT.CVR",
   "CGBSF",
   "APTX.OLD",
-  "IVPR",
-  "INND",
+  "CAN",
 ]);
+
+export function listPermanentSkipTickers(): string[] {
+  return [...PERMANENT_SKIP_TICKERS].sort();
+}
 
 export function shouldSkipUntradeableTicker(ticker: string, price?: number): boolean {
   const t = String(ticker ?? "").trim().toUpperCase();

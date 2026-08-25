@@ -25,12 +25,20 @@ import { removeMonitoredPosition } from "./auto-approval";
 import { loadTradingState, updateTradingState, type MonitoredPosition } from "./trading-state-store";
 import { labelMlSignalOutcome } from "@/lib/ml/signal-trainer";
 import { recordClosedTradeOutcome } from "./portfolio-optimizer";
-import { shouldSkipUntradeableTicker } from "./untradeable-tickers";
 import {
+  listActiveSellBlacklist,
   listSoldSymbolsToday,
   purgeDuplicateTradesToday,
+  purgeExpiredSellBlacklist,
   recordClosedTrade,
+  removeSellBlacklistSymbol,
+  seedPermanentSellBlacklist,
+  upsertSellBlacklist,
 } from "@/lib/db/database";
+import {
+  listPermanentSkipTickers,
+  shouldSkipUntradeableTicker,
+} from "./untradeable-tickers";
 
 const MONITOR_INTERVAL_MS = 60_000;
 const STALE_HOURS = 24;
@@ -43,13 +51,15 @@ const MADRID_TZ = "Europe/Madrid";
 /** Short lock while a SELL is in flight (cross-process). */
 const SELL_LOCK_TTL_MS = 15 * 60 * 1000;
 const SELL_LOCK_FILE = path.resolve(process.cwd(), ".forgeos", "cache", "position-sell-locks.json");
-/** Permanent for the Madrid calendar day — never re-SELL after a successful exit. */
-const SELL_BLACKLIST_FILE = path.resolve(
-  process.cwd(),
-  ".forgeos",
-  "cache",
-  "position-sell-blacklist.json",
-);
+
+/** True IBKR order id — never PAPER_ / empty / n/a. */
+function isConfirmedIbkrOrderId(orderId: string | null | undefined): boolean {
+  if (orderId == null) return false;
+  const s = String(orderId).trim();
+  if (!s || s.toLowerCase() === "n/a") return false;
+  if (s.toUpperCase().startsWith("PAPER_")) return false;
+  return true;
+}
 
 /** In-memory SL/TP registry (survives within the Node process). */
 type PositionSLTP = {
@@ -66,13 +76,10 @@ type PositionSLTP = {
   selling?: boolean;
 };
 
-type SellBlacklistFile = {
-  date: string;
-  symbols: string[];
-};
+type SellLockFile = Record<string, number>;
 
 const positionSLTP = new Map<string, PositionSLTP>();
-/** Symbols already sold today — never re-SELL / re-monitor until next Madrid day or new BUY. */
+/** Symbols blocked from re-SELL — loaded from SQLite on startup, mirrored in memory. */
 const sellBlacklist = new Set<string>();
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
@@ -93,12 +100,12 @@ function madridDateKey(now = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
-function readSellLocks(): Record<string, number> {
+function readSellLocks(): SellLockFile {
   try {
     if (!fs.existsSync(SELL_LOCK_FILE)) return {};
     const raw = JSON.parse(fs.readFileSync(SELL_LOCK_FILE, "utf8")) as Record<string, number>;
     const now = Date.now();
-    const out: Record<string, number> = {};
+    const out: SellLockFile = {};
     for (const [k, at] of Object.entries(raw ?? {})) {
       if (typeof at === "number" && now - at < SELL_LOCK_TTL_MS) out[k.toUpperCase()] = at;
     }
@@ -108,36 +115,36 @@ function readSellLocks(): Record<string, number> {
   }
 }
 
-function writeSellLocks(locks: Record<string, number>): void {
+function writeSellLocks(locks: SellLockFile): void {
   fs.mkdirSync(path.dirname(SELL_LOCK_FILE), { recursive: true });
   fs.writeFileSync(SELL_LOCK_FILE, JSON.stringify(locks, null, 2), "utf8");
 }
 
-function persistSellBlacklist(): void {
-  const payload: SellBlacklistFile = {
-    date: madridDateKey(),
-    symbols: [...sellBlacklist].sort(),
-  };
-  fs.mkdirSync(path.dirname(SELL_BLACKLIST_FILE), { recursive: true });
-  fs.writeFileSync(SELL_BLACKLIST_FILE, JSON.stringify(payload, null, 2), "utf8");
-}
-
+/** Load SQLite sell_blacklist (+ today's sells + permanent seeds) into memory. */
 function loadSellBlacklistFromDisk(): void {
   sellBlacklist.clear();
   const today = madridDateKey();
+  const account = process.env.IBKR_ACCOUNT_ID?.trim() || null;
+
   try {
-    if (fs.existsSync(SELL_BLACKLIST_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(SELL_BLACKLIST_FILE, "utf8")) as SellBlacklistFile;
-      if (raw?.date === today && Array.isArray(raw.symbols)) {
-        for (const s of raw.symbols) {
-          const t = String(s ?? "").trim().toUpperCase();
-          if (t) sellBlacklist.add(t);
-        }
-      }
+    const seeded = seedPermanentSellBlacklist(listPermanentSkipTickers(), account);
+    if (seeded > 0) {
+      console.log(`[PositionMonitor] seed permanente sell_blacklist: +${seeded}`);
     }
-  } catch {
-    /* ignore corrupt file */
+    const purged = purgeExpiredSellBlacklist(today);
+    if (purged > 0) {
+      console.log(`[PositionMonitor] sell_blacklist expirados eliminados: ${purged}`);
+    }
+    for (const row of listActiveSellBlacklist(today)) {
+      sellBlacklist.add(String(row.symbol).toUpperCase());
+    }
+  } catch (err) {
+    console.warn(
+      "[PositionMonitor] SQLite sell_blacklist load failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
+
   try {
     for (const s of listSoldSymbolsToday(today)) sellBlacklist.add(s);
   } catch (err) {
@@ -146,15 +153,32 @@ function loadSellBlacklistFromDisk(): void {
       err instanceof Error ? err.message : err,
     );
   }
-  persistSellBlacklist();
+
+  // Also seed permanent skip tickers into memory even if SQLite failed
+  for (const t of listPermanentSkipTickers()) sellBlacklist.add(t);
+
+  console.log(
+    `[PositionMonitor] sell_blacklist cargada (${sellBlacklist.size}): ${[...sellBlacklist].sort().join(",") || "(vacía)"}`,
+  );
 }
 
-function addToSellBlacklist(ticker: string): void {
+function addToSellBlacklist(ticker: string, opts?: { permanent?: boolean }): void {
   const key = ticker.trim().toUpperCase();
   if (!key) return;
   sellBlacklist.add(key);
-  persistSellBlacklist();
-  console.log(`[PositionMonitor] ${key} → sellBlacklist (no re-SELL hoy)`);
+  try {
+    upsertSellBlacklist({
+      symbol: key,
+      account: process.env.IBKR_ACCOUNT_ID?.trim() || null,
+      permanent: opts?.permanent === true,
+    });
+  } catch (err) {
+    console.warn(
+      "[PositionMonitor] upsertSellBlacklist failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+  console.log(`[PositionMonitor] ${key} → sellBlacklist SQLite (no re-SELL)`);
 }
 
 function isSellBlacklisted(ticker: string): boolean {
@@ -373,14 +397,20 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   );
 }
 
-async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" | "SL"): Promise<void> {
+async function closePosition(
+  pos: MonitoredPosition,
+  price: number,
+  kind: "TP" | "SL",
+  ibkrOrderId?: string | null,
+): Promise<void> {
   const ticker = pos.ticker.toUpperCase();
   const pnlUSD = (price - pos.entryPrice) * pos.shares;
   const pnlPct = pos.entryPrice > 0 ? ((price - pos.entryPrice) / pos.entryPrice) * 100 : 0;
 
   console.log(
     `[PositionMonitor] ${ticker} ${kind} tocado @$${price.toFixed(2)} → SELL` +
-      ` P&L $${pnlUSD.toFixed(2)}`,
+      ` P&L $${pnlUSD.toFixed(2)}` +
+      (isConfirmedIbkrOrderId(ibkrOrderId) ? ` ibkrId=${ibkrOrderId}` : " (sin ibkrId confirmado)"),
   );
 
   // Always drop + blacklist first so the next tick cannot re-SELL
@@ -407,27 +437,35 @@ async function closePosition(pos: MonitoredPosition, price: number, kind: "TP" |
     );
   }
 
-  let nav = 0;
-  try {
-    nav = (await fetchTradingAccountSnapshot()).navUSD;
-  } catch {
-    /* ignore */
+  // Telegram solo si IBKR confirmó la orden (ibkrId real)
+  if (isConfirmedIbkrOrderId(ibkrOrderId)) {
+    let nav = 0;
+    try {
+      nav = (await fetchTradingAccountSnapshot()).navUSD;
+    } catch {
+      /* ignore */
+    }
+
+    await notifyPositionClosed({
+      kind,
+      ticker,
+      pnlUSD,
+      pnlPct,
+      navUSD: nav,
+      exitPrice: price,
+      shares: pos.shares,
+      inherited: !pos.orderId,
+    });
+  } else {
+    console.log(
+      `[Telegram] ${ticker} ${kind} omitido — sin ibkrId confirmado (no spam)`,
+    );
   }
 
-  await notifyPositionClosed({
-    kind,
-    ticker,
-    pnlUSD,
-    pnlPct,
-    navUSD: nav,
-    exitPrice: price,
-    shares: pos.shares,
-    inherited: !pos.orderId,
-  });
   publishInvestmentEvent({
     type: "position_closed",
     at: new Date().toISOString(),
-    payload: { kind, ticker, price, pnlUSD, pnlPct },
+    payload: { kind, ticker, price, pnlUSD, pnlPct, ibkrOrderId: ibkrOrderId ?? null },
   });
 
   try {
@@ -581,7 +619,7 @@ async function closeDayTradingPositions(): Promise<void> {
       const pos = toMonitored(ticker, mem);
       const exit = await beginExitSell(pos, px, "TP", `Day-trading close 22:00 ${ticker}`);
       if (exit.status === "sold") {
-        await closePosition(pos, px, "TP");
+        await closePosition(pos, px, "TP", exit.orderId);
       }
     } catch (err) {
       console.warn(`[PositionMonitor] closeDayTradingPositions ${ticker}:`, err instanceof Error ? err.message : err);
@@ -657,7 +695,7 @@ async function tick(): Promise<void> {
           console.log(`[PositionMonitor] ${ticker} TP tocado @$${price.toFixed(2)} → SELL`);
           const exit = await beginExitSell(pos, price, "TP", `Auto take profit for ${ticker}`);
           if (exit.status === "skipped") continue;
-          await closePosition(pos, price, "TP");
+          await closePosition(pos, price, "TP", exit.orderId);
           continue;
         }
 
@@ -665,7 +703,7 @@ async function tick(): Promise<void> {
           console.log(`[PositionMonitor] ${ticker} SL tocado @$${price.toFixed(2)} → SELL`);
           const exit = await beginExitSell(pos, price, "SL", `Auto stop loss for ${ticker}`);
           if (exit.status === "skipped") continue;
-          await closePosition(pos, price, "SL");
+          await closePosition(pos, price, "SL", exit.orderId);
           continue;
         }
 
@@ -681,7 +719,7 @@ async function tick(): Promise<void> {
             `Auto hard stop ${HARD_STOP_LOSS_PCT}% for ${ticker}`,
           );
           if (exit.status === "skipped") continue;
-          await closePosition(pos, price, "SL");
+          await closePosition(pos, price, "SL", exit.orderId);
           continue;
         }
         if (pnlPct >= PROFIT_APPROVAL_PCT) {
@@ -816,15 +854,26 @@ export async function registerExecutedPosition(params: {
     trailingStopPct: params.trailingStopPct,
   });
 
-  // New BUY clears prior sell-lock + same-day blacklist for this ticker
+  // New BUY clears prior sell-lock + same-day blacklist for this ticker (not permanent seeds)
   const locks = readSellLocks();
   if (locks[ticker] != null) {
     delete locks[ticker];
     writeSellLocks(locks);
   }
-  if (sellBlacklist.delete(ticker)) {
-    persistSellBlacklist();
-    console.log(`[PositionMonitor] ${ticker} BUY — quitado de sellBlacklist`);
+  if (sellBlacklist.has(ticker)) {
+    try {
+      if (removeSellBlacklistSymbol(ticker)) {
+        sellBlacklist.delete(ticker);
+        console.log(`[PositionMonitor] ${ticker} BUY — quitado de sellBlacklist SQLite`);
+      } else {
+        console.log(`[PositionMonitor] ${ticker} BUY — permanece en blacklist permanente`);
+      }
+    } catch (err) {
+      console.warn(
+        "[PositionMonitor] removeSellBlacklistSymbol failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   const position = toMonitored(ticker, mem);
@@ -845,11 +894,19 @@ export async function registerExecutedPosition(params: {
   // Ensure monitor loop is running after AutoExecute
   startPositionMonitor();
 
-  await notifyOrderExecuted({
-    ticker,
-    shares: mem.qty,
-    price: entry,
-    stopLoss: mem.sl,
-    takeProfit: mem.tp,
-  });
+  // Telegram solo con ibkrId real confirmado (nunca PAPER_ / vacío)
+  if (isConfirmedIbkrOrderId(params.orderId)) {
+    await notifyOrderExecuted({
+      ticker,
+      shares: mem.qty,
+      price: entry,
+      stopLoss: mem.sl,
+      takeProfit: mem.tp,
+      ibkrOrderId: String(params.orderId),
+    });
+  } else {
+    console.log(
+      `[Telegram] ${ticker} BUY omitido — sin ibkrId confirmado (orderId=${params.orderId ?? "n/a"})`,
+    );
+  }
 }

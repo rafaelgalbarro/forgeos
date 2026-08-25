@@ -282,14 +282,23 @@ export async function notifyPreTradeHold(params: {
   void params;
 }
 
-/** Order executed — immediate premium alert + hourly bucket. */
+/** Order executed — immediate premium alert ONLY when IBKR confirmed (ibkrId). */
 export async function notifyOrderExecuted(params: {
   ticker: string;
   shares: number;
   price: number;
   stopLoss?: number;
   takeProfit?: number;
+  /** Required for Telegram — skip if missing / PAPER. */
+  ibkrOrderId?: string;
 }): Promise<void> {
+  const ibkrId = String(params.ibkrOrderId ?? "").trim();
+  if (!ibkrId || ibkrId.toLowerCase() === "n/a" || ibkrId.toUpperCase().startsWith("PAPER_")) {
+    console.log(
+      `[Telegram] notifyOrderExecuted omitido (sin ibkrId): ${params.ticker}`,
+    );
+    return;
+  }
   if (!notifyEnabled("execution")) return;
   const { recordHourlyExecution, sendImmediateTradeAlert } = await import(
     "@/lib/notifications/telegram-policy"
@@ -312,6 +321,7 @@ export async function notifyOrderExecuted(params: {
       takeProfit: tp,
     }),
   );
+  console.log(`[Telegram] BUY confirmado ${params.ticker} ibkrId=${ibkrId}`);
 }
 
 /** Take profit or stop loss hit — immediate premium alert + hourly bucket. */
@@ -373,7 +383,7 @@ export async function notifyStalePosition(ticker: string, hoursOpen: number): Pr
   console.log(`[Telegram] stale omitido: ${ticker} ${hoursOpen.toFixed(0)}h`);
 }
 
-/** Phase G — Portfolio optimizer entered DEFENSIVE mode (recommendations only). */
+/** Phase G — Portfolio optimizer DEFENSIVE — log only (no Telegram spam). */
 export async function notifyPortfolioDefensiveMode(params: {
   maxPositionPct: number;
   spyChangePct: number | null;
@@ -381,37 +391,20 @@ export async function notifyPortfolioDefensiveMode(params: {
   reasons: string[];
   recommendations: string[];
 }): Promise<void> {
-  if (!notifyEnabled("halt") && !notifyEnabled("signal")) return;
-  const lines = [
-    "🛡 <b>PORTFOLIO DEFENSIVE</b> — ForgeOS",
-    params.spyChangePct != null
-      ? `📉 SPY día: ${params.spyChangePct >= 0 ? "+" : ""}${params.spyChangePct.toFixed(2)}%`
-      : "📉 SPY día: NO_DATA",
-    params.vix != null ? `📊 VIX: ${params.vix.toFixed(1)}` : "📊 VIX: NO_DATA",
-    `🔒 Nuevo tamaño máx: ${(params.maxPositionPct * 100).toFixed(2)}% NAV`,
-    "",
-    "<b>Motivos</b>",
-    ...params.reasons.slice(0, 6).map((r) => `• ${r}`),
-    "",
-    "<b>Plan (recomendación — sin órdenes live no supervisadas)</b>",
-    ...params.recommendations.slice(0, 6).map((r) => `• ${r}`),
-  ];
-  await sendTelegramMessage(lines.join("\n"));
+  console.log(
+    `[Telegram] portfolio defensive omitido (no spam): maxPos=${(params.maxPositionPct * 100).toFixed(1)}% ` +
+      `spy=${params.spyChangePct ?? "n/a"} vix=${params.vix ?? "n/a"}`,
+  );
 }
 
-/** Scanner session briefing (Europe open / US premarket / close). */
+/** Scanner session briefing — log only (no Telegram spam). */
 export async function notifyScannerBriefing(params: {
   title: string;
   lines: string[];
 }): Promise<void> {
-  if (!notifyEnabled("signal") && !notifyEnabled("alert")) return;
-  const body = params.lines.slice(0, 12).join("\n") || "NO_DATA";
-  await sendTelegramMessage(`${params.title}\n${body}`, [
-    [
-      { text: "📊 VER DASHBOARD", callback_data: "report_dashboard" },
-      { text: "📈 OPPORTUNITIES", callback_data: "report_portfolio" },
-    ],
-  ]);
+  console.log(
+    `[Telegram] scanner briefing omitido (no spam): ${params.title} (${params.lines.length} líneas)`,
+  );
 }
 
 /** Poll updates (long polling) — used by background poller. */

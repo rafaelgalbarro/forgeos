@@ -13,7 +13,7 @@ import {
   incrementAutoApprovalCount,
 } from './auto-approval'
 import { registerExecutedPosition } from './position-monitor'
-import { evaluateProStrategies } from './strategies/pro-strategies'
+import { evaluateProStrategies, capitalPctFromConfidence } from './strategies/pro-strategies'
 import { getMacroContext } from '@/lib/market-data/macro-context'
 import { notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
@@ -54,16 +54,18 @@ import { loadTradingState } from './trading-state-store'
 import { shouldSkipUntradeableTicker } from './untradeable-tickers'
 import { cancelStaleIbkrOrders } from '@/lib/trading/ibkr-reconnect'
 
-/** Per-account capital policy — price band + 30% cash sizing. */
+/** Per-account capital policy — price band + confidence-tier cash sizing. */
 function resolveAccountCapitalPolicy(
   accountId: string | null | undefined,
   cashUSD: number,
-): { accountId: string; minPrice: number; maxPrice: number; deployableUSD: number } {
+  confidence = 0.68,
+  sizeFactor = 1,
+): { accountId: string; minPrice: number; maxPrice: number; deployableUSD: number; capitalPct: number } {
   const id = String(accountId ?? '').trim().toUpperCase()
   const cash = Math.max(0, cashUSD)
-  const deployableUSD = cash * 0.3
-  // Ambas cuentas: cualquier precio accesible con capital ($0.10–$500)
-  return { accountId: id, minPrice: 0.1, maxPrice: 500, deployableUSD }
+  const capitalPct = capitalPctFromConfidence(confidence) * Math.max(0.1, Math.min(1, sizeFactor))
+  const deployableUSD = cash * capitalPct
+  return { accountId: id, minPrice: 0.75, maxPrice: 500, deployableUSD, capitalPct }
 }
 
 export type OrderResult = {
@@ -608,10 +610,12 @@ export class TradingEngine {
       at: new Date().toISOString(),
     })
 
-    // Account-aware price filter (capital policy by IBKR account)
+    // Account-aware price filter + confidence-tier sizing
     const capital = resolveAccountCapitalPolicy(
       account.primaryAccountId ?? process.env.IBKR_ACCOUNT_ID,
       account.cashUSD,
+      signal.confidence,
+      strategy.positionSizeFactor ?? 1,
     )
     if (priceData.currentPrice < capital.minPrice || priceData.currentPrice > capital.maxPrice) {
       console.warn(
@@ -623,6 +627,21 @@ export class TradingEngine {
         ticker,
         direction: signal.direction,
         reason: `Precio $${priceData.currentPrice.toFixed(2)} fuera de rango cuenta $${capital.minPrice}-$${capital.maxPrice}`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    // Hard cap: máx 5 posiciones abiertas
+    if (
+      signal.direction === 'BUY' &&
+      account.openPositionsCount >= TRADING_CONFIG.risk.maxOpenPositions
+    ) {
+      return {
+        status: 'REJECTED_RISK',
+        ticker,
+        direction: signal.direction,
+        reason: `Máximo ${TRADING_CONFIG.risk.maxOpenPositions} posiciones abiertas (${account.openPositionsCount})`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -732,12 +751,10 @@ export class TradingEngine {
     }
 
     const orderValueUSD = riskOk.maxOrderValueUSD
-    // Sizing dinámico: qty = floor(cash * 0.3 / precio), mínimo 1
-    let resolvedShares = Math.floor(
-      (capital.deployableUSD * (strategy.positionSizeFactor ?? 1)) / priceData.currentPrice,
-    )
+    // Sizing: conf tier 15–30% cash × VIX factor
+    let resolvedShares = Math.floor(capital.deployableUSD / priceData.currentPrice)
     console.log(
-      `[AutoExecute] ${ticker} → cash disponible: $${account.cashUSD.toFixed(2)} | 30%: $${capital.deployableUSD.toFixed(2)} | precio: $${priceData.currentPrice.toFixed(2)} | qty: ${resolvedShares}`,
+      `[AutoExecute] ${ticker} → cash $${account.cashUSD.toFixed(2)} | sizing ${(capital.capitalPct * 100).toFixed(0)}%: $${capital.deployableUSD.toFixed(2)} | precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}`,
     )
     if (resolvedShares <= 0) {
       console.warn(`[AutoExecute] ${ticker} → capital insuficiente (qty=0) — skip`)
@@ -919,7 +936,9 @@ export class TradingEngine {
             relativeVolume: strategy.metrics.relVolume,
             macdHist: null,
             adx: null,
-            goldenCross: strategy.strategyIds.includes('GOLDEN_CROSS_MOMENTUM'),
+            goldenCross: strategy.strategyIds.some(
+              (id) => id === "ASIA_GOLDEN_CROSS" || id === "CRYPTO_GOLDEN_CROSS",
+            ),
             deathCross: false,
           },
         })

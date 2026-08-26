@@ -13,8 +13,8 @@ export const TRADING_CONFIG = {
     maxPositionPct: 0.20,
     /** Si el P&L del día supera esta pérdida, el sistema se detiene */
     dailyLossLimitPct: 0.10,
-    /** Diversification soft cap (legacy); live limit from dynamicSizing */
-    maxOpenPositions: 20,
+    /** Diversification hard cap — máx 5 posiciones simultáneas */
+    maxOpenPositions: 5,
     /** Default SL: -3% por posición */
     defaultStopLossPct: 0.03,
     /** Default TP: +5% baseline (estrategias pueden override) */
@@ -23,18 +23,18 @@ export const TRADING_CONFIG = {
     trailingStopPct: 0.015,
     /** Cash-based dynamic sizing (see dynamic-sizing.ts) */
     dynamicSizing: {
-      maxPctNormal: 0.30,
-      maxPctHighConfidence: 0.30,
-      highConfidenceThreshold: 0.80,
+      maxPctNormal: 0.15,
+      maxPctHighConfidence: 0.3,
+      highConfidenceThreshold: 0.8,
       minOrderUSD: 10,
       minCashToTradeUSD: 10,
       analysisOnlyCashUSD: 10,
-      deployableCashPct: 0.30,
+      deployableCashPct: 1.0,
       /** Soft diversification hint only — not a hard order block when cash remains */
       positionCashDivisor: 15,
-      maxOpenPositionsCap: 20,
-      minOpenPositions: 3,
-      takeProfitRatio: 2.6,
+      maxOpenPositionsCap: 5,
+      minOpenPositions: 1,
+      takeProfitRatio: 3.0,
     },
     /** FOREX IDEALPRO — 24h cuando capital U15513057 > €2000 */
     forex: {
@@ -60,8 +60,8 @@ export const TRADING_CONFIG = {
     minConfidenceToTrade: 0.68,
     /** After-hours / extended: umbral más alto */
     minConfidenceExtendedHours: 0.75,
-    /** Mínimo de estrategias confirmando para BUY */
-    minStrategiesConfirming: 2,
+    /** Mínimo de estrategias confirmando para BUY (1 = OK con score ≥68%) */
+    minStrategiesConfirming: 1,
     /**
      * @deprecated Sin tope artificial — el capital disponible es el único límite de volumen.
      * Conservado por compatibilidad de tipos/snapshots.

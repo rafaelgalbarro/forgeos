@@ -1,14 +1,17 @@
 /**
- * Professional mixed technical strategies — EOD history + live profile price.
- * Replaces low-precision GAP_AND_GO / VOLUME_SPIKE screener-only logic.
+ * Professional session-aware swing/momentum strategies (EOD + live profile).
+ * No intraday scalping — Finnhub free = news/sentiment only; history via FMP.
+ * Target: EV+ with ~45%+ win rate and ~1:3 R/R.
  */
 
 import "server-only";
 
 import {
   fetchCompanyNewsContext,
-  fetchNewsSentiment,
   fetchMarketIndicators,
+  fetchNewsSentiment,
+  type FinnhubProNewsContext,
+  type FinnhubProSentiment,
 } from "@/lib/market-data/finnhub-pro";
 import { getHistory, getQuote, type FmpBar } from "@/lib/market-data/fmp";
 import { recognizePatterns } from "@/lib/market-data/pattern-recognition";
@@ -26,29 +29,40 @@ import {
 } from "@/lib/market-data/technical-indicators";
 import { IBKR_CRYPTO_TICKERS, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 import {
+  ASIA_DIRECT_TICKERS,
   ASIA_ETF_TICKERS,
+  EUROPE_DIRECT_TICKERS,
   EUROPE_ETF_TICKERS,
   getActiveTradingPhase,
+  isAsiaFocusTicker,
   isAsiaOpen,
+  isEuropeFocusTicker,
   isEuropeOpen,
   isUsaFirstHour,
   isUSAExtendedOpen,
   isUSAOpen,
+  type ActiveTradingPhase,
 } from "@/src/core/trading/market-session";
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { isLossStreakBlacklisted } from "@/src/core/trading/strategies/strategy-blacklist";
 
 export type ProStrategyId =
-  | "TECHNICAL_CONFLUENCE"
-  | "REVERSAL_OVERSOLD"
-  | "ICHIMOKU_BREAKOUT"
-  | "GOLDEN_CROSS_MOMENTUM"
-  | "DOUBLE_BOTTOM_BREAKOUT"
-  | "NEWS_CATALYST"
-  | "INVERSE_HEAD_AND_SHOULDERS"
-  | "GAP_AND_GO"
-  | "EMA21_PULLBACK"
-  | "MOMENTUM_BREAKOUT";
+  | "ASIA_TREND_NOCTURNO"
+  | "ASIA_GOLDEN_CROSS"
+  | "EU_APERTURA_BREAKOUT"
+  | "EU_EMA21_PULLBACK"
+  | "USA_GAP_AND_GO"
+  | "USA_MOMENTUM_PRIMERA_HORA"
+  | "USA_REVERSAL_OVERSOLD"
+  | "USA_TREND_FOLLOWING"
+  | "USA_INVERSE_HS"
+  | "USA_DOUBLE_BOTTOM"
+  | "USA_EARNINGS_MOMENTUM"
+  | "USA_NEWS_CATALYST"
+  | "AH_EARNINGS"
+  | "CRYPTO_GOLDEN_CROSS"
+  | "CRYPTO_RSI_OVERSOLD"
+  | "CRYPTO_MOMENTUM";
 
 export type ProStrategyHit = {
   id: ProStrategyId;
@@ -75,7 +89,10 @@ export type ProStrategySignal = {
   stopLoss: number;
   takeProfit: number;
   rsi: number | null;
+  /** Multiplier on cash allocation (VIX half-size etc.) */
   positionSizeFactor: number;
+  /** Absolute cash fraction 0.15–0.30 from confidence tier */
+  capitalPct: number;
   metrics: {
     change1d: number;
     relVolume: number;
@@ -97,27 +114,146 @@ export type ScreenerInputs = {
   priceAvg200?: number;
   bid?: number;
   ask?: number;
+  premarketCandidate?: boolean;
 };
 
-const REVERSAL_ONLY_IDS: ProStrategyId[] = ["REVERSAL_OVERSOLD"];
+const REVERSAL_ONLY_IDS: ProStrategyId[] = ["USA_REVERSAL_OVERSOLD", "CRYPTO_RSI_OVERSOLD"];
 
 const BASE: Record<
   ProStrategyId,
   { name: string; base: number; sl: number; tp: number; style: ProStrategyHit["style"]; days: number }
 > = {
-  TECHNICAL_CONFLUENCE: { name: "Technical Confluence", base: 0.78, sl: 0.02, tp: 0.05, style: "swing", days: 4 },
-  REVERSAL_OVERSOLD: { name: "Reversal Oversold", base: 0.75, sl: 0.02, tp: 0.06, style: "scalping", days: 2 },
-  ICHIMOKU_BREAKOUT: { name: "Ichimoku Breakout", base: 0.73, sl: 0.02, tp: 0.05, style: "swing", days: 5 },
-  GOLDEN_CROSS_MOMENTUM: { name: "Golden Cross Momentum", base: 0.72, sl: 0.03, tp: 0.08, style: "swing", days: 8 },
-  DOUBLE_BOTTOM_BREAKOUT: { name: "Double Bottom Breakout", base: 0.76, sl: 0.02, tp: 0.05, style: "swing", days: 4 },
-  NEWS_CATALYST: { name: "News Catalyst", base: 0.7, sl: 0.015, tp: 0.04, style: "scalping", days: 1 },
-  INVERSE_HEAD_AND_SHOULDERS: { name: "Inverse H&S", base: 0.8, sl: 0.03, tp: 0.08, style: "swing", days: 8 },
-  GAP_AND_GO: { name: "Gap And Go", base: 0.74, sl: 0.015, tp: 0.05, style: "scalping", days: 1 },
-  EMA21_PULLBACK: { name: "EMA21 Pullback", base: 0.73, sl: 0.02, tp: 0.06, style: "momentum", days: 3 },
-  MOMENTUM_BREAKOUT: { name: "Momentum Breakout", base: 0.72, sl: 0.02, tp: 0.06, style: "momentum", days: 2 },
+  ASIA_TREND_NOCTURNO: {
+    name: "ASIA-1 Trend Nocturno",
+    base: 0.72,
+    sl: 0.02,
+    tp: 0.06,
+    style: "swing",
+    days: 3,
+  },
+  ASIA_GOLDEN_CROSS: {
+    name: "ASIA-2 Golden Cross",
+    base: 0.78,
+    sl: 0.03,
+    tp: 0.08,
+    style: "swing",
+    days: 7,
+  },
+  EU_APERTURA_BREAKOUT: {
+    name: "EU-1 Apertura Breakout",
+    base: 0.74,
+    sl: 0.015,
+    tp: 0.04,
+    style: "momentum",
+    days: 1,
+  },
+  EU_EMA21_PULLBACK: {
+    name: "EU-2 Pullback EMA21",
+    base: 0.7,
+    sl: 0.02,
+    tp: 0.05,
+    style: "swing",
+    days: 2,
+  },
+  USA_GAP_AND_GO: {
+    name: "USA-1 Gap And Go",
+    base: 0.8,
+    sl: 0.015,
+    tp: 0.05,
+    style: "momentum",
+    days: 1,
+  },
+  USA_MOMENTUM_PRIMERA_HORA: {
+    name: "USA-2 Momentum Primera Hora",
+    base: 0.76,
+    sl: 0.02,
+    tp: 0.06,
+    style: "momentum",
+    days: 1,
+  },
+  USA_REVERSAL_OVERSOLD: {
+    name: "USA-3 Reversal Oversold",
+    base: 0.75,
+    sl: 0.02,
+    tp: 0.07,
+    style: "swing",
+    days: 2,
+  },
+  USA_TREND_FOLLOWING: {
+    name: "USA-4 Trend Following",
+    base: 0.72,
+    sl: 0.02,
+    tp: 0.08,
+    style: "swing",
+    days: 4,
+  },
+  USA_INVERSE_HS: {
+    name: "USA-5 Inverse H&S",
+    base: 0.8,
+    sl: 0.03,
+    tp: 0.08,
+    style: "swing",
+    days: 7,
+  },
+  USA_DOUBLE_BOTTOM: {
+    name: "USA-6 Doble Suelo",
+    base: 0.76,
+    sl: 0.02,
+    tp: 0.06,
+    style: "swing",
+    days: 5,
+  },
+  USA_EARNINGS_MOMENTUM: {
+    name: "USA-7 Earnings Momentum",
+    base: 0.78,
+    sl: 0.03,
+    tp: 0.08,
+    style: "swing",
+    days: 3,
+  },
+  USA_NEWS_CATALYST: {
+    name: "USA-8 News Catalyst",
+    base: 0.73,
+    sl: 0.02,
+    tp: 0.05,
+    style: "momentum",
+    days: 1,
+  },
+  AH_EARNINGS: {
+    name: "AH-1 Earnings After-Hours",
+    base: 0.75,
+    sl: 0.03,
+    tp: 0.08,
+    style: "swing",
+    days: 2,
+  },
+  CRYPTO_GOLDEN_CROSS: {
+    name: "CRYPTO-1 Golden Cross",
+    base: 0.82,
+    sl: 0.04,
+    tp: 0.15,
+    style: "swing",
+    days: 14,
+  },
+  CRYPTO_RSI_OVERSOLD: {
+    name: "CRYPTO-2 RSI Oversold",
+    base: 0.75,
+    sl: 0.04,
+    tp: 0.12,
+    style: "swing",
+    days: 5,
+  },
+  CRYPTO_MOMENTUM: {
+    name: "CRYPTO-3 Momentum",
+    base: 0.7,
+    sl: 0.03,
+    tp: 0.08,
+    style: "momentum",
+    days: 3,
+  },
 };
 
-const SECTOR_ETF_MAP: Record<string, string> = {
+export const SECTOR_ETF_MAP: Record<string, string> = {
   technology: "XLK",
   "information technology": "XLK",
   financial: "XLF",
@@ -137,6 +273,14 @@ const SECTOR_ETF_MAP: Record<string, string> = {
   communication: "XLC",
 };
 
+/** Capital % by confidence band (professional sizing). */
+export function capitalPctFromConfidence(confidence: number): number {
+  if (confidence >= 0.85) return 0.3;
+  if (confidence >= 0.8) return 0.25;
+  if (confidence >= 0.75) return 0.2;
+  return 0.15;
+}
+
 function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyHit>): ProStrategyHit {
   const b = BASE[id];
   return {
@@ -146,8 +290,8 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
     reason,
     stopLossPct: overrides?.stopLossPct ?? b.sl,
     takeProfitPct: overrides?.takeProfitPct ?? b.tp,
-    style: b.style,
-    timeframeDays: b.days,
+    style: overrides?.style ?? b.style,
+    timeframeDays: overrides?.timeframeDays ?? b.days,
     stopLossPrice: overrides?.stopLossPrice,
     takeProfitPrice: overrides?.takeProfitPrice,
   };
@@ -164,7 +308,13 @@ function toOhlcv(bars: readonly FmpBar[]): OhlcvBar[] {
   }));
 }
 
-function appendLiveBar(bars: OhlcvBar[], price: number, volume: number, high: number, low: number): OhlcvBar[] {
+function appendLiveBar(
+  bars: OhlcvBar[],
+  price: number,
+  volume: number,
+  high: number,
+  low: number,
+): OhlcvBar[] {
   if (bars.length === 0) {
     return [{ open: price, high, low, close: price, volume, date: new Date().toISOString().slice(0, 10) }];
   }
@@ -210,18 +360,6 @@ function nearestResistance(price: number, resistances: readonly number[]): numbe
   return above[0] ?? null;
 }
 
-function fibNearLevel(
-  price: number,
-  fibLevels: readonly { level: string; price: number }[],
-): string | null {
-  for (const f of fibLevels) {
-    if (f.level === "38.2%" || f.level === "61.8%") {
-      if (nearLevel(price, f.price, 0.015)) return f.level;
-    }
-  }
-  return null;
-}
-
 function macdCrossUp(c: readonly number[]): boolean {
   if (c.length < 35) return false;
   const prev = macd(c.slice(0, -1));
@@ -233,18 +371,6 @@ function rsiRising(c: readonly number[]): boolean {
   const series = rsiSeries(c, 14);
   if (series.length < 3) return false;
   return last(series)! > series.at(-3)!;
-}
-
-function ichimokuCloudCrossUp(bars: readonly OhlcvBar[]): boolean {
-  if (bars.length < 53) return false;
-  const prev = bars.slice(0, -1);
-  const cur = bars;
-  const ichPrev = computeTechnicalIndicators(prev).trend.ichimoku;
-  const ichCur = computeTechnicalIndicators(cur).trend.ichimoku;
-  if (!ichPrev || !ichCur) return false;
-  const prevPrice = prev.at(-1)!.close;
-  const curPrice = cur.at(-1)!.close;
-  return prevPrice <= ichPrev.cloudTop && curPrice > ichCur.cloudTop;
 }
 
 function goldenCrossRecent(c: readonly number[], lookback = 5): boolean {
@@ -266,25 +392,97 @@ function hasBullishReversalCandle(names: readonly string[]): boolean {
   return names.some((n) => bullish.some((b) => n.includes(b)));
 }
 
-function logStrategyDetail(
-  symbol: string,
-  primary: ProStrategyHit,
-  confidence: number,
-  checks: Record<string, string>,
-  sl: number,
-  tp: number,
-  slLabel: string,
-  tpLabel: string,
-): void {
-  console.log(`[ProStrategy] ${symbol}: ${primary.id} conf=${(confidence * 100).toFixed(0)}%`);
-  const line = Object.entries(checks)
-    .map(([k, v]) => `${k}: ${v}`)
-    .join(" ");
-  console.log(`  ${line}`);
-  console.log(`  SL: $${sl.toFixed(2)} (${slLabel}) TP: $${tp.toFixed(2)} (${tpLabel})`);
+function newsPositiveHours(news: FinnhubProNewsContext, hours: number): boolean {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const items = news.items24h.filter((n) => nowSec - n.datetime <= hours * 3600);
+  return items.some((n) => {
+    const t = `${n.headline} ${n.summary ?? ""}`.toLowerCase();
+    return (
+      t.includes("beat") ||
+      t.includes("upgrade") ||
+      t.includes("surge") ||
+      t.includes("record") ||
+      t.includes("approval") ||
+      t.includes("growth")
+    );
+  });
 }
 
-/** Evaluate mixed technical strategies using EOD + live price. */
+function earningsBeatRecent(news: FinnhubProNewsContext): boolean {
+  const nowSec = Math.floor(Date.now() / 1000);
+  return news.items24h.some((n) => {
+    if (nowSec - n.datetime > 48 * 3600) return false;
+    const t = `${n.headline} ${n.summary ?? ""}`.toLowerCase();
+    return t.includes("earnings") && (t.includes("beat") || t.includes("tops estimates"));
+  });
+}
+
+function vol10(bars: readonly OhlcvBar[]): number {
+  const slice = bars.slice(-10);
+  if (!slice.length) return 0;
+  return slice.reduce((s, b) => s + b.volume, 0) / slice.length;
+}
+
+function scoreFinal(args: {
+  primaryBase: number;
+  hits: number;
+  relVol: number;
+  news4h: boolean;
+  sentiment: number;
+  sectorPos: boolean | null;
+  sectorNeg: boolean | null;
+  rsiOk: boolean;
+  firstHour: boolean;
+  marketPos: boolean;
+  change1d: number;
+}): { confidence: number; breakdown: string } {
+  let conf = args.primaryBase;
+  const parts: string[] = [`${(args.primaryBase * 100).toFixed(0)}% base`];
+  if (args.hits >= 2) {
+    conf += 0.08;
+    parts.push("+8% multi-estrategia");
+  }
+  if (args.relVol > 2) {
+    conf += 0.05;
+    parts.push("+5% vol>2x");
+  }
+  if (args.news4h) {
+    conf += 0.05;
+    parts.push("+5% noticia");
+  }
+  if (args.sentiment > 0.3) {
+    conf += 0.05;
+    parts.push("+5% sentiment");
+  }
+  if (args.sectorPos === true) {
+    conf += 0.03;
+    parts.push("+3% sector");
+  }
+  if (args.rsiOk) {
+    conf += 0.03;
+    parts.push("+3% RSI");
+  }
+  if (args.firstHour) {
+    conf += 0.05;
+    parts.push("+5% 1ª hora");
+  }
+  if (args.marketPos) {
+    conf += 0.05;
+    parts.push("+5% mercado");
+  }
+  if (args.change1d > 5) {
+    conf -= 0.15;
+    parts.push("-15% ya>+5%");
+  }
+  if (args.sectorNeg === true) {
+    conf -= 0.1;
+    parts.push("-10% sector−");
+  }
+  conf = Math.max(0, Math.min(0.95, conf));
+  return { confidence: Number(conf.toFixed(3)), breakdown: parts.join(" ") };
+}
+
+/** Evaluate session-gated professional strategies. */
 export async function evaluateProStrategies(
   symbol: string,
   inputs?: Partial<ScreenerInputs>,
@@ -298,6 +496,7 @@ export async function evaluateProStrategies(
   const dayLow = quote?.dayLow ?? price;
   const bid = inputs?.bid;
   const ask = inputs?.ask;
+  const crypto = isIbkrCryptoTicker(symbol);
 
   const hold = (reason: string, rsiVal: number | null = null): ProStrategySignal => ({
     direction: "HOLD",
@@ -312,6 +511,7 @@ export async function evaluateProStrategies(
     takeProfit: 0,
     rsi: rsiVal,
     positionSizeFactor: 1,
+    capitalPct: 0.15,
     metrics: {
       change1d,
       relVolume: 0,
@@ -323,50 +523,38 @@ export async function evaluateProStrategies(
     },
   });
 
-  if (!(price > 0.75)) {
-    console.log(`[ProStrategy] ${symbol}: skip (precio ≤ $0.75)`);
-    return hold("Precio bajo mínimo $0.75");
-  }
-  if (price > 200 && !isIbkrCryptoTicker(symbol)) {
-    console.log(`[ProStrategy] ${symbol}: skip (precio > $200)`);
-    return hold("Precio sobre máximo $200");
+  if (!(price > 0.75)) return hold("Precio bajo mínimo $0.75");
+  if (price > 500 && !crypto) return hold("Precio sobre máximo $500");
+
+  if (isLossStreakBlacklisted(symbol)) {
+    console.log(`[ProStrategy] ${symbol}: skip (blacklist —50%)`);
+    return hold("Blacklist: 3 pérdidas consecutivas");
   }
 
-  // Regla crítica: no comprar en el pico de la sesión
+  // Hard skip if already ran >5% unless reversal path allowed later
   if (change1d > 5) {
     console.log(`[ProStrategy] ${symbol}: skip (ya subió ${change1d.toFixed(1)}% > 5%)`);
     return hold(`Ya subió ${change1d.toFixed(1)}% — no comprar en pico`);
   }
 
-  if (isLossStreakBlacklisted(symbol)) {
-    console.log(`[ProStrategy] ${symbol}: skip (blacklist 3 pérdidas consecutivas)`);
-    return hold("Blacklist: 3 pérdidas consecutivas");
+  if (change1d < -3 && change1d > -5) {
+    /* allow mild dips; deep downs handled as reversal-only */
   }
 
   const history = await getHistory(symbol, 250);
-  let bars = appendLiveBar(toOhlcv(history), price, volume, dayHigh, dayLow);
-  if (bars.length < 20) {
-    console.log(`[ProStrategy] ${symbol}: skip (historial ${bars.length} < 20 velas)`);
-    return hold(`Historial insuficiente (${bars.length} velas)`);
-  }
+  const bars = appendLiveBar(toOhlcv(history), price, volume, dayHigh, dayLow);
+  if (bars.length < 20) return hold(`Historial insuficiente (${bars.length} velas)`);
 
   const vol20 = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
-  if (vol20 < 300_000 && !isIbkrCryptoTicker(symbol)) {
-    console.log(`[ProStrategy] ${symbol}: skip (vol medio 20d ${(vol20 / 1e3).toFixed(0)}k < 300k)`);
-    return hold("Volumen medio 20d insuficiente");
-  }
+  if (vol20 < 300_000 && !crypto) return hold("Volumen medio 20d insuficiente");
 
-  // Cambio intraday permitido: -2% … +5% (reversiones pueden ir por debajo)
-  const deepDown = change1d < -2;
+  const deepDown = change1d < -3;
 
   const spreadEst =
     bid != null && ask != null && ask > bid && price > 0
       ? (ask - bid) / price
       : (dayHigh - dayLow) / price / 2;
-  if (spreadEst > 0.03) {
-    console.log(`[ProStrategy] ${symbol}: skip (spread est ${(spreadEst * 100).toFixed(1)}% > 3%)`);
-    return hold("Spread estimado > 3%");
-  }
+  if (spreadEst > 0.03 && !crypto) return hold("Spread estimado > 3%");
 
   const technicals = computeTechnicalIndicators(bars);
   const patterns = recognizePatterns(bars, technicals);
@@ -376,21 +564,22 @@ export async function evaluateProStrategies(
   const ema9 = ema(c, 9);
   const ema21 = ema(c, 21);
   const ema50 = ema(c, 50);
+  const ema200 = ema(c, 200);
   const macdCur = macd(c);
   const ich = technicals.trend.ichimoku;
   const bb = technicals.volatility.bollingerBands;
-  const fibLevel = fibNearLevel(price, technicals.levels.fibonacci);
   const support = nearestSupport(price, technicals.levels.support);
   const resistance = nearestResistance(price, technicals.levels.resistance);
+  const v10 = vol10(bars);
 
   const [newsCtx, sentiment, marketQuotes] = await Promise.all([
     fetchCompanyNewsContext(symbol),
     fetchNewsSentiment(symbol),
-    fetchMarketIndicators(["SPY", "VIX", "^VIX"]),
+    fetchMarketIndicators(["SPY", "VIX", "BTCUSD", "BTC"]),
   ]);
 
   const spy = marketQuotes.get("SPY");
-  const vix = marketQuotes.get("VIX") ?? marketQuotes.get("^VIX");
+  const vix = marketQuotes.get("VIX");
   const spyChange = spy?.changePct ?? 0;
   const vixLevel = vix?.price ?? 0;
   const defensiveMarket = spyChange <= -1.5;
@@ -399,246 +588,350 @@ export async function evaluateProStrategies(
     console.log(`[ProStrategy] ${symbol}: VIX ${vixLevel.toFixed(1)} — tamaño ×50%`);
   }
 
-  // Soporte demasiado lejos → skip (entrada sin ancla)
-  if (support != null && price > 0 && (price - support) / price > 0.05) {
-    console.log(
-      `[ProStrategy] ${symbol}: skip (soporte ${(support).toFixed(2)} a >5% — ${(
-        ((price - support) / price) *
-        100
-      ).toFixed(1)}%)`,
-    );
+  if (support != null && price > 0 && (price - support) / price > 0.05 && !crypto) {
     return hold("Soporte >5% lejos — skip");
   }
 
   const phase = getActiveTradingPhase();
-  const firstHour = isUsaFirstHour() || phase === "EUROPE_OPEN";
+  const firstHour = phase === "USA_OPEN" || phase === "EUROPE_OPEN";
+  const news4h = newsPositiveHours(newsCtx, 4);
+  const news8h = newsPositiveHours(newsCtx, 8);
+  const sentScore = sentiment?.score ?? 0;
   const hits: ProStrategyHit[] = [];
+  const reversalCandles = patterns.candlesticks
+    .filter((p) => p.type === "BULLISH")
+    .map((p) => p.name);
 
-  // 0a. GAP AND GO — primera hora USA, gap 1.5–5% mantenido + vol
-  if (isUsaFirstHour() && change1d >= 1.5 && change1d <= 5 && relVol >= 2) {
-    const gapFloor = price * (1 - Math.min(0.02, change1d / 100 / 2));
-    hits.push(
-      hit("GAP_AND_GO", `Gap +${change1d.toFixed(1)}% mantenido + vol ${relVol.toFixed(1)}x`, {
-        stopLossPrice: gapFloor,
-        takeProfitPrice: price * 1.05,
-        stopLossPct: 0.015,
-        takeProfitPct: 0.05,
-      }),
-    );
-  }
-
-  // 0b. EMA21 PULLBACK — tendencia alcista + rebote cerca EMA21
-  if (
-    ema9 != null &&
-    ema21 != null &&
-    ema50 != null &&
-    ema9 > ema21 &&
-    ema21 > ema50 &&
-    nearLevel(price, ema21, 0.012) &&
-    rsiVal != null &&
-    rsiVal >= 40 &&
-    rsiVal <= 60 &&
-    change1d < 5
-  ) {
-    hits.push(
-      hit("EMA21_PULLBACK", `Pullback EMA21 en tendencia alcista RSI=${rsiVal.toFixed(0)}`, {
-        stopLossPrice: ema21 * 0.985,
-        takeProfitPrice: resistance ?? price * 1.06,
-      }),
-    );
-  }
-
-  // 0c. MOMENTUM BREAKOUT — ruptura resistencia + vol + Δ 1–5%
-  if (
-    resistance != null &&
-    price > resistance &&
-    change1d >= 1 &&
-    change1d <= 5 &&
-    relVol >= 1.5
-  ) {
-    hits.push(
-      hit("MOMENTUM_BREAKOUT", `Ruptura resistencia $${resistance.toFixed(2)} + vol`, {
-        stopLossPrice: resistance * 0.99,
-        takeProfitPrice: price * 1.06,
-      }),
-    );
-  }
-
-  // 1. TECHNICAL CONFLUENCE — 4 of 6
-  {
-    let score = 0;
-    if (ema9 != null && ema21 != null && ema50 != null && ema9 > ema21 && ema21 > ema50) score += 1;
-    if (rsiVal != null && rsiVal >= 45 && rsiVal <= 65) score += 1;
-    if (macdCrossUp(c)) score += 1;
-    if (ich?.aboveCloud) score += 1;
-    if (relVol > 1.5) score += 1;
-    if (fibLevel != null) score += 1;
-    if (score >= 4) {
-      const slPrice = support != null ? support * 0.995 : price * (1 - BASE.TECHNICAL_CONFLUENCE.sl);
-      const tpPrice = resistance ?? price * (1 + BASE.TECHNICAL_CONFLUENCE.tp);
+  // ─── ASIA ─────────────────────────────────────────────────────
+  if (phase === "ASIA" || (isAsiaOpen() && isAsiaFocusTicker(symbol))) {
+    if (
+      ema9 != null &&
+      ema21 != null &&
+      ema50 != null &&
+      ema9 > ema21 &&
+      ema21 > ema50 &&
+      rsiVal != null &&
+      rsiVal >= 45 &&
+      rsiVal <= 65 &&
+      ich?.aboveCloud &&
+      volume > v10 &&
+      news8h
+    ) {
       hits.push(
-        hit("TECHNICAL_CONFLUENCE", `Confluencia ${score}/6 EMA+RSI+MACD+Ichi+Vol+Fib`, {
-          stopLossPrice: slPrice,
-          takeProfitPrice: tpPrice,
+        hit("ASIA_TREND_NOCTURNO", "EMA stack + RSI + Ichimoku + vol Asia + news 8h", {
+          stopLossPrice: ema21 * 0.995,
+          takeProfitPrice: price * 1.06,
+        }),
+      );
+    }
+    if (
+      goldenCrossRecent(c) &&
+      ema50 != null &&
+      price > ema50 &&
+      rsiVal != null &&
+      rsiVal > 50 &&
+      rsiRising(c) &&
+      relVol > 1.1
+    ) {
+      hits.push(
+        hit("ASIA_GOLDEN_CROSS", "EMA50×EMA200 Asia + RSI>50 + vol", {
+          stopLossPrice: ema50,
+          takeProfitPrice: price * 1.08,
         }),
       );
     }
   }
 
-  // 2. REVERSAL OVERSOLD
-  {
-    const reversalCandles = patterns.candlesticks.filter((p) => p.type === "BULLISH").map((p) => p.name);
-    const atLowerBb = bb != null && price <= bb.lower * 1.01;
-    const nearSup = support != null && nearLevel(price, support);
-    const volSpike = relVol > 1.3;
+  // ─── EUROPE ───────────────────────────────────────────────────
+  if (phase === "EUROPE_OPEN" || phase === "EUROPE" || (isEuropeOpen() && isEuropeFocusTicker(symbol))) {
     if (
+      phase === "EUROPE_OPEN" &&
+      change1d >= 0.5 &&
+      relVol >= 1.5 &&
+      ema9 != null &&
+      ema21 != null &&
+      ema9 > ema21 &&
+      resistance != null &&
+      price > resistance
+    ) {
+      hits.push(
+        hit("EU_APERTURA_BREAKOUT", `Gap/breakout EU +${change1d.toFixed(1)}% vs USA`, {
+          stopLossPrice: dayLow > 0 ? dayLow : price * 0.985,
+          takeProfitPrice: price * 1.04,
+        }),
+      );
+    }
+    if (
+      (phase === "EUROPE" || phase === "EUROPE_OPEN") &&
+      ema9 != null &&
+      ema21 != null &&
+      ema50 != null &&
+      ema9 > ema21 &&
+      ema21 > ema50 &&
+      nearLevel(price, ema21, 0.01) &&
+      rsiVal != null &&
+      rsiVal >= 40 &&
+      rsiVal <= 55 &&
+      hasBullishReversalCandle(reversalCandles)
+    ) {
+      hits.push(
+        hit("EU_EMA21_PULLBACK", `Pullback EMA21 + vela reversión RSI=${rsiVal.toFixed(0)}`, {
+          stopLossPrice: ema50,
+          takeProfitPrice: price * 1.05,
+        }),
+      );
+    }
+  }
+
+  // ─── USA OPEN (14:30–15:30) ───────────────────────────────────
+  if (phase === "USA_OPEN") {
+    if (
+      change1d >= 2 &&
+      change1d <= 5 &&
+      relVol >= 2 &&
+      ema9 != null &&
+      ema21 != null &&
+      ema9 > ema21 &&
+      (inputs?.premarketCandidate !== false)
+    ) {
+      const gapFloor = price * (1 - change1d / 100) * 0.995;
+      hits.push(
+        hit("USA_GAP_AND_GO", `Gap +${change1d.toFixed(1)}% mantenido + vol ${relVol.toFixed(1)}x`, {
+          stopLossPrice: gapFloor,
+          takeProfitPrice: price * 1.05,
+        }),
+      );
+    }
+    if (
+      change1d >= 1 &&
+      change1d <= 4 &&
+      relVol >= 1.5 &&
+      rsiVal != null &&
+      rsiVal >= 50 &&
+      rsiVal <= 65 &&
+      ema9 != null &&
+      ema21 != null &&
+      ema50 != null &&
+      ema9 > ema21 &&
+      ema21 > ema50 &&
+      news4h
+    ) {
+      hits.push(
+        hit("USA_MOMENTUM_PRIMERA_HORA", `Momentum +${change1d.toFixed(1)}% + news 4h`, {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.06,
+        }),
+      );
+    }
+    if (
+      change1d <= -5 &&
       rsiVal != null &&
       rsiVal < 30 &&
-      atLowerBb &&
+      bb != null &&
+      price <= bb.lower * 1.01 &&
       hasBullishReversalCandle(reversalCandles) &&
-      nearSup &&
-      volSpike
+      relVol > 1.3
     ) {
-      hits.push(hit("REVERSAL_OVERSOLD", `RSI=${rsiVal.toFixed(0)} BB low + vela reversión + soporte`));
-    }
-  }
-
-  // 3. ICHIMOKU BREAKOUT
-  {
-    const tenkanAbove = ich != null && ich.tenkan > ich.kijun;
-    const cloudCross = ichimokuCloudCrossUp(bars);
-    if (cloudCross && tenkanAbove && relVol > 1.5) {
-      const slPrice = ich?.kijun ?? price * (1 - BASE.ICHIMOKU_BREAKOUT.sl);
       hits.push(
-        hit("ICHIMOKU_BREAKOUT", "Cruce nube + Tenkan>Kijun + volumen", {
-          stopLossPrice: slPrice,
-          takeProfitPrice: price * (1 + BASE.ICHIMOKU_BREAKOUT.tp),
+        hit("USA_REVERSAL_OVERSOLD", `Oversold apertura RSI=${rsiVal.toFixed(0)} + BB`, {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.07,
         }),
       );
     }
   }
 
-  // 4. GOLDEN CROSS MOMENTUM
-  {
-    if (goldenCrossRecent(c) && ema50 != null && price > ema50 && rsiVal != null && rsiVal > 50 && rsiRising(c) && relVol > 1.2) {
+  // ─── USA REGULAR ──────────────────────────────────────────────
+  if (phase === "USA_REGULAR" || (phase === "USA_OPEN" && hits.length === 0)) {
+    if (
+      ema9 != null &&
+      ema21 != null &&
+      ema50 != null &&
+      ema200 != null &&
+      ema9 > ema21 &&
+      ema21 > ema50 &&
+      ema50 > ema200 &&
+      rsiVal != null &&
+      rsiVal >= 50 &&
+      rsiVal <= 65 &&
+      ich?.aboveCloud &&
+      relVol > 1 &&
+      spyChange >= 0
+    ) {
       hits.push(
-        hit("GOLDEN_CROSS_MOMENTUM", "EMA50×EMA200 reciente + RSI>50 + vol", {
-          stopLossPrice: ema50,
-          takeProfitPrice: price * (1 + BASE.GOLDEN_CROSS_MOMENTUM.tp),
+        hit("USA_TREND_FOLLOWING", "EMA 9>21>50>200 + Ichimoku + SPY+", {
+          stopLossPrice: ema21,
+          takeProfitPrice: resistance ?? price * 1.08,
         }),
       );
     }
-  }
-
-  // 5. DOUBLE BOTTOM BREAKOUT
-  {
-    const dbPattern = patterns.price.find((p) => p.name === "Double Bottom" && p.type === "BULLISH");
+    const ihs = patterns.price.find((p) => p.name === "Inverse Head and Shoulders");
+    if (ihs && relVol > 1.5 && rsiVal != null && rsiVal > 50 && macdCrossUp(c)) {
+      hits.push(
+        hit("USA_INVERSE_HS", "IH&S + neckline + MACD", {
+          takeProfitPrice: ihs.targetPrice ?? price * 1.08,
+          stopLossPct: 0.03,
+        }),
+      );
+    }
+    const db = patterns.price.find((p) => p.name === "Double Bottom" && p.type === "BULLISH");
     const rsiDiv = patterns.divergences.some((d) => d.indicator === "RSI" && d.type === "BULLISH");
-    if (dbPattern && relVol > 1.5 && rsiDiv && macdCrossUp(c)) {
+    if (db && relVol > 1.5 && rsiDiv && macdCrossUp(c)) {
       hits.push(
-        hit("DOUBLE_BOTTOM_BREAKOUT", "Doble suelo + ruptura neckline + RSI div + MACD", {
-          takeProfitPrice: dbPattern.targetPrice ?? price * (1 + BASE.DOUBLE_BOTTOM_BREAKOUT.tp),
-          stopLossPct: 0.02,
+        hit("USA_DOUBLE_BOTTOM", "Doble suelo + RSI div + MACD", {
+          takeProfitPrice: db.targetPrice ?? price * 1.06,
           stopLossPrice: price * 0.98,
         }),
       );
     }
-  }
-
-  // 6. NEWS CATALYST
-  {
-    const sentScore = sentiment?.score ?? 0;
-    if (newsCtx.positive6h && sentScore > 0.3 && change1d > 2 && relVol > 1.2) {
-      hits.push(hit("NEWS_CATALYST", `Noticia 6h + sentiment ${sentScore.toFixed(2)} + Δ${change1d.toFixed(1)}%`));
+    if (
+      earningsBeatRecent(newsCtx) &&
+      change1d > 3 &&
+      change1d < 10 &&
+      relVol > 3 &&
+      rsiVal != null &&
+      rsiVal < 65 &&
+      ema9 != null &&
+      ema21 != null &&
+      ema9 > ema21
+    ) {
+      hits.push(
+        hit("USA_EARNINGS_MOMENTUM", `Earnings beat + Δ${change1d.toFixed(1)}% vol ${relVol.toFixed(1)}x`, {
+          stopLossPrice: price * 0.97,
+          takeProfitPrice: price * 1.08,
+        }),
+      );
+    }
+    if (
+      news4h &&
+      sentScore > 0.3 &&
+      change1d >= 1 &&
+      change1d <= 4 &&
+      relVol > 1.2 &&
+      ema9 != null &&
+      ema21 != null &&
+      ema9 > ema21
+    ) {
+      hits.push(
+        hit("USA_NEWS_CATALYST", `News 4h + sentiment ${sentScore.toFixed(2)}`, {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.05,
+        }),
+      );
     }
   }
 
-  // 7. INVERSE HEAD AND SHOULDERS
-  {
-    const ihs = patterns.price.find((p) => p.name === "Inverse Head and Shoulders");
-    if (ihs && relVol > 1.5 && rsiVal != null && rsiVal > 50) {
+  // ─── AFTER-HOURS ──────────────────────────────────────────────
+  if (phase === "USA_AFTERHOURS") {
+    if (earningsBeatRecent(newsCtx) && change1d > 3 && relVol > 1.5) {
       hits.push(
-        hit("INVERSE_HEAD_AND_SHOULDERS", "IH&S + ruptura neckline + vol", {
-          takeProfitPrice: ihs.targetPrice ?? price * (1 + BASE.INVERSE_HEAD_AND_SHOULDERS.tp),
-          stopLossPct: 0.03,
+        hit("AH_EARNINGS", `Earnings AH +${change1d.toFixed(1)}%`, {
+          stopLossPrice: price * 0.97,
+          takeProfitPrice: price * 1.08,
+        }),
+      );
+    }
+  }
+
+  // ─── CRYPTO 24h ───────────────────────────────────────────────
+  if (crypto) {
+    const btcMove = marketQuotes.get("BTC")?.changePct ?? marketQuotes.get("BTCUSD")?.changePct ?? 0;
+    if (
+      goldenCrossRecent(c) &&
+      ema50 != null &&
+      price > ema50 &&
+      rsiVal != null &&
+      rsiVal > 50 &&
+      relVol > 1.1
+    ) {
+      hits.push(
+        hit("CRYPTO_GOLDEN_CROSS", "Golden Cross crypto + RSI>50", {
+          stopLossPrice: ema50,
+          takeProfitPrice: price * 1.15,
+        }),
+      );
+    }
+    if (
+      rsiVal != null &&
+      rsiVal < 28 &&
+      bb != null &&
+      price <= bb.lower * 1.01 &&
+      relVol > 1.3 &&
+      (ema200 == null || price > ema200)
+    ) {
+      hits.push(
+        hit("CRYPTO_RSI_OVERSOLD", `RSI=${rsiVal.toFixed(0)} BB low crypto`, {
+          stopLossPrice: price * 0.96,
+          takeProfitPrice: price * 1.12,
+        }),
+      );
+    }
+    if (
+      (symbol === "BTC" ? change1d > 2 : btcMove > 2) &&
+      rsiVal != null &&
+      rsiVal >= 50 &&
+      rsiVal <= 70 &&
+      ema9 != null &&
+      ema21 != null &&
+      ema9 > ema21 &&
+      relVol > 1.1
+    ) {
+      hits.push(
+        hit("CRYPTO_MOMENTUM", `Momentum crypto BTC/ETH follow +${change1d.toFixed(1)}%`, {
+          stopLossPrice: price * 0.97,
+          takeProfitPrice: price * 1.08,
         }),
       );
     }
   }
 
   if (defensiveMarket) {
-    const before = hits.length;
     const filtered = hits.filter((h) => REVERSAL_ONLY_IDS.includes(h.id));
     hits.length = 0;
     hits.push(...filtered);
-    if (before > filtered.length) {
-      console.log(`[ProStrategy] ${symbol}: SPY ${spyChange.toFixed(1)}% — solo reversión`);
-    }
   }
-
   if (deepDown) {
     const filtered = hits.filter((h) => REVERSAL_ONLY_IDS.includes(h.id));
     hits.length = 0;
     hits.push(...filtered);
   }
 
-  const minConfirm = TRADING_CONFIG.ai.minStrategiesConfirming ?? 2;
-  if (hits.length < minConfirm) {
-    console.log(
-      `[ProStrategy] ${symbol}: ${hits.length} estrategia(s) < mínimo ${minConfirm} — HOLD`,
-    );
-    return hold(
-      hits.length === 0
-        ? "Ninguna estrategia técnica activa"
-        : `Solo ${hits.length} estrategia (mínimo ${minConfirm})`,
-      rsiVal,
-    );
+  if (hits.length === 0) {
+    console.log(`[ProStrategy] ${symbol}: ninguna señal (${phase})`);
+    return hold("Ninguna estrategia activa en sesión", rsiVal);
   }
 
   hits.sort((a, b) => b.baseConfidence - a.baseConfidence);
   const primary = hits[0]!;
+  const scored = scoreFinal({
+    primaryBase: primary.baseConfidence,
+    hits: hits.length,
+    relVol,
+    news4h,
+    sentiment: sentScore,
+    sectorPos: null,
+    sectorNeg: null,
+    rsiOk: rsiVal != null && rsiVal >= 45 && rsiVal <= 65,
+    firstHour,
+    marketPos: spyChange > 0 || (crypto && change1d > 0),
+    change1d,
+  });
 
-  let confidence = primary.baseConfidence;
-  if (hits.length > 1) confidence += (hits.length - 1) * 0.08;
-  // Bonos tiempo real / noticias (última 4–6h)
-  if (newsCtx.positive6h) confidence += 0.1;
-  else if (newsCtx.positive24h) confidence += 0.05;
-  if ((sentiment?.score ?? 0) > 0.3) confidence += 0.05;
-  if (relVol > 1) confidence += 0.05; // vol > media
-  if (firstHour) confidence += 0.05;
-  if (rsiVal != null && rsiVal >= 45 && rsiVal <= 65) confidence += 0.03;
-
-  confidence = Math.min(0.92, confidence);
-
-  const styleSlTp = (style: ProStrategyHit["style"], days: number): { sl: number; tp: number } => {
-    if (style === "scalping" || days <= 1) return { sl: 0.015, tp: 0.03 };
-    if (style === "momentum" || days <= 3) return { sl: 0.02, tp: 0.06 };
-    return { sl: 0.03, tp: 0.08 };
-  };
-
-  const defaults = styleSlTp(primary.style, primary.timeframeDays);
-  let stopLossPct = primary.stopLossPct ?? defaults.sl;
-  let takeProfitPct = primary.takeProfitPct ?? defaults.tp;
-  let stopLoss = primary.stopLossPrice ?? price * (1 - stopLossPct);
+  let stopLossPct = primary.stopLossPct;
+  let takeProfitPct = primary.takeProfitPct;
+  let stopLoss = primary.stopLossPrice ?? (support != null ? support * 0.995 : price * (1 - stopLossPct));
   let takeProfit = primary.takeProfitPrice ?? price * (1 + takeProfitPct);
 
   if (primary.stopLossPrice != null) {
     stopLoss = primary.stopLossPrice;
-    stopLossPct = (price - stopLoss) / price;
+    stopLossPct = Math.max(0.005, (price - stopLoss) / price);
   }
   if (primary.takeProfitPrice != null && primary.takeProfitPrice > price) {
     takeProfit = primary.takeProfitPrice;
     takeProfitPct = (takeProfit - price) / price;
   }
 
-  const crypto = isIbkrCryptoTicker(symbol);
-  if (crypto) {
-    stopLossPct = 0.02;
-    takeProfitPct = 0.05;
-    stopLoss = price * (1 - stopLossPct);
-    takeProfit = price * (1 + takeProfitPct);
-  }
-
+  const capitalPct = capitalPctFromConfidence(scored.confidence) * positionSizeFactor;
   const newsHeadline = newsCtx.items6h[0]?.headline ?? newsCtx.items24h[0]?.headline;
   const newsAgeH =
     newsCtx.items6h[0] != null
@@ -646,38 +939,39 @@ export async function evaluateProStrategies(
       : null;
 
   console.log(
-    `[Signal] ${symbol} BUY conf=${(confidence * 100).toFixed(0)}% | Sesión: ${phase}`,
+    `[Signal] ${symbol} BUY conf=${(scored.confidence * 100).toFixed(0)}% | Sesión: ${phase}`,
   );
-  console.log(`  Estrategias: ${hits.map((h) => h.id).join(" + ")}`);
+  console.log(`  Estrategia: ${primary.name}`);
+  if (hits.length > 1) {
+    console.log(`  Confirmaciones: ${hits.map((h) => h.id).join(" + ")}`);
+  }
   console.log(
-    `  Precio: $${price.toFixed(2)} | Cambio: ${change1d >= 0 ? "+" : ""}${change1d.toFixed(1)}% | Vol: ${relVol.toFixed(1)}x`,
+    `  Precio: $${price.toFixed(2)} | Cambio hoy: ${change1d >= 0 ? "+" : ""}${change1d.toFixed(1)}% | Vol: ${relVol.toFixed(1)}x media`,
   );
   console.log(
-    `  RSI: ${rsiVal != null ? rsiVal.toFixed(0) : "—"} | EMA9>EMA21 ${
-      ema9 != null && ema21 != null && ema9 > ema21 ? "✅" : "—"
-    } | Sobre soporte ${support != null && nearLevel(price, support, 0.03) ? "✅" : "—"}`,
+    `  EMA: ${
+      ema9 != null && ema21 != null && ema50 != null && ema9 > ema21 && ema21 > ema50 ? "9>21>50 ✅" : "—"
+    } | RSI: ${rsiVal != null ? `${rsiVal.toFixed(0)} ${rsiVal >= 45 && rsiVal <= 65 ? "✅" : ""}` : "—"} | MACD: ${
+      macdCur && macdCur.line > macdCur.signal ? "alcista ✅" : "—"
+    }`,
   );
   if (newsHeadline) {
     console.log(
-      `  Noticia: "${newsHeadline.slice(0, 80)}"${newsAgeH != null ? ` (${newsAgeH}h)` : ""} | Sentiment: ${(
-        sentiment?.score ?? 0
-      ).toFixed(2)}`,
+      `  Noticias: "${newsHeadline.slice(0, 70)}"${newsAgeH != null ? ` (${newsAgeH}h)` : ""} | Sentiment: ${sentScore.toFixed(2)}`,
     );
   }
   console.log(
-    `  SL: $${stopLoss.toFixed(2)} | TP: $${takeProfit.toFixed(2)} (+${(takeProfitPct * 100).toFixed(0)}%)`,
+    `  SL: $${stopLoss.toFixed(2)}${support != null ? " (soporte)" : ""} | TP: $${takeProfit.toFixed(2)} (+${(takeProfitPct * 100).toFixed(0)}%)`,
   );
   console.log(
-    `  Timing: ${firstHour ? "Primera hora ✅" : phase} | Premarket ${
-      phase === "USA_PREMARKET" ? "prepare-only" : "—"
-    }`,
+    `  Sizing: ${(capitalPct * 100).toFixed(0)}% capital | Score: ${scored.breakdown}`,
   );
 
   return {
     direction: "BUY",
-    confidence: Number(confidence.toFixed(3)),
+    confidence: scored.confidence,
     reasoning: `${primary.reason} [${hits.map((h) => h.name).join(" + ")}]`,
-    urgency: confidence >= 0.8 ? "HIGH" : confidence >= 0.7 ? "MEDIUM" : "LOW",
+    urgency: scored.confidence >= 0.8 ? "HIGH" : scored.confidence >= 0.7 ? "MEDIUM" : "LOW",
     strategyIds: hits.map((h) => h.id),
     primaryStrategy: primary.name,
     stopLossPct,
@@ -686,6 +980,7 @@ export async function evaluateProStrategies(
     takeProfit: Number(takeProfit.toFixed(4)),
     rsi: rsiVal,
     positionSizeFactor,
+    capitalPct: Number(capitalPct.toFixed(3)),
     metrics: {
       change1d,
       relVolume: relVol,
@@ -698,17 +993,14 @@ export async function evaluateProStrategies(
   };
 }
 
-/** Regional focus ETFs by Madrid session (Asia / Europa / USA) + crypto 24h. */
 export function regionalFocusTickersMadrid(): string[] {
   const crypto = [...IBKR_CRYPTO_TICKERS];
   if (isAsiaOpen() && !isEuropeOpen() && !isUSAOpen() && !isUSAExtendedOpen()) {
-    return [...crypto, ...ASIA_ETF_TICKERS];
+    return [...crypto, ...ASIA_ETF_TICKERS, ...ASIA_DIRECT_TICKERS];
   }
   if (isEuropeOpen() && !isUSAOpen() && !isUSAExtendedOpen()) {
-    return [...crypto, ...EUROPE_ETF_TICKERS];
+    return [...crypto, ...EUROPE_ETF_TICKERS, ...EUROPE_DIRECT_TICKERS];
   }
   if (isUSAOpen() || isUSAExtendedOpen()) return [...crypto, "SPY", "QQQ", "IWM"];
   return [...crypto, "GLD", "IBIT"];
 }
-
-export { SECTOR_ETF_MAP };

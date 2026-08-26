@@ -35,7 +35,7 @@ function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/** Core sizing from live IBKR cash/NAV. */
+/** Core sizing from live IBKR cash/NAV — confidence tiers 15/20/25/30%. */
 export function computeDynamicSizing(params: {
   cashUSD: number;
   navUSD: number;
@@ -47,13 +47,16 @@ export function computeDynamicSizing(params: {
   const confidence = params.confidence ?? 0;
 
   const deployableCashUSD = roundMoney(cashUSD * ds.deployableCashPct);
-  const liquidityReserveUSD = roundMoney(cashUSD - deployableCashUSD);
+  const liquidityReserveUSD = roundMoney(cashUSD - Math.min(cashUSD, deployableCashUSD));
 
   const analysisOnly = cashUSD < ds.analysisOnlyCashUSD;
-  const highConfidence = confidence >= ds.highConfidenceThreshold;
-  const maxOrderPct = highConfidence ? ds.maxPctHighConfidence : ds.maxPctNormal;
+  let maxOrderPct: number = ds.maxPctNormal;
+  if (confidence >= 0.85) maxOrderPct = 0.3;
+  else if (confidence >= 0.8) maxOrderPct = 0.25;
+  else if (confidence >= 0.75) maxOrderPct = 0.2;
+  else if (confidence >= 0.68) maxOrderPct = 0.15;
 
-  let maxOrderValueUSD = roundMoney(deployableCashUSD * maxOrderPct);
+  let maxOrderValueUSD = roundMoney(cashUSD * maxOrderPct);
   if (maxOrderValueUSD > 0 && maxOrderValueUSD < ds.minOrderUSD) {
     maxOrderValueUSD = cashUSD >= ds.minCashToTradeUSD ? ds.minOrderUSD : 0;
   }
@@ -62,13 +65,12 @@ export function computeDynamicSizing(params: {
     !analysisOnly && cashUSD >= ds.minCashToTradeUSD && maxOrderValueUSD >= ds.minOrderUSD;
 
   const maxOpenPositions = clamp(
-    Math.floor(cashUSD / ds.positionCashDivisor),
+    Math.floor(cashUSD / Math.max(1, ds.positionCashDivisor)),
     ds.minOpenPositions,
     ds.maxOpenPositionsCap,
   );
 
   const forexMinCashUSD = TRADING_CONFIG.risk.forex.minCashUSD;
-  /** FOREX 24h solo con capital suficiente (U15513057 > €2000). */
   const canTradeForex = cashUSD >= forexMinCashUSD;
 
   const pctLabel = Math.round(maxOrderPct * 100);

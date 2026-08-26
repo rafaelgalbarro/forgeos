@@ -1,14 +1,14 @@
 /**
  * Financial Modeling Prep — sole quotes + EOD history source (stable API, Starter plan).
- * Quotes: GET /stable/profile?symbol=  → [{ symbol, price, ... }]
+ * Quotes: GET /stable/profile?symbol=AAPL,MSFT (batch ≤50) → [{ symbol, price, ... }]
  * History: GET /stable/historical-price-eod/light?symbol=  → [{ date, price, volume }]
- * Batch quotes: individual profile calls (profile batch unsupported on Starter).
+ * Rate limit: 5m quote cache, 24h history cache, 200ms between calls, 429 → wait 2s + retry once.
  * Never invents prices. Never logs the API key.
  */
 
 import "server-only";
 
-import { cacheKey, getCached, setCached } from "@/lib/market-data/cache";
+import { cacheKey, getCached, peekCached, setCached } from "@/lib/market-data/cache";
 import {
   coingeckoId,
   coingeckoIdsList,
@@ -20,11 +20,13 @@ const FMP_BASE = "https://financialmodelingprep.com/stable";
 const PROFILE_ENDPOINT = "/profile";
 const HISTORY_LIGHT_ENDPOINT = "/historical-price-eod/light";
 const HISTORY_FULL_ENDPOINT = "/historical-price-eod/full";
-const QUOTE_TTL_MS = 120_000;
+/** Profile quotes — 5 minutes (cycle-friendly, stays under 300 req/min). */
+const QUOTE_TTL_MS = 5 * 60_000;
+/** EOD history — 24 hours (daily bars do not change intraday). */
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
-/** Starter plan: keep profile concurrency low to avoid HTTP 429. */
-const BATCH_CONCURRENCY = 3;
-const BATCH_CHUNK_DELAY_MS = 300;
+const BATCH_SYMBOL_LIMIT = 50;
+const INTER_CALL_DELAY_MS = 200;
+const RATE_LIMIT_RETRY_MS = 2_000;
 const FETCH_TIMEOUT_MS = 20_000;
 
 export type FmpQuote = {
@@ -93,6 +95,10 @@ function pathForLog(endpoint: string): string {
   return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 /**
  * Build stable FMP URL with apikey as query param (never Authorization header).
  */
@@ -112,34 +118,80 @@ function buildFmpUrl(
   return url.toString();
 }
 
-async function fmpFetchJson(endpoint: string, query: Record<string, string>): Promise<unknown | null> {
-  const key = readFmpApiKey();
-  if (!key) {
-    console.warn("[FMP] FMP_API_KEY missing at runtime — set in .env.local and restart Next.js");
-    return null;
-  }
-  const url = buildFmpUrl(endpoint, query);
-  if (!url) return null;
+/** Serialize FMP HTTP + enforce ≥200ms between calls. */
+let fetchChain: Promise<unknown> = Promise.resolve();
+let lastFetchFinishedAt = 0;
 
+async function runSerialized<T>(work: () => Promise<T>): Promise<T> {
+  const task = fetchChain.then(async () => {
+    const elapsed = Date.now() - lastFetchFinishedAt;
+    if (elapsed < INTER_CALL_DELAY_MS) {
+      await sleep(INTER_CALL_DELAY_MS - elapsed);
+    }
+    try {
+      return await work();
+    } finally {
+      lastFetchFinishedAt = Date.now();
+    }
+  });
+  fetchChain = task.then(
+    () => undefined,
+    () => undefined,
+  );
+  return task;
+}
+
+type FetchOutcome =
+  | { kind: "ok"; data: unknown }
+  | { kind: "rate_limited" }
+  | { kind: "error"; status?: number };
+
+async function fmpFetchOnce(endpoint: string, query: Record<string, string>): Promise<FetchOutcome> {
+  const url = buildFmpUrl(endpoint, query);
+  if (!url) return { kind: "error" };
   try {
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
+    if (res.status === 429) return { kind: "rate_limited" };
     if (!res.ok) {
+      const key = readFmpApiKey();
       const hint =
         res.status === 402
-          ? ` (payment required — key configured=${Boolean(key)}, len=${key.length}; verify FMP_API_KEY in .env.local)`
+          ? ` (payment required — key configured=${Boolean(key)}, len=${key?.length ?? 0})`
           : "";
       console.warn(`[FMP] HTTP ${res.status} ${pathForLog(endpoint)}${hint}`);
-      return null;
+      return { kind: "error", status: res.status };
     }
-    return await res.json();
+    return { kind: "ok", data: await res.json() };
   } catch (err) {
     console.warn("[FMP]", pathForLog(endpoint), err instanceof Error ? err.message : err);
+    return { kind: "error" };
+  }
+}
+
+async function fmpFetchJson(endpoint: string, query: Record<string, string>): Promise<unknown | null> {
+  const key = readFmpApiKey();
+  if (!key) {
+    console.warn("[FMP] FMP_API_KEY missing at runtime — set in .env.local and restart Next.js");
     return null;
   }
+
+  return runSerialized(async () => {
+    const first = await fmpFetchOnce(endpoint, query);
+    if (first.kind === "ok") return first.data;
+    if (first.kind === "rate_limited") {
+      console.warn("[FMP] Rate limit hit → esperando 2s y reintentando una vez");
+      await sleep(RATE_LIMIT_RETRY_MS);
+      const second = await fmpFetchOnce(endpoint, query);
+      if (second.kind === "ok") return second.data;
+      console.warn("[FMP] Rate limit hit → usando caché/esperando (retry falló)");
+      return null;
+    }
+    return null;
+  });
 }
 
 function parseRangeYearBounds(range: unknown): { yearHigh?: number; yearLow?: number } {
@@ -246,6 +298,22 @@ function remapQuoteSymbol(quote: FmpQuote, requested: string): FmpQuote {
   return { ...quote, symbol: requested };
 }
 
+function toFmpProfileSymbol(requested: string): string {
+  const crypto = normalizeIbkrCryptoTicker(requested);
+  if (crypto) return fmpCryptoSymbol(crypto) ?? requested;
+  return normalizeFmpEquitySymbol(requested);
+}
+
+function cacheQuote(requested: string, quote: FmpQuote): void {
+  setCached(cacheKey("fmp-quote", requested), quote, QUOTE_TTL_MS);
+  setCached(cacheKey("fmp-quote", quote.symbol), quote, QUOTE_TTL_MS);
+}
+
+function staleQuote(requested: string): FmpQuote | null {
+  const peek = peekCached<FmpQuote>(cacheKey("fmp-quote", requested));
+  return peek?.value ?? null;
+}
+
 async function fetchCoinGeckoQuote(requested: string): Promise<FmpQuote | null> {
   const id = coingeckoId(requested);
   const canon = normalizeIbkrCryptoTicker(requested);
@@ -265,7 +333,10 @@ async function fetchCoinGeckoQuote(requested: string): Promise<FmpQuote | null> 
       console.warn(`[FMP] CoinGecko HTTP ${res.status}`);
       return null;
     }
-    const body = (await res.json()) as Record<string, { usd?: number; usd_24h_change?: number; usd_24h_vol?: number }>;
+    const body = (await res.json()) as Record<
+      string,
+      { usd?: number; usd_24h_change?: number; usd_24h_vol?: number }
+    >;
     const row = body[id];
     const price = asFinite(row?.usd);
     if (price == null || price <= 0) return null;
@@ -299,25 +370,34 @@ export async function getQuote(ticker: string): Promise<FmpQuote | null> {
 
   let quote: FmpQuote | null = null;
   if (isFmpEnabled()) {
-    const fmpSymbol = crypto
-      ? fmpCryptoSymbol(crypto) ?? requested
-      : normalizeFmpEquitySymbol(requested);
+    const fmpSymbol = toFmpProfileSymbol(requested);
     const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol: fmpSymbol });
-    const row = quoteRows(body)[0];
-    const parsed = row ? parseQuote(row) : null;
-    if (parsed) quote = remapQuoteSymbol(parsed, requested);
+    if (body == null) {
+      const stale = staleQuote(requested);
+      if (stale) {
+        console.warn(`[FMP] Rate limit hit → usando caché para ${requested}`);
+        return stale;
+      }
+    } else {
+      const row = quoteRows(body)[0];
+      const parsed = row ? parseQuote(row) : null;
+      if (parsed) quote = remapQuoteSymbol(parsed, requested);
+    }
   }
 
   if (!quote && crypto) {
     quote = await fetchCoinGeckoQuote(requested);
   }
 
-  if (!quote) return null;
-  setCached(key, quote, QUOTE_TTL_MS);
-  setCached(cacheKey("fmp-quote", quote.symbol), quote, QUOTE_TTL_MS);
+  if (!quote) return staleQuote(requested);
+  cacheQuote(requested, quote);
   return quote;
 }
 
+/**
+ * Batch profile quotes — up to 50 symbols per request.
+ * Fresh cache (<5 min) is used first; only misses hit FMP.
+ */
 export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<string, FmpQuote>> {
   const out = new Map<string, FmpQuote>();
   if (tickers.length === 0) return out;
@@ -328,20 +408,63 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
     const requested = normalizeIbkrCryptoTicker(symbol) ?? symbol;
     const hit = getCached<FmpQuote>(cacheKey("fmp-quote", requested));
     if (hit) out.set(requested, hit);
-    else missing.push(symbol);
+    else missing.push(requested);
   }
   if (missing.length === 0) return out;
 
-  for (let i = 0; i < missing.length; i += BATCH_CONCURRENCY) {
-    if (i > 0) {
-      await new Promise((r) => setTimeout(r, BATCH_CHUNK_DELAY_MS));
+  if (!isFmpEnabled()) {
+    for (const requested of missing) {
+      const crypto = normalizeIbkrCryptoTicker(requested);
+      if (!crypto) continue;
+      const q = await fetchCoinGeckoQuote(requested);
+      if (q) {
+        cacheQuote(requested, q);
+        out.set(requested, q);
+      }
     }
-    const chunk = missing.slice(i, i + BATCH_CONCURRENCY);
-    const quotes = await Promise.all(chunk.map((symbol) => getQuote(symbol)));
+    return out;
+  }
+
+  for (let i = 0; i < missing.length; i += BATCH_SYMBOL_LIMIT) {
+    const chunk = missing.slice(i, i + BATCH_SYMBOL_LIMIT);
+    const fmpSymbols = chunk.map((s) => toFmpProfileSymbol(s));
+    const joined = [...new Set(fmpSymbols)].join(",");
+    const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol: joined });
+
+    if (body == null) {
+      console.warn("[FMP] Rate limit hit → usando caché/esperando (batch)");
+      for (const requested of chunk) {
+        const stale = staleQuote(requested);
+        if (stale) out.set(requested, stale);
+        else if (normalizeIbkrCryptoTicker(requested)) {
+          const cg = await fetchCoinGeckoQuote(requested);
+          if (cg) {
+            cacheQuote(requested, cg);
+            out.set(requested, cg);
+          }
+        }
+      }
+      continue;
+    }
+
+    const byFmp = new Map<string, FmpQuote>();
+    for (const row of quoteRows(body)) {
+      const parsed = parseQuote(row);
+      if (!parsed) continue;
+      byFmp.set(parsed.symbol.toUpperCase(), parsed);
+    }
+
     for (let j = 0; j < chunk.length; j += 1) {
-      const quote = quotes[j];
-      if (!quote) continue;
-      const requested = normalizeIbkrCryptoTicker(chunk[j]!) ?? chunk[j]!.toUpperCase();
+      const requested = chunk[j]!;
+      const fmpSym = fmpSymbols[j]!.toUpperCase();
+      const parsed = byFmp.get(fmpSym) ?? byFmp.get(requested);
+      if (!parsed) {
+        const stale = staleQuote(requested);
+        if (stale) out.set(requested, stale);
+        continue;
+      }
+      const quote = remapQuoteSymbol(parsed, requested);
+      cacheQuote(requested, quote);
       out.set(requested, quote);
     }
   }
@@ -360,18 +483,27 @@ export async function getHistory(ticker: string, days: number): Promise<FmpBar[]
 
   let bars: FmpBar[] = [];
   if (isFmpEnabled()) {
-    // Starter plan: prefer /light (no 402); fall back to /full if available
     const lightBody = await fmpFetchJson(HISTORY_LIGHT_ENDPOINT, { symbol: fmpSymbol });
-    bars = extractHistoricalRows(lightBody)
-      .map(parseBar)
-      .filter((row): row is FmpBar => row != null);
+    if (lightBody == null) {
+      const stale = peekCached<FmpBar[]>(cacheId);
+      if (stale?.value?.length) {
+        console.warn(`[FMP] Rate limit hit → usando caché histórico para ${symbol}`);
+        return stale.value;
+      }
+    } else {
+      bars = extractHistoricalRows(lightBody)
+        .map(parseBar)
+        .filter((row): row is FmpBar => row != null);
+    }
 
     if (bars.length < 20) {
       const fullBody = await fmpFetchJson(HISTORY_FULL_ENDPOINT, { symbol: fmpSymbol });
-      const fullRows = extractHistoricalRows(fullBody)
-        .map(parseBar)
-        .filter((row): row is FmpBar => row != null);
-      if (fullRows.length > bars.length) bars = fullRows;
+      if (fullBody != null) {
+        const fullRows = extractHistoricalRows(fullBody)
+          .map(parseBar)
+          .filter((row): row is FmpBar => row != null);
+        if (fullRows.length > bars.length) bars = fullRows;
+      }
     }
 
     bars = bars.sort((a, b) => a.date.localeCompare(b.date)).slice(-safeDays);

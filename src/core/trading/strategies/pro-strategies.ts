@@ -5,9 +5,12 @@
 
 import "server-only";
 
-import { fetchCompanyNewsContext, fetchNewsSentiment } from "@/lib/market-data/finnhub-pro";
+import {
+  fetchCompanyNewsContext,
+  fetchNewsSentiment,
+  fetchMarketIndicators,
+} from "@/lib/market-data/finnhub-pro";
 import { getHistory, getQuote, type FmpBar } from "@/lib/market-data/fmp";
-import { getBatchPrices } from "@/lib/market-data/yahoo-finance";
 import { recognizePatterns } from "@/lib/market-data/pattern-recognition";
 import type { OhlcvBar } from "@/lib/market-data/types";
 import {
@@ -383,11 +386,11 @@ export async function evaluateProStrategies(
   const [newsCtx, sentiment, marketQuotes] = await Promise.all([
     fetchCompanyNewsContext(symbol),
     fetchNewsSentiment(symbol),
-    getBatchPrices(["SPY", "^VIX"]).catch(() => new Map()),
+    fetchMarketIndicators(["SPY", "VIX", "^VIX"]),
   ]);
 
   const spy = marketQuotes.get("SPY");
-  const vix = marketQuotes.get("^VIX");
+  const vix = marketQuotes.get("VIX") ?? marketQuotes.get("^VIX");
   const spyChange = spy?.changePct ?? 0;
   const vixLevel = vix?.price ?? 0;
   const defensiveMarket = spyChange <= -1.5;

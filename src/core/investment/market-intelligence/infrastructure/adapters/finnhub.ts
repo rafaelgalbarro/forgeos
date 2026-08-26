@@ -7,7 +7,6 @@ import type {
 } from "../../domain";
 import {
   createDefaultJsonFetcher,
-  mapVendorAssetClass,
   requireApiKey,
   type JsonFetcher,
 } from "./http-shared";
@@ -21,99 +20,54 @@ function asNumber(value: unknown): number | null {
 }
 
 /**
- * Official Finnhub quote + candle + profile when FINNHUB_API_KEY is set.
- * Returns [] when key missing or HTTP fails — never invents quotes.
+ * Market snapshots via FMP profile + EOD light (Finnhub /stock/candle unavailable on free tier).
+ * Returns [] when FMP not configured — never invents quotes.
  */
 export function createFinnhubMarketFetcher(options?: {
   readonly apiKey?: string;
   readonly env?: Env;
   readonly jsonFetcher?: JsonFetcher;
 }): (request: MarketIntelligenceRequest) => Promise<readonly MarketSnapshot[]> {
-  const env = options?.env ?? process.env;
-  const jsonFetcher = options?.jsonFetcher ?? createDefaultJsonFetcher();
+  void options;
 
   return async (request) => {
-    let apiKey: string;
-    try {
-      apiKey = requireApiKey(options?.apiKey ?? env.FINNHUB_API_KEY, "finnhub");
-    } catch {
-      return [];
-    }
+    const { getQuote, getHistory, isFmpEnabled } = await import("@/lib/market-data/fmp");
+    if (!isFmpEnabled()) return [];
 
     const snapshots: MarketSnapshot[] = [];
     const capturedAt = new Date().toISOString();
-    const to = Math.floor(Date.now() / 1000);
-    const from = to - 30 * 24 * 60 * 60;
 
     for (const symbol of request.symbols.slice(0, 8)) {
       try {
-        const quoteUrl =
-          `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}` +
-          `&token=${encodeURIComponent(apiKey)}`;
-        const quote = (await jsonFetcher(quoteUrl)) as { c?: number; t?: number };
-        const price = asNumber(quote.c);
+        const quote = await getQuote(symbol);
+        const price = quote?.price ?? null;
         if (price == null || price <= 0) continue;
 
-        const candleUrl =
-          `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}` +
-          `&resolution=D&from=${from}&to=${to}&token=${encodeURIComponent(apiKey)}`;
-        const candle = (await jsonFetcher(candleUrl)) as {
-          s?: string;
-          t?: number[];
-          o?: number[];
-          h?: number[];
-          l?: number[];
-          c?: number[];
-          v?: number[];
-        };
-
-        const points: TimeSeriesPoint[] = [];
-        if (candle.s === "ok" && Array.isArray(candle.c) && Array.isArray(candle.t)) {
-          const n = candle.c.length;
-          for (let i = 0; i < n; i += 1) {
-            const open = asNumber(candle.o?.[i]);
-            const high = asNumber(candle.h?.[i]);
-            const low = asNumber(candle.l?.[i]);
-            const close = asNumber(candle.c[i]);
-            const volume = asNumber(candle.v?.[i]);
-            if (open == null || high == null || low == null || close == null) continue;
-            points.push({
-              timestamp: new Date((candle.t[i] ?? 0) * 1000).toISOString(),
-              open,
-              high,
-              low,
-              close,
-              volume: volume ?? undefined,
-            });
-          }
-        }
-
-        let assetClass: string | undefined;
-        try {
-          const profileUrl =
-            `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}` +
-            `&token=${encodeURIComponent(apiKey)}`;
-          const profile = (await jsonFetcher(profileUrl)) as { type?: string; finnhubIndustry?: string };
-          assetClass = mapVendorAssetClass(profile.type) ?? mapVendorAssetClass(profile.finnhubIndustry);
-        } catch {
-          assetClass = undefined;
-        }
+        const hist = await getHistory(symbol, 30);
+        const points: TimeSeriesPoint[] = hist.slice(-30).map((bar) => ({
+          timestamp: `${bar.date}T00:00:00.000Z`,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume,
+        }));
 
         snapshots.push({
           symbol,
-          providerId: "finnhub",
+          providerId: "fmp",
           capturedAt,
-          assetClass,
+          assetClass: undefined,
           quote: {
             symbol,
             price,
             currency: "USD",
-            timestamp: quote.t ? new Date(quote.t * 1000).toISOString() : capturedAt,
-            providerId: "finnhub",
+            timestamp: capturedAt,
+            providerId: "fmp",
           },
           timeSeries:
             points.length > 0
-              ? { symbol, interval: "1d", points, providerId: "finnhub" }
+              ? { symbol, interval: "1d", points, providerId: "fmp" }
               : undefined,
         });
       } catch {

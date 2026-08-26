@@ -1,10 +1,12 @@
 /**
- * Finnhub news + sentiment for pro-strategies (FINNHUB_API_KEY required).
+ * Finnhub news + sentiment + FMP market indicators for pro-strategies.
+ * Finnhub free tier: /news, /company-news, /news-sentiment only (no /stock/candle).
  */
 
 import "server-only";
 
 import { cacheKey, getOrSetCached } from "@/lib/market-data/cache";
+import { getBatchQuotes, normalizeFmpEquitySymbol, type FmpQuote } from "@/lib/market-data/fmp";
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 const NEWS_TTL_MS = 5 * 60_000;
@@ -143,6 +145,45 @@ export async function fetchNewsSentiment(symbol: string): Promise<FinnhubProSent
       bearishPercent: typeof bear === "number" ? bear : null,
     };
   });
+}
+
+export type MarketIndicatorSnapshot = {
+  symbol: string;
+  price: number;
+  changePct: number;
+};
+
+/**
+ * SPY, VIX, sector ETFs — FMP /stable/profile (never Finnhub candles).
+ * Partial results on failure; never throws.
+ */
+export async function fetchMarketIndicators(
+  symbols: readonly string[],
+): Promise<Map<string, MarketIndicatorSnapshot>> {
+  const out = new Map<string, MarketIndicatorSnapshot>();
+  const unique = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
+  if (unique.length === 0) return out;
+
+  try {
+    const quotes = await getBatchQuotes(unique.map((s) => normalizeFmpEquitySymbol(s)));
+    for (const requested of unique) {
+      const fmpSym = normalizeFmpEquitySymbol(requested);
+      const q: FmpQuote | undefined =
+        quotes.get(fmpSym) ?? quotes.get(requested) ?? quotes.get(`^${fmpSym}`);
+      if (!q || !(q.price > 0)) continue;
+      out.set(requested, {
+        symbol: requested,
+        price: q.price,
+        changePct: Number.isFinite(q.changePercentage) ? q.changePercentage : 0,
+      });
+    }
+  } catch (err) {
+    console.warn(
+      "[MarketIndicators] FMP profile skip:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+  return out;
 }
 
 const CATALYST_WORDS = [

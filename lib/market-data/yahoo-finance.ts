@@ -2,7 +2,7 @@
  * Yahoo Finance compatibility layer — all live prices/history delegate to fmp.ts.
  * Quotes: fmp.getQuote → GET /stable/profile
  * Batch: fmp.getBatchQuotes → parallel profile calls (Starter plan)
- * History: fmp.getHistory → GET /stable/historical-price-eod/full
+ * History: fmp.getHistory → GET /stable/historical-price-eod/light
  */
 import "server-only";
 

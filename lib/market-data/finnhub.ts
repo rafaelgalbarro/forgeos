@@ -1,6 +1,6 @@
 /**
- * Finnhub market data — sole price/history source when FINNHUB_API_KEY is set.
- * Rate limit: 30 calls/min, 1s between calls, batch pauses. Cache: 2 min quotes (open market).
+ * Finnhub — free-tier endpoints only (news/sentiment live in finnhub-pro.ts).
+ * Quotes/forex quotes retained for legacy callers; EOD history delegates to FMP (no /stock/candle).
  */
 
 import "server-only";
@@ -236,37 +236,27 @@ export async function getQuote(ticker: string): Promise<FinnhubQuote | null> {
   });
 }
 
-/** Last N daily candles from /stock/candle (30-day window). */
-export async function getCandles(ticker: string, _days: number): Promise<FinnhubOhlcvBar[]> {
-  const symbol = toFinnhubStockSymbol(ticker);
-  if (!symbol || !isFinnhubEnabled()) return [];
-
-  const cacheId = cacheKey("finnhub-candles", symbol, "30", "D");
-  return getOrSetCached(cacheId, CANDLES_TTL_MS, async () => {
-    const to = Math.floor(Date.now() / 1000);
-    const from = to - 30 * 24 * 3600;
-    const data = await finnhubFetch<FinnhubCandleSet>(
-      `/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=D&from=${from}&to=${to}`,
-    );
-    return mapCandles(data);
-  });
+/** Last N daily candles — FMP EOD light (Finnhub /stock/candle not on free plan). */
+export async function getCandles(ticker: string, days: number): Promise<FinnhubOhlcvBar[]> {
+  return fmpDailyBarsAsFinnhub(ticker, days);
 }
 
-/** FOREX daily candles from /forex/candle (OANDA:EUR_USD). */
+/** FOREX daily candles — FMP forex history (no Finnhub /forex/candle). */
 export async function getForexCandles(pair: string, days: number): Promise<FinnhubOhlcvBar[]> {
-  const symbol = toFinnhubForexSymbol(pair);
-  if (!symbol || !isFinnhubEnabled()) return [];
-
-  const safeDays = Math.max(1, Math.min(Math.floor(days), 365 * 5));
-  const cacheId = cacheKey("finnhub-fx-candles", symbol, String(safeDays), "D");
-  return getOrSetCached(cacheId, CANDLES_TTL_MS, async () => {
-    const to = Math.floor(Date.now() / 1000);
-    const from = to - safeDays * 86_400;
-    const data = await finnhubFetch<FinnhubCandleSet>(
-      `/forex/candle?symbol=${encodeURIComponent(symbol)}&resolution=D&from=${from}&to=${to}`,
-    );
-    return mapCandles(data);
-  });
+  try {
+    const { getForexHistory } = await import("@/lib/market-data/fmp");
+    const bars = await getForexHistory(pair, days);
+    return bars.map((b) => ({
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+      date: b.date,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export type FinnhubForexQuote = {
@@ -307,24 +297,35 @@ export async function getForexQuote(pairId: string): Promise<FinnhubForexQuote |
 
 export type FinnhubChartInterval = "1" | "5" | "15" | "60" | "D" | "W";
 
-/** OHLCV with arbitrary Finnhub resolution (stocks or forex). */
+async function fmpDailyBarsAsFinnhub(ticker: string, days: number): Promise<FinnhubOhlcvBar[]> {
+  try {
+    const { getHistory } = await import("@/lib/market-data/fmp");
+    const bars = await getHistory(ticker, days);
+    return bars.map((b) => ({
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+      date: b.date,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** OHLCV daily via FMP EOD; intraday resolutions not available (Finnhub candle 403 on free tier). */
 export async function getCandlesWithResolution(
   ticker: string,
   resolution: FinnhubChartInterval,
-  fromUnix: number,
-  toUnix: number,
+  _fromUnix: number,
+  _toUnix: number,
   forex = false,
 ): Promise<FinnhubOhlcvBar[]> {
-  if (!isFinnhubEnabled()) return [];
-  const symbol = forex ? toFinnhubForexSymbol(ticker) : toFinnhubStockSymbol(ticker);
-  const cacheId = cacheKey("finnhub-bars", symbol, resolution, String(fromUnix), String(toUnix));
-  return getOrSetCached(cacheId, CANDLES_TTL_MS, async () => {
-    const endpoint = forex ? "forex/candle" : "stock/candle";
-    const data = await finnhubFetch<FinnhubCandleSet>(
-      `/${endpoint}?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&from=${fromUnix}&to=${toUnix}`,
-    );
-    return mapCandles(data);
-  });
+  if (resolution !== "D" && resolution !== "W") return [];
+  const days = resolution === "W" ? 400 : 90;
+  if (forex) return getForexCandles(ticker, days);
+  return fmpDailyBarsAsFinnhub(ticker, days);
 }
 
 export function yahooIntervalToFinnhub(

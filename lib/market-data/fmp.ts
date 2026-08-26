@@ -1,7 +1,7 @@
 /**
  * Financial Modeling Prep — sole quotes + EOD history source (stable API, Starter plan).
  * Quotes: GET /stable/profile?symbol=  → [{ symbol, price, ... }]
- * History: GET /stable/historical-price-eod/full?symbol=  → [{ date, open, high, low, close, volume }]
+ * History: GET /stable/historical-price-eod/light?symbol=  → [{ date, price, volume }]
  * Batch quotes: individual profile calls (profile batch unsupported on Starter).
  * Never invents prices. Never logs the API key.
  */
@@ -18,7 +18,8 @@ import {
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const PROFILE_ENDPOINT = "/profile";
-const HISTORY_ENDPOINT = "/historical-price-eod/full";
+const HISTORY_LIGHT_ENDPOINT = "/historical-price-eod/light";
+const HISTORY_FULL_ENDPOINT = "/historical-price-eod/full";
 const QUOTE_TTL_MS = 120_000;
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
 /** Starter plan: keep profile concurrency low to avoid HTTP 429. */
@@ -207,11 +208,23 @@ function parseBar(row: Record<string, unknown>): FmpBar | null {
   const open = asFinite(row.open);
   const high = asFinite(row.high);
   const low = asFinite(row.low);
-  const close = asFinite(row.close);
+  const close = asFinite(row.close) ?? asFinite(row.price);
   const volume = asFinite(row.volume) ?? 0;
-  if (!dateRaw || open == null || high == null || low == null || close == null) return null;
+  if (!dateRaw || close == null) return null;
   const date = dateRaw.includes("T") ? dateRaw.slice(0, 10) : dateRaw;
-  return { date, open, high, low, close, volume };
+  const o = open ?? close;
+  const h = high ?? close;
+  const l = low ?? close;
+  return { date, open: o, high: h, low: l, close, volume };
+}
+
+/** ^VIX → VIX for FMP stable profile/history. */
+export function normalizeFmpEquitySymbol(ticker: string): string {
+  const raw = ticker.trim().toUpperCase();
+  if (!raw) return raw;
+  if (raw.startsWith("^")) return raw.slice(1);
+  const dot = raw.indexOf(".");
+  return dot > 0 ? raw.slice(0, dot) : raw;
 }
 
 function extractHistoricalRows(body: unknown): Record<string, unknown>[] {
@@ -286,7 +299,9 @@ export async function getQuote(ticker: string): Promise<FmpQuote | null> {
 
   let quote: FmpQuote | null = null;
   if (isFmpEnabled()) {
-    const fmpSymbol = crypto ? fmpCryptoSymbol(crypto) ?? requested : requested;
+    const fmpSymbol = crypto
+      ? fmpCryptoSymbol(crypto) ?? requested
+      : normalizeFmpEquitySymbol(requested);
     const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol: fmpSymbol });
     const row = quoteRows(body)[0];
     const parsed = row ? parseQuote(row) : null;
@@ -338,50 +353,28 @@ export async function getHistory(ticker: string, days: number): Promise<FmpBar[]
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return [];
   const safeDays = Math.max(50, Math.min(Math.floor(days), 400));
+  const fmpSymbol = normalizeFmpEquitySymbol(symbol);
   const cacheId = cacheKey("fmp-history", symbol, String(safeDays));
   const hit = getCached<FmpBar[]>(cacheId);
   if (hit) return hit;
 
   let bars: FmpBar[] = [];
   if (isFmpEnabled()) {
-    const body = await fmpFetchJson(HISTORY_ENDPOINT, { symbol });
-    const rows = extractHistoricalRows(body)
+    // Starter plan: prefer /light (no 402); fall back to /full if available
+    const lightBody = await fmpFetchJson(HISTORY_LIGHT_ENDPOINT, { symbol: fmpSymbol });
+    bars = extractHistoricalRows(lightBody)
       .map(parseBar)
       .filter((row): row is FmpBar => row != null);
-    bars = rows.sort((a, b) => a.date.localeCompare(b.date)).slice(-safeDays);
-  }
 
-  if (bars.length < 50) {
-    try {
-      const { getCandlesWithResolution, isFinnhubEnabled } = await import("@/lib/market-data/finnhub");
-      if (isFinnhubEnabled()) {
-        const to = Math.floor(Date.now() / 1000);
-        const from = to - safeDays * 86_400;
-        const finnhubBars = await getCandlesWithResolution(symbol, "D", from, to);
-        if (finnhubBars.length > bars.length) {
-          bars = finnhubBars
-            .map((b, i) => ({
-              date:
-                b.date ??
-                new Date(Date.now() - (finnhubBars.length - 1 - i) * 86_400_000)
-                  .toISOString()
-                  .slice(0, 10),
-              open: b.open,
-              high: b.high,
-              low: b.low,
-              close: b.close,
-              volume: b.volume,
-            }))
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(-safeDays);
-        }
-      }
-    } catch (err) {
-      console.warn(
-        "[FMP] Finnhub history fallback failed:",
-        err instanceof Error ? err.message : err,
-      );
+    if (bars.length < 20) {
+      const fullBody = await fmpFetchJson(HISTORY_FULL_ENDPOINT, { symbol: fmpSymbol });
+      const fullRows = extractHistoricalRows(fullBody)
+        .map(parseBar)
+        .filter((row): row is FmpBar => row != null);
+      if (fullRows.length > bars.length) bars = fullRows;
     }
+
+    bars = bars.sort((a, b) => a.date.localeCompare(b.date)).slice(-safeDays);
   }
 
   if (bars.length > 0) setCached(cacheId, bars, HISTORY_TTL_MS);

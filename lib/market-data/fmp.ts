@@ -1,8 +1,9 @@
 /**
  * Financial Modeling Prep — sole quotes + EOD history source (stable API, Starter plan).
- * Quotes: GET /stable/profile?symbol=AAPL,MSFT (batch ≤50) → [{ symbol, price, ... }]
+ * Quotes: GET /stable/quote?symbol=AAPL,MSFT (batch ≤50) → [{ symbol, price, ... }]
  * History: GET /stable/historical-price-eod/light?symbol=  → [{ date, price, volume }]
- * Rate limit: 5m quote cache, 24h history cache, 200ms between calls, 429 → wait 2s + retry once.
+ * Rate limit: 10m quote cache, 24h history cache, 30s startup gate, max 3 parallel,
+ * max 5 req/s, batch-only quotes (never individual), 429 → wait 60s + retry once.
  * Never invents prices. Never logs the API key.
  */
 
@@ -17,17 +18,20 @@ import {
 } from "@/src/core/trading/crypto-ibkr";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
-const PROFILE_ENDPOINT = "/profile";
+const QUOTE_ENDPOINT = "/quote";
 const HISTORY_LIGHT_ENDPOINT = "/historical-price-eod/light";
 const HISTORY_FULL_ENDPOINT = "/historical-price-eod/full";
-/** Profile quotes — 5 minutes (cycle-friendly, stays under 300 req/min). */
-const QUOTE_TTL_MS = 5 * 60_000;
+/** Quote prices — 10 minutes (reduces burst load on cycle start). */
+const QUOTE_TTL_MS = 10 * 60_000;
 /** EOD history — 24 hours (daily bars do not change intraday). */
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
 const BATCH_SYMBOL_LIMIT = 50;
-const INTER_CALL_DELAY_MS = 200;
-const RATE_LIMIT_RETRY_MS = 2_000;
+const STARTUP_DELAY_MS = 30_000;
+const MAX_PARALLEL_REQUESTS = 3;
+const MAX_REQUESTS_PER_SECOND = 5;
+const RATE_LIMIT_RETRY_MS = 60_000;
 const FETCH_TIMEOUT_MS = 20_000;
+const PROCESS_START_MS = Date.now();
 
 export type FmpQuote = {
   symbol: string;
@@ -55,6 +59,80 @@ export type FmpBar = {
   close: number;
   volume: number;
 };
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+type QueueTask<T> = {
+  work: () => Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason: unknown) => void;
+};
+
+/** Bounded queue: max 3 in flight, max 5 request starts per second, 30s startup gate. */
+class FmpRequestScheduler {
+  private inFlight = 0;
+  private readonly pending: QueueTask<unknown>[] = [];
+  private readonly recentStarts: number[] = [];
+  private startupGatePassed = false;
+
+  private async waitStartupGate(): Promise<void> {
+    if (this.startupGatePassed) return;
+    const elapsed = Date.now() - PROCESS_START_MS;
+    if (elapsed < STARTUP_DELAY_MS) {
+      await sleep(STARTUP_DELAY_MS - elapsed);
+    }
+    this.startupGatePassed = true;
+  }
+
+  private async waitRateSlot(): Promise<void> {
+    for (;;) {
+      const now = Date.now();
+      while (this.recentStarts.length > 0 && now - this.recentStarts[0]! >= 1000) {
+        this.recentStarts.shift();
+      }
+      if (this.recentStarts.length < MAX_REQUESTS_PER_SECOND) {
+        this.recentStarts.push(now);
+        return;
+      }
+      await sleep(50);
+    }
+  }
+
+  private drain(): void {
+    while (this.inFlight < MAX_PARALLEL_REQUESTS && this.pending.length > 0) {
+      const item = this.pending.shift()!;
+      this.inFlight += 1;
+      void (async () => {
+        try {
+          await this.waitStartupGate();
+          await this.waitRateSlot();
+          const result = await item.work();
+          item.resolve(result);
+        } catch (err) {
+          item.reject(err);
+        } finally {
+          this.inFlight -= 1;
+          this.drain();
+        }
+      })();
+    }
+  }
+
+  enqueue<T>(work: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.pending.push({
+        work,
+        resolve: resolve as (value: unknown) => void,
+        reject,
+      });
+      this.drain();
+    });
+  }
+}
+
+const fmpScheduler = new FmpRequestScheduler();
 
 /** Read at call time — bracket access avoids Next.js build-time env inlining. */
 function readFmpApiKey(): string | null {
@@ -95,10 +173,6 @@ function pathForLog(endpoint: string): string {
   return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 /**
  * Build stable FMP URL with apikey as query param (never Authorization header).
  */
@@ -116,29 +190,6 @@ function buildFmpUrl(
   }
   url.searchParams.set("apikey", key);
   return url.toString();
-}
-
-/** Serialize FMP HTTP + enforce ≥200ms between calls. */
-let fetchChain: Promise<unknown> = Promise.resolve();
-let lastFetchFinishedAt = 0;
-
-async function runSerialized<T>(work: () => Promise<T>): Promise<T> {
-  const task = fetchChain.then(async () => {
-    const elapsed = Date.now() - lastFetchFinishedAt;
-    if (elapsed < INTER_CALL_DELAY_MS) {
-      await sleep(INTER_CALL_DELAY_MS - elapsed);
-    }
-    try {
-      return await work();
-    } finally {
-      lastFetchFinishedAt = Date.now();
-    }
-  });
-  fetchChain = task.then(
-    () => undefined,
-    () => undefined,
-  );
-  return task;
 }
 
 type FetchOutcome =
@@ -179,11 +230,11 @@ async function fmpFetchJson(endpoint: string, query: Record<string, string>): Pr
     return null;
   }
 
-  return runSerialized(async () => {
+  return fmpScheduler.enqueue(async () => {
     const first = await fmpFetchOnce(endpoint, query);
     if (first.kind === "ok") return first.data;
     if (first.kind === "rate_limited") {
-      console.warn("[FMP] Rate limit hit → esperando 2s y reintentando una vez");
+      console.warn("[FMP] Rate limit hit → esperando 60s y reintentando una vez");
       await sleep(RATE_LIMIT_RETRY_MS);
       const second = await fmpFetchOnce(endpoint, query);
       if (second.kind === "ok") return second.data;
@@ -270,7 +321,7 @@ function parseBar(row: Record<string, unknown>): FmpBar | null {
   return { date, open: o, high: h, low: l, close, volume };
 }
 
-/** ^VIX → VIX for FMP stable profile/history. */
+/** ^VIX → VIX for FMP stable quote/history. */
 export function normalizeFmpEquitySymbol(ticker: string): string {
   const raw = ticker.trim().toUpperCase();
   if (!raw) return raw;
@@ -298,7 +349,7 @@ function remapQuoteSymbol(quote: FmpQuote, requested: string): FmpQuote {
   return { ...quote, symbol: requested };
 }
 
-function toFmpProfileSymbol(requested: string): string {
+function toFmpQuoteSymbol(requested: string): string {
   const crypto = normalizeIbkrCryptoTicker(requested);
   if (crypto) return fmpCryptoSymbol(crypto) ?? requested;
   return normalizeFmpEquitySymbol(requested);
@@ -359,6 +410,9 @@ async function fetchCoinGeckoQuote(requested: string): Promise<FmpQuote | null> 
   }
 }
 
+/**
+ * Single-symbol quote — always routes through batch /stable/quote (never individual profile).
+ */
 export async function getQuote(ticker: string): Promise<FmpQuote | null> {
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
@@ -368,35 +422,26 @@ export async function getQuote(ticker: string): Promise<FmpQuote | null> {
   const hit = getCached<FmpQuote>(key);
   if (hit) return hit;
 
-  let quote: FmpQuote | null = null;
   if (isFmpEnabled()) {
-    const fmpSymbol = toFmpProfileSymbol(requested);
-    const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol: fmpSymbol });
-    if (body == null) {
-      const stale = staleQuote(requested);
-      if (stale) {
-        console.warn(`[FMP] Rate limit hit → usando caché para ${requested}`);
-        return stale;
-      }
-    } else {
-      const row = quoteRows(body)[0];
-      const parsed = row ? parseQuote(row) : null;
-      if (parsed) quote = remapQuoteSymbol(parsed, requested);
+    const batch = await getBatchQuotes([requested]);
+    const fromBatch = batch.get(requested);
+    if (fromBatch) return fromBatch;
+  }
+
+  if (crypto) {
+    const cg = await fetchCoinGeckoQuote(requested);
+    if (cg) {
+      cacheQuote(requested, cg);
+      return cg;
     }
   }
 
-  if (!quote && crypto) {
-    quote = await fetchCoinGeckoQuote(requested);
-  }
-
-  if (!quote) return staleQuote(requested);
-  cacheQuote(requested, quote);
-  return quote;
+  return staleQuote(requested);
 }
 
 /**
- * Batch profile quotes — up to 50 symbols per request.
- * Fresh cache (<5 min) is used first; only misses hit FMP.
+ * Batch quotes — up to 50 symbols per /stable/quote request (mandatory batch path).
+ * Fresh cache (<10 min) is used first; only misses hit FMP.
  */
 export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<string, FmpQuote>> {
   const out = new Map<string, FmpQuote>();
@@ -427,9 +472,9 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
 
   for (let i = 0; i < missing.length; i += BATCH_SYMBOL_LIMIT) {
     const chunk = missing.slice(i, i + BATCH_SYMBOL_LIMIT);
-    const fmpSymbols = chunk.map((s) => toFmpProfileSymbol(s));
+    const fmpSymbols = chunk.map((s) => toFmpQuoteSymbol(s));
     const joined = [...new Set(fmpSymbols)].join(",");
-    const body = await fmpFetchJson(PROFILE_ENDPOINT, { symbol: joined });
+    const body = await fmpFetchJson(QUOTE_ENDPOINT, { symbol: joined });
 
     if (body == null) {
       console.warn("[FMP] Rate limit hit → usando caché/esperando (batch)");

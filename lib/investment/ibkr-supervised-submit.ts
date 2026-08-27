@@ -40,9 +40,28 @@ export type SupervisedSubmitResult = {
   readonly status: string;
 };
 
-function isDisconnectError(err: unknown): boolean {
+/** Soft skip — reqContractDetails / IBKR timed out; do not count as cycle failure. */
+export class IbkrSubmitTimeoutError extends Error {
+  readonly symbol: string;
+  readonly softSkip = true as const;
+
+  constructor(symbol: string, detail?: string) {
+    super(detail?.trim() || `IBKR timeout ${symbol}`);
+    this.name = "IbkrSubmitTimeoutError";
+    this.symbol = symbol;
+  }
+}
+
+function isTimeoutError(err: unknown): boolean {
+  if (err instanceof IbkrSubmitTimeoutError) return true;
   const msg = err instanceof Error ? err.message : String(err);
-  return /not connected|disconnected|ECONNREFUSED|fetch failed|unreachable|SERVICE_UNAVAILABLE|socket|timeout|reqContractDetails|IBKR.*offline/i.test(
+  return /timeout|timed?\s*out|AbortError|aborted|ETIMEDOUT|deadline/i.test(msg);
+}
+
+function isDisconnectError(err: unknown): boolean {
+  if (isTimeoutError(err)) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /not connected|disconnected|ECONNREFUSED|fetch failed|unreachable|SERVICE_UNAVAILABLE|socket|reqContractDetails|IBKR.*offline/i.test(
     msg,
   );
 }
@@ -71,6 +90,10 @@ async function withBrokerRetry<T>(
   try {
     return await fn();
   } catch (err) {
+    if (isTimeoutError(err)) {
+      console.log(`[AutoExecute] ${symbol} → skip (timeout IBKR)`);
+      throw new IbkrSubmitTimeoutError(symbol, err instanceof Error ? err.message : String(err));
+    }
     if (!isDisconnectError(err)) throw err;
     console.warn(
       `[AutoExecute] ${symbol} → broker desconectado en ${step}, reconectando…`,
@@ -83,7 +106,18 @@ async function withBrokerRetry<T>(
     }
     console.log(`[AutoExecute] ${symbol} → reconectado, esperando 5s y reintentando ${step}…`);
     await sleep(5_000);
-    return await fn();
+    try {
+      return await fn();
+    } catch (retryErr) {
+      if (isTimeoutError(retryErr)) {
+        console.log(`[AutoExecute] ${symbol} → skip (timeout IBKR)`);
+        throw new IbkrSubmitTimeoutError(
+          symbol,
+          retryErr instanceof Error ? retryErr.message : String(retryErr),
+        );
+      }
+      throw retryErr;
+    }
   }
 }
 
@@ -204,14 +238,33 @@ export async function submitSupervisedLiveLimitOrder(args: {
   try {
     executed = await withBrokerRetry(symbol, "ejecutar orden", () => executeBody(false));
   } catch (err) {
+    if (err instanceof IbkrSubmitTimeoutError || isTimeoutError(err)) {
+      console.log(`[AutoExecute] ${symbol} → skip (timeout IBKR)`);
+      throw err instanceof IbkrSubmitTimeoutError
+        ? err
+        : new IbkrSubmitTimeoutError(symbol, err instanceof Error ? err.message : String(err));
+    }
     if (!isDisconnectError(err)) throw err;
     console.warn(
       `[AutoExecute] ${symbol} → reqContractDetails falló, reintento con contrato básico STK/SMART/USD`,
     );
     await ensureConnectedBeforeContractDetails(symbol);
-    executed = await withBrokerRetry(symbol, "ejecutar orden (contrato básico)", () =>
-      executeBody(true),
-    );
+    try {
+      executed = await withBrokerRetry(symbol, "ejecutar orden (contrato básico)", () =>
+        executeBody(true),
+      );
+    } catch (retryErr) {
+      if (retryErr instanceof IbkrSubmitTimeoutError || isTimeoutError(retryErr)) {
+        console.log(`[AutoExecute] ${symbol} → skip (timeout IBKR)`);
+        throw retryErr instanceof IbkrSubmitTimeoutError
+          ? retryErr
+          : new IbkrSubmitTimeoutError(
+              symbol,
+              retryErr instanceof Error ? retryErr.message : String(retryErr),
+            );
+      }
+      throw retryErr;
+    }
   }
 
   const ibkrOrderId = executed.ibkr_order_id ?? executed.ibkrOrderId;

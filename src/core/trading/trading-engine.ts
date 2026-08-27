@@ -29,7 +29,10 @@ import {
 } from '@/lib/trading/ibkr-data'
 import { midFromBidAsk } from '@/lib/trading/limit-price'
 import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
-import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
+import {
+  IbkrSubmitTimeoutError,
+  submitSupervisedLiveLimitOrder,
+} from '@/lib/investment/ibkr-supervised-submit'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
 import {
   getUsMarketSession,
@@ -101,6 +104,45 @@ function prioritizeCycleTickers(tickers: readonly string[]): string[] {
   return [...withIbkr, ...withFmpCache, ...crypto, ...etfs, ...rest].slice(0, MAX_CYCLE_TICKERS)
 }
 
+/** Temporary skip after IBKR/AutoExecute timeout — 30 minutes. */
+const TIMEOUT_SKIP_TTL_MS = 30 * 60_000
+const timeoutSkipUntil = new Map<string, number>()
+
+function markTimeoutSkip(ticker: string): void {
+  const key = ticker.trim().toUpperCase()
+  if (!key) return
+  timeoutSkipUntil.set(key, Date.now() + TIMEOUT_SKIP_TTL_MS)
+}
+
+function isTimeoutSkipped(ticker: string): boolean {
+  const key = ticker.trim().toUpperCase()
+  const until = timeoutSkipUntil.get(key)
+  if (until == null) return false
+  if (Date.now() >= until) {
+    timeoutSkipUntil.delete(key)
+    return false
+  }
+  return true
+}
+
+function isTimeoutFailure(err: unknown): boolean {
+  if (err instanceof IbkrSubmitTimeoutError) return true
+  const msg = err instanceof Error ? err.message : String(err)
+  return /timeout|timed?\s*out|AbortError|aborted|ETIMEDOUT|skip \(timeout IBKR\)/i.test(msg)
+}
+
+function timeoutSkipResult(ticker: string, detail?: string): OrderResult {
+  markTimeoutSkip(ticker)
+  return {
+    status: 'SKIPPED',
+    ticker,
+    direction: 'HOLD',
+    reason: detail?.trim() || `${ticker}: skip (timeout IBKR)`,
+    signal: { confidence: 0, reasoning: 'Timeout IBKR — skip temporal 30m', urgency: 'LOW' },
+    timestamp: new Date().toISOString(),
+  }
+}
+
 /** Per-account capital policy — price band + confidence-tier cash sizing. */
 function resolveAccountCapitalPolicy(
   accountId: string | null | undefined,
@@ -124,6 +166,7 @@ export type OrderResult = {
     | 'REJECTED_RISK'
     | 'REJECTED_CONFIDENCE'
     | 'HOLD'
+    | 'SKIPPED'
     | 'ERROR'
   ticker: string
   direction: 'BUY' | 'SELL' | 'HOLD'
@@ -253,16 +296,36 @@ export class TradingEngine {
                 console.warn(
                   `[AutoExecute] ${ticker} → timeout de análisis ignorado; esperando submit IBKR (hasta ${TradingEngine.AUTO_EXECUTE_TIMEOUT_MS}ms)…`,
                 )
-                order = await TradingEngine.withTickerTimeout(
-                  work,
+                try {
+                  order = await TradingEngine.withTickerTimeout(
+                    work,
+                    ticker,
+                    TradingEngine.AUTO_EXECUTE_TIMEOUT_MS,
+                  )
+                } catch (submitTimeout) {
+                  if (isTimeoutFailure(submitTimeout)) {
+                    console.log(`[AutoExecute] ${ticker} → skip (timeout IBKR)`)
+                    return timeoutSkipResult(
+                      ticker,
+                      submitTimeout instanceof Error ? submitTimeout.message : undefined,
+                    )
+                  }
+                  throw submitTimeout
+                }
+              } else if (isTimeoutFailure(timeoutErr)) {
+                console.log(`[AutoExecute] ${ticker} → skip (timeout IBKR)`)
+                return timeoutSkipResult(
                   ticker,
-                  TradingEngine.AUTO_EXECUTE_TIMEOUT_MS,
+                  timeoutErr instanceof Error ? timeoutErr.message : undefined,
                 )
               } else {
                 throw timeoutErr
               }
             }
-            if (execGate.buySignal || order.direction === 'BUY') buySignalTickers.add(ticker)
+            // Timeout skips are silent — do not count as BUY señales / fallidas
+            if (order.status !== 'SKIPPED') {
+              if (execGate.buySignal || order.direction === 'BUY') buySignalTickers.add(ticker)
+            }
             if (order.status === 'PENDING_APPROVAL' && order.direction === 'BUY' && order.sharesOrValue) {
               account.cashUSD = Math.max(0, account.cashUSD - order.sharesOrValue)
             }
@@ -275,6 +338,10 @@ export class TradingEngine {
             }
             return order
           } catch (err) {
+            if (isTimeoutFailure(err)) {
+              console.log(`[AutoExecute] ${ticker} → skip (timeout IBKR)`)
+              return timeoutSkipResult(ticker, err instanceof Error ? err.message : undefined)
+            }
             const msg = err instanceof Error ? err.message : 'Error desconocido'
             console.warn(`[ProStrategy] ${ticker}: error — ${msg}`)
             console.error(`[AutoExecute] ${ticker} → ERROR: ${msg} ❌`)
@@ -305,15 +372,19 @@ export class TradingEngine {
 
     const señalesBuy = Math.max(
       buySignalTickers.size,
-      orders.filter((o) => o.direction === 'BUY').length,
+      orders.filter((o) => o.direction === 'BUY' && o.status !== 'SKIPPED').length,
     )
     const autoEjecutadas = orders.filter((o) => o.status === 'EXECUTED' && o.direction === 'BUY').length
     const fallidas = Math.max(
       0,
-      señalesBuy - autoEjecutadas - orders.filter((o) => o.direction === 'BUY' && o.status === 'PENDING_APPROVAL').length,
+      señalesBuy -
+        autoEjecutadas -
+        orders.filter((o) => o.direction === 'BUY' && o.status === 'PENDING_APPROVAL').length,
     )
+    const skippedTimeout = orders.filter((o) => o.status === 'SKIPPED').length
     console.log(
-      `[ProStrategy] Ciclo fin: ${orders.length} tickers | señales BUY=${señalesBuy} | auto-ejecutadas=${autoEjecutadas} | fallidas=${fallidas}`,
+      `[ProStrategy] Ciclo fin: ${orders.length} tickers | señales BUY=${señalesBuy} | auto-ejecutadas=${autoEjecutadas} | fallidas=${fallidas}` +
+        (skippedTimeout ? ` | skip-timeout=${skippedTimeout}` : ''),
     )
 
     return {
@@ -501,6 +572,18 @@ export class TradingEngine {
     },
     execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
   ): Promise<OrderResult> {
+    if (isTimeoutSkipped(ticker)) {
+      console.log(`[AutoExecute] ${ticker} → skip (timeout IBKR, lista temporal 30m)`)
+      return {
+        status: 'SKIPPED',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: skip temporal post-timeout IBKR`,
+        signal: { confidence: 0, reasoning: 'Timeout skip list 30m', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     if (shouldSkipUntradeableTicker(ticker)) {
       console.log(`[AutoExecute] ${ticker} → skip permanente (junk / .OLD / .CVR)`)
       return {
@@ -1004,6 +1087,8 @@ export class TradingEngine {
           )
         }
         // Telegram solo desde registerExecutedPosition cuando ibkrId es real
+      } else if (executed.status === 'SKIPPED') {
+        return executed
       } else {
         console.warn(
           `[AutoExecute] ${ticker} → ERROR: no EXECUTED status=${executed.status} reason=${executed.reason} ❌`,
@@ -1011,6 +1096,10 @@ export class TradingEngine {
       }
       return executed
     } catch (err) {
+      if (isTimeoutFailure(err)) {
+        console.log(`[AutoExecute] ${ticker} → skip (timeout IBKR)`)
+        return timeoutSkipResult(ticker, err instanceof Error ? err.message : undefined)
+      }
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`[AutoExecute] ${ticker} → ERROR: ${msg} ❌`)
       return {
@@ -1156,6 +1245,15 @@ export class TradingEngine {
       })
       return submitted.ibkrOrderId
     } catch (err) {
+      if (isTimeoutFailure(err)) {
+        console.log(`[AutoExecute] ${params.ticker} → skip (timeout IBKR)`)
+        throw err instanceof IbkrSubmitTimeoutError
+          ? err
+          : new IbkrSubmitTimeoutError(
+              params.ticker,
+              err instanceof Error ? err.message : String(err),
+            )
+      }
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`[AutoExecute] ${params.ticker} → ERROR: ${msg}`)
       throw err

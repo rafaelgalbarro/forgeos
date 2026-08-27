@@ -1,11 +1,7 @@
 /**
- * Financial Modeling Prep — Starter plan (rate-limited).
- * Live cycle prices: prefer IBKR; FMP quote cache is prewarmed in batches (10m TTL).
- * Allowed FMP HTTP:
- *   - Daily movers: gainers/losers/actives/most-actively-traded (cached 1h)
- *   - Batch quote warm: /quote?symbol=A,B,... (≤50) — universe preheat only
- *   - EOD history: /historical-price-eod/light (cached 24h, max 3 parallel)
- * Never invents prices. Never logs the API key.
+ * Financial Modeling Prep — HARD DISABLED (Starter monthly quota exhausted).
+ * Set FMP_DISABLED=false next month to re-enable. Until then: zero HTTP to FMP.
+ * Trading stack uses IBKR exclusively for prices / history / universe.
  */
 
 import "server-only";
@@ -16,6 +12,9 @@ import {
   coingeckoIdsList,
   normalizeIbkrCryptoTicker,
 } from "@/src/core/trading/crypto-ibkr";
+
+/** Kill-switch — no FMP HTTP until monthly quota resets. */
+const FMP_DISABLED = true;
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const QUOTE_ENDPOINT = "/quote";
@@ -174,13 +173,23 @@ function readFmpApiKey(): string | null {
 }
 
 export function isFmpEnabled(): boolean {
+  if (FMP_DISABLED) return false;
   return Boolean(readFmpApiKey());
 }
 
 export function getFmpRuntimeStatus(): { configured: boolean; keyLength: number } {
+  if (FMP_DISABLED) return { configured: false, keyLength: 0 };
   const key = readFmpApiKey();
   return { configured: Boolean(key), keyLength: key?.length ?? 0 };
 }
+
+const EMPTY_MOVERS: FmpMoversBundle = {
+  gainers: [],
+  losers: [],
+  actives: [],
+  mostActive: [],
+  all: [],
+};
 
 /** EURUSD style: strip =X, slashes, OANDA:, underscores. */
 export function normalizeFmpForexSymbol(pair: string): string {
@@ -211,6 +220,7 @@ function buildFmpUrl(
   endpoint: string,
   query: Readonly<Record<string, string>>,
 ): string | null {
+  if (FMP_DISABLED) return null;
   const key = readFmpApiKey();
   if (!key) return null;
 
@@ -229,6 +239,7 @@ type FetchOutcome =
   | { kind: "error"; status?: number };
 
 async function fmpFetchOnce(endpoint: string, query: Record<string, string>): Promise<FetchOutcome> {
+  if (FMP_DISABLED) return { kind: "error" };
   const url = buildFmpUrl(endpoint, query);
   if (!url) return { kind: "error" };
   try {
@@ -255,6 +266,7 @@ async function fmpFetchOnce(endpoint: string, query: Record<string, string>): Pr
 }
 
 async function fmpFetchJson(endpoint: string, query: Record<string, string>): Promise<unknown | null> {
+  if (FMP_DISABLED) return null;
   const key = readFmpApiKey();
   if (!key) {
     console.warn("[FMP] FMP_API_KEY missing at runtime — set in .env.local and restart Next.js");
@@ -333,8 +345,9 @@ function staleQuote(requested: string): FmpQuote | null {
   return peek?.value ?? null;
 }
 
-/** Sync peek of last FMP quote cache including stale (no HTTP). IBKR fallback for live cycles. */
+/** Sync peek of last FMP quote cache including stale (no HTTP). Disabled while FMP_DISABLED. */
 export function peekCachedQuote(ticker: string): FmpQuote | null {
+  if (FMP_DISABLED) return null;
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
   const crypto = normalizeIbkrCryptoTicker(symbol);
@@ -388,11 +401,11 @@ async function fetchCoinGeckoQuote(requested: string): Promise<FmpQuote | null> 
 }
 
 /**
- * Live quotes: cache / CoinGecko crypto first. No individual FMP HTTP.
- * Use warmQuoteCache / getBatchQuotes for bulk preheat.
+ * Live quotes — HARD DISABLED while FMP_DISABLED (use IBKR).
  */
-export async function getQuote(ticker: string): Promise<FmpQuote | null> {
-  const symbol = ticker.trim().toUpperCase();
+export async function getQuote(_ticker: string): Promise<FmpQuote | null> {
+  if (FMP_DISABLED) return null;
+  const symbol = _ticker.trim().toUpperCase();
   if (!symbol) return null;
   const crypto = normalizeIbkrCryptoTicker(symbol);
   const requested = crypto ?? symbol;
@@ -454,6 +467,7 @@ function parseBatchQuoteRow(row: Record<string, unknown>): FmpQuote | null {
  */
 export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<string, FmpQuote>> {
   const out = new Map<string, FmpQuote>();
+  if (FMP_DISABLED) return out;
   if (tickers.length === 0) return out;
 
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
@@ -512,6 +526,7 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
 
 /** Preheat FMP quote cache for a large universe (batches of 50). */
 export async function warmQuoteCache(tickers: readonly string[]): Promise<number> {
+  if (FMP_DISABLED) return 0;
   const map = await getBatchQuotes(tickers);
   console.log(`[FMP] Quote cache warm: ${map.size}/${tickers.length} symbols (TTL 10m)`);
   return map.size;
@@ -564,17 +579,12 @@ function parseMoverRows(
  * Cached 1h. Deduped union can reach ~400 symbols.
  */
 export async function getFmpMovers(): Promise<FmpMoversBundle> {
+  if (FMP_DISABLED) return EMPTY_MOVERS;
   const cacheId = cacheKey("fmp-movers", "max");
   const hit = getCached<FmpMoversBundle>(cacheId);
   if (hit) return hit;
 
-  const empty: FmpMoversBundle = {
-    gainers: [],
-    losers: [],
-    actives: [],
-    mostActive: [],
-    all: [],
-  };
+  const empty = EMPTY_MOVERS;
   if (!isFmpEnabled()) {
     const stale = peekCached<FmpMoversBundle>(cacheId);
     return stale?.value ?? empty;
@@ -634,6 +644,7 @@ export async function getFmpMovers(): Promise<FmpMoversBundle> {
 
 /** Sync peek of cached movers (for cycle prioritization). */
 export function peekFmpMovers(): FmpMoversBundle | null {
+  if (FMP_DISABLED) return null;
   return peekCached<FmpMoversBundle>(cacheKey("fmp-movers", "max"))?.value ?? null;
 }
 
@@ -650,6 +661,7 @@ const EUROPE_ADR_COUNTRIES = ["GB", "DE", "FR", "NL", "CH", "SE", "ES", "IT"] as
  * Cached 24h — at most a few FMP calls per day.
  */
 export async function getEuropeanAdrsFromFmp(): Promise<FmpGainer[]> {
+  if (FMP_DISABLED) return [];
   const cacheId = cacheKey("fmp-eu-adrs", "nyse-nasdaq");
   const hit = getCached<FmpGainer[]>(cacheId);
   if (hit) return hit;
@@ -715,17 +727,12 @@ export async function getEuropeanAdrsFromFmp(): Promise<FmpGainer[]> {
  * Premarket USA movers — cached 5 min so 14:00–14:30 cycles refresh often without hammering FMP.
  */
 export async function getFmpPrePostMovers(): Promise<FmpMoversBundle> {
+  if (FMP_DISABLED) return EMPTY_MOVERS;
   const cacheId = cacheKey("fmp-prepost", "usa");
   const hit = getCached<FmpMoversBundle>(cacheId);
   if (hit) return hit;
 
-  const empty: FmpMoversBundle = {
-    gainers: [],
-    losers: [],
-    actives: [],
-    mostActive: [],
-    all: [],
-  };
+  const empty = EMPTY_MOVERS;
   if (!isFmpEnabled()) {
     const stale = peekCached<FmpMoversBundle>(cacheId);
     return stale?.value ?? empty;
@@ -759,6 +766,7 @@ export async function getFmpPrePostMovers(): Promise<FmpMoversBundle> {
 }
 
 export async function getHistory(ticker: string, days: number): Promise<FmpBar[]> {
+  if (FMP_DISABLED) return [];
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return [];
   const safeDays = Math.max(50, Math.min(Math.floor(days), 400));
@@ -800,12 +808,14 @@ export async function getHistory(ticker: string, days: number): Promise<FmpBar[]
 }
 
 export async function getForexQuote(pair: string): Promise<FmpQuote | null> {
+  if (FMP_DISABLED) return null;
   const symbol = normalizeFmpForexSymbol(pair);
   if (!symbol) return null;
   return getQuote(symbol);
 }
 
 export async function getForexHistory(pair: string, days: number): Promise<FmpBar[]> {
+  if (FMP_DISABLED) return [];
   const symbol = normalizeFmpForexSymbol(pair);
   if (!symbol) return [];
   return getHistory(symbol, days);

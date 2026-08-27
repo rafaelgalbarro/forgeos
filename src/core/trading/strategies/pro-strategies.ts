@@ -15,7 +15,6 @@ import {
 } from "@/lib/market-data/finnhub-pro";
 import { getIbkrPriceCached } from "@/lib/market-data/ibkr-prices";
 import { ibkrBars5m, ibkrDailyBars } from "@/lib/market-data/ibkr-history";
-import { getHistory, getQuote, isFmpEnabled, type FmpBar } from "@/lib/market-data/fmp";
 import { recognizePatterns } from "@/lib/market-data/pattern-recognition";
 import type { OhlcvBar } from "@/lib/market-data/types";
 import {
@@ -311,29 +310,8 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
   };
 }
 
-function toOhlcv(bars: readonly FmpBar[] | readonly OhlcvBar[]): OhlcvBar[] {
-  return bars.map((b) => ({
-    open: b.open,
-    high: b.high,
-    low: b.low,
-    close: b.close,
-    volume: b.volume,
-    date: b.date,
-  }));
-}
-
 async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
-  const ibkr = await ibkrDailyBars(symbol).catch(() => [] as OhlcvBar[]);
-  if (ibkr.length >= 20) return ibkr;
-  // Last-resort FMP only when IBKR completely fails
-  if (isFmpEnabled()) {
-    const raw = await getHistory(symbol, 250).catch(() => []);
-    if (raw.length >= 20) {
-      console.warn(`[ProStrategy] ${symbol}: FMP history fallback (${raw.length} bars)`);
-      return toOhlcv(raw);
-    }
-  }
-  return ibkr;
+  return ibkrDailyBars(symbol).catch(() => [] as OhlcvBar[]);
 }
 
 async function loadLivePrice(
@@ -360,20 +338,6 @@ async function loadLivePrice(
       dayHigh: ibkr.ask ?? ibkr.price,
       dayLow: ibkr.bid ?? ibkr.price,
     };
-  }
-  if (isFmpEnabled()) {
-    const quote = await getQuote(symbol).catch(() => null);
-    if (quote && quote.price > 0) {
-      console.warn(`[ProStrategy] ${symbol}: FMP quote fallback`);
-      return {
-        price: quote.price,
-        change1d: quote.changePercentage ?? 0,
-        volume: quote.volume ?? 0,
-        yearHigh: quote.yearHigh ?? 0,
-        dayHigh: quote.dayHigh ?? quote.price,
-        dayLow: quote.dayLow ?? quote.price,
-      };
-    }
   }
   return {
     price: 0,

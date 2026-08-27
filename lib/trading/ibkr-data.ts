@@ -2,8 +2,6 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { getIbkrPrice } from "@/lib/market-data/ibkr-prices";
-import { peekCachedQuote } from "@/lib/market-data/fmp";
-import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
 import {
   resolveLimitPriceFromQuote,
   type LiveLimitQuote,
@@ -162,10 +160,9 @@ export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSna
 
 async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapshot> {
   const symbol = ticker.trim().toUpperCase();
-  const routes = quoteRoutesForTicker(symbol);
   const quoteErrors: string[] = [];
 
-  // 1) IBKR market-data (primary — free, no FMP rate limit)
+  // IBKR market-data only — no FMP (quota exhausted)
   const ibkr = await getIbkrPrice(symbol);
   if (ibkr && ibkr.price > 0) {
     console.log(
@@ -190,38 +187,7 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     };
   }
   quoteErrors.push("IBKR: no price");
-
-  // 2) Stale FMP quote cache only (no FMP HTTP) — 10 min TTL when previously filled
-  const fmpCached = peekCachedQuote(symbol);
-  if (fmpCached && fmpCached.price > 0) {
-    console.log(
-      `[Universe] ${symbol} precio FMP-caché $${fmpCached.price.toFixed(2)} (sin HTTP FMP)`,
-    );
-    const route = routes[0];
-    const prev = fmpCached.previousClose > 0 ? fmpCached.previousClose : fmpCached.price;
-    return {
-      ticker: symbol,
-      currentPrice: fmpCached.price,
-      previousClose: prev,
-      bid: fmpCached.price,
-      ask: fmpCached.price,
-      change1d: fmpCached.price - prev,
-      high52w: fmpCached.yearHigh && fmpCached.yearHigh > 0 ? fmpCached.yearHigh : fmpCached.price,
-      low52w: fmpCached.yearLow && fmpCached.yearLow > 0 ? fmpCached.yearLow : fmpCached.price,
-      volume: fmpCached.volume ?? 0,
-      changePercentage: fmpCached.changePercentage ?? 0,
-      priceAvg50: fmpCached.priceAvg50,
-      priceAvg200: fmpCached.priceAvg200,
-      quoteSymbol: route?.symbol ?? symbol,
-      quoteExchange: route?.exchange ?? "FMP-CACHE",
-      quoteCurrency: route?.currency ?? "USD",
-      quoteRoute: "FMP-cache-10m",
-      quoteErrors,
-    };
-  }
-  quoteErrors.push("FMP-cache: empty");
-
-  throw new Error(`sin precio IBKR ni caché FMP (${quoteErrors.join("; ")})`);
+  throw new Error(`sin precio IBKR — skip (${quoteErrors.join("; ")})`);
 }
 
 export async function fetchTradingPosition(

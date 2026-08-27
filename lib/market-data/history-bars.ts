@@ -1,17 +1,16 @@
 import "server-only";
 
 import { ibkrDailyBars, type IbkrBarSize } from "@/lib/market-data/ibkr-history";
-import { getHistory, getQuote, isFmpEnabled } from "@/lib/market-data/fmp";
 import type { OhlcvBar } from "@/lib/market-data/types";
 
 export type { IbkrBarSize };
 
 /**
- * Fetches OHLCV bars — IBKR primary; FMP only if IBKR returns empty (last resort).
+ * Fetches OHLCV bars — IBKR only. Skip ticker if IBKR has no data (no FMP).
  */
 export async function fetchHistoryBars(
   ticker: string,
-  duration = "1 Y",
+  _duration = "1 Y",
   _barSize: IbkrBarSize = "1 day",
 ): Promise<{ bars: OhlcvBar[]; errors: string[] }> {
   const errors: string[] = [];
@@ -22,34 +21,14 @@ export async function fetchHistoryBars(
     return { bars: ibkrBars, errors };
   }
   if (ibkrBars.length > 0) {
-    errors.push(`IBKR: solo ${ibkrBars.length} barras para ${symbol}`);
+    errors.push(`IBKR: solo ${ibkrBars.length} barras para ${symbol} — skip`);
   } else {
-    errors.push(`IBKR: sin barras para ${symbol}`);
+    errors.push(`IBKR: sin barras para ${symbol} — skip`);
   }
-
-  // Last-resort FMP fallback when IBKR completely fails
-  if (isFmpEnabled()) {
-    const days = duration.includes("Y") || duration.includes("M") ? 250 : duration.includes("W") ? 35 : 7;
-    const raw = await getHistory(ticker, days).catch(() => []);
-    const bars: OhlcvBar[] = raw.map((b) => ({
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-      volume: b.volume,
-      date: b.date,
-    }));
-    if (bars.length >= 20) {
-      errors.push("FMP fallback usado (IBKR vacío)");
-      return { bars, errors };
-    }
-    errors.push(`FMP fallback: solo ${bars.length} barras`);
-  }
-
   return { bars: ibkrBars, errors };
 }
 
-/** Quick price — prefer IBKR; FMP quote only as last resort. */
+/** Quick price — IBKR only. */
 export async function fetchFinnhubPrice(ticker: string): Promise<number | null> {
   try {
     const { getIbkrPriceCached } = await import("@/lib/market-data/ibkr-prices");
@@ -58,7 +37,5 @@ export async function fetchFinnhubPrice(ticker: string): Promise<number | null> 
   } catch {
     /* fall through */
   }
-  if (!isFmpEnabled()) return null;
-  const q = await getQuote(ticker);
-  return q && q.price > 0 ? q.price : null;
+  return null;
 }

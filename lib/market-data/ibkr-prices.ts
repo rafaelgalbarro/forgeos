@@ -16,7 +16,8 @@ import {
 } from "@/lib/trading/ibkr-cache";
 import { IBKR_CRYPTO_SEC_TYPE } from "@/src/core/trading/crypto-ibkr";
 
-const FETCH_TIMEOUT_MS = 12_000;
+/** Hard cap — skip ticker if IBKR price not back within 3s. */
+const FETCH_TIMEOUT_MS = 3_000;
 
 export type IbkrLivePrice = {
   symbol: string;
@@ -47,9 +48,8 @@ async function fetchRouteQuote(
     `&secType=${secType}`;
 
   const paths = [
-    `/api/ibkr/price/${encodeURIComponent(symbol)}?${qs.replace(/^symbol=[^&]*&/, "")}`,
     `/api/ibkr/market-data?${qs}`,
-    `/api/ibkr/quote?${qs}`,
+    `/api/ibkr/price/${encodeURIComponent(symbol)}?${qs.replace(/^symbol=[^&]*&/, "")}`,
   ];
 
   for (const path of paths) {
@@ -75,7 +75,7 @@ async function fetchRouteQuote(
         volume: asPositive(raw?.volume) ?? undefined,
       };
     } catch {
-      /* try next path */
+      /* next path or skip — never wait >3s per attempt */
     }
   }
   return null;

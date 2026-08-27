@@ -236,18 +236,18 @@ export type TradeCycleResult = {
   haltReason?: string
 }
 
-/** Max cycle duration — stale mutex auto-releases after this. */
-export const CYCLE_TIMEOUT_MS = 5 * 60 * 1000
+/** Max wall-clock for one trading cycle (100 tickers @ concurrency 10). */
+export const CYCLE_TIMEOUT_MS = 3 * 60 * 1000
 
 export class TradingEngine {
   private risk = RiskManager.getInstance()
   private approvals = OrderApprovalGate.getInstance()
 
-  /** Analysis / strategy timeout — must NOT kill IBKR submit once auto-execute starts. */
-  private static readonly TICKER_TIMEOUT_MS = 25_000
-  /** Soft ceiling once submitSupervisedLiveLimitOrder is in flight. */
-  private static readonly AUTO_EXECUTE_TIMEOUT_MS = 120_000
-  private static readonly CYCLE_CONCURRENCY = 4
+  /** Per-ticker analysis + price fetch — skip fast if IBKR slow. */
+  private static readonly TICKER_TIMEOUT_MS = 5_000
+  /** Once live submit started, allow longer for IBKR ack. */
+  private static readonly AUTO_EXECUTE_TIMEOUT_MS = 60_000
+  private static readonly CYCLE_CONCURRENCY = 10
 
   private static cycleLock = { running: false, startedAt: 0, cycleId: '' as string }
 

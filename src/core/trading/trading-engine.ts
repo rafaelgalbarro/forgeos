@@ -236,6 +236,9 @@ export type TradeCycleResult = {
   haltReason?: string
 }
 
+/** Max cycle duration — stale mutex auto-releases after this. */
+export const CYCLE_TIMEOUT_MS = 5 * 60 * 1000
+
 export class TradingEngine {
   private risk = RiskManager.getInstance()
   private approvals = OrderApprovalGate.getInstance()
@@ -245,6 +248,33 @@ export class TradingEngine {
   /** Soft ceiling once submitSupervisedLiveLimitOrder is in flight. */
   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 120_000
   private static readonly CYCLE_CONCURRENCY = 4
+
+  private static cycleLock = { running: false, startedAt: 0, cycleId: '' as string }
+
+  /** Acquire cycle mutex; force-release if previous cycle exceeded CYCLE_TIMEOUT_MS. */
+  static tryAcquireCycle(): boolean {
+    const now = Date.now()
+    if (
+      TradingEngine.cycleLock.running &&
+      now - TradingEngine.cycleLock.startedAt > CYCLE_TIMEOUT_MS
+    ) {
+      console.warn(
+        `[TradingCycle] Mutex bloqueado >${CYCLE_TIMEOUT_MS / 60_000}m — liberando ciclo ${TradingEngine.cycleLock.cycleId || 'unknown'}`,
+      )
+      TradingEngine.releaseCycle()
+    }
+    if (TradingEngine.cycleLock.running) return false
+    TradingEngine.cycleLock = { running: true, startedAt: now, cycleId: '' }
+    return true
+  }
+
+  static releaseCycle(): void {
+    TradingEngine.cycleLock = { running: false, startedAt: 0, cycleId: '' }
+  }
+
+  static isCycleRunning(): boolean {
+    return TradingEngine.cycleLock.running
+  }
 
   private static async withTickerTimeout<T>(
     promise: Promise<T>,
@@ -268,24 +298,12 @@ export class TradingEngine {
   }
 
   /**
-   * MarketScanner is an optional filter. If it returns 0 candidates (e.g. FMP disabled),
-   * continue with the IBKR scanner universe — never block ProStrategy.
+   * IBKR scanner universe is primary. MarketScanner is an optional overlay — never blocks the cycle.
    */
   private async resolveCycleSeedTickers(tickers: string[]): Promise<string[]> {
     const seed = [
       ...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
     ]
-    const scannerPool = [
-      ...new Set(
-        [...getActiveCandidateTickers(), ...getScannerCandidateTickers()]
-          .map((t) => t.trim().toUpperCase())
-          .filter(Boolean),
-      ),
-    ]
-
-    if (scannerPool.length > 0 && seed.length > 0) {
-      return seed
-    }
 
     let ibkr = (getDailyUniverse()?.tickers ?? []).map((t) => t.symbol.toUpperCase())
     if (ibkr.length === 0) {
@@ -300,16 +318,24 @@ export class TradingEngine {
       }
     }
 
+    const scannerPool = [
+      ...new Set(
+        [...getActiveCandidateTickers(), ...getScannerCandidateTickers()]
+          .map((t) => t.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ]
+
     if (scannerPool.length === 0) {
-      const merged = [...new Set([...ibkr, ...seed])].slice(0, maxCycleTickers())
+      const direct = [...new Set([...ibkr, ...seed])].slice(0, maxCycleTickers())
       console.log(
-        `[TradingCycle] MarketScanner sin candidatos → usando universo IBKR directo (${merged.length} tickers)`,
+        `[TradingCycle] MarketScanner sin candidatos → usando universo IBKR directo (${direct.length} tickers)`,
       )
-      return merged.length > 0 ? merged : seed
+      return direct.length > 0 ? direct : seed
     }
 
-    // Seed empty but scanner has candidates
-    return scannerPool.slice(0, maxCycleTickers())
+    const merged = [...new Set([...ibkr, ...seed, ...scannerPool])].slice(0, maxCycleTickers())
+    return merged.length > 0 ? merged : seed
   }
 
   /**
@@ -318,8 +344,34 @@ export class TradingEngine {
    * Ã“rdenes vÃ¡lidas quedan en PENDING_APPROVAL (no se ejecutan automÃ¡ticamente).
    */
   async runCycle(tickers: string[]): Promise<TradeCycleResult> {
+    if (!TradingEngine.tryAcquireCycle()) {
+      throw new Error('cycle already running')
+    }
+
     const cycleId = `cycle_${Date.now()}`
+    TradingEngine.cycleLock.cycleId = cycleId
     const startedAt = new Date().toISOString()
+
+    try {
+      return await Promise.race([
+        this.runCycleBody(tickers, cycleId, startedAt),
+        new Promise<TradeCycleResult>((_, reject) => {
+          setTimeout(
+            () => reject(new Error(`Ciclo timeout ${CYCLE_TIMEOUT_MS}ms`)),
+            CYCLE_TIMEOUT_MS,
+          )
+        }),
+      ])
+    } finally {
+      TradingEngine.releaseCycle()
+    }
+  }
+
+  private async runCycleBody(
+    tickers: string[],
+    cycleId: string,
+    startedAt: string,
+  ): Promise<TradeCycleResult> {
     const orders: OrderResult[] = []
 
     await expireStalePendingApprovals()
@@ -689,7 +741,7 @@ export class TradingEngine {
       }
     }
 
-    console.log(`[AutoExecute] ${ticker} → obteniendo precio (IBKR → FMP-caché)…`)
+    console.log(`[AutoExecute] ${ticker} → obteniendo precio IBKR…`)
     let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
     try {
       priceData = await this.fetchPrice(ticker)
@@ -697,7 +749,7 @@ export class TradingEngine {
         `[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)} (${priceData.quoteRoute})`,
       )
     } catch {
-      console.log(`[Universe] ${ticker} sin precio IBKR ni caché FMP, skip`)
+      console.log(`[Universe] ${ticker} sin precio IBKR, skip`)
       return {
         status: 'SKIPPED',
         ticker,

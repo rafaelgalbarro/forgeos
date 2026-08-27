@@ -1,5 +1,5 @@
 /**
- * Trading-cycle universe — prefer FMP daily TOP100, then multi-scanner, then allowlist.
+ * Trading-cycle universe — IBKR scanner primary; MarketScanner optional overlay.
  */
 
 import "server-only";

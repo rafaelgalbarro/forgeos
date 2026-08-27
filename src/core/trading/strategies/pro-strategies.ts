@@ -311,7 +311,151 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
 }
 
 async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
-  return ibkrDailyBars(symbol).catch(() => [] as OhlcvBar[]);
+  const timeoutMs = 12_000
+  try {
+    const bars = await Promise.race([
+      ibkrDailyBars(symbol),
+      new Promise<OhlcvBar[]>((resolve) => setTimeout(() => resolve([]), timeoutMs)),
+    ])
+    return bars
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Lightweight strategies when IBKR historical is unavailable (no FMP, no bars).
+ * Uses live IBKR price + Finnhub news only.
+ */
+async function evaluateSimpleStrategies(
+  symbol: string,
+  price: number,
+  change1d: number,
+  inputs?: Partial<ScreenerInputs>,
+): Promise<ProStrategySignal> {
+  const hold = (reason: string): ProStrategySignal => ({
+    direction: "HOLD",
+    confidence: 0,
+    reasoning: reason,
+    urgency: "LOW",
+    strategyIds: [],
+    primaryStrategy: "none",
+    stopLossPct: 0.02,
+    takeProfitPct: 0.04,
+    stopLoss: 0,
+    takeProfit: 0,
+    rsi: null,
+    positionSizeFactor: 1,
+    capitalPct: 0.15,
+    metrics: {
+      change1d,
+      relVolume: 0,
+      ema9: null,
+      ema21: null,
+      ema50: null,
+      vwapApprox: null,
+      dist52wHigh: null,
+    },
+  })
+
+  const [newsCtx, sentiment] = await Promise.all([
+    fetchCompanyNewsContext(symbol),
+    fetchNewsSentiment(symbol),
+  ])
+  const sentScore = sentiment?.score ?? 0
+  const news4h = newsPositiveHours(newsCtx, 4)
+  const hits: ProStrategyHit[] = []
+
+  if (change1d >= 2 && change1d <= 5) {
+    hits.push(
+      hit("USA_MOMENTUM_PRIMERA_HORA", `Simple momentum +${change1d.toFixed(1)}% (sin histórico)`, {
+        stopLossPrice: price * 0.985,
+        takeProfitPrice: price * 1.03,
+      }),
+    )
+  }
+
+  const gapHeldOk =
+    inputs?.premarketCandidate === true &&
+    (inputs.gapHeldMs == null || inputs.gapHeldMs >= 5 * 60_000)
+  if (change1d >= 1.5 && change1d <= 6 && gapHeldOk) {
+    const gapFloor = price * (1 - change1d / 100) * 0.995
+    hits.push(
+      hit("USA_GAP_AND_GO", `Simple gap +${change1d.toFixed(1)}% (sin histórico)`, {
+        stopLossPrice: gapFloor,
+        takeProfitPrice: price * 1.03,
+      }),
+    )
+  }
+
+  if (news4h && sentScore > 0.3 && change1d >= 1 && change1d <= 4) {
+    hits.push(
+      hit("USA_NEWS_CATALYST", `Simple news + sentiment ${sentScore.toFixed(2)}`, {
+        stopLossPrice: price * 0.98,
+        takeProfitPrice: price * 1.05,
+      }),
+    )
+  }
+
+  if (hits.length === 0) {
+    console.log(`[ProStrategy] ${symbol}: modo simple sin señal (Δ${change1d.toFixed(1)}%)`)
+    return hold(`Modo simple: sin señal (Δ${change1d.toFixed(1)}%)`)
+  }
+
+  hits.sort((a, b) => b.baseConfidence - a.baseConfidence)
+  const primary = hits[0]!
+  const scored = scoreFinal({
+    primaryBase: primary.baseConfidence,
+    hits: hits.length,
+    relVol: 1,
+    news4h,
+    sentiment: sentScore,
+    sectorPos: null,
+    sectorNeg: null,
+    rsiOk: false,
+    firstHour: false,
+    marketPos: change1d > 0,
+    change1d,
+  })
+
+  if (scored.confidence < 0.68) {
+    console.log(
+      `[ProStrategy] ${symbol}: modo simple conf ${(scored.confidence * 100).toFixed(0)}% < 68%`,
+    )
+    return hold(`Modo simple: confianza ${(scored.confidence * 100).toFixed(0)}% < 68%`)
+  }
+
+  const stopLoss = primary.stopLossPrice ?? price * (1 - primary.stopLossPct)
+  const takeProfit = primary.takeProfitPrice ?? price * (1 + primary.takeProfitPct)
+
+  console.log(
+    `[ProStrategy] ${symbol}: MODO SIMPLE BUY ${primary.id} conf=${(scored.confidence * 100).toFixed(0)}% Δ${change1d.toFixed(1)}%`,
+  )
+
+  return {
+    direction: "BUY",
+    confidence: scored.confidence,
+    reasoning: `${primary.reason} [modo simple sin histórico]`,
+    urgency: scored.confidence >= 0.75 ? "MEDIUM" : "LOW",
+    strategyIds: hits.map((h) => h.id),
+    primaryStrategy: primary.name,
+    stopLossPct: primary.stopLossPct,
+    takeProfitPct: primary.takeProfitPct,
+    stopLoss: Number(stopLoss.toFixed(4)),
+    takeProfit: Number(takeProfit.toFixed(4)),
+    rsi: null,
+    positionSizeFactor: 1,
+    capitalPct: capitalPctFromConfidence(scored.confidence),
+    metrics: {
+      change1d,
+      relVolume: 0,
+      ema9: null,
+      ema21: null,
+      ema50: null,
+      vwapApprox: null,
+      dist52wHigh: null,
+    },
+  }
 }
 
 async function loadLivePrice(
@@ -584,7 +728,12 @@ export async function evaluateProStrategies(
 
   const history = await loadDailyBars(symbol);
   const bars = appendLiveBar(history, price, volume, dayHigh, dayLow);
-  if (bars.length < 20) return hold(`Historial insuficiente (${bars.length} velas)`);
+  if (bars.length < 20) {
+    console.log(
+      `[ProStrategy] ${symbol}: histórico IBKR insuficiente (${bars.length} velas) → modo simple`,
+    );
+    return evaluateSimpleStrategies(symbol, price, change1d, inputs);
+  }
 
   const vol20 = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
   if (vol20 < 300_000 && !crypto) return hold("Volumen medio 20d insuficiente");

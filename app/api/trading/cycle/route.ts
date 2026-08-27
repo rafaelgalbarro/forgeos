@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { TradingEngine } from '@/src/core/trading/trading-engine'
+import { TradingEngine, CYCLE_TIMEOUT_MS } from '@/src/core/trading/trading-engine'
 import { RiskManager } from '@/src/core/trading/risk/risk-manager'
 import { OrderApprovalGate } from '@/src/core/trading/order-approval'
 import { TRADING_CONFIG } from '@/src/core/trading/trading.config'
@@ -29,9 +29,6 @@ import {
 import { maybeRunPremarketScanners } from '@/lib/investment/premarket-scanner'
 
 const engine = new TradingEngine()
-
-/** In-process mutex — ignore concurrent cycle POSTs. */
-let cycleRunning = false
 
 export async function POST(req: NextRequest) {
   startPositionMonitor()
@@ -86,16 +83,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (cycleRunning) {
-    console.warn('[TradingCycle] Ciclo ya en curso — ignorando llamada duplicada')
-    return NextResponse.json(
-      { skipped: true, reason: 'cycle already running' },
-      { status: 409 },
-    )
-  }
-
-  // Ciclo de trading — queues PENDING_APPROVAL; does not auto-execute
-  cycleRunning = true
+  // Ciclo de trading — mutex + timeout en TradingEngine (CYCLE_TIMEOUT_MS)
   try {
     await expireStalePendingApprovals()
     // Stale PreSubmitted/Submitted cancel runs inside TradingEngine.runCycle()
@@ -157,13 +145,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result)
   } catch (err) {
+    if (err instanceof Error && err.message === 'cycle already running') {
+      console.warn('[TradingCycle] Ciclo ya en curso — ignorando llamada duplicada')
+      return NextResponse.json(
+        { skipped: true, reason: 'cycle already running' },
+        { status: 409 },
+      )
+    }
     console.error('[TradingCycle] Error en ciclo:', err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Error en ciclo de trading' },
       { status: 500 }
     )
-  } finally {
-    cycleRunning = false
   }
 }
 
@@ -202,6 +195,8 @@ export async function GET() {
       minConfidence: TRADING_CONFIG.ai.minConfidenceToTrade,
       minConfidenceExtendedHours: TRADING_CONFIG.ai.minConfidenceExtendedHours,
       cycleIntervalMs: getTradingCycleIntervalMs(),
+      cycleTimeoutMs: CYCLE_TIMEOUT_MS,
+      cycleRunning: TradingEngine.isCycleRunning(),
       tradingPhase: getActiveTradingPhase(),
       paperTrading: TRADING_CONFIG.ibkr.paperTrading,
       allowedTickers: TRADING_CONFIG.allowedTickers,

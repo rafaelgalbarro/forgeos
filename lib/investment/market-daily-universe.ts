@@ -2,7 +2,11 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { getFmpMovers } from "@/lib/market-data/fmp";
+import {
+  getFmpMovers,
+  getEuropeanAdrsFromFmp,
+  peekCachedQuote,
+} from "@/lib/market-data/fmp";
 import { getTickerUniverse } from "@/lib/market-data/ticker-universe";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import {
@@ -10,15 +14,19 @@ import {
   ASIA_ETF_TICKERS,
   EUROPE_DIRECT_TICKERS,
   EUROPE_ETF_TICKERS,
+  getActiveTradingPhase,
   getGlobalMarketWindow,
 } from "@/src/core/trading/market-session";
 import { IBKR_CRYPTO_TICKERS, ensureCryptoInTickerList, verifyCryptoTradingStatus } from "@/src/core/trading/crypto-ibkr";
 
 const CACHE_DIR = path.resolve(process.cwd(), ".forgeos", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "market-daily-universe.json");
-const TOP_COUNT = 50;
+/** Default top; Europe session targets 100+. */
+const TOP_COUNT_DEFAULT = 50;
+const TOP_COUNT_EUROPE = 120;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — align with FMP gainers cache
-const HISTORY_CANDIDATES = 50;
+const HISTORY_CANDIDATES_DEFAULT = 50;
+const HISTORY_CANDIDATES_EUROPE = 150;
 
 export type DailyTicker = {
   symbol: string;
@@ -123,7 +131,7 @@ async function fetchRegionalEtfSeeds(): Promise<SeedRow[]> {
   if (w.europe) symbols.push(...EUROPE_ETF_TICKERS, ...EUROPE_DIRECT_TICKERS);
   if (symbols.length === 0) return [];
   const unique = [...new Set(symbols.map((s) => s.toUpperCase()))];
-  console.log(`[Universe] Regional ETFs seed (${unique.join(", ")}) — precios IBKR en ciclo`);
+  console.log(`[Universe] Regional ETFs/ADRs seed (${unique.length}): ${unique.slice(0, 12).join(", ")}…`);
   return unique.map((symbol) => ({
     symbol,
     price: 0,
@@ -133,6 +141,32 @@ async function fetchRegionalEtfSeeds(): Promise<SeedRow[]> {
     yearHigh: 0,
     sources: ["regional-seed"],
   }));
+}
+
+/** European ADRs from FMP company-screener (24h cache) — prefer those with FMP quote cache / known price. */
+async function fetchEuropeanAdrSeeds(): Promise<SeedRow[]> {
+  const phase = getActiveTradingPhase();
+  const w = getGlobalMarketWindow();
+  if (!w.europe && phase !== "EUROPE" && phase !== "EUROPE_OPEN") return [];
+  console.log("[Universe] Cargando ADRs europeos FMP (company-screener, caché 24h)…");
+  const adrs = await getEuropeanAdrsFromFmp().catch(() => []);
+  const rows: SeedRow[] = adrs.map((g) => ({
+    symbol: g.symbol,
+    price: g.price,
+    changePct: g.changePercentage,
+    volume: g.volume,
+    avgVolume: g.avgVolume ?? g.volume,
+    yearHigh: g.yearHigh ?? g.price,
+    sources: ["fmp-eu-adr"],
+  }));
+  // Soft preference: keep names that already have a quote cache hit first
+  rows.sort((a, b) => {
+    const aHit = peekCachedQuote(a.symbol)?.price ? 1 : 0;
+    const bHit = peekCachedQuote(b.symbol)?.price ? 1 : 0;
+    return bHit - aHit || Math.abs(b.changePct) - Math.abs(a.changePct);
+  });
+  console.log(`[Universe] ADRs europeos: ${rows.length} filas`);
+  return rows;
 }
 
 /** FUENTE 1 — FMP gainers + losers + actives (≤3 calls / hour via getFmpMovers). */
@@ -276,10 +310,19 @@ async function enrichWithQuotes(seeds: SeedRow[]): Promise<SeedRow[]> {
 
 function passesFilters(r: SeedRow, forceKeep: Set<string>): boolean {
   if (forceKeep.has(r.symbol)) return true;
-  if (!(r.price >= 0.1 && r.price <= 50)) return false;
+  if (r.price <= 0) {
+    return r.sources.some(
+      (s) => s.startsWith("ibkr-") || s.startsWith("fmp-") || s === "regional-seed",
+    );
+  }
+  // Europe ADRs / movers can be >$50 (ASML, SAP, NVO…)
+  const maxPrice = r.sources.some(
+    (s) => s.startsWith("fmp-") || s === "regional-seed" || s.startsWith("ibkr-"),
+  )
+    ? 500
+    : 50;
+  if (!(r.price >= 0.1 && r.price <= maxPrice)) return false;
   if (r.volume > 0 && r.volume < 100_000 && r.avgVolume < 100_000) return false;
-  // Allow IBKR/FMP movers with unknown volume yet (price filter still applies when known).
-  if (r.price <= 0) return r.sources.some((s) => s.startsWith("ibkr-") || s.startsWith("fmp-"));
   return true;
 }
 
@@ -381,13 +424,22 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
 
   refreshInFlight = (async () => {
     try {
-      console.log("[Universe] Screener (FMP gainers 1h + IBKR scanner + crypto + regional + portfolio)...");
+      console.log("[Universe] Screener (FMP movers + EU ADRs + IBKR + crypto + regional + portfolio)...");
       const window = getGlobalMarketWindow();
-      const [fmpMovers, cryptoRows, regionalRows, ibkrRows, fallbackRows, portfolioRows, spy5d, excludedEarnings, sectorLeader] =
+      const phase = getActiveTradingPhase();
+      const europeFocus = Boolean(window.europe) || phase === "EUROPE" || phase === "EUROPE_OPEN";
+      const topCount = europeFocus ? TOP_COUNT_EUROPE : TOP_COUNT_DEFAULT;
+      const historyCandidates = europeFocus ? HISTORY_CANDIDATES_EUROPE : HISTORY_CANDIDATES_DEFAULT;
+
+      const [fmpMovers, cryptoRows, regionalRows, euAdrRows, ibkrRows, fallbackRows, portfolioRows, spy5d, excludedEarnings, sectorLeader] =
         await Promise.all([
-          window.usa || window.usaExtended ? fetchFmpMovers() : Promise.resolve([] as SeedRow[]),
+          // Movers always during Europe / USA — full gainers+losers+actives
+          window.usa || window.usaExtended || window.europe || europeFocus
+            ? fetchFmpMovers()
+            : Promise.resolve([] as SeedRow[]),
           fetchCryptoSeeds(),
           fetchRegionalEtfSeeds(),
+          fetchEuropeanAdrSeeds(),
           fetchIbkrScanner(),
           fetchFallbackUniverse(),
           fetchOpenPositions(),
@@ -399,22 +451,38 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
       const sourcesUsed = [
         cryptoRows.length ? "ibkr-crypto" : "",
         fmpMovers.length ? "fmp-movers" : "",
-        regionalRows.length ? "fmp-profile-regional" : "",
+        regionalRows.length ? "regional-etf-adr" : "",
+        euAdrRows.length ? "fmp-eu-adr" : "",
         ibkrRows.length ? "ibkr-scanner" : "",
         fallbackRows.length ? "fallback-738" : "",
         portfolioRows.length ? "portfolio" : "",
       ].filter(Boolean);
 
-      const merged = mergeSeeds([cryptoRows, fmpMovers, regionalRows, ibkrRows, fallbackRows, portfolioRows]);
+      const merged = mergeSeeds([
+        cryptoRows,
+        fmpMovers,
+        regionalRows,
+        euAdrRows,
+        ibkrRows,
+        fallbackRows,
+        portfolioRows,
+      ]);
       const forceKeep = new Set([
         ...IBKR_CRYPTO_TICKERS,
         ...portfolioRows.map((r) => r.symbol),
         ...regionalRows.map((r) => r.symbol),
+        ...EUROPE_ETF_TICKERS,
+        ...EUROPE_DIRECT_TICKERS,
       ]);
       const enriched = await enrichWithQuotes(merged);
       const filtered = enriched.filter((r) => passesFilters(r, forceKeep));
       const ranked = [...filtered].sort((a, b) => seedScore(b) - seedScore(a));
-      const candidates = ranked.slice(0, HISTORY_CANDIDATES);
+      // Europe: keep ALL FMP movers + EU ADRs first, then fill to topCount
+      const moverSyms = new Set(fmpMovers.map((r) => r.symbol));
+      const euSyms = new Set(euAdrRows.map((r) => r.symbol));
+      const priority = ranked.filter((r) => moverSyms.has(r.symbol) || euSyms.has(r.symbol) || forceKeep.has(r.symbol));
+      const rest = ranked.filter((r) => !moverSyms.has(r.symbol) && !euSyms.has(r.symbol) && !forceKeep.has(r.symbol));
+      const candidates = [...priority, ...rest].slice(0, Math.max(historyCandidates, topCount));
 
       // Screener-only enrichment — never call historical-price-eod (Starter 402)
       const withMomentum = candidates.map((r) =>
@@ -426,12 +494,12 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
       let finalTop = withMomentum
         .filter((t) => forceKeep.has(t.symbol) || !excluded.has(t.symbol))
         .sort((a, b) => b.score - a.score)
-        .slice(0, TOP_COUNT);
+        .slice(0, topCount);
 
       const cryptoKept = cryptoRows.map((r) => tickerFromSeed(r, spy5d, r.changePct, 0));
       const missingCrypto = cryptoKept.filter((c) => !finalTop.some((t) => t.symbol === c.symbol));
       if (missingCrypto.length > 0) {
-        finalTop = [...missingCrypto, ...finalTop].slice(0, TOP_COUNT);
+        finalTop = [...missingCrypto, ...finalTop].slice(0, topCount);
       }
 
       // Force BTC/ETH (+ full PAXOS set) always present in analysis universe
@@ -459,12 +527,12 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
           );
         }
       }
-      finalTop = ensured.map((s) => bySym.get(s)!).filter(Boolean).slice(0, Math.max(TOP_COUNT, IBKR_CRYPTO_TICKERS.length));
+      finalTop = ensured.map((s) => bySym.get(s)!).filter(Boolean).slice(0, Math.max(topCount, IBKR_CRYPTO_TICKERS.length));
 
       void verifyCryptoTradingStatus(finalTop.map((t) => t.symbol));
 
       if (finalTop.length === 0 && ranked.length > 0) {
-        finalTop = ranked.slice(0, TOP_COUNT).map((r) => tickerFromSeed(r, spy5d, r.changePct, 0));
+        finalTop = ranked.slice(0, topCount).map((r) => tickerFromSeed(r, spy5d, r.changePct, 0));
       }
 
       const primarySource: DailyUniverseCache["source"] =

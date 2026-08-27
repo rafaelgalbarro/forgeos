@@ -20,6 +20,9 @@ const FMP_BASE = "https://financialmodelingprep.com/stable";
 const GAINERS_ENDPOINT = "/biggest-gainers";
 const LOSERS_ENDPOINT = "/biggest-losers";
 const ACTIVES_ENDPOINT = "/most-actives";
+const PRE_POST_GAINERS_ENDPOINT = "/pre-post-market-gainers";
+const PRE_POST_ACTIVES_ENDPOINT = "/pre-post-market-most-active";
+const COMPANY_SCREENER_ENDPOINT = "/company-screener";
 const HISTORY_LIGHT_ENDPOINT = "/historical-price-eod/light";
 const HISTORY_FULL_ENDPOINT = "/historical-price-eod/full";
 /** Legacy quote cache TTL (read-only — no new FMP quote HTTP). */
@@ -28,6 +31,10 @@ const QUOTE_TTL_MS = 10 * 60_000;
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
 /** Daily movers scanner — 1 hour (gainers+losers+actives once per hour max). */
 const MOVERS_TTL_MS = 60 * 60 * 1000;
+/** European ADR screener — 24 hours. */
+const EUROPE_ADR_TTL_MS = 24 * 60 * 60 * 1000;
+/** Premarket movers — 5 minutes (refresh during 14:00–14:30). */
+const PREMARKET_TTL_MS = 5 * 60_000;
 const STARTUP_DELAY_MS = 30_000;
 const MAX_PARALLEL_REQUESTS = 3;
 const MAX_REQUESTS_PER_SECOND = 5;
@@ -69,7 +76,7 @@ export type FmpGainer = {
   volume: number;
   avgVolume?: number;
   yearHigh?: number;
-  source: "fmp-gainers" | "fmp-losers" | "fmp-actives";
+  source: "fmp-gainers" | "fmp-losers" | "fmp-actives" | "fmp-eu-adr";
 };
 
 export type FmpMoversBundle = {
@@ -525,6 +532,114 @@ export async function getFmpMovers(): Promise<FmpMoversBundle> {
 export async function getFmpGainers(): Promise<FmpGainer[]> {
   const movers = await getFmpMovers();
   return movers.gainers.length ? movers.gainers : movers.all;
+}
+
+const EUROPE_ADR_COUNTRIES = ["GB", "DE", "FR", "NL", "CH", "SE", "ES", "IT"] as const;
+
+/**
+ * European ADRs / US-listed names via FMP company-screener (NYSE+NASDAQ, EU countries).
+ * Cached 24h — at most a few FMP calls per day.
+ */
+export async function getEuropeanAdrsFromFmp(): Promise<FmpGainer[]> {
+  const cacheId = cacheKey("fmp-eu-adrs", "nyse-nasdaq");
+  const hit = getCached<FmpGainer[]>(cacheId);
+  if (hit) return hit;
+
+  if (!isFmpEnabled()) {
+    const stale = peekCached<FmpGainer[]>(cacheId);
+    return stale?.value ?? [];
+  }
+
+  const out: FmpGainer[] = [];
+  const seen = new Set<string>();
+
+  // Limit FMP load: one screener call per country (exchange filtered client-side).
+  for (const country of EUROPE_ADR_COUNTRIES) {
+    const body = await fmpFetchJson(COMPANY_SCREENER_ENDPOINT, {
+      country,
+      isActivelyTrading: "true",
+      limit: "40",
+    });
+    if (body == null) continue;
+    for (const row of quoteRows(body)) {
+      const symbol = typeof row.symbol === "string" ? row.symbol.trim().toUpperCase() : "";
+      if (!symbol || seen.has(symbol)) continue;
+      const exchange = String(row.exchangeShortName ?? row.exchange ?? "")
+        .trim()
+        .toUpperCase();
+      if (exchange && !/NYSE|NASDAQ|AMEX|ARCA|BATS|CBOE/.test(exchange)) continue;
+      const price = asFinite(row.price) ?? asFinite(row.lastPrice) ?? 0;
+      if (price > 0 && (price < 0.75 || price > 500)) continue;
+      seen.add(symbol);
+      out.push({
+        symbol,
+        price: price > 0 ? price : 0,
+        changePercentage:
+          asFinite(row.changesPercentage) ?? asFinite(row.changePercentage) ?? 0,
+        volume: asFinite(row.volume) ?? 0,
+        avgVolume: asFinite(row.avgVolume) ?? undefined,
+        yearHigh: asFinite(row.yearHigh) ?? undefined,
+        source: "fmp-eu-adr",
+      });
+      if (price > 0) {
+        cacheQuote(symbol, {
+          symbol,
+          price,
+          open: price,
+          dayHigh: price,
+          dayLow: price,
+          previousClose: price,
+          volume: asFinite(row.volume) ?? 0,
+          changePercentage:
+            asFinite(row.changesPercentage) ?? asFinite(row.changePercentage) ?? 0,
+        });
+      }
+    }
+  }
+
+  if (out.length > 0) setCached(cacheId, out, EUROPE_ADR_TTL_MS);
+  console.log(`[FMP] European ADRs cached ${out.length} symbols (TTL 24h)`);
+  return out;
+}
+
+/**
+ * Premarket USA movers — cached 5 min so 14:00–14:30 cycles refresh often without hammering FMP.
+ */
+export async function getFmpPrePostMovers(): Promise<FmpMoversBundle> {
+  const cacheId = cacheKey("fmp-prepost", "usa");
+  const hit = getCached<FmpMoversBundle>(cacheId);
+  if (hit) return hit;
+
+  const empty: FmpMoversBundle = { gainers: [], losers: [], actives: [], all: [] };
+  if (!isFmpEnabled()) {
+    const stale = peekCached<FmpMoversBundle>(cacheId);
+    return stale?.value ?? empty;
+  }
+
+  const [gainersBody, activesBody] = await Promise.all([
+    fmpFetchJson(PRE_POST_GAINERS_ENDPOINT, {}),
+    fmpFetchJson(PRE_POST_ACTIVES_ENDPOINT, {}),
+  ]);
+
+  if (gainersBody == null && activesBody == null) {
+    const stale = peekCached<FmpMoversBundle>(cacheId);
+    return stale?.value ?? empty;
+  }
+
+  const gainers = parseMoverRows(gainersBody, "fmp-gainers");
+  const actives = parseMoverRows(activesBody, "fmp-actives");
+  const bySym = new Map<string, FmpGainer>();
+  for (const row of [...gainers, ...actives]) {
+    if (!bySym.has(row.symbol)) bySym.set(row.symbol, row);
+  }
+  const bundle: FmpMoversBundle = {
+    gainers,
+    losers: [],
+    actives,
+    all: [...bySym.values()],
+  };
+  if (bundle.all.length > 0) setCached(cacheId, bundle, PREMARKET_TTL_MS);
+  return bundle;
 }
 
 export async function getHistory(ticker: string, days: number): Promise<FmpBar[]> {

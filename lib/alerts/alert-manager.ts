@@ -362,7 +362,7 @@ export function queueTickerForCycle(ticker: string): void {
   const upper = ticker.toUpperCase();
   updateAlertsState((s) => ({
     ...s,
-    cycleQueue: [...new Set([upper, ...s.cycleQueue])].slice(0, 20),
+    cycleQueue: [...new Set([upper, ...s.cycleQueue])].slice(0, 60),
   }));
 }
 

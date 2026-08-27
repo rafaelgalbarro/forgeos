@@ -241,8 +241,60 @@ export const ASIA_DIRECT_TICKERS = [
   "SONY",
   "TSM",
 ] as const
-export const EUROPE_ETF_TICKERS = ["EZU", "VGK", "EWG", "EWU", "EWQ", "EWI"] as const
-export const EUROPE_DIRECT_TICKERS = ["ASML", "SAP", "LVMUY", "NESN"] as const
+export const EUROPE_ETF_TICKERS = [
+  "EZU",
+  "VGK",
+  "EWG",
+  "EWU",
+  "EWQ",
+  "EWI",
+  "EWP",
+  "EWL",
+  "EWN",
+  "EWD",
+  "IEUR",
+  "FEZ",
+  "BBEU",
+  "HEZU",
+] as const
+/** European ADRs / dual-listed names liquid on NYSE/NASDAQ (IBKR SMART). */
+export const EUROPE_DIRECT_TICKERS = [
+  "ASML",
+  "SAP",
+  "LVMUY",
+  "NESN",
+  "SHEL",
+  "BP",
+  "UL",
+  "GSK",
+  "NVO",
+  "AZN",
+  "SNY",
+  "RHHBY",
+  "NGG",
+  "ING",
+  "DB",
+  "CS",
+  "BBVA",
+  "SAN",
+  "TEF",
+  "PHG",
+  "ERIC",
+  "NOK",
+  "STM",
+  "ARM",
+  "SPOT",
+  "CRH",
+  "DEO",
+  "BUD",
+  "ADDYY",
+  "DANOY",
+  "SIEGY",
+  "VWAGY",
+] as const
+
+/** Alias — full Europe ADR focus set. */
+export const EUROPE_ADR_TICKERS = EUROPE_DIRECT_TICKERS
 
 /** Fase operativa Madrid (timing de ciclo + reglas de entrada). */
 export type ActiveTradingPhase =
@@ -467,12 +519,13 @@ export function selectTickersForOpenMarkets(tickers: readonly string[]): {
 
 /**
  * Intervalo de ciclo por sesión Madrid:
- * Asia 3m · Europa 1ªh 1m · USA pre 3m · USA 1ªh 1m · USA regular 3m · after 5m · standby 15m
+ * Asia 3m · Europa 1ªh 1m · USA pre 1m · USA 1ªh 1m · USA regular 3m · after 5m · standby 15m
  */
 export function getTradingCycleIntervalMs(_now = new Date()): number {
   void _now
   switch (getActiveTradingPhase()) {
     case "USA_OPEN":
+    case "USA_PREMARKET":
     case "EUROPE_OPEN":
       return 60 * 1000
     case "USA_AFTERHOURS":
@@ -481,7 +534,6 @@ export function getTradingCycleIntervalMs(_now = new Date()): number {
       return 15 * 60 * 1000
     case "ASIA":
     case "EUROPE":
-    case "USA_PREMARKET":
     case "USA_REGULAR":
     default:
       return 3 * 60 * 1000

@@ -66,9 +66,19 @@ import { ibkrCacheKey, peekIbkrCached } from '@/lib/trading/ibkr-cache'
 import type { TradingPriceSnapshot } from '@/lib/trading/ibkr-data'
 import { peekIbkrPriceCache } from '@/lib/market-data/ibkr-prices'
 import { peekCachedQuote } from '@/lib/market-data/fmp'
+import {
+  isPremarketHighPriority,
+  listPremarketCandidates,
+  peekPremarketCandidate,
+} from '@/lib/investment/premarket-candidates'
 
-/** Hard cap — avoid FMP bursts; IBKR-first pricing. */
-const MAX_CYCLE_TICKERS = 50
+/** Hard cap — Europe session allows 100+; otherwise 50. */
+function maxCycleTickers(): number {
+  const phase = getActiveTradingPhase()
+  if (phase === 'EUROPE' || phase === 'EUROPE_OPEN') return 120
+  if (phase === 'USA_PREMARKET' || phase === 'USA_OPEN') return 80
+  return 50
+}
 
 const GLOBAL_ETF_PRIORITY = new Set<string>([
   ...ASIA_ETF_TICKERS,
@@ -83,11 +93,14 @@ function hasWarmIbkrPrice(ticker: string): boolean {
 }
 
 /**
- * Prioritize: IBKR warm cache → FMP mover/quote cache → crypto → global ETFs → rest.
- * Cap at 50.
+ * Prioritize: premarket HIGH → IBKR warm → FMP cache → crypto → ETFs → rest.
  */
 function prioritizeCycleTickers(tickers: readonly string[]): string[] {
+  const cap = maxCycleTickers()
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
+  const premarketHigh = listPremarketCandidates().map((c) => c.symbol)
+  const preSet = new Set(premarketHigh)
+  const withPremarket: string[] = []
   const withIbkr: string[] = []
   const withFmpCache: string[] = []
   const crypto: string[] = []
@@ -95,13 +108,22 @@ function prioritizeCycleTickers(tickers: readonly string[]): string[] {
   const rest: string[] = []
 
   for (const t of unique) {
-    if (hasWarmIbkrPrice(t)) withIbkr.push(t)
+    if (preSet.has(t) || isPremarketHighPriority(t)) withPremarket.push(t)
+    else if (hasWarmIbkrPrice(t)) withIbkr.push(t)
     else if ((peekCachedQuote(t)?.price ?? 0) > 0) withFmpCache.push(t)
     else if (isIbkrCryptoTicker(t)) crypto.push(t)
     else if (GLOBAL_ETF_PRIORITY.has(t)) etfs.push(t)
     else rest.push(t)
   }
-  return [...withIbkr, ...withFmpCache, ...crypto, ...etfs, ...rest].slice(0, MAX_CYCLE_TICKERS)
+  // Stable order: known premarket list order first, then discovered
+  const orderedPremarket = [
+    ...premarketHigh.filter((t) => unique.includes(t)),
+    ...withPremarket.filter((t) => !preSet.has(t)),
+  ]
+  return [...new Set([...orderedPremarket, ...withIbkr, ...withFmpCache, ...crypto, ...etfs, ...rest])].slice(
+    0,
+    cap,
+  )
 }
 
 /** Temporary skip after IBKR/AutoExecute timeout — 30 minutes. */
@@ -273,7 +295,7 @@ export class TradingEngine {
     )
     console.log(
       `[ProStrategy] Ciclo ${cycleId}: modo=${scoped.mode} evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
-        `(max=${MAX_CYCLE_TICKERS}, precios=IBKR, concurrency=${TradingEngine.CYCLE_CONCURRENCY})`,
+        `(max=${maxCycleTickers()}, precios=IBKR, concurrency=${TradingEngine.CYCLE_CONCURRENCY})`,
     )
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
@@ -667,14 +689,17 @@ export class TradingEngine {
       (priceData.previousClose > 0
         ? ((priceData.currentPrice - priceData.previousClose) / priceData.previousClose) * 100
         : 0)
+    const pm = peekPremarketCandidate(ticker)
     const strategy = await evaluateProStrategies(ticker, {
       price: priceData.currentPrice,
-      change1dPct,
-      volume: priceData.volume,
+      change1dPct: pm && Math.abs(pm.gapPct) > Math.abs(change1dPct) ? pm.gapPct : change1dPct,
+      volume: Math.max(priceData.volume, pm?.volume ?? 0),
       yearHigh: priceData.high52w,
       yearLow: priceData.low52w,
       priceAvg50: priceData.priceAvg50,
       priceAvg200: priceData.priceAvg200,
+      premarketCandidate: Boolean(pm) || isPremarketHighPriority(ticker),
+      gapHeldMs: pm ? Date.now() - pm.firstSeenAtMs : undefined,
     })
     const signal = {
       direction: strategy.direction === 'BUY' ? ('BUY' as const) : ('HOLD' as const),

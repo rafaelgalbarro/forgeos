@@ -5,14 +5,15 @@
  * Windows (Madrid):
  * - 00:30 Asia pre-scan
  * - 08:30 Europe pre-scan
- * - 14:00 USA pre-scan (FMP pre-post market)
+ * - 14:00–14:30 USA pre-scan (FMP pre-post market) — refreshes every cycle
  */
 
 import "server-only";
 
 import { queueTickerForCycle } from "@/lib/alerts/alert-manager";
-import { isFmpEnabled } from "@/lib/market-data/fmp";
+import { getFmpPrePostMovers, isFmpEnabled } from "@/lib/market-data/fmp";
 import { fetchGeneralNewsCatalysts } from "@/lib/market-data/finnhub-pro";
+import { upsertPremarketCandidates } from "@/lib/investment/premarket-candidates";
 import {
   ASIA_DIRECT_TICKERS,
   ASIA_ETF_TICKERS,
@@ -39,20 +40,12 @@ export type PremarketScanResult = {
 
 const MIN_GAP_PCT = 1.5;
 const MIN_VOLUME = 50_000;
-const MAX_QUEUE = 12;
-
-type RawMover = {
-  symbol?: string;
-  ticker?: string;
-  price?: number;
-  volume?: number;
-  changesPercentage?: number;
-  changePercentage?: number;
-  change?: number;
-};
+const MAX_QUEUE = 40;
 
 let lastScanDayKey = "";
 const ranToday = new Set<string>();
+let lastUsaScanAtMs = 0;
+const USA_SCAN_MIN_INTERVAL_MS = 55_000;
 
 function madridDayKey(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -90,57 +83,14 @@ function allowed(): Set<string> {
   return new Set(TRADING_CONFIG.allowedTickers.map((t) => t.toUpperCase()));
 }
 
-function queueSymbols(symbols: readonly string[]): void {
-  const allow = allowed();
+function queueSymbols(symbols: readonly string[], max = MAX_QUEUE): void {
   let n = 0;
   for (const s of symbols) {
     const sym = s.trim().toUpperCase();
-    if (!sym || !allow.has(sym)) continue;
+    if (!sym) continue;
     queueTickerForCycle(sym);
     n += 1;
-    if (n >= MAX_QUEUE) break;
-  }
-}
-
-async function fmpPrePostList(endpoint: string): Promise<PremarketCandidate[]> {
-  if (!isFmpEnabled()) return [];
-  const key = process.env["FMP_API_KEY"]?.trim();
-  if (!key) return [];
-  const url = `https://financialmodelingprep.com/stable/${endpoint}?apikey=${encodeURIComponent(key)}`;
-  try {
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) {
-      console.warn(`[PreMarket] FMP ${endpoint} HTTP ${res.status}`);
-      return [];
-    }
-    const raw = (await res.json()) as unknown;
-    const rows = Array.isArray(raw) ? (raw as RawMover[]) : [];
-    const out: PremarketCandidate[] = [];
-    for (const row of rows) {
-      const symbol = String(row.symbol ?? row.ticker ?? "")
-        .trim()
-        .toUpperCase();
-      if (!symbol) continue;
-      const gapPct = Number(
-        row.changesPercentage ?? row.changePercentage ?? row.change ?? 0,
-      );
-      const volume = Number(row.volume ?? 0);
-      const price = Number(row.price ?? 0);
-      if (!(gapPct >= MIN_GAP_PCT) || !(volume >= MIN_VOLUME)) continue;
-      if (!(price >= 0.75 && price <= 200)) continue;
-      out.push({ symbol, gapPct, volume, price, source: endpoint });
-    }
-    return out.sort((a, b) => b.gapPct - a.gapPct).slice(0, 30);
-  } catch (err) {
-    console.warn(
-      `[PreMarket] FMP ${endpoint}:`,
-      err instanceof Error ? err.message : err,
-    );
-    return [];
+    if (n >= max) break;
   }
 }
 
@@ -195,8 +145,8 @@ export async function runEuropePremarketScan(): Promise<PremarketScanResult> {
       source: "europe-universe",
     })),
   );
-  queueSymbols(withNews.map((c) => c.symbol));
-  const top = withNews.slice(0, 8).map((c) => c.symbol);
+  queueSymbols(withNews.map((c) => c.symbol), 60);
+  const top = withNews.slice(0, 12).map((c) => c.symbol);
   console.log(`[PreMarket] Europa: ${top.length} candidatos: ${top.join(", ") || "—"}`);
   return {
     session: "europe",
@@ -207,24 +157,51 @@ export async function runEuropePremarketScan(): Promise<PremarketScanResult> {
 }
 
 export async function runUsaPremarketScan(): Promise<PremarketScanResult> {
-  const [gainers, active] = await Promise.all([
-    fmpPrePostList("pre-post-market-gainers"),
-    fmpPrePostList("pre-post-market-most-active"),
-  ]);
-  const merged = new Map<string, PremarketCandidate>();
-  for (const c of [...gainers, ...active]) {
-    const prev = merged.get(c.symbol);
-    if (!prev || c.gapPct > prev.gapPct) merged.set(c.symbol, c);
+  if (!isFmpEnabled()) {
+    console.warn("[PreMarket] FMP disabled — skip USA premarket scan");
+    return {
+      session: "usa",
+      candidates: [],
+      preparedOnly: true,
+      at: new Date().toISOString(),
+    };
   }
+
+  const movers = await getFmpPrePostMovers();
+  const merged = new Map<string, PremarketCandidate>();
+  for (const row of movers.all) {
+    if (!(row.changePercentage >= MIN_GAP_PCT)) continue;
+    if (!(row.volume >= MIN_VOLUME)) continue;
+    if (row.price > 0 && (row.price < 0.75 || row.price > 200)) continue;
+    const prev = merged.get(row.symbol);
+    if (!prev || row.changePercentage > prev.gapPct) {
+      merged.set(row.symbol, {
+        symbol: row.symbol,
+        gapPct: row.changePercentage,
+        volume: row.volume,
+        price: row.price,
+        source: row.source,
+      });
+    }
+  }
+
   let candidates = [...merged.values()].sort((a, b) => b.gapPct - a.gapPct);
   candidates = await mergeNewsCatalysts(candidates);
+  // Prefer allowlist but keep strong gaps even if not on static list
   const allow = allowed();
-  candidates = candidates.filter((c) => allow.has(c.symbol)).slice(0, MAX_QUEUE);
+  const preferred = candidates.filter((c) => allow.has(c.symbol));
+  const extras = candidates.filter((c) => !allow.has(c.symbol));
+  candidates = [...preferred, ...extras].slice(0, MAX_QUEUE);
+
+  upsertPremarketCandidates(candidates);
   queueSymbols(candidates.map((c) => c.symbol));
-  const names = candidates.map((c) => c.symbol);
-  console.log(
-    `[PreMarket] USA: ${names.length} candidatos: ${names.join(", ") || "—"}`,
-  );
+
+  const preview = candidates
+    .slice(0, 8)
+    .map((c) => `${c.symbol}${c.gapPct >= 0 ? "+" : ""}${c.gapPct.toFixed(1)}%`)
+    .join(", ");
+  console.log(`[PreMarket] ${candidates.length} candidatos: ${preview || "—"}`);
+
   return {
     session: "usa",
     candidates,
@@ -234,8 +211,7 @@ export async function runUsaPremarketScan(): Promise<PremarketScanResult> {
 }
 
 /**
- * Run the matching pre-scanner once per Madrid day window.
- * Safe to call every cycle — no-ops outside windows / already-ran.
+ * Run matching pre-scanners. USA premarket refreshes every ~1m during 14:00–14:30.
  */
 export async function maybeRunPremarketScanners(): Promise<PremarketScanResult | null> {
   if (!isWeekdayMadrid()) return null;
@@ -243,9 +219,10 @@ export async function maybeRunPremarketScanners(): Promise<PremarketScanResult |
   if (day !== lastScanDayKey) {
     lastScanDayKey = day;
     ranToday.clear();
+    lastUsaScanAtMs = 0;
   }
   const mins = madridMinutes();
-  const h = getMadridHour();
+  void getMadridHour();
 
   // 00:30–01:00 Asia pre
   if (mins >= 30 && mins < 60 && !ranToday.has("asia")) {
@@ -257,11 +234,15 @@ export async function maybeRunPremarketScanners(): Promise<PremarketScanResult |
     ranToday.add("europe");
     return runEuropePremarketScan();
   }
-  // 14:00–14:30 USA pre
-  if (mins >= 840 && mins < 870 && !ranToday.has("usa")) {
+  // 14:00–14:30 USA pre — active every cycle (~1m)
+  if (mins >= 840 && mins < 870) {
+    const now = Date.now();
+    if (now - lastUsaScanAtMs < USA_SCAN_MIN_INTERVAL_MS && ranToday.has("usa")) {
+      return null;
+    }
+    lastUsaScanAtMs = now;
     ranToday.add("usa");
     return runUsaPremarketScan();
   }
-  void h;
   return null;
 }

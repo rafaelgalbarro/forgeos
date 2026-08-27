@@ -11,9 +11,14 @@ import {
   getDailyUniverse,
   getDailyMarketUniverse,
 } from "@/lib/investment/market-daily-universe";
+import { IBKR_CRYPTO_TICKERS, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 import { regionalFocusTickersMadrid } from "@/src/core/trading/strategies/pro-strategies";
+import {
+  getTradingCycleIntervalMs,
+  selectTickersForOpenMarkets,
+} from "@/src/core/trading/market-session";
 
-const DEFAULT_CYCLE_LIMIT = 100;
+const DEFAULT_CYCLE_LIMIT = 120;
 
 function allowedSet(): Set<string> {
   return new Set((TRADING_CONFIG.allowedTickers as readonly string[]).map((t) => t.toUpperCase()));
@@ -36,6 +41,7 @@ export function getScannerCandidateTickers(): string[] {
 export function isTickerAllowedForTrading(ticker: string): boolean {
   const id = ticker.trim().toUpperCase();
   if (!id) return false;
+  if (isIbkrCryptoTicker(id)) return true;
   const daily = getDailyUniverse();
   if ((daily?.excludedEarnings ?? []).includes(id)) return false;
   if ((daily?.tickers ?? []).some((t) => t.symbol === id)) return true;
@@ -50,13 +56,19 @@ export type CycleUniverseResult = {
   universeSize: number;
 };
 
+function withCrypto(tickers: readonly string[], cap: number): string[] {
+  return [...new Set([...IBKR_CRYPTO_TICKERS, ...tickers])].slice(0, Math.max(cap, IBKR_CRYPTO_TICKERS.length));
+}
+
 function resolveFromCache(limit: number): CycleUniverseResult {
-  const cap = Math.max(1, Math.min(limit, 100));
+  const cap = Math.max(1, Math.min(limit, 150));
   const regional = regionalFocusTickersMadrid();
   const daily = getDailyUniverse() ?? getDailyMarketUniverse();
   const fromDaily = (daily?.tickers ?? []).slice(0, cap).map((t) => t.symbol.toUpperCase());
   if (fromDaily.length > 0) {
-    const tickers = [...new Set([...regional, ...fromDaily])].slice(0, cap);
+    const combined = [...new Set([...regional, ...fromDaily])];
+    const selected = selectTickersForOpenMarkets(combined);
+    const tickers = withCrypto(selected.tickers.length > 0 ? selected.tickers : combined, cap);
     return {
       tickers,
       source: "daily-top100",
@@ -73,7 +85,7 @@ function resolveFromCache(limit: number): CycleUniverseResult {
 
   if (fromScanner.length > 0) {
     return {
-      tickers: fromScanner,
+      tickers: withCrypto(fromScanner, cap),
       source: "scanner",
       scannedAt: snap?.scannedAt ?? null,
       universeSize: snap?.universeSize ?? 0,
@@ -81,7 +93,10 @@ function resolveFromCache(limit: number): CycleUniverseResult {
   }
 
   return {
-    tickers: (TRADING_CONFIG.allowedTickers as readonly string[]).slice(0, cap).map((t) => t.toUpperCase()),
+    tickers: withCrypto(
+      (TRADING_CONFIG.allowedTickers as readonly string[]).slice(0, cap).map((t) => t.toUpperCase()),
+      cap,
+    ),
     source: "allowedTickers",
     scannedAt: snap?.scannedAt ?? null,
     universeSize: snap?.universeSize ?? 0,
@@ -107,7 +122,7 @@ export async function resolveTradingCycleTickersAsync(
   }
   const result = resolveFromCache(limit);
   console.log(
-    `[Universe] Ciclo source=${result.source} tickers=${result.tickers.length} universe=${result.universeSize}`,
+    `[Universe] Ciclo source=${result.source} tickers=${result.tickers.length} universe=${result.universeSize} intervalMs=${getTradingCycleIntervalMs()}`,
   );
   return result;
 }

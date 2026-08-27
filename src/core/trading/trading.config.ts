@@ -110,7 +110,10 @@ export const TRADING_CONFIG = {
     // USA — Acciones de alta liquidez
     'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META',
     // Europa ETFs / ADRs
-    'EZU', 'VGK', 'EWG', 'EWU', 'EWQ', 'EWI', 'EWP', 'ASML', 'SAP', 'LVMUY', 'NESN', 'SHOP', 'SHEL', 'BP',
+    'EZU', 'VGK', 'EWG', 'EWU', 'EWQ', 'EWI', 'EWP', 'EWL', 'EWN', 'EWD', 'IEUR', 'FEZ', 'BBEU', 'HEZU',
+    'ASML', 'SAP', 'LVMUY', 'NESN', 'SHOP', 'SHEL', 'BP', 'UL', 'GSK', 'NVO', 'AZN', 'SNY', 'RHHBY',
+    'NGG', 'ING', 'DB', 'CS', 'BBVA', 'SAN', 'TEF', 'PHG', 'ERIC', 'NOK', 'STM', 'ARM', 'SPOT',
+    'CRH', 'DEO', 'BUD', 'ADDYY', 'DANOY', 'SIEGY', 'VWAGY',
     // Asia ETFs / ADRs (US listings — FMP Starter)
     'EWJ', 'FXI', 'EWY', 'EWA', 'EWT', 'EWS', 'BABA', 'NIO', 'JD', 'BIDU', 'TCEHY', 'SE', 'GRAB', 'SONY', 'TSM',
     // Emergentes

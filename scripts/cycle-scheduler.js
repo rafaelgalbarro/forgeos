@@ -83,12 +83,12 @@ function localIntervalMs() {
     if (hour >= 22 || hour < 2) return 5 * 60 * 1000;
     return 15 * 60 * 1000;
   }
-  if (nowMinutes >= 14 * 60 + 30 && nowMinutes < 15 * 60 + 30) return 60 * 1000;
+  // USA premarket 14:00–14:30 + USA open 14:30–15:30 → 1m
+  if (nowMinutes >= 14 * 60 && nowMinutes < 15 * 60 + 30) return 60 * 1000;
   if (nowMinutes >= 9 * 60 && nowMinutes < 10 * 60) return 60 * 1000;
   if (hour >= 22 || hour < 2) return 5 * 60 * 1000;
   if (hour >= 1 && hour < 8) return 3 * 60 * 1000;
   if (hour >= 9 && (hour < 17 || (hour === 17 && minuteOk(nowMinutes)))) return 3 * 60 * 1000;
-  if (nowMinutes >= 14 * 60 && nowMinutes < 14 * 60 + 30) return 3 * 60 * 1000;
   if (nowMinutes >= 15 * 60 + 30 && nowMinutes < 21 * 60) return 3 * 60 * 1000;
   return 15 * 60 * 1000;
 }

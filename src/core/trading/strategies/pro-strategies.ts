@@ -115,6 +115,8 @@ export type ScreenerInputs = {
   bid?: number;
   ask?: number;
   premarketCandidate?: boolean;
+  /** Ms since premarket gap first observed — GAP AND GO needs ≥5m. */
+  gapHeldMs?: number;
 };
 
 const REVERSAL_ONLY_IDS: ProStrategyId[] = ["USA_REVERSAL_OVERSOLD", "CRYPTO_RSI_OVERSOLD"];
@@ -688,21 +690,29 @@ export async function evaluateProStrategies(
 
   // ─── USA OPEN (14:30–15:30) ───────────────────────────────────
   if (phase === "USA_OPEN") {
+    const gapHeldOk =
+      inputs?.premarketCandidate === true &&
+      (inputs.gapHeldMs == null || inputs.gapHeldMs >= 5 * 60_000);
     if (
-      change1d >= 2 &&
-      change1d <= 5 &&
-      relVol >= 2 &&
+      change1d >= 1.5 &&
+      change1d <= 6 &&
+      relVol >= 1.5 &&
       ema9 != null &&
       ema21 != null &&
       ema9 > ema21 &&
-      (inputs?.premarketCandidate !== false)
+      gapHeldOk
     ) {
       const gapFloor = price * (1 - change1d / 100) * 0.995;
+      const heldMin = Math.round((inputs?.gapHeldMs ?? 0) / 60_000);
       hits.push(
-        hit("USA_GAP_AND_GO", `Gap +${change1d.toFixed(1)}% mantenido + vol ${relVol.toFixed(1)}x`, {
-          stopLossPrice: gapFloor,
-          takeProfitPrice: price * 1.05,
-        }),
+        hit(
+          "USA_GAP_AND_GO",
+          `Gap +${change1d.toFixed(1)}% mantenido ${heldMin}m (≥5m) + vol ${relVol.toFixed(1)}x`,
+          {
+            stopLossPrice: gapFloor,
+            takeProfitPrice: price * 1.05,
+          },
+        ),
       );
     }
     if (

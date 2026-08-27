@@ -4,6 +4,7 @@ import { getFullMarketAnalysis } from "@/lib/market-data/full-analysis";
 import type { EnhancedOpportunity, InstitutionalBadge } from "@/lib/market-data/types";
 import { getTickerUniverse, getScannerConfig } from "@/lib/market-data/ticker-universe";
 import { getActiveCandidateTickers } from "@/lib/market-data/candidate-store";
+import { getDailyUniverse } from "@/lib/investment/market-daily-universe";
 import {
   computeRsi,
   getBatchPrices,
@@ -445,21 +446,34 @@ export async function runMultiPhaseMarketScan(): Promise<MultiScannerSnapshot> {
   let phase1: Phase1Candidate[] = [];
 
   try {
-    const pool = getActiveCandidateTickers();
-    const universe = pool.length >= 10 ? null : await getTickerUniverse();
-    let tickers = pool.length >= 10 ? pool : universe!.tickers;
+    const daily = getDailyUniverse()
+    const ibkrPool = (daily?.tickers ?? []).map((t) => t.symbol.toUpperCase()).filter(Boolean)
+    const pool = getActiveCandidateTickers()
+    // Prefer IBKR daily universe when MarketScanner candidate pool is empty (FMP off)
+    const universe = pool.length >= 10 ? null : ibkrPool.length >= 10 ? null : await getTickerUniverse()
+    let tickers =
+      pool.length >= 10
+        ? pool
+        : ibkrPool.length >= 10
+          ? ibkrPool
+          : universe!.tickers
+    if (pool.length < 10 && ibkrPool.length >= 10) {
+      console.log(
+        `[MarketScanner] pool=${pool.length} → usando universo IBKR directo (${ibkrPool.length} tickers)`,
+      )
+    }
     if (policy.scannerUniverseCap != null) {
       tickers = tickers.slice(0, policy.scannerUniverseCap);
     }
-    universeSize = universe?.tickers.length ?? pool.length;
+    universeSize = universe?.tickers.length ?? (ibkrPool.length || pool.length);
     phase1 = await runPhase1MathFilter(
       tickers,
-      pool.length >= 10
+      pool.length >= 10 || ibkrPool.length >= 10
         ? { minChangePct: 0.3, minRelVol: 0.8, skipRsiMidBand: true }
         : undefined,
     );
     console.log(
-      `[MarketScanner] pool=${pool.length} scanning=${tickers.length} cap=${policy.scannerUniverseCap ?? "full"} (daily candidates ${pool.length >= 10 ? "ON" : "fallback universe"})`,
+      `[MarketScanner] pool=${pool.length} scanning=${tickers.length} cap=${policy.scannerUniverseCap ?? "full"} (daily candidates ${pool.length >= 10 ? "ON" : ibkrPool.length >= 10 ? "IBKR" : "fallback universe"})`,
     );
     for (const c of phase1) {
       phases.push({

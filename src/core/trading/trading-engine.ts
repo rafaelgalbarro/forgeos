@@ -70,7 +70,12 @@ import {
   listPremarketCandidates,
   peekPremarketCandidate,
 } from '@/lib/investment/premarket-candidates'
-import { getDailyUniverse } from '@/lib/investment/market-daily-universe'
+import {
+  ensureDailyUniverse,
+  getDailyUniverse,
+} from '@/lib/investment/market-daily-universe'
+import { getScannerCandidateTickers } from '@/lib/investment/cycle-universe'
+import { getActiveCandidateTickers } from '@/lib/market-data/candidate-store'
 
 /** Analyze up to 100 tickers per cycle across all sessions. */
 function maxCycleTickers(): number {
@@ -263,6 +268,51 @@ export class TradingEngine {
   }
 
   /**
+   * MarketScanner is an optional filter. If it returns 0 candidates (e.g. FMP disabled),
+   * continue with the IBKR scanner universe — never block ProStrategy.
+   */
+  private async resolveCycleSeedTickers(tickers: string[]): Promise<string[]> {
+    const seed = [
+      ...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
+    ]
+    const scannerPool = [
+      ...new Set(
+        [...getActiveCandidateTickers(), ...getScannerCandidateTickers()]
+          .map((t) => t.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ]
+
+    if (scannerPool.length > 0 && seed.length > 0) {
+      return seed
+    }
+
+    let ibkr = (getDailyUniverse()?.tickers ?? []).map((t) => t.symbol.toUpperCase())
+    if (ibkr.length === 0) {
+      try {
+        const refreshed = await ensureDailyUniverse()
+        ibkr = refreshed.tickers.map((t) => t.symbol.toUpperCase())
+      } catch (err) {
+        console.warn(
+          '[TradingCycle] ensureDailyUniverse failed:',
+          err instanceof Error ? err.message : err,
+        )
+      }
+    }
+
+    if (scannerPool.length === 0) {
+      const merged = [...new Set([...ibkr, ...seed])].slice(0, maxCycleTickers())
+      console.log(
+        `[TradingCycle] MarketScanner sin candidatos → usando universo IBKR directo (${merged.length} tickers)`,
+      )
+      return merged.length > 0 ? merged : seed
+    }
+
+    // Seed empty but scanner has candidates
+    return scannerPool.slice(0, maxCycleTickers())
+  }
+
+  /**
    * Ejecuta un ciclo de trading completo para una lista de tickers.
    * Llamado por el API route de Next.js cada X minutos.
    * Ã“rdenes vÃ¡lidas quedan en PENDING_APPROVAL (no se ejecutan automÃ¡ticamente).
@@ -297,8 +347,9 @@ export class TradingEngine {
       }
     }
 
-    // 3. Universo según mercados abiertos (Asia / Europa / USA) — max 50, IBKR cache first
-    const scoped = selectTickersForOpenMarkets(tickers)
+    // 3. Universo: MarketScanner opcional → si pool=0, IBKR scanner directo
+    const seedTickers = await this.resolveCycleSeedTickers(tickers)
+    const scoped = selectTickersForOpenMarkets(seedTickers)
     if (scoped.tickers.length === 0) {
       console.log(
         `[ProStrategy] Ciclo ${cycleId}: sin tickers (ni crypto); solo monitor de posiciones`,
@@ -311,7 +362,7 @@ export class TradingEngine {
       }
     }
     const cycleTickers = prioritizeCycleTickers(
-      scoped.tickers.length > 0 ? scoped.tickers : tickers,
+      scoped.tickers.length > 0 ? scoped.tickers : seedTickers,
     )
     console.log(
       `[ProStrategy] Ciclo ${cycleId}: modo=${scoped.mode} evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +

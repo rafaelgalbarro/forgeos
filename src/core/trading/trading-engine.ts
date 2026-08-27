@@ -30,9 +30,15 @@ import {
 import { midFromBidAsk } from '@/lib/trading/limit-price'
 import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
 import { submitSupervisedLiveLimitOrder } from '@/lib/investment/ibkr-supervised-submit'
-import { getDailyUniverse } from '@/lib/investment/market-daily-universe'
 import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
-import { getUsMarketSession, selectTickersForOpenMarkets, isUsaPremarketPrepareOnly, getActiveTradingPhase } from './market-session'
+import {
+  getUsMarketSession,
+  selectTickersForOpenMarkets,
+  isUsaPremarketPrepareOnly,
+  getActiveTradingPhase,
+  ASIA_ETF_TICKERS,
+  EUROPE_ETF_TICKERS,
+} from './market-session'
 import { isIbkrCryptoTicker } from './crypto-ibkr'
 import { recordMlSignal } from '@/lib/ml/signal-trainer'
 import { getTickerInfo } from '@/lib/market-data/yahoo-finance'
@@ -53,6 +59,47 @@ import { getInstitutionalMacroCaution24h } from '@/lib/market-data/institutional
 import { loadTradingState } from './trading-state-store'
 import { shouldSkipUntradeableTicker } from './untradeable-tickers'
 import { cancelStaleIbkrOrders } from '@/lib/trading/ibkr-reconnect'
+import { ibkrCacheKey, peekIbkrCached } from '@/lib/trading/ibkr-cache'
+import type { TradingPriceSnapshot } from '@/lib/trading/ibkr-data'
+import { peekIbkrPriceCache } from '@/lib/market-data/ibkr-prices'
+import { peekCachedQuote } from '@/lib/market-data/fmp'
+
+/** Hard cap — avoid FMP bursts; IBKR-first pricing. */
+const MAX_CYCLE_TICKERS = 50
+
+const GLOBAL_ETF_PRIORITY = new Set<string>([
+  ...ASIA_ETF_TICKERS,
+  ...EUROPE_ETF_TICKERS,
+])
+
+function hasWarmIbkrPrice(ticker: string): boolean {
+  const live = peekIbkrPriceCache(ticker)
+  if (live && live.price > 0) return true
+  const snap = peekIbkrCached<TradingPriceSnapshot>(ibkrCacheKey('price', ticker))
+  return Boolean(snap?.value && snap.value.currentPrice > 0)
+}
+
+/**
+ * Prioritize: IBKR warm cache → FMP mover/quote cache → crypto → global ETFs → rest.
+ * Cap at 50.
+ */
+function prioritizeCycleTickers(tickers: readonly string[]): string[] {
+  const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
+  const withIbkr: string[] = []
+  const withFmpCache: string[] = []
+  const crypto: string[] = []
+  const etfs: string[] = []
+  const rest: string[] = []
+
+  for (const t of unique) {
+    if (hasWarmIbkrPrice(t)) withIbkr.push(t)
+    else if ((peekCachedQuote(t)?.price ?? 0) > 0) withFmpCache.push(t)
+    else if (isIbkrCryptoTicker(t)) crypto.push(t)
+    else if (GLOBAL_ETF_PRIORITY.has(t)) etfs.push(t)
+    else rest.push(t)
+  }
+  return [...withIbkr, ...withFmpCache, ...crypto, ...etfs, ...rest].slice(0, MAX_CYCLE_TICKERS)
+}
 
 /** Per-account capital policy — price band + confidence-tier cash sizing. */
 function resolveAccountCapitalPolicy(
@@ -165,7 +212,7 @@ export class TradingEngine {
       }
     }
 
-    // 3. Universo según mercados abiertos (Asia / Europa / USA)
+    // 3. Universo según mercados abiertos (Asia / Europa / USA) — max 50, IBKR cache first
     const scoped = selectTickersForOpenMarkets(tickers)
     if (scoped.tickers.length === 0) {
       console.log(
@@ -178,9 +225,12 @@ export class TradingEngine {
         haltReason: this.risk.isHalted() ? this.risk.getHaltReason() : undefined,
       }
     }
-    const cycleTickers = scoped.tickers.length > 0 ? scoped.tickers : tickers
+    const cycleTickers = prioritizeCycleTickers(
+      scoped.tickers.length > 0 ? scoped.tickers : tickers,
+    )
     console.log(
-      `[ProStrategy] Ciclo ${cycleId}: modo=${scoped.mode} evaluando ${cycleTickers.length} tickers (concurrency=${TradingEngine.CYCLE_CONCURRENCY})`,
+      `[ProStrategy] Ciclo ${cycleId}: modo=${scoped.mode} evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
+        `(max=${MAX_CYCLE_TICKERS}, precios=IBKR, concurrency=${TradingEngine.CYCLE_CONCURRENCY})`,
     )
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
@@ -463,45 +513,22 @@ export class TradingEngine {
       }
     }
 
-    console.log(`[AutoExecute] ${ticker} → obteniendo precio actual…`)
+    console.log(`[AutoExecute] ${ticker} → obteniendo precio (IBKR → FMP-caché)…`)
     let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
     try {
       priceData = await this.fetchPrice(ticker)
-      console.log(`[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)}`)
-    } catch (err) {
-      const screener = getDailyUniverse()?.tickers.find((t) => t.symbol === ticker.toUpperCase())
-      if (screener && screener.price > 0) {
-        console.warn(
-          `[AutoExecute] ${ticker} → precio live falló; usando screener $${screener.price.toFixed(2)}`,
-        )
-        priceData = {
-          ticker,
-          currentPrice: screener.price,
-          previousClose: screener.price,
-          bid: screener.price,
-          ask: screener.price,
-          change1d: screener.changePct,
-          high52w: screener.price,
-          low52w: screener.price,
-          volume: screener.volume,
-          changePercentage: screener.changePct,
-          quoteSymbol: ticker,
-          quoteExchange: 'SMART',
-          quoteCurrency: 'USD',
-          quoteRoute: 'screener-cache',
-          quoteErrors: ['live-price-fallback-screener'],
-        }
-      } else {
-        // Informative skip — not an error (FMP Starter + IBKR sin cotización)
-        console.log(`[Universe] ${ticker} sin precio disponible, skip`)
-        return {
-          status: 'HOLD',
-          ticker,
-          direction: 'HOLD',
-          reason: `${ticker}: sin precio disponible (FMP/IBKR)`,
-          signal: { confidence: 0, reasoning: 'Sin precio disponible', urgency: 'LOW' },
-          timestamp: new Date().toISOString(),
-        }
+      console.log(
+        `[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)} (${priceData.quoteRoute})`,
+      )
+    } catch {
+      console.log(`[Universe] ${ticker} sin precio IBKR ni caché FMP, skip`)
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: sin precio IBKR ni caché FMP (skip)`,
+        signal: { confidence: 0, reasoning: 'Sin precio disponible', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
       }
     }
 

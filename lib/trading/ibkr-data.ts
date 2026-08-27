@@ -1,11 +1,8 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
-import {
-  getForexQuote as fmpGetForexQuote,
-  getQuote as fmpGetQuote,
-  isFmpEnabled,
-} from "@/lib/market-data/fmp";
+import { getIbkrPrice } from "@/lib/market-data/ibkr-prices";
+import { peekCachedQuote } from "@/lib/market-data/fmp";
 import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
 import {
   resolveLimitPriceFromQuote,
@@ -160,112 +157,63 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
   const routes = quoteRoutesForTicker(symbol);
   const quoteErrors: string[] = [];
 
-  // 1) FMP profile (Starter) — primary for US/ADR
-  if (isFmpEnabled()) {
-    try {
-      const quote = await fmpGetQuote(symbol);
-      if (quote && Number.isFinite(quote.price) && quote.price > 0) {
-        const currentPrice = quote.price;
-        const prevClose = quote.previousClose > 0 ? quote.previousClose : currentPrice;
-        const route = routes[0];
-        return {
-          ticker: symbol,
-          currentPrice,
-          previousClose: prevClose,
-          bid: currentPrice,
-          ask: currentPrice,
-          change1d: currentPrice - prevClose,
-          high52w: quote.yearHigh && quote.yearHigh > 0 ? quote.yearHigh : currentPrice,
-          low52w: quote.yearLow && quote.yearLow > 0 ? quote.yearLow : currentPrice,
-          volume: quote.volume ?? 0,
-          changePercentage: quote.changePercentage ?? 0,
-          priceAvg50: quote.priceAvg50,
-          priceAvg200: quote.priceAvg200,
-          quoteSymbol: route?.symbol ?? symbol,
-          quoteExchange: route?.exchange ?? "FMP",
-          quoteCurrency: route?.currency ?? "USD",
-          quoteRoute: route?.label ?? "FMP-profile",
-          quoteErrors,
-        };
-      }
-      quoteErrors.push("FMP sin precio");
-    } catch (err) {
-      quoteErrors.push(err instanceof Error ? err.message : "FMP error");
-    }
-  } else {
-    quoteErrors.push("FMP_API_KEY missing");
+  // 1) IBKR market-data (primary — free, no FMP rate limit)
+  const ibkr = await getIbkrPrice(symbol);
+  if (ibkr && ibkr.price > 0) {
+    console.log(
+      `[Universe] ${symbol} precio IBKR $${ibkr.price.toFixed(2)} via ${ibkr.exchange}/${ibkr.currency}`,
+    );
+    return {
+      ticker: symbol,
+      currentPrice: ibkr.price,
+      previousClose: ibkr.price,
+      bid: ibkr.bid ?? ibkr.price,
+      ask: ibkr.ask ?? ibkr.price,
+      change1d: 0,
+      high52w: ibkr.price,
+      low52w: ibkr.price,
+      volume: 0,
+      changePercentage: 0,
+      quoteSymbol: symbol,
+      quoteExchange: ibkr.exchange,
+      quoteCurrency: ibkr.currency,
+      quoteRoute: ibkr.route,
+      quoteErrors,
+    };
   }
+  quoteErrors.push("IBKR: no price");
 
-  // 2) IBKR quote / market-data with exchange-specific routes (EU/CH natives)
-  for (const route of routes) {
-    const ibkr = await fetchIbkrRouteQuote(route.symbol, route.exchange, route.currency);
-    if (ibkr && ibkr.price > 0) {
-      console.log(
-        `[Universe] ${symbol} precio IBKR $${ibkr.price.toFixed(2)} via ${route.exchange}/${route.currency}`,
-      );
-      return {
-        ticker: symbol,
-        currentPrice: ibkr.price,
-        previousClose: ibkr.price,
-        bid: ibkr.bid ?? ibkr.price,
-        ask: ibkr.ask ?? ibkr.price,
-        change1d: 0,
-        high52w: ibkr.price,
-        low52w: ibkr.price,
-        volume: 0,
-        changePercentage: 0,
-        quoteSymbol: route.symbol,
-        quoteExchange: route.exchange,
-        quoteCurrency: route.currency,
-        quoteRoute: `IBKR-${route.label}`,
-        quoteErrors,
-      };
-    }
-    quoteErrors.push(`IBKR ${route.exchange}: no price`);
+  // 2) Stale FMP quote cache only (no FMP HTTP) — 10 min TTL when previously filled
+  const fmpCached = peekCachedQuote(symbol);
+  if (fmpCached && fmpCached.price > 0) {
+    console.log(
+      `[Universe] ${symbol} precio FMP-caché $${fmpCached.price.toFixed(2)} (sin HTTP FMP)`,
+    );
+    const route = routes[0];
+    const prev = fmpCached.previousClose > 0 ? fmpCached.previousClose : fmpCached.price;
+    return {
+      ticker: symbol,
+      currentPrice: fmpCached.price,
+      previousClose: prev,
+      bid: fmpCached.price,
+      ask: fmpCached.price,
+      change1d: fmpCached.price - prev,
+      high52w: fmpCached.yearHigh && fmpCached.yearHigh > 0 ? fmpCached.yearHigh : fmpCached.price,
+      low52w: fmpCached.yearLow && fmpCached.yearLow > 0 ? fmpCached.yearLow : fmpCached.price,
+      volume: fmpCached.volume ?? 0,
+      changePercentage: fmpCached.changePercentage ?? 0,
+      priceAvg50: fmpCached.priceAvg50,
+      priceAvg200: fmpCached.priceAvg200,
+      quoteSymbol: route?.symbol ?? symbol,
+      quoteExchange: route?.exchange ?? "FMP-CACHE",
+      quoteCurrency: route?.currency ?? "USD",
+      quoteRoute: "FMP-cache-10m",
+      quoteErrors,
+    };
   }
+  quoteErrors.push("FMP-cache: empty");
 
-  throw new Error(`sin precio disponible (${quoteErrors.join("; ")})`);
-}
-
-async function fetchIbkrRouteQuote(
-  symbol: string,
-  exchange: string,
-  currency: string,
-): Promise<{ price: number; bid?: number; ask?: number } | null> {
-  const qs =
-    `symbol=${encodeURIComponent(symbol)}` +
-    `&exchange=${encodeURIComponent(exchange)}` +
-    `&currency=${encodeURIComponent(currency)}` +
-    `&secType=STK`;
-
-  // Prefer documented market-data alias; fall back to /quote (exists on broker)
-  const paths = [
-    `/api/ibkr/market-data?${qs}`,
-    `/api/ibkr/quote?${qs}`,
-  ];
-
-  for (const path of paths) {
-    try {
-      const raw = await ibkrServiceFetch<{
-        currentPrice?: number;
-        last?: number;
-        mid?: number;
-        bid?: number;
-        ask?: number;
-        price?: number;
-      }>(path);
-      const price = asPositive(raw?.currentPrice ?? raw?.last ?? raw?.mid ?? raw?.price);
-      if (price == null) continue;
-      return {
-        price,
-        bid: asPositive(raw?.bid) ?? undefined,
-        ask: asPositive(raw?.ask) ?? undefined,
-      };
-    } catch {
-      /* try next path / route */
-    }
-  }
-  return null;
+  throw new Error(`sin precio IBKR ni caché FMP (${quoteErrors.join("; ")})`);
 }
 
 export async function fetchTradingPosition(
@@ -318,31 +266,22 @@ function asPositive(n: unknown): number | null {
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
-async function fetchFmpStockQuote(ticker: string): Promise<LiveLimitQuote | null> {
-  const q = await fmpGetQuote(ticker);
-  if (!q || !Number.isFinite(q.price) || q.price <= 0) return null;
+async function fetchIbkrLiveLimitQuote(ticker: string): Promise<LiveLimitQuote | null> {
+  const ibkr = await getIbkrPrice(ticker.trim().toUpperCase());
+  if (!ibkr || !(ibkr.price > 0)) return null;
+  const bid = ibkr.bid ?? ibkr.price;
+  const ask = ibkr.ask ?? ibkr.price;
   return {
-    bid: q.price,
-    ask: q.price,
-    last: q.price,
-    mid: q.price,
-  };
-}
-
-async function fetchFmpForexQuote(pairId: string): Promise<LiveLimitQuote | null> {
-  const q = await fmpGetForexQuote(pairId);
-  if (!q || !Number.isFinite(q.price) || q.price <= 0) return null;
-  return {
-    bid: asPositive(q.price),
-    ask: asPositive(q.price),
-    last: q.price,
-    mid: q.price,
+    bid,
+    ask,
+    last: ibkr.price,
+    mid: (bid + ask) / 2,
   };
 }
 
 /**
- * Live LMT price from FMP at approval/submit time.
- * IBKR is used only for order execution, not market data.
+ * Live LMT price from IBKR market-data at approval/submit time.
+ * FMP is never used for realtime prices (Starter 429).
  */
 export async function fetchLiveLimitPrice(args: {
   readonly symbol: string;
@@ -350,10 +289,7 @@ export async function fetchLiveLimitPrice(args: {
   readonly asset: "STK" | "FOREX";
   readonly suggested?: number | null;
 }): Promise<number> {
-  const quote =
-    args.asset === "FOREX"
-      ? await fetchFmpForexQuote(args.symbol)
-      : await fetchFmpStockQuote(args.symbol);
+  const quote = await fetchIbkrLiveLimitQuote(args.symbol);
 
   const fromLive = quote
     ? resolveLimitPriceFromQuote({
@@ -367,5 +303,5 @@ export async function fetchLiveLimitPrice(args: {
 
   const suggested = asPositive(args.suggested);
   if (suggested != null) return suggested;
-  throw new Error(`No FMP limitPrice for ${args.symbol}`);
+  throw new Error(`No IBKR limitPrice for ${args.symbol}`);
 }

@@ -487,7 +487,10 @@ export async function evaluateProStrategies(
   symbol: string,
   inputs?: Partial<ScreenerInputs>,
 ): Promise<ProStrategySignal> {
-  const quote = await getQuote(symbol).catch(() => null);
+  const quote =
+    inputs?.price != null && inputs.price > 0
+      ? null
+      : await getQuote(symbol).catch(() => null);
   const price = inputs?.price ?? quote?.price ?? 0;
   const change1d = inputs?.change1dPct ?? quote?.changePercentage ?? 0;
   const volume = inputs?.volume ?? quote?.volume ?? 0;

@@ -1,9 +1,31 @@
 #!/bin/bash
 # ForgeOS external watchdog — health + IBKR auto-reconnect every 5 minutes.
-# Secrets from env (never hardcode API keys):
+# Secrets from env or /var/www/forgeos/.env.local (never hardcode API keys):
 #   IBKR_INTERNAL_API_KEY, IBKR_SERVICE_URL, FORGEOS_HEALTH_URL, WATCHDOG_LOG
 
 set -u
+
+ENV_FILE="${FORGEOS_ENV_FILE:-/var/www/forgeos/.env.local}"
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  set -a
+  # Export KEY=VALUE lines (skip comments / blanks)
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|\#*) continue ;;
+    esac
+    key="${line%%=*}"
+    val="${line#*=}"
+    val="${val%\"}"
+    val="${val#\"}"
+    val="${val%\'}"
+    val="${val#\'}"
+    if [ -n "$key" ]; then
+      export "$key=$val"
+    fi
+  done < "$ENV_FILE"
+  set +a
+fi
 
 FORGEOS_HEALTH_URL="${FORGEOS_HEALTH_URL:-http://localhost:3000/api/health}"
 IBKR_SERVICE_URL="${IBKR_SERVICE_URL:-http://localhost:8002}"
@@ -44,7 +66,7 @@ while true; do
       log "IBKR reconexión intentada (connected=$CONNECTED)"
     fi
   else
-    log "IBKR_INTERNAL_API_KEY vacío — skip check IBKR"
+    log "IBKR_INTERNAL_API_KEY vacío — skip check IBKR (set in ${ENV_FILE})"
   fi
 
   sleep "$SLEEP_SEC"

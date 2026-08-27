@@ -2,7 +2,7 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { getBatchQuotes } from "@/lib/market-data/fmp";
+import { getFmpMovers } from "@/lib/market-data/fmp";
 import { getTickerUniverse } from "@/lib/market-data/ticker-universe";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import {
@@ -16,10 +16,9 @@ import { IBKR_CRYPTO_TICKERS, ensureCryptoInTickerList, verifyCryptoTradingStatu
 
 const CACHE_DIR = path.resolve(process.cwd(), ".forgeos", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "market-daily-universe.json");
-const TOP_COUNT = 100;
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const HISTORY_CONCURRENCY = 3;
-const HISTORY_CANDIDATES = 80;
+const TOP_COUNT = 50;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour — align with FMP gainers cache
+const HISTORY_CANDIDATES = 50;
 
 export type DailyTicker = {
   symbol: string;
@@ -97,77 +96,26 @@ function shouldRefresh(cache: DailyUniverseCache | null): boolean {
   return false;
 }
 
-async function fmpJson(pathname: string, query: Record<string, string> = {}): Promise<unknown | null> {
-  const key = process.env.FMP_API_KEY?.trim();
-  if (!key) return null;
-  const url = new URL(`https://financialmodelingprep.com/stable${pathname}`);
-  for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
-  url.searchParams.set("apikey", key);
-  try {
-    const res = await fetch(url.toString(), {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) {
-      console.warn(`[Universe] FMP ${pathname} HTTP ${res.status}`);
-      return null;
-    }
-    return res.json();
-  } catch (err) {
-    console.warn(`[Universe] FMP ${pathname} failed:`, err instanceof Error ? err.message : err);
-    return null;
-  }
-}
-
 function asSymbol(raw: unknown): string {
   const s = String(raw ?? "").trim().toUpperCase();
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(s) ? s : "";
 }
 
-function parseMoverRows(body: unknown, source: string): SeedRow[] {
-  if (!Array.isArray(body)) return [];
-  const out: SeedRow[] = [];
-  for (const raw of body) {
-    const r = raw as Record<string, unknown>;
-    const symbol = asSymbol(r.symbol);
-    if (!symbol) continue;
-    const price = Number(r.price ?? r.lastPrice ?? 0);
-    const changePct = Number(r.changesPercentage ?? r.changePercentage ?? r.change ?? 0);
-    const volume = Number(r.volume ?? 0);
-    const avgVolume = Number(r.avgVolume ?? r.volAvg ?? volume ?? 0);
-    const yearHigh = Number(r.yearHigh ?? price);
-    out.push({
-      symbol,
-      price: Number.isFinite(price) ? price : 0,
-      changePct: Number.isFinite(changePct) ? changePct : 0,
-      volume: Number.isFinite(volume) ? volume : 0,
-      avgVolume: Number.isFinite(avgVolume) && avgVolume > 0 ? avgVolume : volume || 0,
-      yearHigh: Number.isFinite(yearHigh) && yearHigh > 0 ? yearHigh : price || 0,
-      sources: [source],
-    });
-  }
-  return out;
-}
-
-/** Crypto spot IBKR (PAXOS) — siempre en el universo, mercado 24h. */
+/** Crypto spot IBKR (PAXOS) — siempre en el universo, mercado 24h. Precios vía IBKR en ciclo. */
 async function fetchCryptoSeeds(): Promise<SeedRow[]> {
   const unique = [...IBKR_CRYPTO_TICKERS];
-  console.log(`[Universe] Crypto 24h IBKR (${unique.join(", ")})`);
-  const quotes = await getBatchQuotes(unique);
-  return unique.map((symbol) => {
-    const q = quotes.get(symbol);
-    return {
-      symbol,
-      price: q?.price ?? 0,
-      changePct: q?.changePercentage ?? 0,
-      volume: q?.volume ?? 0,
-      avgVolume: q?.avgVolume ?? q?.volume ?? 0,
-      yearHigh: q?.yearHigh ?? q?.price ?? 0,
-      sources: ["ibkr-crypto-paxos"],
-    };
-  });
+  console.log(`[Universe] Crypto 24h IBKR (${unique.join(", ")}) — sin FMP quote`);
+  return unique.map((symbol) => ({
+    symbol,
+    price: 0,
+    changePct: 0,
+    volume: 0,
+    avgVolume: 0,
+    yearHigh: 0,
+    sources: ["ibkr-crypto-paxos"],
+  }));
 }
+
 async function fetchRegionalEtfSeeds(): Promise<SeedRow[]> {
   const w = getGlobalMarketWindow();
   const symbols: string[] = [];
@@ -175,35 +123,31 @@ async function fetchRegionalEtfSeeds(): Promise<SeedRow[]> {
   if (w.europe) symbols.push(...EUROPE_ETF_TICKERS, ...EUROPE_DIRECT_TICKERS);
   if (symbols.length === 0) return [];
   const unique = [...new Set(symbols.map((s) => s.toUpperCase()))];
-  console.log(`[Universe] FMP profile regional ETFs (${unique.join(", ")})`);
-  const quotes = await getBatchQuotes(unique);
-  return unique.map((symbol) => {
-    const q = quotes.get(symbol);
-    return {
-      symbol,
-      price: q?.price ?? 0,
-      changePct: q?.changePercentage ?? 0,
-      volume: q?.volume ?? 0,
-      avgVolume: q?.avgVolume ?? q?.volume ?? 0,
-      yearHigh: q?.yearHigh ?? q?.price ?? 0,
-      sources: ["fmp-profile-regional"],
-    };
-  });
+  console.log(`[Universe] Regional ETFs seed (${unique.join(", ")}) — precios IBKR en ciclo`);
+  return unique.map((symbol) => ({
+    symbol,
+    price: 0,
+    changePct: 0,
+    volume: 0,
+    avgVolume: 0,
+    yearHigh: 0,
+    sources: ["regional-seed"],
+  }));
 }
 
-/** FUENTE 1 — FMP gainers / losers / most-active (Starter). */
+/** FUENTE 1 — FMP gainers + losers + actives (≤3 calls / hour via getFmpMovers). */
 async function fetchFmpMovers(): Promise<SeedRow[]> {
-  console.log("[Universe] Cargando FMP movers (gainers/losers/active)...");
-  const [gainers, losers, active] = await Promise.all([
-    fmpJson("/market-biggest-gainers"),
-    fmpJson("/market-biggest-losers"),
-    fmpJson("/market-most-active"),
-  ]);
-  const rows = [
-    ...parseMoverRows(gainers, "fmp-gainers"),
-    ...parseMoverRows(losers, "fmp-losers"),
-    ...parseMoverRows(active, "fmp-active"),
-  ];
+  console.log("[Universe] Cargando FMP movers (gainers/losers/actives, caché 1h)...");
+  const movers = await getFmpMovers();
+  const rows = movers.all.map((g) => ({
+    symbol: g.symbol,
+    price: g.price,
+    changePct: g.changePercentage,
+    volume: g.volume,
+    avgVolume: g.avgVolume ?? g.volume,
+    yearHigh: g.yearHigh ?? g.price,
+    sources: [g.source],
+  }));
   console.log(`[Universe] FMP movers: ${rows.length} filas`);
   return rows;
 }
@@ -324,24 +268,10 @@ function mergeSeeds(batches: SeedRow[][]): SeedRow[] {
 }
 
 async function enrichWithQuotes(seeds: SeedRow[]): Promise<SeedRow[]> {
-  const needQuote = seeds.filter((s) => !(s.price > 0) || !(s.volume > 0)).map((s) => s.symbol);
-  if (needQuote.length === 0) return seeds;
-  // Cap profile enrichment to avoid 429 — prioritize movers without price.
-  const toFetch = needQuote.slice(0, 150);
-  console.log(`[Universe] Enriching ${toFetch.length} symbols via FMP profile (rate-limited)...`);
-  const quotes = await getBatchQuotes(toFetch);
-  return seeds.map((s) => {
-    const q = quotes.get(s.symbol);
-    if (!q) return s;
-    return {
-      ...s,
-      price: s.price > 0 ? s.price : q.price,
-      changePct: s.changePct !== 0 ? s.changePct : q.changePercentage ?? 0,
-      volume: s.volume > 0 ? s.volume : q.volume ?? 0,
-      avgVolume: s.avgVolume > 0 ? s.avgVolume : q.avgVolume ?? q.volume ?? 0,
-      yearHigh: s.yearHigh > 0 ? s.yearHigh : q.yearHigh ?? q.price,
-    };
-  });
+  // Live quotes are IBKR-only — never batch FMP /quote (Starter 429).
+  // Seeds keep price from FMP gainers when present; cycle fills IBKR prices.
+  console.log(`[Universe] Skip FMP quote enrich (${seeds.length} seeds) — precios en ciclo vía IBKR`);
+  return seeds;
 }
 
 function passesFilters(r: SeedRow, forceKeep: Set<string>): boolean {
@@ -392,52 +322,18 @@ function calcRsi14(closesDesc: number[]): number {
 }
 
 async function fetchSpyMomentum5d(): Promise<number> {
-  // No historical endpoint on Starter — use SPY profile change% as proxy.
-  const body = await fmpJson("/profile", { symbol: "SPY" });
-  const row = Array.isArray(body) ? body[0] : body;
-  if (!row || typeof row !== "object") return 0;
-  const cp = Number(
-    (row as { changesPercentage?: number; changePercentage?: number }).changesPercentage ??
-      (row as { changePercentage?: number }).changePercentage ??
-      0,
-  );
-  return Number.isFinite(cp) ? cp : 0;
+  // No FMP profile calls for SPY — Starter reserved for gainers + EOD history only.
+  return 0;
 }
 
 async function fetchEarningsToday(): Promise<string[]> {
-  const { y, m, d } = madridNowParts();
-  const today = `${y}-${m}-${d}`;
-  const body = await fmpJson("/earning-calendar-confirmed", { from: today, to: today });
-  if (!Array.isArray(body)) return [];
-  return [...new Set(body.map((r) => asSymbol((r as { symbol?: string }).symbol)).filter(Boolean))];
+  // Skip FMP earnings calendar to protect Starter quota.
+  return [];
 }
 
 async function fetchSectorLeader(): Promise<{ etf: string; changePct: number }> {
-  const sectorEtfs = ["XLK", "XLF", "XLE", "XLV", "XLI", "XLY"];
-  const quotes = await getBatchQuotes(sectorEtfs);
-  let best = { etf: "XLK", changePct: 0 };
-  for (const etf of sectorEtfs) {
-    const cp = quotes.get(etf)?.changePercentage ?? 0;
-    if (Number.isFinite(cp) && cp > best.changePct) best = { etf, changePct: cp };
-  }
-  return best;
-}
-
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out: R[] = new Array(items.length);
-  let idx = 0;
-  async function worker(): Promise<void> {
-    while (idx < items.length) {
-      const i = idx++;
-      out[i] = await fn(items[i]!);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.max(1, limit) }, () => worker()));
-  return out;
+  // No FMP batch quotes — default until IBKR sector scan exists.
+  return { etf: "XLK", changePct: 0 };
 }
 
 function tickerFromSeed(
@@ -485,7 +381,7 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
 
   refreshInFlight = (async () => {
     try {
-      console.log("[Universe] Cargando screener multi-fuente (FMP movers + crypto 24h + regional profile + IBKR + fallback + portfolio)...");
+      console.log("[Universe] Screener (FMP gainers 1h + IBKR scanner + crypto + regional + portfolio)...");
       const window = getGlobalMarketWindow();
       const [fmpMovers, cryptoRows, regionalRows, ibkrRows, fallbackRows, portfolioRows, spy5d, excludedEarnings, sectorLeader] =
         await Promise.all([

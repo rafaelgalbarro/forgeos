@@ -2,8 +2,55 @@
  * PM2 trading-cycle scheduler — adaptive interval by Madrid session.
  * Next.js does not keep setInterval across deploys/requests.
  *
+ * Loads IBKR_INTERNAL_API_KEY from process.env or .env.local
+ * (/var/www/forgeos/.env.local on server, or cwd/.env.local locally).
+ *
  * Usage: pm2 start ecosystem.config.js --only forgeos-scheduler
  */
+const fs = require("node:fs");
+const path = require("node:path");
+
+function loadEnvFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return;
+    const text = fs.readFileSync(filePath, "utf8");
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eq = line.indexOf("=");
+      if (eq <= 0) continue;
+      const key = line.slice(0, eq).trim();
+      let val = line.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      if (key && process.env[key] == null) {
+        process.env[key] = val;
+      }
+    }
+  } catch (err) {
+    console.warn(
+      "[Scheduler] No se pudo leer env file:",
+      filePath,
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+const envCandidates = [
+  process.env.FORGEOS_ENV_FILE,
+  "/var/www/forgeos/.env.local",
+  path.resolve(process.cwd(), ".env.local"),
+  path.resolve(__dirname, "..", ".env.local"),
+].filter(Boolean);
+
+for (const candidate of envCandidates) {
+  loadEnvFile(candidate);
+}
+
 const API_KEY = process.env.IBKR_INTERNAL_API_KEY;
 const BASE_URL = (process.env.FORGEOS_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 const TIMEOUT_MS = 180_000;
@@ -70,7 +117,9 @@ async function resolveIntervalMs() {
 
 async function runCycle() {
   if (!API_KEY) {
-    console.error("[Scheduler] Falta IBKR_INTERNAL_API_KEY — ciclo omitido");
+    console.error(
+      "[Scheduler] Falta IBKR_INTERNAL_API_KEY — ciclo omitido (set in .env.local or PM2 env)",
+    );
     return;
   }
   try {
@@ -111,5 +160,7 @@ async function loop() {
   }, interval);
 }
 
-console.log("[Scheduler] Iniciando ciclo adaptativo 24h (Madrid)…");
+console.log(
+  `[Scheduler] Iniciando ciclo adaptativo 24h (Madrid)… key=${API_KEY ? `set(len=${API_KEY.length})` : "MISSING"}`,
+);
 void loop();

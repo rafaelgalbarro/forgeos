@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     // Stale PreSubmitted/Submitted cancel runs inside TradingEngine.runCycle()
 
     const body = await req.json().catch(() => ({})) as { tickers?: string[] }
-    const universe = await resolveTradingCycleTickersAsync(120)
+    const universe = await resolveTradingCycleTickersAsync(400)
     const requested: string[] = Array.isArray(body.tickers) && body.tickers.length > 0
       ? body.tickers
       : universe.tickers

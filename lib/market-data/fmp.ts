@@ -1,8 +1,9 @@
 /**
  * Financial Modeling Prep — Starter plan (rate-limited).
- * Live prices: NEVER from FMP HTTP — use IBKR market-data; FMP quote cache is read-only fallback.
+ * Live cycle prices: prefer IBKR; FMP quote cache is prewarmed in batches (10m TTL).
  * Allowed FMP HTTP:
- *   - Daily movers: /biggest-gainers, /biggest-losers, /most-actives (cached 1h, once per hour)
+ *   - Daily movers: gainers/losers/actives/most-actively-traded (cached 1h)
+ *   - Batch quote warm: /quote?symbol=A,B,... (≤50) — universe preheat only
  *   - EOD history: /historical-price-eod/light (cached 24h, max 3 parallel)
  * Never invents prices. Never logs the API key.
  */
@@ -17,24 +18,27 @@ import {
 } from "@/src/core/trading/crypto-ibkr";
 
 const FMP_BASE = "https://financialmodelingprep.com/stable";
+const QUOTE_ENDPOINT = "/quote";
 const GAINERS_ENDPOINT = "/biggest-gainers";
 const LOSERS_ENDPOINT = "/biggest-losers";
 const ACTIVES_ENDPOINT = "/most-actives";
+const MOST_ACTIVELY_TRADED_ENDPOINT = "/most-actively-traded";
 const PRE_POST_GAINERS_ENDPOINT = "/pre-post-market-gainers";
 const PRE_POST_ACTIVES_ENDPOINT = "/pre-post-market-most-active";
 const COMPANY_SCREENER_ENDPOINT = "/company-screener";
 const HISTORY_LIGHT_ENDPOINT = "/historical-price-eod/light";
 const HISTORY_FULL_ENDPOINT = "/historical-price-eod/full";
-/** Legacy quote cache TTL (read-only — no new FMP quote HTTP). */
+/** Quote cache TTL — batch warm + mover seed. */
 const QUOTE_TTL_MS = 10 * 60_000;
 /** EOD history — 24 hours (daily bars do not change intraday). */
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
-/** Daily movers scanner — 1 hour (gainers+losers+actives once per hour max). */
+/** Daily movers scanner — 1 hour. */
 const MOVERS_TTL_MS = 60 * 60 * 1000;
 /** European ADR screener — 24 hours. */
 const EUROPE_ADR_TTL_MS = 24 * 60 * 60 * 1000;
 /** Premarket movers — 5 minutes (refresh during 14:00–14:30). */
 const PREMARKET_TTL_MS = 5 * 60_000;
+const BATCH_SYMBOL_LIMIT = 50;
 const STARTUP_DELAY_MS = 30_000;
 const MAX_PARALLEL_REQUESTS = 3;
 const MAX_REQUESTS_PER_SECOND = 5;
@@ -76,13 +80,14 @@ export type FmpGainer = {
   volume: number;
   avgVolume?: number;
   yearHigh?: number;
-  source: "fmp-gainers" | "fmp-losers" | "fmp-actives" | "fmp-eu-adr";
+  source: "fmp-gainers" | "fmp-losers" | "fmp-actives" | "fmp-most-active" | "fmp-eu-adr";
 };
 
 export type FmpMoversBundle = {
   gainers: FmpGainer[];
   losers: FmpGainer[];
   actives: FmpGainer[];
+  mostActive: FmpGainer[];
   all: FmpGainer[];
 };
 
@@ -383,7 +388,8 @@ async function fetchCoinGeckoQuote(requested: string): Promise<FmpQuote | null> 
 }
 
 /**
- * Live quotes are IBKR-only. Returns in-memory cache / CoinGecko crypto only — never hits FMP HTTP.
+ * Live quotes: cache / CoinGecko crypto first. No individual FMP HTTP.
+ * Use warmQuoteCache / getBatchQuotes for bulk preheat.
  */
 export async function getQuote(ticker: string): Promise<FmpQuote | null> {
   const symbol = ticker.trim().toUpperCase();
@@ -404,14 +410,54 @@ export async function getQuote(ticker: string): Promise<FmpQuote | null> {
   return staleQuote(requested);
 }
 
+function parseBatchQuoteRow(row: Record<string, unknown>): FmpQuote | null {
+  const symbol = typeof row.symbol === "string" ? row.symbol.trim().toUpperCase() : "";
+  const price = asFinite(row.price);
+  if (!symbol || price == null || price <= 0) return null;
+  const open = asFinite(row.open) ?? price;
+  const dayHigh = asFinite(row.dayHigh) ?? asFinite(row.high) ?? price;
+  const dayLow = asFinite(row.dayLow) ?? asFinite(row.low) ?? price;
+  const previousClose = asFinite(row.previousClose) ?? price;
+  const volume = asFinite(row.volume) ?? asFinite(row.volAvg) ?? 0;
+  const changePercentage =
+    asFinite(row.changePercentage) ??
+    asFinite(row.changesPercentage) ??
+    asFinite(row.changes) ??
+    0;
+  return {
+    symbol,
+    price,
+    open,
+    dayHigh,
+    dayLow,
+    previousClose,
+    volume,
+    changePercentage: changePercentage ?? 0,
+    yearHigh: asFinite(row.yearHigh) ?? undefined,
+    yearLow: asFinite(row.yearLow) ?? undefined,
+    avgVolume: asFinite(row.avgVolume) ?? asFinite(row.volAvg) ?? undefined,
+    marketCap: asFinite(row.marketCap) ?? asFinite(row.mktCap) ?? undefined,
+    priceAvg50: asFinite(row.priceAvg50) ?? undefined,
+    priceAvg200: asFinite(row.priceAvg200) ?? undefined,
+    exchange:
+      typeof row.exchange === "string"
+        ? row.exchange
+        : typeof row.exchangeShortName === "string"
+          ? row.exchangeShortName
+          : undefined,
+  };
+}
+
 /**
- * Batch quotes — cache-only (no FMP HTTP). Live prices must come from IBKR.
+ * Batch quotes via /stable/quote?symbol=A,B,... (≤50).
+ * Fresh cache hits skip HTTP; used to prewarm universe prices (10m TTL).
  */
 export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<string, FmpQuote>> {
   const out = new Map<string, FmpQuote>();
   if (tickers.length === 0) return out;
 
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
+  const missing: string[] = [];
   for (const symbol of unique) {
     const requested = normalizeIbkrCryptoTicker(symbol) ?? symbol;
     const hit = getCached<FmpQuote>(cacheKey("fmp-quote", requested));
@@ -419,20 +465,56 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
       out.set(requested, hit);
       continue;
     }
-    const stale = staleQuote(requested);
-    if (stale) {
-      out.set(requested, stale);
-      continue;
-    }
     if (normalizeIbkrCryptoTicker(requested)) {
       const cg = await fetchCoinGeckoQuote(requested);
       if (cg) {
         cacheQuote(requested, cg);
         out.set(requested, cg);
+        continue;
       }
+    }
+    missing.push(requested);
+  }
+  if (missing.length === 0 || !isFmpEnabled()) return out;
+
+  for (let i = 0; i < missing.length; i += BATCH_SYMBOL_LIMIT) {
+    const chunk = missing.slice(i, i + BATCH_SYMBOL_LIMIT);
+    const joined = chunk.map((s) => normalizeFmpEquitySymbol(s)).join(",");
+    const body = await fmpFetchJson(QUOTE_ENDPOINT, { symbol: joined });
+    if (body == null) {
+      for (const requested of chunk) {
+        const stale = staleQuote(requested);
+        if (stale) out.set(requested, stale);
+      }
+      continue;
+    }
+    const bySym = new Map<string, FmpQuote>();
+    for (const row of quoteRows(body)) {
+      const parsed = parseBatchQuoteRow(row);
+      if (!parsed) continue;
+      bySym.set(parsed.symbol, parsed);
+    }
+    for (const requested of chunk) {
+      const fmpSym = normalizeFmpEquitySymbol(requested);
+      const parsed = bySym.get(fmpSym) ?? bySym.get(requested);
+      if (!parsed) {
+        const stale = staleQuote(requested);
+        if (stale) out.set(requested, stale);
+        continue;
+      }
+      const quote = { ...parsed, symbol: requested };
+      cacheQuote(requested, quote);
+      out.set(requested, quote);
     }
   }
   return out;
+}
+
+/** Preheat FMP quote cache for a large universe (batches of 50). */
+export async function warmQuoteCache(tickers: readonly string[]): Promise<number> {
+  const map = await getBatchQuotes(tickers);
+  console.log(`[FMP] Quote cache warm: ${map.size}/${tickers.length} symbols (TTL 10m)`);
+  return map.size;
 }
 
 function parseMoverRows(
@@ -461,7 +543,6 @@ function parseMoverRows(
       yearHigh,
       source,
     });
-    // Seed quote cache so cycle can fall back without FMP HTTP
     cacheQuote(symbol, {
       symbol,
       price,
@@ -479,27 +560,39 @@ function parseMoverRows(
 }
 
 /**
- * Daily movers — gainers + losers + actives.
- * At most once per hour (3 FMP HTTP calls total, then cached).
+ * Max daily movers — gainers + losers + actives + most-actively-traded.
+ * Cached 1h. Deduped union can reach ~400 symbols.
  */
 export async function getFmpMovers(): Promise<FmpMoversBundle> {
-  const cacheId = cacheKey("fmp-movers", "us");
+  const cacheId = cacheKey("fmp-movers", "max");
   const hit = getCached<FmpMoversBundle>(cacheId);
   if (hit) return hit;
 
-  const empty: FmpMoversBundle = { gainers: [], losers: [], actives: [], all: [] };
+  const empty: FmpMoversBundle = {
+    gainers: [],
+    losers: [],
+    actives: [],
+    mostActive: [],
+    all: [],
+  };
   if (!isFmpEnabled()) {
     const stale = peekCached<FmpMoversBundle>(cacheId);
     return stale?.value ?? empty;
   }
 
-  const [gainersBody, losersBody, activesBody] = await Promise.all([
+  const [gainersBody, losersBody, activesBody, mostBody] = await Promise.all([
     fmpFetchJson(GAINERS_ENDPOINT, {}),
     fmpFetchJson(LOSERS_ENDPOINT, {}),
     fmpFetchJson(ACTIVES_ENDPOINT, {}),
+    fmpFetchJson(MOST_ACTIVELY_TRADED_ENDPOINT, {}),
   ]);
 
-  if (gainersBody == null && losersBody == null && activesBody == null) {
+  if (
+    gainersBody == null &&
+    losersBody == null &&
+    activesBody == null &&
+    mostBody == null
+  ) {
     const stale = peekCached<FmpMoversBundle>(cacheId);
     if (stale?.value?.all?.length) {
       console.warn("[FMP] Rate limit hit → usando caché movers");
@@ -511,21 +604,37 @@ export async function getFmpMovers(): Promise<FmpMoversBundle> {
   const gainers = parseMoverRows(gainersBody, "fmp-gainers");
   const losers = parseMoverRows(losersBody, "fmp-losers");
   const actives = parseMoverRows(activesBody, "fmp-actives");
+  const mostActive = parseMoverRows(mostBody, "fmp-most-active");
   const bySym = new Map<string, FmpGainer>();
-  for (const row of [...gainers, ...losers, ...actives]) {
-    if (!bySym.has(row.symbol)) bySym.set(row.symbol, row);
+  // Prefer gainers, then most-active, then actives, then losers when merging metadata
+  for (const row of [...losers, ...actives, ...mostActive, ...gainers]) {
+    const prev = bySym.get(row.symbol);
+    if (!prev) {
+      bySym.set(row.symbol, row);
+      continue;
+    }
+    // Keep stronger source tag for prioritization (gainers > most-active > actives)
+    const rank = (s: FmpGainer["source"]) =>
+      s === "fmp-gainers" ? 3 : s === "fmp-most-active" ? 2 : s === "fmp-actives" ? 1 : 0;
+    if (rank(row.source) >= rank(prev.source)) bySym.set(row.symbol, row);
   }
   const bundle: FmpMoversBundle = {
     gainers,
     losers,
     actives,
+    mostActive,
     all: [...bySym.values()],
   };
   if (bundle.all.length > 0) setCached(cacheId, bundle, MOVERS_TTL_MS);
   console.log(
-    `[FMP] Movers cached gainers=${gainers.length} losers=${losers.length} actives=${actives.length} (TTL 1h)`,
+    `[FMP] Movers MAX gainers=${gainers.length} losers=${losers.length} actives=${actives.length} mostActive=${mostActive.length} unique=${bundle.all.length} (TTL 1h)`,
   );
   return bundle;
+}
+
+/** Sync peek of cached movers (for cycle prioritization). */
+export function peekFmpMovers(): FmpMoversBundle | null {
+  return peekCached<FmpMoversBundle>(cacheKey("fmp-movers", "max"))?.value ?? null;
 }
 
 /** @deprecated Prefer getFmpMovers — kept for callers that only need gainers. */
@@ -610,7 +719,13 @@ export async function getFmpPrePostMovers(): Promise<FmpMoversBundle> {
   const hit = getCached<FmpMoversBundle>(cacheId);
   if (hit) return hit;
 
-  const empty: FmpMoversBundle = { gainers: [], losers: [], actives: [], all: [] };
+  const empty: FmpMoversBundle = {
+    gainers: [],
+    losers: [],
+    actives: [],
+    mostActive: [],
+    all: [],
+  };
   if (!isFmpEnabled()) {
     const stale = peekCached<FmpMoversBundle>(cacheId);
     return stale?.value ?? empty;
@@ -636,6 +751,7 @@ export async function getFmpPrePostMovers(): Promise<FmpMoversBundle> {
     gainers,
     losers: [],
     actives,
+    mostActive: [],
     all: [...bySym.values()],
   };
   if (bundle.all.length > 0) setCached(cacheId, bundle, PREMARKET_TTL_MS);

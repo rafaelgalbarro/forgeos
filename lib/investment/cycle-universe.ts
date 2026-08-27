@@ -18,7 +18,7 @@ import {
   selectTickersForOpenMarkets,
 } from "@/src/core/trading/market-session";
 
-const DEFAULT_CYCLE_LIMIT = 120;
+const DEFAULT_CYCLE_LIMIT = 400;
 
 function allowedSet(): Set<string> {
   return new Set((TRADING_CONFIG.allowedTickers as readonly string[]).map((t) => t.toUpperCase()));
@@ -61,7 +61,7 @@ function withCrypto(tickers: readonly string[], cap: number): string[] {
 }
 
 function resolveFromCache(limit: number): CycleUniverseResult {
-  const cap = Math.max(1, Math.min(limit, 150));
+  const cap = Math.max(1, Math.min(limit, 400));
   const regional = regionalFocusTickersMadrid();
   const daily = getDailyUniverse() ?? getDailyMarketUniverse();
   const fromDaily = (daily?.tickers ?? []).slice(0, cap).map((t) => t.symbol.toUpperCase());

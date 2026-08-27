@@ -65,19 +65,17 @@ import { cancelStaleIbkrOrders } from '@/lib/trading/ibkr-reconnect'
 import { ibkrCacheKey, peekIbkrCached } from '@/lib/trading/ibkr-cache'
 import type { TradingPriceSnapshot } from '@/lib/trading/ibkr-data'
 import { peekIbkrPriceCache } from '@/lib/market-data/ibkr-prices'
-import { peekCachedQuote } from '@/lib/market-data/fmp'
 import {
   isPremarketHighPriority,
   listPremarketCandidates,
   peekPremarketCandidate,
 } from '@/lib/investment/premarket-candidates'
+import { getDailyUniverse } from '@/lib/investment/market-daily-universe'
+import { peekFmpMovers } from '@/lib/market-data/fmp'
 
-/** Hard cap — Europe session allows 100+; otherwise 50. */
+/** Analyze up to 100 tickers per cycle across all sessions. */
 function maxCycleTickers(): number {
-  const phase = getActiveTradingPhase()
-  if (phase === 'EUROPE' || phase === 'EUROPE_OPEN') return 120
-  if (phase === 'USA_PREMARKET' || phase === 'USA_OPEN') return 80
-  return 50
+  return 100
 }
 
 const GLOBAL_ETF_PRIORITY = new Set<string>([
@@ -93,37 +91,60 @@ function hasWarmIbkrPrice(ticker: string): boolean {
 }
 
 /**
- * Prioritize: premarket HIGH → IBKR warm → FMP cache → crypto → ETFs → rest.
+ * Prioritize: premarket HIGH → FMP gainers → FMP actives → crypto → ETFs → resto.
  */
 function prioritizeCycleTickers(tickers: readonly string[]): string[] {
   const cap = maxCycleTickers()
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
   const premarketHigh = listPremarketCandidates().map((c) => c.symbol)
   const preSet = new Set(premarketHigh)
+
+  const movers = peekFmpMovers()
+  const gainerSet = new Set((movers?.gainers ?? []).map((g) => g.symbol))
+  const activeSet = new Set([
+    ...(movers?.actives ?? []).map((g) => g.symbol),
+    ...(movers?.mostActive ?? []).map((g) => g.symbol),
+  ])
+  const daily = getDailyUniverse()
+  for (const t of daily?.tickers ?? []) {
+    if (t.sources.includes('fmp-gainers')) gainerSet.add(t.symbol)
+    if (t.sources.some((s) => s.includes('active'))) activeSet.add(t.symbol)
+  }
+
   const withPremarket: string[] = []
-  const withIbkr: string[] = []
-  const withFmpCache: string[] = []
+  const gainers: string[] = []
+  const actives: string[] = []
   const crypto: string[] = []
   const etfs: string[] = []
   const rest: string[] = []
 
   for (const t of unique) {
     if (preSet.has(t) || isPremarketHighPriority(t)) withPremarket.push(t)
-    else if (hasWarmIbkrPrice(t)) withIbkr.push(t)
-    else if ((peekCachedQuote(t)?.price ?? 0) > 0) withFmpCache.push(t)
+    else if (gainerSet.has(t)) gainers.push(t)
+    else if (activeSet.has(t)) actives.push(t)
     else if (isIbkrCryptoTicker(t)) crypto.push(t)
     else if (GLOBAL_ETF_PRIORITY.has(t)) etfs.push(t)
     else rest.push(t)
   }
-  // Stable order: known premarket list order first, then discovered
+
   const orderedPremarket = [
     ...premarketHigh.filter((t) => unique.includes(t)),
     ...withPremarket.filter((t) => !preSet.has(t)),
   ]
-  return [...new Set([...orderedPremarket, ...withIbkr, ...withFmpCache, ...crypto, ...etfs, ...rest])].slice(
-    0,
-    cap,
-  )
+  // Prefer warm IBKR within each bucket
+  const sortWarm = (list: string[]) =>
+    [...list].sort((a, b) => Number(hasWarmIbkrPrice(b)) - Number(hasWarmIbkrPrice(a)))
+
+  return [
+    ...new Set([
+      ...orderedPremarket,
+      ...sortWarm(gainers),
+      ...sortWarm(actives),
+      ...crypto,
+      ...etfs,
+      ...sortWarm(rest),
+    ]),
+  ].slice(0, cap)
 }
 
 /** Temporary skip after IBKR/AutoExecute timeout — 30 minutes. */
@@ -628,11 +649,11 @@ export class TradingEngine {
     } catch {
       console.log(`[Universe] ${ticker} sin precio IBKR ni caché FMP, skip`)
       return {
-        status: 'HOLD',
+        status: 'SKIPPED',
         ticker,
         direction: 'HOLD',
-        reason: `${ticker}: sin precio IBKR ni caché FMP (skip)`,
-        signal: { confidence: 0, reasoning: 'Sin precio disponible', urgency: 'LOW' },
+        reason: `${ticker}: sin precio IBKR (ticker no reconocido / sin cotización)`,
+        signal: { confidence: 0, reasoning: 'Sin precio IBKR — skip silencioso', urgency: 'LOW' },
         timestamp: new Date().toISOString(),
       }
     }

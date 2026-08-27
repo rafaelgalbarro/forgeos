@@ -71,7 +71,6 @@ import {
   peekPremarketCandidate,
 } from '@/lib/investment/premarket-candidates'
 import { getDailyUniverse } from '@/lib/investment/market-daily-universe'
-import { peekFmpMovers } from '@/lib/market-data/fmp'
 
 /** Analyze up to 100 tickers per cycle across all sessions. */
 function maxCycleTickers(): number {
@@ -91,7 +90,7 @@ function hasWarmIbkrPrice(ticker: string): boolean {
 }
 
 /**
- * Prioritize: premarket HIGH → FMP gainers → FMP actives → crypto → ETFs → resto.
+ * Prioritize: premarket HIGH → IBKR gainers → IBKR actives → crypto → ETFs → resto.
  */
 function prioritizeCycleTickers(tickers: readonly string[]): string[] {
   const cap = maxCycleTickers()
@@ -99,16 +98,16 @@ function prioritizeCycleTickers(tickers: readonly string[]): string[] {
   const premarketHigh = listPremarketCandidates().map((c) => c.symbol)
   const preSet = new Set(premarketHigh)
 
-  const movers = peekFmpMovers()
-  const gainerSet = new Set((movers?.gainers ?? []).map((g) => g.symbol))
-  const activeSet = new Set([
-    ...(movers?.actives ?? []).map((g) => g.symbol),
-    ...(movers?.mostActive ?? []).map((g) => g.symbol),
-  ])
+  const gainerSet = new Set<string>()
+  const activeSet = new Set<string>()
   const daily = getDailyUniverse()
   for (const t of daily?.tickers ?? []) {
-    if (t.sources.includes('fmp-gainers')) gainerSet.add(t.symbol)
-    if (t.sources.some((s) => s.includes('active'))) activeSet.add(t.symbol)
+    if (t.sources.some((s) => s.includes('top_perc_gain') || s.includes('hot_by'))) {
+      gainerSet.add(t.symbol)
+    }
+    if (t.sources.some((s) => s.includes('most_active') || s.includes('hot_by_volume'))) {
+      activeSet.add(t.symbol)
+    }
   }
 
   const withPremarket: string[] = []

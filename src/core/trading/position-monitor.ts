@@ -41,7 +41,7 @@ import {
   shouldSkipUntradeableTicker,
 } from "./untradeable-tickers";
 
-const MONITOR_INTERVAL_MS = 60_000;
+const MONITOR_INTERVAL_MS = 30_000;
 const STALE_HOURS = 24;
 const TRAILING_STOP_PCT = TRADING_CONFIG.risk.trailingStopPct;
 const DEFAULT_SL_PCT = 0.03; // -3%

@@ -1,6 +1,6 @@
 /**
- * Professional session-aware swing/momentum strategies (EOD + live profile).
- * No intraday scalping — Finnhub free = news/sentiment only; history via FMP.
+ * Professional session-aware swing/momentum strategies.
+ * Price + history: IBKR (multi-TF). News/sentiment: Finnhub.
  * Target: EV+ with ~45%+ win rate and ~1:3 R/R.
  */
 
@@ -13,7 +13,9 @@ import {
   type FinnhubProNewsContext,
   type FinnhubProSentiment,
 } from "@/lib/market-data/finnhub-pro";
-import { getHistory, getQuote, type FmpBar } from "@/lib/market-data/fmp";
+import { getIbkrPriceCached } from "@/lib/market-data/ibkr-prices";
+import { ibkrBars5m, ibkrDailyBars } from "@/lib/market-data/ibkr-history";
+import { getHistory, getQuote, isFmpEnabled, type FmpBar } from "@/lib/market-data/fmp";
 import { recognizePatterns } from "@/lib/market-data/pattern-recognition";
 import type { OhlcvBar } from "@/lib/market-data/types";
 import {
@@ -53,6 +55,7 @@ export type ProStrategyId =
   | "EU_EMA21_PULLBACK"
   | "USA_GAP_AND_GO"
   | "USA_MOMENTUM_PRIMERA_HORA"
+  | "USA_VWAP_BOUNCE"
   | "USA_REVERSAL_OVERSOLD"
   | "USA_TREND_FOLLOWING"
   | "USA_INVERSE_HS"
@@ -63,6 +66,7 @@ export type ProStrategyId =
   | "CRYPTO_GOLDEN_CROSS"
   | "CRYPTO_RSI_OVERSOLD"
   | "CRYPTO_MOMENTUM";
+
 
 export type ProStrategyHit = {
   id: ProStrategyId;
@@ -168,9 +172,17 @@ const BASE: Record<
   USA_MOMENTUM_PRIMERA_HORA: {
     name: "USA-2 Momentum Primera Hora",
     base: 0.76,
-    sl: 0.02,
-    tp: 0.06,
+    sl: 0.015,
+    tp: 0.03,
     style: "momentum",
+    days: 1,
+  },
+  USA_VWAP_BOUNCE: {
+    name: "USA-2b VWAP Bounce",
+    base: 0.74,
+    sl: 0.01,
+    tp: 0.02,
+    style: "scalping",
     days: 1,
   },
   USA_REVERSAL_OVERSOLD: {
@@ -299,7 +311,7 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
   };
 }
 
-function toOhlcv(bars: readonly FmpBar[]): OhlcvBar[] {
+function toOhlcv(bars: readonly FmpBar[] | readonly OhlcvBar[]): OhlcvBar[] {
   return bars.map((b) => ({
     open: b.open,
     high: b.high,
@@ -308,6 +320,69 @@ function toOhlcv(bars: readonly FmpBar[]): OhlcvBar[] {
     volume: b.volume,
     date: b.date,
   }));
+}
+
+async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
+  const ibkr = await ibkrDailyBars(symbol).catch(() => [] as OhlcvBar[]);
+  if (ibkr.length >= 20) return ibkr;
+  // Last-resort FMP only when IBKR completely fails
+  if (isFmpEnabled()) {
+    const raw = await getHistory(symbol, 250).catch(() => []);
+    if (raw.length >= 20) {
+      console.warn(`[ProStrategy] ${symbol}: FMP history fallback (${raw.length} bars)`);
+      return toOhlcv(raw);
+    }
+  }
+  return ibkr;
+}
+
+async function loadLivePrice(
+  symbol: string,
+  inputs?: Partial<ScreenerInputs>,
+): Promise<{ price: number; change1d: number; volume: number; yearHigh: number; dayHigh: number; dayLow: number }> {
+  if (inputs?.price != null && inputs.price > 0) {
+    return {
+      price: inputs.price,
+      change1d: inputs.change1dPct ?? 0,
+      volume: inputs.volume ?? 0,
+      yearHigh: inputs.yearHigh ?? 0,
+      dayHigh: inputs.price,
+      dayLow: inputs.price,
+    };
+  }
+  const ibkr = await getIbkrPriceCached(symbol).catch(() => null);
+  if (ibkr && ibkr.price > 0) {
+    return {
+      price: ibkr.price,
+      change1d: inputs?.change1dPct ?? 0,
+      volume: inputs?.volume ?? ibkr.volume ?? 0,
+      yearHigh: inputs?.yearHigh ?? 0,
+      dayHigh: ibkr.ask ?? ibkr.price,
+      dayLow: ibkr.bid ?? ibkr.price,
+    };
+  }
+  if (isFmpEnabled()) {
+    const quote = await getQuote(symbol).catch(() => null);
+    if (quote && quote.price > 0) {
+      console.warn(`[ProStrategy] ${symbol}: FMP quote fallback`);
+      return {
+        price: quote.price,
+        change1d: quote.changePercentage ?? 0,
+        volume: quote.volume ?? 0,
+        yearHigh: quote.yearHigh ?? 0,
+        dayHigh: quote.dayHigh ?? quote.price,
+        dayLow: quote.dayLow ?? quote.price,
+      };
+    }
+  }
+  return {
+    price: 0,
+    change1d: inputs?.change1dPct ?? 0,
+    volume: inputs?.volume ?? 0,
+    yearHigh: inputs?.yearHigh ?? 0,
+    dayHigh: 0,
+    dayLow: 0,
+  };
 }
 
 function appendLiveBar(
@@ -489,16 +564,13 @@ export async function evaluateProStrategies(
   symbol: string,
   inputs?: Partial<ScreenerInputs>,
 ): Promise<ProStrategySignal> {
-  const quote =
-    inputs?.price != null && inputs.price > 0
-      ? null
-      : await getQuote(symbol).catch(() => null);
-  const price = inputs?.price ?? quote?.price ?? 0;
-  const change1d = inputs?.change1dPct ?? quote?.changePercentage ?? 0;
-  const volume = inputs?.volume ?? quote?.volume ?? 0;
-  const yearHigh = inputs?.yearHigh ?? quote?.yearHigh ?? 0;
-  const dayHigh = quote?.dayHigh ?? price;
-  const dayLow = quote?.dayLow ?? price;
+  const live = await loadLivePrice(symbol, inputs);
+  const price = live.price;
+  const change1d = live.change1d;
+  const volume = live.volume;
+  const yearHigh = live.yearHigh;
+  const dayHigh = live.dayHigh;
+  const dayLow = live.dayLow;
   const bid = inputs?.bid;
   const ask = inputs?.ask;
   const crypto = isIbkrCryptoTicker(symbol);
@@ -522,7 +594,7 @@ export async function evaluateProStrategies(
       relVolume: 0,
       ema9: null,
       ema21: null,
-      ema50: quote?.priceAvg50 ?? null,
+      ema50: null,
       vwapApprox: null,
       dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
     },
@@ -546,8 +618,8 @@ export async function evaluateProStrategies(
     /* allow mild dips; deep downs handled as reversal-only */
   }
 
-  const history = await getHistory(symbol, 250);
-  const bars = appendLiveBar(toOhlcv(history), price, volume, dayHigh, dayLow);
+  const history = await loadDailyBars(symbol);
+  const bars = appendLiveBar(history, price, volume, dayHigh, dayLow);
   if (bars.length < 20) return hold(`Historial insuficiente (${bars.length} velas)`);
 
   const vol20 = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
@@ -576,6 +648,18 @@ export async function evaluateProStrategies(
   const support = nearestSupport(price, technicals.levels.support);
   const resistance = nearestResistance(price, technicals.levels.resistance);
   const v10 = vol10(bars);
+
+  // 5-min IBKR bars for VWAP / intraday momentum (USA sessions)
+  const phaseEarly = getActiveTradingPhase();
+  const needIntraday =
+    phaseEarly === "USA_OPEN" || phaseEarly === "USA_REGULAR" || phaseEarly === "USA_PREMARKET";
+  const bars5m = needIntraday ? await ibkrBars5m(symbol).catch(() => [] as OhlcvBar[]) : [];
+  const intradayTech = bars5m.length >= 20 ? computeTechnicalIndicators(bars5m) : null;
+  const vwap5m = intradayTech?.volume.vwap ?? technicals.volume.vwap;
+  const c5 = bars5m.length >= 20 ? closes(bars5m) : [];
+  const ema9_5m = c5.length >= 20 ? ema(c5, 9) : null;
+  const ema21_5m = c5.length >= 20 ? ema(c5, 21) : null;
+  const rsi5m = c5.length >= 20 ? rsi(c5) : null;
 
   const [newsCtx, sentiment, marketQuotes] = await Promise.all([
     fetchCompanyNewsContext(symbol),
@@ -710,7 +794,7 @@ export async function evaluateProStrategies(
           `Gap +${change1d.toFixed(1)}% mantenido ${heldMin}m (≥5m) + vol ${relVol.toFixed(1)}x`,
           {
             stopLossPrice: gapFloor,
-            takeProfitPrice: price * 1.05,
+            takeProfitPrice: price * 1.03,
           },
         ),
       );
@@ -718,7 +802,7 @@ export async function evaluateProStrategies(
     if (
       change1d >= 1 &&
       change1d <= 4 &&
-      relVol >= 1.5 &&
+      relVol >= 2 &&
       rsiVal != null &&
       rsiVal >= 50 &&
       rsiVal <= 65 &&
@@ -726,13 +810,28 @@ export async function evaluateProStrategies(
       ema21 != null &&
       ema50 != null &&
       ema9 > ema21 &&
-      ema21 > ema50 &&
-      news4h
+      ema21 > ema50
     ) {
       hits.push(
-        hit("USA_MOMENTUM_PRIMERA_HORA", `Momentum +${change1d.toFixed(1)}% + news 4h`, {
-          stopLossPrice: price * 0.98,
-          takeProfitPrice: price * 1.06,
+        hit("USA_MOMENTUM_PRIMERA_HORA", `Momentum +${change1d.toFixed(1)}% RSI=${rsiVal.toFixed(0)} vol ${relVol.toFixed(1)}x`, {
+          stopLossPrice: price * 0.985,
+          takeProfitPrice: price * 1.03,
+        }),
+      );
+    }
+    if (
+      vwap5m != null &&
+      vwap5m > 0 &&
+      nearLevel(price, vwap5m, 0.004) &&
+      price >= vwap5m * 0.998 &&
+      relVol >= 1.2 &&
+      (ema9_5m == null || ema21_5m == null || ema9_5m >= ema21_5m) &&
+      (rsi5m == null || rsi5m >= 45)
+    ) {
+      hits.push(
+        hit("USA_VWAP_BOUNCE", `Rebote VWAP $${vwap5m.toFixed(2)} + vol`, {
+          stopLossPrice: price * 0.99,
+          takeProfitPrice: price * 1.02,
         }),
       );
     }
@@ -748,7 +847,7 @@ export async function evaluateProStrategies(
       hits.push(
         hit("USA_REVERSAL_OVERSOLD", `Oversold apertura RSI=${rsiVal.toFixed(0)} + BB`, {
           stopLossPrice: price * 0.98,
-          takeProfitPrice: price * 1.07,
+          takeProfitPrice: price * 1.06,
         }),
       );
     }
@@ -1000,7 +1099,7 @@ export async function evaluateProStrategies(
       ema9,
       ema21,
       ema50,
-      vwapApprox: technicals.volume.vwap,
+      vwapApprox: vwap5m ?? technicals.volume.vwap,
       dist52wHigh: yearHigh > 0 ? price / yearHigh : null,
     },
   };

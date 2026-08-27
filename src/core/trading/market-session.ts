@@ -519,21 +519,21 @@ export function selectTickersForOpenMarkets(tickers: readonly string[]): {
 
 /**
  * Intervalo de ciclo por sesión Madrid:
- * Asia 3m · Europa 1ªh 1m · USA pre 1m · USA 1ªh 1m · USA regular 3m · after 5m · standby 15m
+ * USA open 1m · USA regular/Europe/crypto 3m · Asia/afterhours 5m · standby 15m
  */
 export function getTradingCycleIntervalMs(_now = new Date()): number {
   void _now
   switch (getActiveTradingPhase()) {
     case "USA_OPEN":
     case "USA_PREMARKET":
-    case "EUROPE_OPEN":
       return 60 * 1000
     case "USA_AFTERHOURS":
+    case "ASIA":
       return 5 * 60 * 1000
     case "STANDBY_CRYPTO":
       return 15 * 60 * 1000
-    case "ASIA":
     case "EUROPE":
+    case "EUROPE_OPEN":
     case "USA_REGULAR":
     default:
       return 3 * 60 * 1000

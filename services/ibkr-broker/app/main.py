@@ -26,7 +26,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Body, Depends, FastAPI, Header, HTTPException
 
 # Prefer official IBKR TWS API pythonclient when available.
 # Set IBKR_TWS_API_PYTHONPATH to e.g. C:\\TWS API\\source\\pythonclient
@@ -464,20 +464,38 @@ class IBKRClient(EWrapper, EClient):
 
     def tickPrice(self, reqId, tickType, price, attrib) -> None:
         with self._tick_lock:
-            bucket = self.tick_data.setdefault(reqId, {"bid": None, "ask": None, "last": None})
+            bucket = self.tick_data.setdefault(
+                reqId, {"bid": None, "ask": None, "last": None, "close": None, "volume": None, "lastSize": None}
+            )
             if tickType == 1:
                 bucket["bid"] = price
             elif tickType == 2:
                 bucket["ask"] = price
-            elif tickType in (4, 9):
+            elif tickType == 4:
                 bucket["last"] = price
+            elif tickType == 9:
+                bucket["close"] = price
+                if bucket.get("last") is None:
+                    bucket["last"] = price
             if bucket.get("bid") is not None and bucket.get("ask") is not None:
+                done = self.tick_done.get(reqId)
+                if done:
+                    done.set()
+            elif bucket.get("last") is not None:
                 done = self.tick_done.get(reqId)
                 if done:
                     done.set()
 
     def tickSize(self, reqId, tickType, size) -> None:
-        return
+        with self._tick_lock:
+            bucket = self.tick_data.setdefault(
+                reqId, {"bid": None, "ask": None, "last": None, "close": None, "volume": None, "lastSize": None}
+            )
+            # 0=bidSize, 3=askSize, 5=lastSize, 8=volume
+            if tickType == 5:
+                bucket["lastSize"] = size
+            elif tickType == 8:
+                bucket["volume"] = size
 
     def contractDetails(self, reqId: int, contractDetails) -> None:
         self.contract_details_data[reqId] = contractDetails
@@ -621,11 +639,18 @@ class IBKRClient(EWrapper, EClient):
     def market_scanner(self, scan_code: str = "TOP_PERC_GAIN", limit: int = 50) -> list[dict[str, Any]]:
         """
         IBKR market scanner via reqScannerSubscription.
-        scan_code: TOP_PERC_GAIN | TOP_PERC_LOSE | MOST_ACTIVE
+        scan_code: TOP_PERC_GAIN | TOP_PERC_LOSE | MOST_ACTIVE | HIGH_VS_52_WK_HL | HOT_BY_VOLUME
         """
         self.ensure_connected()
         code = (scan_code or "TOP_PERC_GAIN").upper().strip()
-        if code not in {"TOP_PERC_GAIN", "TOP_PERC_LOSE", "MOST_ACTIVE"}:
+        allowed = {
+            "TOP_PERC_GAIN",
+            "TOP_PERC_LOSE",
+            "MOST_ACTIVE",
+            "HIGH_VS_52_WK_HL",
+            "HOT_BY_VOLUME",
+        }
+        if code not in allowed:
             code = "TOP_PERC_GAIN"
         rows_n = max(1, min(int(limit or 50), 100))
 
@@ -738,7 +763,8 @@ class IBKRClient(EWrapper, EClient):
         else:
             exchange_value = (exchange or "SMART").upper().strip() or "SMART"
             show = (what_to_show or "TRADES").upper().strip() or "TRADES"
-            rth = 1 if use_rth is None else int(use_rth)
+            # Include premarket/afterhours by default for multi-TF scalping.
+            rth = 0 if use_rth is None else int(use_rth)
 
         with self._history_lock:
             self.ensure_connected()
@@ -853,7 +879,14 @@ class IBKRClient(EWrapper, EClient):
             req_id = self._next_quote_req_id()
             done = threading.Event()
             self.tick_done[req_id] = done
-            self.tick_data[req_id] = {"bid": None, "ask": None, "last": None}
+            self.tick_data[req_id] = {
+                "bid": None,
+                "ask": None,
+                "last": None,
+                "close": None,
+                "volume": None,
+                "lastSize": None,
+            }
             contract = Contract()
             contract.symbol = cleaned
             contract.secType = cleaned_sec
@@ -861,7 +894,10 @@ class IBKRClient(EWrapper, EClient):
             contract.exchange = exchange_value
             before_errors = len(self.errors)
             self.reqMktData(req_id, contract, "", False, False, [])
-            done.wait(timeout)
+            # Wait for first tick; also allow a short settle window for last/close.
+            done.wait(min(timeout, 2.0))
+            if not done.is_set():
+                done.wait(max(0.0, timeout - 2.0))
             try:
                 self.cancelMktData(req_id)
             except Exception:
@@ -872,20 +908,31 @@ class IBKRClient(EWrapper, EClient):
             bid = ticks.get("bid")
             ask = ticks.get("ask")
             last = ticks.get("last")
+            close = ticks.get("close")
+            volume = ticks.get("volume")
+            last_size = ticks.get("lastSize")
             mid = None
             if isinstance(bid, (int, float)) and isinstance(ask, (int, float)) and bid > 0 and ask >= bid:
                 mid = (bid + ask) / 2.0
-            current = last if isinstance(last, (int, float)) and last > 0 else mid
+            current = None
+            for candidate in (last, mid, close):
+                if isinstance(candidate, (int, float)) and candidate > 0:
+                    current = float(candidate)
+                    break
             return {
                 "symbol": cleaned,
                 "secType": cleaned_sec,
                 "currency": currency_value,
                 "exchange": exchange_value,
+                "price": current,
                 "bid": bid if isinstance(bid, (int, float)) and bid > 0 else None,
                 "ask": ask if isinstance(ask, (int, float)) and ask > 0 else None,
                 "last": last if isinstance(last, (int, float)) and last > 0 else None,
+                "close": close if isinstance(close, (int, float)) and close > 0 else None,
                 "mid": mid,
-                "currentPrice": current if isinstance(current, (int, float)) and current > 0 else None,
+                "volume": int(volume) if isinstance(volume, (int, float)) and volume >= 0 else None,
+                "change": last_size if isinstance(last_size, (int, float)) else None,
+                "currentPrice": current,
                 "recentErrors": self.errors[before_errors:][-3:],
                 "mode": "READ_ONLY",
             }
@@ -1783,21 +1830,32 @@ def positions():
 
 
 @app.get("/api/ibkr/scanner", dependencies=auth)
-def ibkr_scanner(type: str = "TOP_PERC_GAIN", limit: int = 50):
-    """Market scanner: type=TOP_PERC_GAIN|TOP_PERC_LOSE|MOST_ACTIVE."""
+def ibkr_scanner(type: str = "TOP_PERC_GAIN", limit: int = 50, scanCode: str | None = None):
+    """Market scanner: TOP_PERC_GAIN|TOP_PERC_LOSE|MOST_ACTIVE|HIGH_VS_52_WK_HL|HOT_BY_VOLUME."""
+    code = (scanCode or type or "TOP_PERC_GAIN").upper()
     try:
-        rows = ibkr.market_scanner(scan_code=type, limit=limit)
+        rows = ibkr.market_scanner(scan_code=code, limit=limit)
         return {
             "ok": True,
-            "type": (type or "TOP_PERC_GAIN").upper(),
+            "type": code,
+            "scanCode": code,
             "limit": limit,
             "count": len(rows),
             "symbols": [r["symbol"] for r in rows],
             "rows": rows,
         }
     except Exception as exc:
-        log.warning("scanner failed type=%s: %s", type, exc)
+        log.warning("scanner failed type=%s: %s", code, exc)
         raise HTTPException(status_code=503, detail=_offline_read_error(exc)) from exc
+
+
+@app.post("/api/ibkr/scanner", dependencies=auth)
+def ibkr_scanner_post(payload: dict[str, Any] = Body(default_factory=dict)):
+    """POST alias — body: { scanCode|type, limit }."""
+    body = payload or {}
+    code = str(body.get("scanCode") or body.get("type") or "TOP_PERC_GAIN")
+    limit = int(body.get("limit") or 50)
+    return ibkr_scanner(type=code, limit=limit, scanCode=code)
 
 
 @app.get("/api/ibkr/orders", dependencies=auth)
@@ -1809,44 +1867,70 @@ def orders():
 
 
 @app.get("/api/ibkr/history", dependencies=auth)
+@app.get("/api/ibkr/historical", dependencies=auth)
 def history(
     symbol: str = "AAPL",
-    duration: str = "1 M",
-    barSize: str = "1 day",
+    duration: str = "5 D",
+    barSize: str = "5 mins",
+    bar: str | None = None,
     whatToShow: str = "TRADES",
     currency: str = "USD",
     exchange: str = "SMART",
     secType: str = "STK",
+    useRTH: int = 0,
 ):
     """
     READ_ONLY historical bars (reqHistoricalData).
-    STK: SMART/TRADES. CASH FOREX: symbol=EUR&currency=USD&secType=CASH&exchange=IDEALPRO.
-    Does not place orders and does not change LIVE_TRADING_ENABLED / IBKR_READ_ONLY.
+    Multi-TF: 1 min / 5 mins / 1 day. useRTH=0 includes premarket/afterhours.
     """
     cleaned = symbol.strip().upper()
     if not cleaned or len(cleaned) > 20:
         raise HTTPException(400, "symbol inválido")
-    allowed_durations = {"1 D", "5 D", "1 W", "2 W", "1 M", "3 M", "6 M", "1 Y"}
+    allowed_durations = {"1 D", "2 D", "5 D", "10 D", "1 W", "2 W", "1 M", "2 M", "3 M", "6 M", "60 D", "1 Y"}
     allowed_bars = {"1 min", "5 mins", "15 mins", "1 hour", "4 hours", "1 day"}
     allowed_sec = {"STK", "CASH", "CRYPTO"}
     cleaned_sec = (secType or "STK").strip().upper()
+    bar_size = (bar or barSize or "5 mins").strip()
     if cleaned_sec not in allowed_sec:
         raise HTTPException(400, f"secType no permitida; use una de {sorted(allowed_sec)}")
     if duration not in allowed_durations:
         raise HTTPException(400, f"duration no permitida; use una de {sorted(allowed_durations)}")
-    if barSize not in allowed_bars:
+    if bar_size not in allowed_bars:
         raise HTTPException(400, f"barSize no permitida; use una de {sorted(allowed_bars)}")
     try:
         result = ibkr.historical_bars(
             cleaned,
             duration=duration,
-            bar_size=barSize,
+            bar_size=bar_size,
             what_to_show=whatToShow,
             currency=currency,
             exchange=exchange,
             sec_type=cleaned_sec,
+            use_rth=int(useRTH),
         )
-        audit("IBKR_HISTORY_READ", cleaned, {"count": result.get("count", 0), "duration": duration, "barSize": barSize})
+        audit(
+            "IBKR_HISTORY_READ",
+            cleaned,
+            {"count": result.get("count", 0), "duration": duration, "barSize": bar_size, "useRTH": useRTH},
+        )
+        # Flat array alias for /api/ibkr/historical consumers
+        bars = result.get("bars") or []
+        if isinstance(bars, list):
+            result = {
+                **result,
+                "data": [
+                    {
+                        "date": str(b.get("date")),
+                        "open": b.get("open"),
+                        "high": b.get("high"),
+                        "low": b.get("low"),
+                        "close": b.get("close"),
+                        "volume": b.get("volume"),
+                    }
+                    for b in bars
+                    if isinstance(b, dict)
+                ],
+            }
         return result
     except Exception as exc:
         audit("IBKR_HISTORY_FAILED", cleaned, {"error": str(exc)})
@@ -1854,13 +1938,14 @@ def history(
 
 
 @app.get("/api/ibkr/quote", dependencies=auth)
+@app.get("/api/ibkr/market-data", dependencies=auth)
 def stock_quote(
     symbol: str,
     currency: str = "USD",
     exchange: str = "SMART",
     secType: str = "STK",
 ):
-    """READ_ONLY bid/ask/last (reqMktData). STK default; CASH uses IDEALPRO."""
+    """READ_ONLY bid/ask/last (reqMktData). STK default; CRYPTO uses PAXOS."""
     cleaned = symbol.strip().upper()
     if not cleaned or len(cleaned) > 20:
         raise HTTPException(400, "symbol inválido")
@@ -1873,12 +1958,24 @@ def stock_quote(
             currency=currency.strip().upper() or "USD",
             exchange=exchange.strip().upper() or "SMART",
             sec_type=cleaned_sec,
+            timeout=5.0,
         )
         audit("IBKR_QUOTE_READ", cleaned, {"bid": result.get("bid"), "ask": result.get("ask"), "last": result.get("last")})
         return result
     except Exception as exc:
         audit("IBKR_QUOTE_FAILED", cleaned, {"error": str(exc)})
         raise HTTPException(503, str(exc)) from exc
+
+
+@app.get("/api/ibkr/price/{symbol}", dependencies=auth)
+def realtime_price(
+    symbol: str,
+    currency: str = "USD",
+    exchange: str = "SMART",
+    secType: str = "STK",
+):
+    """Realtime price via reqMktData — last|bid|close. Crypto: secType=CRYPTO&exchange=PAXOS."""
+    return stock_quote(symbol=symbol, currency=currency, exchange=exchange, secType=secType)
 
 
 @app.get("/api/proposals", dependencies=auth)

@@ -8,7 +8,11 @@ import {
   resolveLimitPriceFromQuote,
   type LiveLimitQuote,
 } from "@/lib/trading/limit-price";
-import { getOrSetIbkrCached, ibkrCacheKey } from "@/lib/trading/ibkr-cache";
+import {
+  getOrSetIbkrCached,
+  ibkrCacheKey,
+  IBKR_PRICE_CACHE_TTL_MS,
+} from "@/lib/trading/ibkr-cache";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -149,7 +153,11 @@ async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot
 }
 
 export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSnapshot> {
-  return getOrSetIbkrCached(ibkrCacheKey("price", ticker), () => fetchTradingPriceLive(ticker));
+  return getOrSetIbkrCached(
+    ibkrCacheKey("price", ticker),
+    () => fetchTradingPriceLive(ticker),
+    IBKR_PRICE_CACHE_TTL_MS,
+  );
 }
 
 async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapshot> {

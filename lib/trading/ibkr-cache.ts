@@ -10,6 +10,8 @@ import {
 
 /** Aggressive read cache — avoid hammering TWS on every dashboard poll. */
 export const IBKR_READ_CACHE_TTL_MS = 5 * 60 * 1000;
+/** Live market-data / price cache — 30s for realtime trailing. */
+export const IBKR_PRICE_CACHE_TTL_MS = 30_000;
 
 export function ibkrCacheKey(kind: string, ...parts: string[]): string {
   return cacheKey("IBKR", kind, ...parts);

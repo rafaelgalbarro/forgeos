@@ -5,13 +5,13 @@
  * Windows (Madrid):
  * - 00:30 Asia pre-scan
  * - 08:30 Europe pre-scan
- * - 14:00–14:30 USA pre-scan (FMP pre-post market) — refreshes every cycle
+ * - 14:00–14:30 USA pre-scan (IBKR scanners) — refreshes every cycle
  */
 
 import "server-only";
 
 import { queueTickerForCycle } from "@/lib/alerts/alert-manager";
-import { getFmpPrePostMovers, isFmpEnabled } from "@/lib/market-data/fmp";
+import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { fetchGeneralNewsCatalysts } from "@/lib/market-data/finnhub-pro";
 import { upsertPremarketCandidates } from "@/lib/investment/premarket-candidates";
 import {
@@ -39,7 +39,6 @@ export type PremarketScanResult = {
 };
 
 const MIN_GAP_PCT = 1.5;
-const MIN_VOLUME = 50_000;
 const MAX_QUEUE = 40;
 
 let lastScanDayKey = "";
@@ -112,6 +111,40 @@ async function mergeNewsCatalysts(base: PremarketCandidate[]): Promise<Premarket
   return [...map.values()];
 }
 
+async function fetchIbkrPremarketRows(): Promise<PremarketCandidate[]> {
+  const codes = ["TOP_PERC_GAIN", "HOT_BY_VOLUME", "MOST_ACTIVE"] as const;
+  const batches = await Promise.all(
+    codes.map(async (type) => {
+      try {
+        const res = await ibkrServiceFetch<{
+          rows?: Array<{ symbol?: string; changePct?: number | null; volume?: number | null }>;
+          symbols?: string[];
+        }>(`/api/ibkr/scanner?type=${type}&limit=50`, { signal: AbortSignal.timeout(20_000) });
+        const rows = res.rows ?? [];
+        if (rows.length > 0) {
+          return rows.map((r) => ({
+            symbol: String(r.symbol ?? "").toUpperCase(),
+            gapPct: Number(r.changePct ?? 0) || 0,
+            volume: Number(r.volume ?? 0) || 0,
+            price: 0,
+            source: `ibkr-${type.toLowerCase()}`,
+          }));
+        }
+        return (res.symbols ?? []).map((s) => ({
+          symbol: String(s).toUpperCase(),
+          gapPct: 0,
+          volume: 0,
+          price: 0,
+          source: `ibkr-${type.toLowerCase()}`,
+        }));
+      } catch {
+        return [] as PremarketCandidate[];
+      }
+    }),
+  );
+  return batches.flat().filter((c) => Boolean(c.symbol));
+}
+
 export async function runAsiaPremarketScan(): Promise<PremarketScanResult> {
   const seed = [...ASIA_ETF_TICKERS, ...ASIA_DIRECT_TICKERS];
   const withNews = await mergeNewsCatalysts(
@@ -157,37 +190,18 @@ export async function runEuropePremarketScan(): Promise<PremarketScanResult> {
 }
 
 export async function runUsaPremarketScan(): Promise<PremarketScanResult> {
-  if (!isFmpEnabled()) {
-    console.warn("[PreMarket] FMP disabled — skip USA premarket scan");
-    return {
-      session: "usa",
-      candidates: [],
-      preparedOnly: true,
-      at: new Date().toISOString(),
-    };
-  }
-
-  const movers = await getFmpPrePostMovers();
+  const rows = await fetchIbkrPremarketRows();
   const merged = new Map<string, PremarketCandidate>();
-  for (const row of movers.all) {
-    if (!(row.changePercentage >= MIN_GAP_PCT)) continue;
-    if (!(row.volume >= MIN_VOLUME)) continue;
-    if (row.price > 0 && (row.price < 0.75 || row.price > 200)) continue;
+  for (const row of rows) {
+    if (row.gapPct !== 0 && !(row.gapPct >= MIN_GAP_PCT)) continue;
     const prev = merged.get(row.symbol);
-    if (!prev || row.changePercentage > prev.gapPct) {
-      merged.set(row.symbol, {
-        symbol: row.symbol,
-        gapPct: row.changePercentage,
-        volume: row.volume,
-        price: row.price,
-        source: row.source,
-      });
+    if (!prev || row.gapPct > prev.gapPct) {
+      merged.set(row.symbol, row);
     }
   }
 
   let candidates = [...merged.values()].sort((a, b) => b.gapPct - a.gapPct);
   candidates = await mergeNewsCatalysts(candidates);
-  // Prefer allowlist but keep strong gaps even if not on static list
   const allow = allowed();
   const preferred = candidates.filter((c) => allow.has(c.symbol));
   const extras = candidates.filter((c) => !allow.has(c.symbol));
@@ -200,7 +214,7 @@ export async function runUsaPremarketScan(): Promise<PremarketScanResult> {
     .slice(0, 8)
     .map((c) => `${c.symbol}${c.gapPct >= 0 ? "+" : ""}${c.gapPct.toFixed(1)}%`)
     .join(", ");
-  console.log(`[PreMarket] ${candidates.length} candidatos: ${preview || "—"}`);
+  console.log(`[PreMarket] IBKR ${candidates.length} candidatos: ${preview || "—"}`);
 
   return {
     session: "usa",

@@ -83,18 +83,16 @@ function localIntervalMs() {
     if (hour >= 22 || hour < 2) return 5 * 60 * 1000;
     return 15 * 60 * 1000;
   }
-  // USA premarket 14:00–14:30 + USA open 14:30–15:30 → 1m
+  // USA apertura 14:30–15:30 (+ premarket 14:00) → 1m
   if (nowMinutes >= 14 * 60 && nowMinutes < 15 * 60 + 30) return 60 * 1000;
-  if (nowMinutes >= 9 * 60 && nowMinutes < 10 * 60) return 60 * 1000;
-  if (hour >= 22 || hour < 2) return 5 * 60 * 1000;
-  if (hour >= 1 && hour < 8) return 3 * 60 * 1000;
-  if (hour >= 9 && (hour < 17 || (hour === 17 && minuteOk(nowMinutes)))) return 3 * 60 * 1000;
+  // Asia 01:00–08:00 → 5m
+  if (hour >= 1 && hour < 8) return 5 * 60 * 1000;
+  // After-hours 21:00–02:00 → 5m
+  if (hour >= 21 || hour < 2) return 5 * 60 * 1000;
+  // Europe 09:00–17:30 + USA regular 15:30–21:00 → 3m
+  if (hour >= 9 && (hour < 17 || (hour === 17 && nowMinutes < 17 * 60 + 30))) return 3 * 60 * 1000;
   if (nowMinutes >= 15 * 60 + 30 && nowMinutes < 21 * 60) return 3 * 60 * 1000;
   return 15 * 60 * 1000;
-}
-
-function minuteOk(nowMinutes) {
-  return nowMinutes < 17 * 60 + 30;
 }
 
 async function resolveIntervalMs() {

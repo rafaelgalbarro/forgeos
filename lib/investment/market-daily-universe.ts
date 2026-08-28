@@ -11,6 +11,9 @@ import {
   EUROPE_ETF_TICKERS,
   getActiveTradingPhase,
   getGlobalMarketWindow,
+  isEuropeOpen,
+  isUSAExtendedOpen,
+  isUSAOpen,
 } from "@/src/core/trading/market-session";
 import { IBKR_CRYPTO_TICKERS, ensureCryptoInTickerList, verifyCryptoTradingStatus } from "@/src/core/trading/crypto-ibkr";
 
@@ -28,6 +31,52 @@ const IBKR_SCAN_CODES = [
   "HIGH_VS_52_WK_HL",
   "HOT_BY_VOLUME",
 ] as const;
+
+/** ETFs europeos + ADRs + mega-caps USA con liquidez en horario EU (09:00–17:30 Madrid). */
+const EUROPE_UNIVERSE = [
+  "EZU",
+  "VGK",
+  "EWG",
+  "EWU",
+  "EWQ",
+  "EWI",
+  "EWP",
+  "FEZ",
+  "IEV",
+  "LVMUY",
+  "LRLCY",
+  "BMWYY",
+  "RHHBY",
+  "AIQUY",
+  "EADSY",
+  "BAESY",
+  "HEINY",
+  "SBGSY",
+  "AXAHY",
+  "DNNGY",
+  "CSGPY",
+  "AKZOY",
+  "AAPL",
+  "MSFT",
+  "GOOGL",
+  "AMZN",
+  "NVDA",
+  "META",
+  "TSLA",
+  "JPM",
+  "BAC",
+  "GS",
+  "MS",
+  "WMT",
+  "JNJ",
+  "PFE",
+  "XOM",
+] as const;
+
+/** Europa abierta sin sesión USA — el scanner IBKR devuelve tickers USA cerrados. */
+function isEuropeanUniverseSession(): boolean {
+  return isEuropeOpen() && !isUSAOpen() && !isUSAExtendedOpen();
+}
 
 export type DailyTicker = {
   symbol: string;
@@ -47,7 +96,7 @@ export type DailyTicker = {
 export type DailyUniverseCache = {
   generatedAt: string;
   nextRefreshAt: string;
-  source: "multi-source" | "fmp-movers" | "ibkr-scanner" | "fallback-738";
+  source: "multi-source" | "fmp-movers" | "ibkr-scanner" | "europe-universe" | "fallback-738";
   screenerCount: number;
   sourcesUsed: string[];
   tickers: DailyTicker[];
@@ -149,6 +198,21 @@ async function fetchRegionalEtfSeeds(): Promise<SeedRow[]> {
     avgVolume: 0,
     yearHigh: 0,
     sources: ["regional-seed"],
+  }));
+}
+
+async function fetchEuropeUniverseSeeds(): Promise<SeedRow[]> {
+  console.log(
+    `[Universe] Sesión Europa (sin USA) → lista fija ${EUROPE_UNIVERSE.length} tickers (sin IBKR scanner USA)`,
+  );
+  return EUROPE_UNIVERSE.map((symbol) => ({
+    symbol,
+    price: 0,
+    changePct: 0,
+    volume: 0,
+    avgVolume: 0,
+    yearHigh: 0,
+    sources: ["europe-universe"],
   }));
 }
 
@@ -270,7 +334,8 @@ function mergeSeeds(batches: SeedRow[][]): SeedRow[] {
 
 function passesFilters(r: SeedRow, forceKeep: Set<string>): boolean {
   if (forceKeep.has(r.symbol)) return true;
-  if (r.sources.some((s) => s.startsWith("ibkr-") || s === "regional-seed")) return true;
+  if (r.sources.some((s) => s.startsWith("ibkr-") || s === "regional-seed" || s === "europe-universe"))
+    return true;
   if (r.price <= 0) return false;
   return true;
 }
@@ -335,34 +400,41 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
 
   refreshInFlight = (async () => {
     try {
-      console.log("[Universe] Screener IBKR-only (scanner + regional + crypto + portfolio)…");
+      const useEuropeUniverse = isEuropeanUniverseSession();
+      console.log(
+        useEuropeUniverse
+          ? "[Universe] Sesión Europa → universo fijo + crypto + portfolio (sin scanner USA)"
+          : "[Universe] Screener IBKR-only (scanner + regional + crypto + portfolio)…",
+      );
       const phase = getActiveTradingPhase();
       void getGlobalMarketWindow();
       const topCount = TOP_COUNT_MAX;
       const historyCandidates = HISTORY_CANDIDATES_MAX;
 
-      const [ibkrRows, cryptoRows, regionalRows, portfolioRows] = await Promise.all([
-        fetchIbkrScanner(),
+      const [primaryRows, cryptoRows, regionalRows, portfolioRows] = await Promise.all([
+        useEuropeUniverse ? fetchEuropeUniverseSeeds() : fetchIbkrScanner(),
         fetchCryptoSeeds(),
-        fetchRegionalEtfSeeds(),
+        useEuropeUniverse ? Promise.resolve([] as SeedRow[]) : fetchRegionalEtfSeeds(),
         fetchOpenPositions(),
       ]);
 
-      const fallback = ibkrRows.length === 0 ? await fetchFallbackUniverse() : [];
+      const fallback =
+        !useEuropeUniverse && primaryRows.length === 0 ? await fetchFallbackUniverse() : [];
 
       const sourcesUsed = [
-        ibkrRows.length ? "ibkr-scanner" : "",
+        useEuropeUniverse ? "europe-universe" : primaryRows.length ? "ibkr-scanner" : "",
         cryptoRows.length ? "ibkr-crypto" : "",
         regionalRows.length ? "regional-etf-adr" : "",
         fallback.length ? "fallback-738" : "",
         portfolioRows.length ? "portfolio" : "",
       ].filter(Boolean);
 
-      const merged = mergeSeeds([ibkrRows, cryptoRows, regionalRows, fallback, portfolioRows]);
+      const merged = mergeSeeds([primaryRows, cryptoRows, regionalRows, fallback, portfolioRows]);
       const forceKeep = new Set([
         ...IBKR_CRYPTO_TICKERS,
         ...portfolioRows.map((r) => r.symbol),
         ...regionalRows.map((r) => r.symbol),
+        ...(useEuropeUniverse ? EUROPE_UNIVERSE : []),
         ...ASIA_DIRECT_TICKERS,
         ...EUROPE_ETF_TICKERS,
         ...EUROPE_DIRECT_TICKERS,
@@ -370,7 +442,7 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
       const filtered = merged.filter((r) => passesFilters(r, forceKeep));
       const ranked = [...filtered].sort((a, b) => seedScore(b) - seedScore(a));
 
-      const scannerSyms = new Set(ibkrRows.map((r) => r.symbol));
+      const scannerSyms = new Set(primaryRows.map((r) => r.symbol));
       const priority = ranked.filter((r) => scannerSyms.has(r.symbol) || forceKeep.has(r.symbol));
       const rest = ranked.filter((r) => !scannerSyms.has(r.symbol) && !forceKeep.has(r.symbol));
       const candidates = [...priority, ...rest].slice(0, Math.max(historyCandidates, topCount));
@@ -433,8 +505,13 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
         finalTop = ranked.slice(0, topCount).map((r) => tickerFromSeed(r, 0, r.changePct, 0));
       }
 
-      const primarySource: DailyUniverseCache["source"] =
-        ibkrRows.length > 0 ? "ibkr-scanner" : fallback.length ? "fallback-738" : "ibkr-scanner";
+      const primarySource: DailyUniverseCache["source"] = useEuropeUniverse
+        ? "europe-universe"
+        : primaryRows.length > 0
+          ? "ibkr-scanner"
+          : fallback.length
+            ? "fallback-738"
+            : "ibkr-scanner";
 
       const payload: DailyUniverseCache = {
         generatedAt: new Date().toISOString(),

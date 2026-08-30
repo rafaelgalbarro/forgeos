@@ -1,5 +1,5 @@
 /**
- * FOREX market data — FMP stable quotes + EOD history.
+ * FOREX market data — Alpaca rates (primary) + FMP fallback when enabled.
  * IBKR is not used for prices (orders/account only).
  */
 
@@ -12,6 +12,8 @@ import {
   getFmpQuoteTtlMs,
   isFmpEnabled,
 } from "@/lib/market-data/fmp";
+import { fetchAlpacaForexRates, isAlpacaConfigured } from "@/lib/market-data/alpaca-forex";
+import { spreadPips } from "@/lib/investment/forex/config";
 import {
   FOREX_PAIRS,
   getForexPair,
@@ -31,7 +33,7 @@ export type ForexLiveQuote = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "FMP" | "NO_DATA";
+  source: "ALPACA" | "FMP" | "NO_DATA";
   updatedAt: string;
 };
 
@@ -44,7 +46,7 @@ export type ForexHistoryResult = {
   pairId: string;
   display: string;
   timeframe: ForexTimeframe;
-  source: "FMP" | "NO_DATA";
+  source: "ALPACA" | "FMP" | "NO_DATA";
   bars: ForexCandle[];
   count: number;
   generatedAt: string;
@@ -95,6 +97,33 @@ function historyDays(tf: ForexTimeframe): number {
   return 100;
 }
 
+async function loadAlpacaForexQuotes(): Promise<ForexLiveQuote[]> {
+  const now = new Date().toISOString();
+  const pairIds = FOREX_PAIRS.map((p) => p.pairId);
+  const rates = await fetchAlpacaForexRates(pairIds);
+  const byId = new Map(rates.map((r) => [r.pairId, r]));
+  return FOREX_PAIRS.map((p) => {
+    const row = byId.get(p.pairId);
+    if (!row || row.mid == null || !(row.mid > 0)) return emptyQuote(p, now);
+    const bid = row.bid ?? row.mid;
+    const ask = row.ask ?? row.mid;
+    const spread =
+      Number.isFinite(bid) && Number.isFinite(ask) && ask >= bid
+        ? spreadPips(p.pairId, bid, ask)
+        : null;
+    return {
+      pairId: p.pairId,
+      display: p.display,
+      bid,
+      ask,
+      mid: row.mid,
+      spreadPips: Number.isFinite(spread) ? spread : null,
+      source: "ALPACA" as const,
+      updatedAt: row.updatedAt || now,
+    };
+  });
+}
+
 async function loadFmpForexQuotes(): Promise<ForexLiveQuote[]> {
   const now = new Date().toISOString();
   if (!isFmpEnabled()) return FOREX_PAIRS.map((p) => emptyQuote(p, now));
@@ -117,7 +146,7 @@ async function loadFmpForexQuotes(): Promise<ForexLiveQuote[]> {
   });
 }
 
-/** Live quotes for all 9 pairs — one FMP /stable/quote?symbol=EURUSD,GBPUSD,... batch call. */
+/** Live quotes — Alpaca when configured, else FMP batch, else NO_DATA. */
 export async function getForexLiveQuotes(): Promise<{
   quotes: ForexLiveQuote[];
   generatedAt: string;
@@ -129,7 +158,9 @@ export async function getForexLiveQuotes(): Promise<{
     return { quotes: hit.quotes, generatedAt: hit.generatedAt, fromCache: true };
   }
 
-  const quotes = await loadFmpForexQuotes();
+  const quotes = isAlpacaConfigured()
+    ? await loadAlpacaForexQuotes()
+    : await loadFmpForexQuotes();
   const generatedAt = new Date().toISOString();
   setCached(key, { quotes, generatedAt }, QUOTES_TTL_MS());
   return { quotes, generatedAt, fromCache: false };

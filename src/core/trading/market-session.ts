@@ -15,8 +15,8 @@ export type ExchangeCode =
   | "CPH"
   | "PAXOS"
 
-/** Crypto 24h (PAXOS) — lista local, sin dependencias server-only. */
-const ALWAYS_ON_CRYPTO_TICKERS = ["BTC", "ETH", "LTC", "BCH", "XRP"] as const
+/** Crypto 24h — alineado con BINANCE_CRYPTO_TICKERS / Alpaca crypto. */
+const ALWAYS_ON_CRYPTO_TICKERS = ["BTC", "ETH", "BNB", "SOL", "XRP"] as const
 
 /** US listing venues — horario USA (NYSE/NASDAQ/ETFs). */
 export const US_LISTING_EXCHANGES = new Set([

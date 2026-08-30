@@ -16,6 +16,12 @@ import {
   isUSAOpen,
 } from "@/src/core/trading/market-session";
 import { IBKR_CRYPTO_TICKERS, ensureCryptoInTickerList, verifyCryptoTradingStatus } from "@/src/core/trading/crypto-ibkr";
+import {
+  ALPACA_CRYPTO_PAIRS,
+  ALPACA_FOREX_PAIRS,
+} from "@/lib/brokers/alpaca-pairs";
+
+export { ALPACA_FOREX_PAIRS as FOREX_PAIRS, ALPACA_CRYPTO_PAIRS as CRYPTO_PAIRS };
 
 const CACHE_DIR = path.resolve(process.cwd(), ".forgeos", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "market-daily-universe.json");
@@ -159,10 +165,25 @@ function asSymbol(raw: unknown): string {
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(s) ? s : "";
 }
 
+/** Alpaca forex + crypto — siempre en el universo (24h). */
+async function fetchAlpacaSeeds(): Promise<SeedRow[]> {
+  const symbols = [...new Set([...ALPACA_FOREX_PAIRS, ...ALPACA_CRYPTO_PAIRS])];
+  console.log(`[Universe] Alpaca FX+Crypto (${symbols.join(", ")})`);
+  return symbols.map((symbol) => ({
+    symbol,
+    price: 0,
+    changePct: 0,
+    volume: 0,
+    avgVolume: 0,
+    yearHigh: 0,
+    sources: ["alpaca-fx-crypto"],
+  }));
+}
+
 /** Crypto spot IBKR (PAXOS) — siempre en el universo, mercado 24h. */
 async function fetchCryptoSeeds(): Promise<SeedRow[]> {
-  const unique = [...IBKR_CRYPTO_TICKERS];
-  console.log(`[Universe] Crypto 24h IBKR (${unique.join(", ")})`);
+  const unique = [...new Set([...IBKR_CRYPTO_TICKERS, ...ALPACA_CRYPTO_PAIRS])];
+  console.log(`[Universe] Crypto 24h (${unique.join(", ")})`);
   return unique.map((symbol) => ({
     symbol,
     price: 0,
@@ -170,7 +191,9 @@ async function fetchCryptoSeeds(): Promise<SeedRow[]> {
     volume: 0,
     avgVolume: 0,
     yearHigh: 0,
-    sources: ["ibkr-crypto-paxos"],
+    sources: (ALPACA_CRYPTO_PAIRS as readonly string[]).includes(symbol)
+      ? ["alpaca-crypto", "ibkr-crypto-paxos"]
+      : ["ibkr-crypto-paxos"],
   }));
 }
 
@@ -334,7 +357,7 @@ function mergeSeeds(batches: SeedRow[][]): SeedRow[] {
 
 function passesFilters(r: SeedRow, forceKeep: Set<string>): boolean {
   if (forceKeep.has(r.symbol)) return true;
-  if (r.sources.some((s) => s.startsWith("ibkr-") || s === "regional-seed" || s === "europe-universe"))
+  if (r.sources.some((s) => s.startsWith("ibkr-") || s === "regional-seed" || s === "europe-universe" || s.startsWith("alpaca-")))
     return true;
   if (r.price <= 0) return false;
   return true;
@@ -411,9 +434,10 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
       const topCount = TOP_COUNT_MAX;
       const historyCandidates = HISTORY_CANDIDATES_MAX;
 
-      const [primaryRows, cryptoRows, regionalRows, portfolioRows] = await Promise.all([
+      const [primaryRows, cryptoRows, alpacaRows, regionalRows, portfolioRows] = await Promise.all([
         useEuropeUniverse ? fetchEuropeUniverseSeeds() : fetchIbkrScanner(),
         fetchCryptoSeeds(),
+        fetchAlpacaSeeds(),
         useEuropeUniverse ? Promise.resolve([] as SeedRow[]) : fetchRegionalEtfSeeds(),
         fetchOpenPositions(),
       ]);
@@ -424,14 +448,17 @@ export async function refreshDailyMarketUniverse(force = false): Promise<DailyUn
       const sourcesUsed = [
         useEuropeUniverse ? "europe-universe" : primaryRows.length ? "ibkr-scanner" : "",
         cryptoRows.length ? "ibkr-crypto" : "",
+        alpacaRows.length ? "alpaca-fx-crypto" : "",
         regionalRows.length ? "regional-etf-adr" : "",
         fallback.length ? "fallback-738" : "",
         portfolioRows.length ? "portfolio" : "",
       ].filter(Boolean);
 
-      const merged = mergeSeeds([primaryRows, cryptoRows, regionalRows, fallback, portfolioRows]);
+      const merged = mergeSeeds([primaryRows, cryptoRows, alpacaRows, regionalRows, fallback, portfolioRows]);
       const forceKeep = new Set([
         ...IBKR_CRYPTO_TICKERS,
+        ...ALPACA_FOREX_PAIRS,
+        ...ALPACA_CRYPTO_PAIRS,
         ...portfolioRows.map((r) => r.symbol),
         ...regionalRows.map((r) => r.symbol),
         ...(useEuropeUniverse ? EUROPE_UNIVERSE : []),

@@ -76,6 +76,22 @@ import {
 } from '@/lib/investment/market-daily-universe'
 import { getScannerCandidateTickers } from '@/lib/investment/cycle-universe'
 import { getActiveCandidateTickers } from '@/lib/market-data/candidate-store'
+import {
+  isAlpacaTicker,
+  isAlpacaCryptoTicker,
+  isAlpacaForexTicker,
+  ALPACA_CRYPTO_ORDER_NOTIONAL_USD,
+  ALPACA_FOREX_ORDER_UNITS,
+  alpacaAssetClass,
+} from '@/lib/brokers/alpaca-pairs'
+import {
+  getPrice as getAlpacaPrice,
+  getPositions as getAlpacaPositions,
+  hasAlpacaPosition,
+  isAlpacaConfigured,
+  placeOrder as placeAlpacaOrder,
+} from '@/lib/brokers/alpaca-client'
+import { evaluateAlpacaStrategy } from '@/lib/brokers/alpaca-strategies'
 
 /** Analyze up to 100 tickers per cycle across all sessions. */
 function maxCycleTickers(): number {
@@ -126,7 +142,8 @@ function prioritizeCycleTickers(tickers: readonly string[]): string[] {
     if (preSet.has(t) || isPremarketHighPriority(t)) withPremarket.push(t)
     else if (gainerSet.has(t)) gainers.push(t)
     else if (activeSet.has(t)) actives.push(t)
-    else if (isIbkrCryptoTicker(t)) crypto.push(t)
+    else if (isIbkrCryptoTicker(t) || isAlpacaCryptoTicker(t)) crypto.push(t)
+    else if (isAlpacaForexTicker(t)) crypto.push(t)
     else if (GLOBAL_ETF_PRIORITY.has(t)) etfs.push(t)
     else rest.push(t)
   }
@@ -706,6 +723,162 @@ export class TradingEngine {
     }
   }
 
+  private async processAlpacaTicker(
+    ticker: string,
+    account: {
+      navUSD: number
+      cashUSD: number
+      dailyPnlUSD: number
+      openPositionsCount: number
+      primaryAccountId?: string | null
+    },
+    execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
+  ): Promise<OrderResult> {
+    const asset = alpacaAssetClass(ticker)
+    if (!asset) {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: no es par Alpaca`,
+        signal: { confidence: 0, reasoning: 'Unknown Alpaca ticker', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    if (!isAlpacaConfigured()) {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: 'Alpaca paper no configurado (ALPACA_API_KEY / ALPACA_SECRET)',
+        signal: { confidence: 0, reasoning: 'Alpaca keys missing', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    console.log(`[AutoExecute] ${ticker} → precio Alpaca (${asset})…`)
+    let quote: Awaited<ReturnType<typeof getAlpacaPrice>>
+    try {
+      quote = await getAlpacaPrice(ticker)
+      console.log(`[AutoExecute] ${ticker} → Alpaca $${quote.price.toFixed(asset === 'forex' ? 5 : 2)} (${quote.source})`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'precio Alpaca no disponible'
+      console.log(`[AutoExecute] ${ticker} → skip Alpaca: ${msg}`)
+      return {
+        status: 'SKIPPED',
+        ticker,
+        direction: 'HOLD',
+        reason: msg,
+        signal: { confidence: 0, reasoning: 'Sin precio Alpaca', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const positions = await getAlpacaPositions().catch(() => [])
+    if (hasAlpacaPosition(positions, ticker)) {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: posición Alpaca ya abierta`,
+        signal: { confidence: 0, reasoning: 'Alpaca position exists', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const strategy = await evaluateAlpacaStrategy(ticker, quote.price)
+    const signal = {
+      direction: strategy.direction,
+      confidence: strategy.confidence,
+      reasoning: strategy.reasoning,
+      urgency: strategy.urgency,
+      primaryStrategy: strategy.primaryStrategy,
+      stopLoss: strategy.stopLoss,
+      takeProfit: strategy.takeProfit,
+    }
+
+    if (signal.direction === 'HOLD') {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: signal.reasoning,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+        stopLoss: signal.stopLoss,
+        takeProfit: signal.takeProfit,
+      }
+    }
+
+    if (signal.confidence < TRADING_CONFIG.ai.minConfidenceToTrade) {
+      return {
+        status: 'REJECTED_CONFIDENCE',
+        ticker,
+        direction: 'BUY',
+        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mínimo ${(TRADING_CONFIG.ai.minConfidenceToTrade * 100).toFixed(0)}%`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    if (execGate) execGate.buySignal = true
+
+    recordSignalForTelegram({
+      ticker,
+      direction: 'BUY',
+      confidence: signal.confidence,
+      at: new Date().toISOString(),
+    })
+
+    if (execGate) execGate.enteredAutoExecute = true
+    try {
+      const submitted =
+        asset === 'crypto'
+          ? await placeAlpacaOrder({
+              symbol: ticker,
+              side: 'buy',
+              type: 'market',
+              notional: ALPACA_CRYPTO_ORDER_NOTIONAL_USD,
+            })
+          : await placeAlpacaOrder({
+              symbol: ticker,
+              side: 'buy',
+              type: 'market',
+              qty: ALPACA_FOREX_ORDER_UNITS,
+            })
+
+      console.log(
+        `[AutoExecute] ${ticker} → Alpaca PAPER ${submitted.side} ${submitted.symbol} id=${submitted.id} status=${submitted.status}`,
+      )
+
+      return {
+        status: 'EXECUTED',
+        orderId: submitted.id,
+        ticker,
+        direction: 'BUY',
+        sharesOrValue: asset === 'crypto' ? ALPACA_CRYPTO_ORDER_NOTIONAL_USD : ALPACA_FOREX_ORDER_UNITS,
+        price: quote.price,
+        reason: `Alpaca paper ${signal.primaryStrategy}: ${signal.reasoning}`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+        stopLoss: signal.stopLoss,
+        takeProfit: signal.takeProfit,
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Alpaca order failed'
+      console.error(`[AutoExecute] ${ticker} → ERROR Alpaca: ${msg}`)
+      return {
+        status: 'ERROR',
+        ticker,
+        direction: 'BUY',
+        reason: msg,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+  }
+
   private async processTicker(
     ticker: string,
     account: {
@@ -717,6 +890,10 @@ export class TradingEngine {
     },
     execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
   ): Promise<OrderResult> {
+    if (isAlpacaTicker(ticker)) {
+      return this.processAlpacaTicker(ticker, account, execGate)
+    }
+
     if (isTimeoutSkipped(ticker)) {
       console.log(`[AutoExecute] ${ticker} → skip (timeout IBKR, lista temporal 30m)`)
       return {

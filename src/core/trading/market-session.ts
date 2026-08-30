@@ -1,3 +1,8 @@
+import {
+  ALPACA_CRYPTO_PAIRS,
+  ALPACA_FOREX_PAIRS,
+} from "@/lib/brokers/alpaca-pairs";
+
 export type ExchangeCode =
   | "SMART"
   | "LSE"
@@ -462,13 +467,14 @@ export function isEuropeFocusTicker(ticker: string): boolean {
 }
 
 function withAlwaysOnCrypto(tickers: readonly string[]): string[] {
-  // BTC/ETH/LTC mínimo 24h (+ resto PAXOS) — sin import server-only
+  const alpaca = [...ALPACA_FOREX_PAIRS, ...ALPACA_CRYPTO_PAIRS];
   return [
     ...new Set([
       ...ALWAYS_ON_CRYPTO_TICKERS,
+      ...alpaca,
       ...tickers.map((t) => t.trim().toUpperCase()).filter(Boolean),
     ]),
-  ]
+  ];
 }
 
 /**
@@ -519,19 +525,18 @@ export function selectTickersForOpenMarkets(tickers: readonly string[]): {
 
 /**
  * Intervalo de ciclo por sesión Madrid:
- * USA open 1m · USA regular/Europe/crypto 3m · Asia/afterhours 5m · standby 15m
+ * Alpaca FX+Crypto 24h @ 1m · USA open 1m · USA regular/Europe 3m · Asia/after 5m · standby 1m (crypto)
  */
 export function getTradingCycleIntervalMs(_now = new Date()): number {
   void _now
   switch (getActiveTradingPhase()) {
     case "USA_OPEN":
     case "USA_PREMARKET":
+    case "STANDBY_CRYPTO":
       return 60 * 1000
     case "USA_AFTERHOURS":
     case "ASIA":
       return 5 * 60 * 1000
-    case "STANDBY_CRYPTO":
-      return 15 * 60 * 1000
     case "EUROPE":
     case "EUROPE_OPEN":
     case "USA_REGULAR":

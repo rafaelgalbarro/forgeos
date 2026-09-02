@@ -285,27 +285,26 @@ export async function screenerUsGainers(options?: {
 
   const filters = JSON.stringify([
     ["exchange", "=", "US"],
+    ["price", ">", minPrice],
+    ["price", "<", maxPrice],
     ["volume", ">", minVolume],
-    ["adjusted_close", ">", minPrice],
-    ["adjusted_close", "<", maxPrice],
   ]);
   const rows = await eodhdFetch<
     Array<{
       code?: string;
       close?: number;
-      adjusted_close?: number;
       change_p?: number;
       volume?: number;
     }>
   >(
-    `/screener?filters=${encodeURIComponent(filters)}&sort=change_p.desc&limit=${limit}`,
+    `/screener?filters=${encodeURIComponent(filters)}&sort=change_p-desc&limit=${limit}&fields=code,close,change_p,volume`,
   );
 
   const out = (rows ?? [])
     .map((r) => {
       const code = String(r.code ?? "").trim().toUpperCase();
       const symbol = code.includes(".") ? code.split(".")[0]! : code;
-      const price = Number(r.adjusted_close ?? r.close ?? 0);
+      const price = Number(r.close ?? 0);
       const volume = Number(r.volume ?? 0);
       const changePct = Number(r.change_p ?? 0);
       if (!symbol || !(price > 0)) return null;

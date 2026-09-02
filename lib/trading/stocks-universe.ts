@@ -5,38 +5,83 @@
 import "server-only";
 
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
-import {
-  getBatchQuotes,
-  isEodhdConfigured,
-  screenerUsGainers,
-} from "@/lib/market-data/eodhd";
+import { screenerUsGainers } from "@/lib/market-data/eodhd";
 import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
-import { isAlpacaCryptoTicker, isAlpacaForexTicker } from "@/lib/brokers/alpaca-pairs";
+import {
+  isAlpacaCryptoTicker,
+  isAlpacaForexTicker,
+  toAlpacaCryptoPairId,
+} from "@/lib/brokers/alpaca-pairs";
 
 export const MAX_STOCKS_CYCLE_TICKERS = 20;
+const MIN_SCREENER_TICKERS = 5;
 const MIN_VOLUME = 500_000;
 const MIN_PRICE = 5;
 const MAX_PRICE = 500;
 
+/** Fixed quality USA equities when EODHD screener is unavailable or too thin. */
+export const QUALITY_USA_STOCKS_FALLBACK = [
+  "SPY",
+  "QQQ",
+  "IWM",
+  "ARKK",
+  "AAPL",
+  "MSFT",
+  "NVDA",
+  "TSLA",
+  "AMZN",
+  "GOOGL",
+  "META",
+  "IBIT",
+  "GLD",
+  "TLT",
+  "TQQQ",
+  "SQQQ",
+  "VXX",
+  "BITO",
+  "FETH",
+  "ARKB",
+] as const;
+
 export type StocksUniverseResult = {
   tickers: string[];
-  source: "eodhd-screener" | "eodhd-quotes" | "allowed-fallback";
+  source: "eodhd-screener" | "quality-fallback";
   scanned: number;
   momentum: Array<{ symbol: string; changePct: number }>;
 };
+
+/** Exclude crypto, forex, and any non-equity ticker from the stocks cycle. */
+export function isUsStockTicker(ticker: string): boolean {
+  const t = ticker.trim().toUpperCase();
+  if (!t) return false;
+  if (isIbkrCryptoTicker(t)) return false;
+  if (isAlpacaCryptoTicker(t)) return false;
+  if (isAlpacaForexTicker(t)) return false;
+  if (toAlpacaCryptoPairId(t)) return false;
+  return true;
+}
 
 function stockAllowedSet(): Set<string> {
   return new Set(
     (TRADING_CONFIG.allowedTickers as readonly string[])
       .map((t) => t.trim().toUpperCase())
-      .filter((t) => {
-        if (!t) return false;
-        if (isIbkrCryptoTicker(t) || isAlpacaCryptoTicker(t) || isAlpacaForexTicker(t)) {
-          return false;
-        }
-        return true;
-      }),
+      .filter(isUsStockTicker),
   );
+}
+
+function qualityFallbackUniverse(): StocksUniverseResult {
+  const tickers = QUALITY_USA_STOCKS_FALLBACK.filter(isUsStockTicker).slice(
+    0,
+    MAX_STOCKS_CYCLE_TICKERS,
+  );
+
+  console.log(`[StocksUniverse] quality fallback → ${tickers.length} tickers`);
+  return {
+    tickers: [...tickers],
+    source: "quality-fallback",
+    scanned: QUALITY_USA_STOCKS_FALLBACK.length,
+    momentum: tickers.map((symbol) => ({ symbol, changePct: 0 })),
+  };
 }
 
 /** Dynamic USA stocks universe for Cycle 1. */
@@ -44,68 +89,45 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
   const allowed = stockAllowedSet();
   const momentum: Array<{ symbol: string; changePct: number }> = [];
 
-  const screener = await screenerUsGainers({
-    minVolume: MIN_VOLUME,
-    minPrice: MIN_PRICE,
-    maxPrice: MAX_PRICE,
-    limit: 120,
-  });
+  let screener: Awaited<ReturnType<typeof screenerUsGainers>> = [];
+  try {
+    screener = await screenerUsGainers({
+      minVolume: MIN_VOLUME,
+      minPrice: MIN_PRICE,
+      maxPrice: MAX_PRICE,
+      limit: 120,
+    });
+  } catch (err) {
+    console.warn(
+      "[StocksUniverse] EODHD screener error:",
+      err instanceof Error ? err.message : err,
+    );
+    return qualityFallbackUniverse();
+  }
 
   const fromScreener = screener
-    .filter((r) => allowed.has(r.symbol))
+    .filter((r) => isUsStockTicker(r.symbol) && allowed.has(r.symbol))
     .sort((a, b) => b.changePct - a.changePct);
 
-  if (fromScreener.length > 0) {
-    const tickers = fromScreener.slice(0, MAX_STOCKS_CYCLE_TICKERS).map((r) => {
-      momentum.push({ symbol: r.symbol, changePct: r.changePct });
-      return r.symbol;
-    });
+  if (fromScreener.length < MIN_SCREENER_TICKERS) {
     console.log(
-      `[StocksUniverse] EODHD screener ${screener.length} → allowed ${fromScreener.length} → cycle ${tickers.length}`,
+      `[StocksUniverse] screener ${screener.length} → allowed ${fromScreener.length} (<${MIN_SCREENER_TICKERS}) — quality fallback`,
     );
-    return {
-      tickers,
-      source: "eodhd-screener",
-      scanned: screener.length,
-      momentum,
-    };
+    return qualityFallbackUniverse();
   }
 
-  if (isEodhdConfigured()) {
-    const pool = [...allowed];
-    const quotes = await getBatchQuotes(pool);
-    const ranked = pool
-      .map((sym) => {
-        const q = quotes.get(sym);
-        if (!q || !(q.price >= MIN_PRICE && q.price <= MAX_PRICE)) return null;
-        if (q.volume > 0 && q.volume < MIN_VOLUME) return null;
-        return { symbol: sym, changePct: q.changePercentage, price: q.price, volume: q.volume };
-      })
-      .filter((r): r is NonNullable<typeof r> => r != null)
-      .sort((a, b) => b.changePct - a.changePct);
+  const tickers = fromScreener.slice(0, MAX_STOCKS_CYCLE_TICKERS).map((r) => {
+    momentum.push({ symbol: r.symbol, changePct: r.changePct });
+    return r.symbol;
+  });
 
-    const tickers = ranked.slice(0, MAX_STOCKS_CYCLE_TICKERS).map((r) => {
-      momentum.push({ symbol: r.symbol, changePct: r.changePct });
-      return r.symbol;
-    });
-
-    if (tickers.length > 0) {
-      console.log(`[StocksUniverse] EODHD quotes fallback → ${tickers.length} tickers`);
-      return {
-        tickers,
-        source: "eodhd-quotes",
-        scanned: pool.length,
-        momentum,
-      };
-    }
-  }
-
-  const fallback = [...allowed].slice(0, MAX_STOCKS_CYCLE_TICKERS);
-  console.log(`[StocksUniverse] allowedTickers fallback → ${fallback.length} tickers`);
+  console.log(
+    `[StocksUniverse] EODHD screener ${screener.length} → allowed ${fromScreener.length} → cycle ${tickers.length}`,
+  );
   return {
-    tickers: fallback,
-    source: "allowed-fallback",
-    scanned: allowed.size,
-    momentum: fallback.map((symbol) => ({ symbol, changePct: 0 })),
+    tickers,
+    source: "eodhd-screener",
+    scanned: screener.length,
+    momentum,
   };
 }

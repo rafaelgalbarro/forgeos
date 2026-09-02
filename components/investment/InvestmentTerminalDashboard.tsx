@@ -9,7 +9,7 @@ import {
 } from "@/lib/investment/dashboard-snapshot.types";
 import { useInvestmentStream } from "@/lib/investment/use-investment-stream";
 import type { OpportunityCandidate } from "@/src/core/investment/opportunity/client";
-import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
+import { getTradingCycleIntervalMs } from "@/src/core/trading/market-session";
 import { useInvestmentDashboardData } from "./dashboard-data-coordinator";
 
 const MARKET_POLL_MS = 30_000;
@@ -17,7 +17,7 @@ const OPP_POLL_MS = 20_000;
 const CLOCK_TICK_MS = 1_000;
 const SESSION_TICK_MS = 30_000;
 const AUTO_MODE_STORAGE_KEY = "forgeos-investment-auto-mode";
-const AUTO_CYCLE_MS = TRADING_CONFIG.ai.analysisCycleMs;
+const AUTO_CYCLE_MS = getTradingCycleIntervalMs();
 
 type CycleStatus = {
   systemHalted: boolean;
@@ -39,6 +39,48 @@ type CycleStatus = {
     completedAt?: string;
     orders?: Array<{ status: string }>;
   } | null;
+};
+
+type DailyPnlPayload = {
+  ok: boolean;
+  date: string;
+  totalPnl: number;
+  trades: number;
+  winners: number;
+  losers: number;
+  winRate: number;
+};
+
+type HistoryPayload = {
+  ok: boolean;
+  trades: Array<{
+    id: number;
+    symbol: string;
+    side: string;
+    qty: number;
+    price: number;
+    pnl: number;
+    timestamp: string;
+    kind?: string | null;
+  }>;
+  daily: Array<{ date: string; total_pnl: number; trades: number; winners: number; losers: number; win_rate: number }>;
+  weeklyPnl: number;
+  monthlyPnl: number;
+};
+
+type ActivePositionsPayload = {
+  ok: boolean;
+  positions: Array<{
+    symbol: string;
+    account: string | null;
+    qty: number;
+    entryPrice: number | null;
+    currentPrice: number | null;
+    unrealizedPnl: number;
+    unrealizedPnlPct: number;
+    stopLoss: number | null;
+    takeProfit: number | null;
+  }>;
 };
 
 const WORLD_CLOCKS = [
@@ -97,6 +139,11 @@ function fmtNumber(value: number | undefined): string {
 
 function fmtPct(value: number | undefined): string {
   return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}%` : "NO_DATA";
+}
+
+function pnlClass(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value === 0) return styles.valueMuted;
+  return value > 0 ? `${styles.value} ${styles.toneGood}` : `${styles.value} ${styles.toneDanger}`;
 }
 
 function badgeClass(state: string): string {
@@ -216,6 +263,10 @@ export function InvestmentTerminalDashboard() {
   const [cycleRunning, setCycleRunning] = useState(false);
   const [cycleStatus, setCycleStatus] = useState<CycleStatus | null>(null);
   const [cycleError, setCycleError] = useState("");
+  const [dailyPnl, setDailyPnl] = useState<DailyPnlPayload | null>(null);
+  const [history, setHistory] = useState<HistoryPayload | null>(null);
+  const [activePositions, setActivePositions] = useState<ActivePositionsPayload["positions"]>([]);
+  const [pnlPulse, setPnlPulse] = useState(false);
   const cycleRunningRef = useRef(false);
 
   useEffect(() => {
@@ -268,6 +319,33 @@ export function InvestmentTerminalDashboard() {
   useEffect(() => {
     void fetchCycleStatus();
   }, [fetchCycleStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPnl() {
+      const [dp, hs, ap] = await Promise.all([
+        safeJsonFetch<DailyPnlPayload>("/api/investment/daily-pnl", { cache: "no-store" }),
+        safeJsonFetch<HistoryPayload>("/api/investment/history?limit=200", { cache: "no-store" }),
+        safeJsonFetch<ActivePositionsPayload>("/api/investment/active-positions", { cache: "no-store" }),
+      ]);
+      if (cancelled) return;
+      if (dp.ok && dp.data) {
+        setDailyPnl(dp.data);
+        setPnlPulse((v) => !v);
+      }
+      if (hs.ok && hs.data) setHistory(hs.data);
+      if (ap.ok && ap.data?.positions) setActivePositions(ap.data.positions);
+    }
+    void loadPnl();
+    const t30 = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void loadPnl();
+    }, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t30);
+    };
+  }, []);
 
   useInvestmentStream((event) => {
     if (

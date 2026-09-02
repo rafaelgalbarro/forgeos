@@ -12,6 +12,8 @@ import {
   getFmpQuoteTtlMs,
   isFmpEnabled,
 } from "@/lib/market-data/fmp";
+import { fetchEodhdForexRates } from "@/lib/investment/alpaca/forex-data";
+import { isEodhdConfigured } from "@/lib/market-data/eodhd";
 import { fetchAlpacaForexRates, isAlpacaConfigured } from "@/lib/market-data/alpaca-forex";
 import { spreadPips } from "@/lib/investment/forex/config";
 import {
@@ -33,7 +35,7 @@ export type ForexLiveQuote = {
   ask: number | null;
   mid: number | null;
   spreadPips: number | null;
-  source: "ALPACA" | "FMP" | "NO_DATA";
+  source: "EODHD" | "ALPACA" | "FMP" | "NO_DATA";
   updatedAt: string;
 };
 
@@ -46,14 +48,14 @@ export type ForexHistoryResult = {
   pairId: string;
   display: string;
   timeframe: ForexTimeframe;
-  source: "ALPACA" | "FMP" | "NO_DATA";
+  source: "EODHD" | "ALPACA" | "FMP" | "NO_DATA";
   bars: ForexCandle[];
   count: number;
   generatedAt: string;
   note: string;
 };
 
-const QUOTES_TTL_MS = getFmpQuoteTtlMs;
+const QUOTES_TTL_MS = () => (isEodhdConfigured() ? 3 * 60 * 1000 : getFmpQuoteTtlMs());
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
 
 function emptyQuote(p: ForexIbkrContract, now: string): ForexLiveQuote {
@@ -95,6 +97,33 @@ function historyDays(tf: ForexTimeframe): number {
   if (tf === "1d") return 180;
   if (tf === "4h") return 120;
   return 100;
+}
+
+async function loadEodhdForexQuotes(): Promise<ForexLiveQuote[]> {
+  const now = new Date().toISOString();
+  const pairIds = FOREX_PAIRS.map((p) => p.pairId);
+  const rates = await fetchEodhdForexRates(pairIds);
+  const byId = new Map(rates.map((r) => [r.pairId, r]));
+  return FOREX_PAIRS.map((p) => {
+    const row = byId.get(p.pairId);
+    if (!row || row.mid == null || !(row.mid > 0)) return emptyQuote(p, now);
+    const bid = row.bid ?? row.mid;
+    const ask = row.ask ?? row.mid;
+    const spread =
+      Number.isFinite(bid) && Number.isFinite(ask) && ask >= bid
+        ? spreadPips(p.pairId, bid, ask)
+        : null;
+    return {
+      pairId: p.pairId,
+      display: p.display,
+      bid,
+      ask,
+      mid: row.mid,
+      spreadPips: Number.isFinite(spread) ? spread : null,
+      source: "EODHD" as const,
+      updatedAt: row.updatedAt || now,
+    };
+  });
 }
 
 async function loadAlpacaForexQuotes(): Promise<ForexLiveQuote[]> {
@@ -158,9 +187,11 @@ export async function getForexLiveQuotes(): Promise<{
     return { quotes: hit.quotes, generatedAt: hit.generatedAt, fromCache: true };
   }
 
-  const quotes = isAlpacaConfigured()
-    ? await loadAlpacaForexQuotes()
-    : await loadFmpForexQuotes();
+  const quotes = isEodhdConfigured()
+    ? await loadEodhdForexQuotes()
+    : isAlpacaConfigured()
+      ? await loadAlpacaForexQuotes()
+      : await loadFmpForexQuotes();
   const generatedAt = new Date().toISOString();
   setCached(key, { quotes, generatedAt }, QUOTES_TTL_MS());
   return { quotes, generatedAt, fromCache: false };

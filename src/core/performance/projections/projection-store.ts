@@ -18,7 +18,34 @@ const portfolioSummaries = new Map<string, PortfolioSummaryProjection>();
 const workflowProgress = new Map<string, WorkflowProgressProjection>();
 const releaseStatus = new Map<string, ReleaseStatusProjection>();
 
-export const projectionStore = {
+export const projectionStore: {
+  missionCards: typeof missionCards;
+  ventureCards: typeof ventureCards;
+  companyHealth: typeof companyHealth;
+  outputStatus: typeof outputStatus;
+  portfolioSummaries: typeof portfolioSummaries;
+  workflowProgress: typeof workflowProgress;
+  releaseStatus: typeof releaseStatus;
+  upsertMissionCard(card: MissionCardProjection): void;
+  upsertVentureCard(card: VentureCardProjection): void;
+  upsertCompanyHealth(health: CompanyHealthProjection): void;
+  upsertOutputStatus(output: OutputStatusProjection): void;
+  upsertPortfolioSummary(summary: PortfolioSummaryProjection): void;
+  upsertWorkflowProgress(progress: WorkflowProgressProjection): void;
+  upsertReleaseStatus(release: ReleaseStatusProjection): void;
+  markStale(
+    namespace:
+      | "missionCards"
+      | "ventureCards"
+      | "companyHealth"
+      | "outputStatus"
+      | "portfolioSummaries"
+      | "workflowProgress"
+      | "releaseStatus",
+    id: string,
+  ): void;
+  reset(): void;
+} = {
   missionCards,
   ventureCards,
   companyHealth,
@@ -49,7 +76,7 @@ export const projectionStore = {
     releaseStatus.set(release.releaseId, release);
   },
 
-  markStale(namespace: keyof typeof projectionStore, id: string): void {
+  markStale(namespace, id): void {
     const maps: Record<string, Map<string, { freshness: string }>> = {
       missionCards,
       ventureCards,

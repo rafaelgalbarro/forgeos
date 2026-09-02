@@ -486,8 +486,7 @@ function registerValueForVenture(
     confidence: 0.4,
     owner: "cert-actor-6150",
   });
-  let milestone: (typeof milestoneResult extends { ok: true; value: infer V } ? V : never) | null =
-    null;
+  let milestone: ValueMilestone | null = null;
   if (milestoneResult.ok) {
     milestone = milestoneResult.value;
     void valueStore.milestones.save(milestoneResult.value);

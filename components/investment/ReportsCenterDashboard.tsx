@@ -15,6 +15,7 @@ import type {
   ReportsCenterSnapshot,
 } from "@/lib/investment/reports-types";
 import { REPORT_PERIOD_LABELS, REPORT_PERIOD_TYPES } from "@/lib/investment/reports-types";
+import type { MlLearningSnapshot } from "@/lib/ml/types";
 import styles from "@/styles/investment/workspace.module.css";
 
 type Props = {
@@ -231,6 +232,8 @@ export function ReportsCenterDashboard({ initial }: Props) {
         </p>
       )}
 
+      {snapshot.mlLearning ? <MlLearningSection ml={snapshot.mlLearning} /> : null}
+
       <div className={styles.reportsLayout}>
         <article className={styles.panel} aria-label="Report history">
           <div className={styles.panelHeader}>
@@ -393,6 +396,43 @@ export function ReportsCenterDashboard({ initial }: Props) {
           </div>
         </section>
       ) : null}
+    </section>
+  );
+}
+
+function MlLearningSection({ ml }: { readonly ml: MlLearningSnapshot }) {
+  const curvePoints = ml.learningCurve.map((p) => ({
+    index: p.index,
+    equity: p.winRatePct,
+  }));
+  const statusClass =
+    ml.status === "TRAINED" ? styles.monitorOk : styles.monitorWarn;
+
+  return (
+    <section className={styles.grid} style={{ marginTop: 8 }} aria-label="ML learning curve">
+      <article className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <h2 className={styles.panelTitle}>ML signal trainer</h2>
+          <span className={statusClass}>{ml.status}</span>
+        </div>
+        <ul className={styles.panelList}>
+          <li>
+            Samples: {ml.labeledCount}/{ml.minSamples} labeled · {ml.totalSignals} signals
+            recorded
+          </li>
+          <li>
+            Last train: {ml.lastTrainedAt ? new Date(ml.lastTrainedAt).toLocaleString() : "—"}
+            {ml.modelVersion != null ? ` · v${ml.modelVersion}` : ""}
+          </li>
+          <li>
+            Weight caps [{ml.weightCaps.min}, {ml.weightCaps.max}] · {ml.note}
+          </li>
+          {ml.insights.slice(0, 5).map((line, i) => (
+            <li key={`ml-insight-${i}`}>{line}</li>
+          ))}
+        </ul>
+      </article>
+      <EquityCurveChart points={curvePoints} label="Win rate learning curve (%)" />
     </section>
   );
 }

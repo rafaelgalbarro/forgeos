@@ -1,0 +1,6 @@
+{
+  "id": "OP08",
+  "name": "Stop loss",
+  "status": "PASS",
+  "evidence": "STOP order porder-10 filled @97.95 exitReason=stop_loss_triggered"
+}

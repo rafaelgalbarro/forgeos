@@ -29,6 +29,7 @@ import {
   rsiSeries,
 } from "@/lib/market-data/technical-indicators";
 import { IBKR_CRYPTO_TICKERS, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
+import { getAlpacaCryptoMetrics } from "@/lib/investment/alpaca/history";
 import {
   ASIA_DIRECT_TICKERS,
   ASIA_ETF_TICKERS,
@@ -61,10 +62,14 @@ export type ProStrategyId =
   | "USA_DOUBLE_BOTTOM"
   | "USA_EARNINGS_MOMENTUM"
   | "USA_NEWS_CATALYST"
+  | "USA_EODHD_MOMENTUM"
+  | "USA_BB_OVERSOLD"
+  | "USA_MACD_CROSS"
   | "AH_EARNINGS"
   | "CRYPTO_GOLDEN_CROSS"
   | "CRYPTO_RSI_OVERSOLD"
-  | "CRYPTO_MOMENTUM";
+  | "CRYPTO_MOMENTUM"
+  | "CRYPTO_SCALP";
 
 
 export type ProStrategyHit = {
@@ -120,7 +125,10 @@ export type ScreenerInputs = {
   premarketCandidate?: boolean;
   /** Ms since premarket gap first observed — GAP AND GO needs ≥5m. */
   gapHeldMs?: number;
+  change1hPct?: number;
 };
+
+const CRYPTO_MIN_CONFIDENCE = 0.65;
 
 const REVERSAL_ONLY_IDS: ProStrategyId[] = ["USA_REVERSAL_OVERSOLD", "CRYPTO_RSI_OVERSOLD"];
 
@@ -232,6 +240,30 @@ const BASE: Record<
     style: "momentum",
     days: 1,
   },
+  USA_EODHD_MOMENTUM: {
+    name: "USA EODHD Momentum",
+    base: 0.68,
+    sl: 0.02,
+    tp: 0.05,
+    style: "momentum",
+    days: 2,
+  },
+  USA_BB_OVERSOLD: {
+    name: "USA BB Oversold",
+    base: 0.74,
+    sl: 0.02,
+    tp: 0.06,
+    style: "swing",
+    days: 2,
+  },
+  USA_MACD_CROSS: {
+    name: "USA MACD Cross",
+    base: 0.66,
+    sl: 0.02,
+    tp: 0.05,
+    style: "momentum",
+    days: 2,
+  },
   AH_EARNINGS: {
     name: "AH-1 Earnings After-Hours",
     base: 0.75,
@@ -263,6 +295,14 @@ const BASE: Record<
     tp: 0.08,
     style: "momentum",
     days: 3,
+  },
+  CRYPTO_SCALP: {
+    name: "CRYPTO-4 Scalp",
+    base: 0.72,
+    sl: 0.02,
+    tp: 0.05,
+    style: "scalping",
+    days: 1,
   },
 };
 
@@ -311,7 +351,7 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
 }
 
 async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
-  const timeoutMs = 12_000
+  const timeoutMs = 8_000
   try {
     const bars = await Promise.race([
       ibkrDailyBars(symbol),
@@ -323,6 +363,15 @@ async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
   }
 }
 
+function minTradeConfidenceForPhase(phase: string, crypto: boolean): number {
+  if (crypto) return CRYPTO_MIN_CONFIDENCE;
+  if (phase === "USA_REGULAR") return 0.65;
+  if (phase === "USA_AFTERHOURS") {
+    return TRADING_CONFIG.ai.minConfidenceExtendedHours ?? 0.75;
+  }
+  return TRADING_CONFIG.ai.minConfidenceToTrade;
+}
+
 /**
  * Lightweight strategies when IBKR historical is unavailable (no FMP, no bars).
  * Uses live IBKR price + Finnhub news only.
@@ -332,6 +381,7 @@ async function evaluateSimpleStrategies(
   price: number,
   change1d: number,
   inputs?: Partial<ScreenerInputs>,
+  opts?: { crypto?: boolean; change1h?: number; rsi?: number | null },
 ): Promise<ProStrategySignal> {
   const hold = (reason: string): ProStrategySignal => ({
     direction: "HOLD",
@@ -365,6 +415,19 @@ async function evaluateSimpleStrategies(
   const sentScore = sentiment?.score ?? 0
   const news4h = newsPositiveHours(newsCtx, 4)
   const hits: ProStrategyHit[] = []
+  const change1h = opts?.change1h ?? inputs?.change1hPct ?? 0
+  const rsiVal = opts?.rsi ?? null
+
+  if (opts?.crypto) {
+    if ((rsiVal != null && rsiVal < 40) || change1h > 0.3) {
+      hits.push(
+        hit("CRYPTO_SCALP", `Scalp crypto RSI=${rsiVal?.toFixed(0) ?? "—"} Δ1h=${change1h.toFixed(2)}%`, {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.05,
+        }),
+      )
+    }
+  }
 
   if (change1d >= 2 && change1d <= 5) {
     hits.push(
@@ -418,11 +481,12 @@ async function evaluateSimpleStrategies(
     change1d,
   })
 
-  if (scored.confidence < 0.68) {
+  const minConf = opts?.crypto ? CRYPTO_MIN_CONFIDENCE : 0.68
+  if (scored.confidence < minConf) {
     console.log(
-      `[ProStrategy] ${symbol}: modo simple conf ${(scored.confidence * 100).toFixed(0)}% < 68%`,
+      `[ProStrategy] ${symbol}: modo simple conf ${(scored.confidence * 100).toFixed(0)}% < ${(minConf * 100).toFixed(0)}%`,
     )
-    return hold(`Modo simple: confianza ${(scored.confidence * 100).toFixed(0)}% < 68%`)
+    return hold(`Modo simple: confianza ${(scored.confidence * 100).toFixed(0)}% < ${(minConf * 100).toFixed(0)}%`)
   }
 
   const stopLoss = primary.stopLossPrice ?? price * (1 - primary.stopLossPct)
@@ -461,31 +525,45 @@ async function evaluateSimpleStrategies(
 async function loadLivePrice(
   symbol: string,
   inputs?: Partial<ScreenerInputs>,
-): Promise<{ price: number; change1d: number; volume: number; yearHigh: number; dayHigh: number; dayLow: number }> {
-  if (inputs?.price != null && inputs.price > 0) {
-    return {
-      price: inputs.price,
-      change1d: inputs.change1dPct ?? 0,
-      volume: inputs.volume ?? 0,
-      yearHigh: inputs.yearHigh ?? 0,
-      dayHigh: inputs.price,
-      dayLow: inputs.price,
-    };
-  }
+): Promise<{ price: number; change1d: number; change1h: number; volume: number; yearHigh: number; dayHigh: number; dayLow: number }> {
   const ibkr = await getIbkrPriceCached(symbol).catch(() => null);
+  let change1d = inputs?.change1dPct ?? 0;
+  let change1h = inputs?.change1hPct ?? 0;
+
+  if (isIbkrCryptoTicker(symbol)) {
+    const metrics = await getAlpacaCryptoMetrics(symbol).catch(() => null);
+    if (metrics) {
+      if (!inputs?.change1dPct) change1d = metrics.change1dPct;
+      if (!inputs?.change1hPct) change1h = metrics.change1hPct;
+    }
+  }
+
   if (ibkr && ibkr.price > 0) {
     return {
       price: ibkr.price,
-      change1d: inputs?.change1dPct ?? 0,
+      change1d,
+      change1h,
       volume: inputs?.volume ?? ibkr.volume ?? 0,
       yearHigh: inputs?.yearHigh ?? 0,
       dayHigh: ibkr.ask ?? ibkr.price,
       dayLow: ibkr.bid ?? ibkr.price,
     };
   }
+  if (inputs?.price != null && inputs.price > 0) {
+    return {
+      price: inputs.price,
+      change1d,
+      change1h,
+      volume: inputs.volume ?? 0,
+      yearHigh: inputs.yearHigh ?? 0,
+      dayHigh: inputs.price,
+      dayLow: inputs.price,
+    };
+  }
   return {
     price: 0,
-    change1d: inputs?.change1dPct ?? 0,
+    change1d,
+    change1h,
     volume: inputs?.volume ?? 0,
     yearHigh: inputs?.yearHigh ?? 0,
     dayHigh: 0,
@@ -627,6 +705,10 @@ function scoreFinal(args: {
     conf += 0.08;
     parts.push("+8% multi-estrategia");
   }
+  if (args.relVol > 1.5) {
+    conf += 0.04;
+    parts.push("+4% vol>1.5x (confirmación)");
+  }
   if (args.relVol > 2) {
     conf += 0.05;
     parts.push("+5% vol>2x");
@@ -675,6 +757,7 @@ export async function evaluateProStrategies(
   const live = await loadLivePrice(symbol, inputs);
   const price = live.price;
   const change1d = live.change1d;
+  const change1h = live.change1h;
   const volume = live.volume;
   const yearHigh = live.yearHigh;
   const dayHigh = live.dayHigh;
@@ -730,9 +813,13 @@ export async function evaluateProStrategies(
   const bars = appendLiveBar(history, price, volume, dayHigh, dayLow);
   if (bars.length < 20) {
     console.log(
-      `[ProStrategy] ${symbol}: histórico IBKR insuficiente (${bars.length} velas) → modo simple`,
+      `[ProStrategy] ${symbol}: histórico EODHD insuficiente (${bars.length} velas) → modo simple`,
     );
-    return evaluateSimpleStrategies(symbol, price, change1d, inputs);
+    return evaluateSimpleStrategies(symbol, price, change1d, inputs, {
+      crypto,
+      change1h,
+      rsi: null,
+    });
   }
 
   const vol20 = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
@@ -969,6 +1056,37 @@ export async function evaluateProStrategies(
   // ─── USA REGULAR ──────────────────────────────────────────────
   if (phase === "USA_REGULAR" || (phase === "USA_OPEN" && hits.length === 0)) {
     if (
+      bars.length >= 200 &&
+      change1d >= 1 &&
+      change1d <= 5 &&
+      rsiVal != null &&
+      rsiVal >= 40 &&
+      rsiVal <= 65
+    ) {
+      hits.push(
+        hit("USA_EODHD_MOMENTUM", `EODHD momentum +${change1d.toFixed(1)}% RSI=${rsiVal.toFixed(0)} (${bars.length} barras)`, {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.05,
+        }),
+      );
+    }
+    if (bb != null && price < bb.lower && rsiVal != null && rsiVal >= 35) {
+      hits.push(
+        hit("USA_BB_OVERSOLD", `Precio bajo banda Bollinger inferior RSI=${rsiVal.toFixed(0)}`, {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.06,
+        }),
+      );
+    }
+    if (macdCrossUp(c) && rsiVal != null && rsiVal >= 40 && rsiVal <= 70) {
+      hits.push(
+        hit("USA_MACD_CROSS", "MACD cruce alcista confirmado", {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.05,
+        }),
+      );
+    }
+    if (
       ema9 != null &&
       ema21 != null &&
       ema50 != null &&
@@ -1062,6 +1180,17 @@ export async function evaluateProStrategies(
   if (crypto) {
     const btcMove = marketQuotes.get("BTC")?.changePct ?? marketQuotes.get("BTCUSD")?.changePct ?? 0;
     if (
+      (rsiVal != null && rsiVal < 40) ||
+      change1h > 0.3
+    ) {
+      hits.push(
+        hit("CRYPTO_SCALP", `Scalp RSI=${rsiVal?.toFixed(0) ?? "—"} Δ1h=${change1h.toFixed(2)}%`, {
+          stopLossPrice: price * 0.98,
+          takeProfitPrice: price * 1.05,
+        }),
+      );
+    }
+    if (
       goldenCrossRecent(c) &&
       ema50 != null &&
       price > ema50 &&
@@ -1126,6 +1255,8 @@ export async function evaluateProStrategies(
     return hold("Ninguna estrategia activa en sesión", rsiVal);
   }
 
+  const minTradeConfidence = minTradeConfidenceForPhase(phase, crypto);
+
   hits.sort((a, b) => b.baseConfidence - a.baseConfidence);
   const primary = hits[0]!;
   const scored = scoreFinal({
@@ -1138,9 +1269,16 @@ export async function evaluateProStrategies(
     sectorNeg: null,
     rsiOk: rsiVal != null && rsiVal >= 45 && rsiVal <= 65,
     firstHour,
-    marketPos: spyChange > 0 || (crypto && change1d > 0),
+    marketPos: spyChange > 0 || (crypto && (change1d > 0 || change1h > 0)),
     change1d,
   });
+
+  if (scored.confidence < minTradeConfidence) {
+    return hold(
+      `Confianza ${(scored.confidence * 100).toFixed(0)}% < mínimo ${(minTradeConfidence * 100).toFixed(0)}%`,
+      rsiVal,
+    );
+  }
 
   let stopLossPct = primary.stopLossPct;
   let takeProfitPct = primary.takeProfitPct;

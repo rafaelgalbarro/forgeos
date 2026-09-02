@@ -16,7 +16,7 @@ export type ExchangeCode =
   | "PAXOS"
 
 /** Crypto 24h — alineado con BINANCE_CRYPTO_TICKERS / Alpaca crypto. */
-const ALWAYS_ON_CRYPTO_TICKERS = ["BTC", "ETH", "BNB", "SOL", "XRP"] as const
+const ALWAYS_ON_CRYPTO_TICKERS = ["BTC", "ETH", "SOL", "AVAX", "DOGE", "XRP", "ADA", "LINK", "LTC", "BCH"] as const
 
 /** US listing venues — horario USA (NYSE/NASDAQ/ETFs). */
 export const US_LISTING_EXCHANGES = new Set([

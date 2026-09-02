@@ -20,6 +20,9 @@ export function Sidebar() {
   const createVenture = getSystemSidebarItem("create-venture");
   const forgeOsLink = getSystemSidebarItem("forgeos-os");
 
+  const investmentItem = primaryNav.find((i) => i.id === "investment");
+  const otherPrimary = primaryNav.filter((i) => i.id !== "investment");
+
   return (
     <aside className={cn("sidebar", "sidebar-os", "fhis-sidebar")}>
       <Link href="/" className="fhis-sidebar-logo">
@@ -40,7 +43,7 @@ export function Sidebar() {
         PRINCIPAL
       </p>
       <nav className="fhis-nav">
-        {primaryNav.map((item) => (
+        {otherPrimary.map((item) => (
           <div key={item.id}>
             <Link
               href={item.href}
@@ -59,7 +62,7 @@ export function Sidebar() {
                     href={child.href}
                     className={cn(
                       "fhis-nav-link",
-                      isNavActive(pathname, child.href) && "fhis-nav-link-active"
+                      isNavActive(pathname, child.href) && "fhis-nav-link-active",
                     )}
                     style={{ fontSize: 12 }}
                   >
@@ -71,6 +74,61 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {investmentItem && (
+        <>
+          <p
+            className="fhis-sidebar-tagline"
+            style={{
+              marginTop: 16,
+              fontSize: 10,
+              letterSpacing: "0.1em",
+              color: "#f8b84e",
+            }}
+          >
+            ForgeOS Investment
+          </p>
+          <nav className="fhis-nav" aria-label="ForgeOS Investment">
+            <Link
+              href={investmentItem.href}
+              className={cn(
+                "fhis-nav-link",
+                isNavActive(pathname, investmentItem.href) && "fhis-nav-link-active",
+              )}
+              style={{
+                borderLeft: "2px solid #f8b84e",
+                paddingLeft: 10,
+              }}
+            >
+              <span className="fhis-nav-icon" aria-hidden>
+                {investmentItem.icon}
+              </span>
+              ForgeOS Investment
+            </Link>
+            <div className="fhis-nav" style={{ paddingLeft: 8 }}>
+              {(investmentItem.children ?? []).map((child) => {
+                const childActive =
+                  child.href === "/investment"
+                    ? pathname === "/investment" || pathname === "/investment/"
+                    : isNavActive(pathname, child.href);
+                return (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    className={cn("fhis-nav-link", childActive && "fhis-nav-link-active")}
+                    style={{
+                      fontSize: 12,
+                      color: childActive ? "#f8b84e" : undefined,
+                    }}
+                  >
+                    {child.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        </>
+      )}
 
       {advancedNav.length > 0 && (
         <>

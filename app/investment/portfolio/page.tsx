@@ -23,7 +23,7 @@ export default function InvestmentPortfolioPage() {
     <InvestmentDashboardDataProvider initialSnapshot={snapshot}>
       <InvestmentRouteShell
         title="Portfolio"
-        description="Positions, allocation, risk, and liquidity — Portfolio Analytics module. ANALYSIS_ONLY."
+        description="Positions, allocation, risk, and Cartera Largo Plazo — Portfolio Analytics. ANALYSIS_ONLY."
         moduleLabel="Portfolio Analytics"
         metrics={[
           { label: "Module", value: "Portfolio Analytics" },
@@ -37,7 +37,7 @@ export default function InvestmentPortfolioPage() {
             state: "READY",
             lines: [
               "Summary · allocation charts · risk · positions",
-              "Realtime via dashboard coordinator + /api/investment/portfolio",
+              "Cartera Largo Plazo (6m–3y) · value · dividends · catalysts",
               "Missing metrics render NO_DATA — never invented",
             ],
           },

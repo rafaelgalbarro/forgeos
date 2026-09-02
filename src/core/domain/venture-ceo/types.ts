@@ -123,21 +123,21 @@ export type CEORoutingRecord = Readonly<{
 
 export type CEOReadSources = Readonly<{
   portfolio: PortfolioSourceView;
-  valueSnapshots: readonly Array<{
+  valueSnapshots: ReadonlyArray<{
     ventureId: string;
     stage?: string;
     confidence?: number;
     missingEvidence?: readonly string[];
   }>;
-  evidence: readonly Array<{ ventureId: string; summary: string; type?: string }>;
-  economics: readonly Array<{ ventureId: string; hasActualRevenue: boolean }>;
-  resourceAllocations: readonly Array<{ ventureId: string; available: number; resourceType: string }>;
-  activeExecutions: readonly Array<{ ventureId: string; count: number }>;
-  risks: readonly Array<{ ventureId?: string; severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; message: string }>;
-  blockers: readonly Array<{ ventureId: string; message: string }>;
-  approvals: readonly Array<{ id: string; status: string; title: string }>;
-  policies: readonly Array<{ kind: string; enabled: boolean; config: Record<string, unknown> }>;
-  dependencies: readonly Array<{ sourceVentureId: string; targetVentureId: string; approved: boolean }>;
-  activity: readonly Array<{ id: string; label: string; at: string; ventureId?: string }>;
+  evidence: ReadonlyArray<{ ventureId: string; summary: string; type?: string }>;
+  economics: ReadonlyArray<{ ventureId: string; hasActualRevenue: boolean }>;
+  resourceAllocations: ReadonlyArray<{ ventureId: string; available: number; resourceType: string }>;
+  activeExecutions: ReadonlyArray<{ ventureId: string; count: number }>;
+  risks: ReadonlyArray<{ ventureId?: string; severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; message: string }>;
+  blockers: ReadonlyArray<{ ventureId: string; message: string }>;
+  approvals: ReadonlyArray<{ id: string; status: string; title: string }>;
+  policies: ReadonlyArray<{ kind: string; enabled: boolean; config: Record<string, unknown> }>;
+  dependencies: ReadonlyArray<{ sourceVentureId: string; targetVentureId: string; approved: boolean }>;
+  activity: ReadonlyArray<{ id: string; label: string; at: string; ventureId?: string }>;
 }>;
 

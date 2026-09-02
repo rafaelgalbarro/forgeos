@@ -1,0 +1,6 @@
+{
+  "id": "OP22",
+  "name": "Flags unchanged",
+  "status": "PASS",
+  "evidence": "process+disk LIVE_TRADING_ENABLED=false IBKR_READ_ONLY=true TRADING_MODE=ANALYSIS_ONLY"
+}

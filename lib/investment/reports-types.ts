@@ -119,4 +119,6 @@ export type ReportsCenterSnapshot = {
   readonly compareWith: InvestmentPeriodReport | null;
   readonly availablePeriodKeys: readonly string[];
   readonly note: string;
+  /** Phase H — ML signal trainer learning curve (ANALYSIS_ONLY). */
+  readonly mlLearning?: import("@/lib/ml/types").MlLearningSnapshot;
 };

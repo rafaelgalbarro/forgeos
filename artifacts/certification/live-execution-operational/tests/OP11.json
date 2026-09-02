@@ -1,0 +1,6 @@
+{
+  "id": "OP11",
+  "name": "Disconnect",
+  "status": "PASS",
+  "evidence": "Paper broker connected=false after simulated disconnect (was true)"
+}

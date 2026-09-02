@@ -1,0 +1,6 @@
+{
+  "id": "OP21",
+  "name": "Max daily loss",
+  "status": "PASS",
+  "evidence": "Risk BLOCK max_daily_loss FAIL current=600 threshold=500"
+}

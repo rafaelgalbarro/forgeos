@@ -10,7 +10,7 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-type Params = { focus?: string; compare?: string };
+type Params = { focus?: string; compare?: string; section?: string };
 
 export default async function InvestmentStrategyLabPage({
   searchParams,
@@ -25,6 +25,7 @@ export default async function InvestmentStrategyLabPage({
   });
 
   const certifiedBlocked = snapshot.certifications.filter((c) => c.verdict === "BLOCKED_LIVE").length;
+  const section = params?.section?.trim();
 
   return (
     <>
@@ -70,7 +71,18 @@ export default async function InvestmentStrategyLabPage({
           { href: "/investment/live", label: "Live (LOCKED) →" },
         ]}
       />
-      <StrategyLabDashboard initial={snapshot} />
+      <StrategyLabDashboard
+        initial={snapshot}
+        initialSection={
+          section === "backtesting" ||
+          section === "walk-forward" ||
+          section === "optimizer" ||
+          section === "monte-carlo" ||
+          section === "library"
+            ? section
+            : "library"
+        }
+      />
     </>
   );
 }

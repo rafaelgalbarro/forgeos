@@ -259,7 +259,7 @@ export async function handleTelegramCallback(
     queueTickerForCycle(payload);
     try {
       const engine = await getTradingEngine();
-      const result = await engine.runCycle([payload]);
+      const result = await engine.runCycle([payload], { explicitTickers: true });
       await sendTelegramMessage(
         `➕ Ciclo ejecutado para <b>${payload}</b> — ${result.orders.length} resultado(s)`,
       );

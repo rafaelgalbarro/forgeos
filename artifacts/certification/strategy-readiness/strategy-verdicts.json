@@ -1,0 +1,38 @@
+[
+  {
+    "strategy": "sr-high_vol",
+    "trades": 12,
+    "expectancy": -0.010174666666666665,
+    "profitFactor": 34.98253333333333,
+    "maxDrawdownPct": 0.001071044451656808,
+    "netPnl": -0.12209599999999987,
+    "decision": "DISABLED",
+    "reasons": [
+      "negative_expectancy (-0.0102)"
+    ]
+  },
+  {
+    "strategy": "sr-sideways",
+    "trades": 12,
+    "expectancy": -0.16637865725416595,
+    "profitFactor": null,
+    "maxDrawdownPct": 0.001996543887129519,
+    "netPnl": -1.9965438870499912,
+    "decision": "DISABLED",
+    "reasons": [
+      "negative_expectancy (-0.1664)"
+    ]
+  },
+  {
+    "strategy": "sr-trend",
+    "trades": 14,
+    "expectancy": -0.23699952968928645,
+    "profitFactor": null,
+    "maxDrawdownPct": 0.0034589918305722145,
+    "netPnl": -3.317993415650012,
+    "decision": "DISABLED",
+    "reasons": [
+      "negative_expectancy (-0.2370)"
+    ]
+  }
+]

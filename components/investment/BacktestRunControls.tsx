@@ -20,13 +20,17 @@ export function BacktestRunControls({
   defaultSymbol,
   defaultRegime,
   defaultStrategyId,
-  defaultMode = "single",
+  defaultMode = "advanced",
+  defaultHorizon = "swing",
+  defaultFamily = "rsi",
 }: {
   strategies: ReadonlyArray<{ strategyId: string; name: string }>;
   defaultSymbol: string;
   defaultRegime: string;
   defaultStrategyId: string;
-  defaultMode?: "single" | "walkforward";
+  defaultMode?: "single" | "walkforward" | "advanced";
+  defaultHorizon?: "intraday" | "swing" | "daily5y";
+  defaultFamily?: "rsi" | "macd" | "bollinger";
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -40,17 +44,25 @@ export function BacktestRunControls({
       const symbol = String(fd.get("symbol") ?? "DEMO").trim() || "DEMO";
       const regime = String(fd.get("regime") ?? "bullish");
       const strategyId = String(fd.get("strategyId") ?? "ALL");
-      const mode = String(fd.get("mode") ?? "single");
+      const mode = String(fd.get("mode") ?? "advanced");
+      const horizon = String(fd.get("horizon") ?? "swing");
+      const family = String(fd.get("family") ?? "rsi");
       next.set("symbol", symbol);
       next.set("regime", regime);
       if (strategyId && strategyId !== "ALL") next.set("strategyId", strategyId);
       if (mode === "walkforward") next.set("mode", "walkforward");
+      else if (mode === "single") next.set("mode", "single");
+      else next.set("mode", "advanced");
+      next.set("horizon", horizon);
+      next.set("family", family);
       startTransition(() => {
         router.push(`${pathname}?${next.toString()}`);
       });
     },
     [pathname, router],
   );
+
+  const mode = searchParams?.get("mode") ?? defaultMode;
 
   return (
     <form
@@ -69,6 +81,42 @@ export function BacktestRunControls({
           defaultValue={searchParams?.get("symbol") ?? defaultSymbol}
           placeholder="DEMO or AAPL"
         />
+      </label>
+      <label className={styles.filterField}>
+        <span>Report</span>
+        <select
+          name="mode"
+          className={styles.filterSelect}
+          defaultValue={mode}
+        >
+          <option value="advanced">Advanced (Yahoo + metrics)</option>
+          <option value="single">Strategy Engine single</option>
+          <option value="walkforward">Engine walk-forward</option>
+        </select>
+      </label>
+      <label className={styles.filterField}>
+        <span>Horizon</span>
+        <select
+          name="horizon"
+          className={styles.filterSelect}
+          defaultValue={searchParams?.get("horizon") ?? defaultHorizon}
+        >
+          <option value="intraday">Intraday (5m)</option>
+          <option value="swing">Swing (1–10d)</option>
+          <option value="daily5y">Daily ~5y</option>
+        </select>
+      </label>
+      <label className={styles.filterField}>
+        <span>Family</span>
+        <select
+          name="family"
+          className={styles.filterSelect}
+          defaultValue={searchParams?.get("family") ?? defaultFamily}
+        >
+          <option value="rsi">RSI</option>
+          <option value="macd">MACD</option>
+          <option value="bollinger">Bollinger</option>
+        </select>
       </label>
       <label className={styles.filterField}>
         <span>Regime</span>
@@ -99,21 +147,10 @@ export function BacktestRunControls({
           ))}
         </select>
       </label>
-      <label className={styles.filterField}>
-        <span>Report</span>
-        <select
-          name="mode"
-          className={styles.filterSelect}
-          defaultValue={searchParams?.get("mode") ?? defaultMode}
-        >
-          <option value="single">Single run</option>
-          <option value="walkforward">Walk-forward</option>
-        </select>
-      </label>
       <button type="submit" className={styles.filterBtn} disabled={pending}>
         {pending ? "Running…" : "Run backtest"}
       </button>
-      <span className={styles.filterHint}>ANALYSIS_ONLY · DEMO/MI · no orders</span>
+      <span className={styles.filterHint}>ANALYSIS_ONLY · Yahoo/DEMO · no orders</span>
     </form>
   );
 }

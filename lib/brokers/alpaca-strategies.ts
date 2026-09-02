@@ -1,11 +1,12 @@
 /**
- * Alpaca forex + crypto signal engines (EMA trend / RSI / momentum).
+ * Alpaca forex + crypto signal engines (EMA trend / RSI / momentum / scalp).
  */
 
 import "server-only";
 
 import { computeEma, computeRsi } from "@/lib/investment/forex/indicators";
 import { getRecentBars } from "@/lib/brokers/alpaca-client";
+import { getAlpacaCryptoBars4h, getAlpacaCryptoMetrics, type AlpacaHistoryBar } from "@/lib/investment/alpaca/history";
 import {
   alpacaAssetClass,
   normalizeAlpacaTicker,
@@ -27,8 +28,9 @@ const FOREX_STOP_PCT = 0.005;
 const FOREX_TP_PCT = 0.015;
 const CRYPTO_STOP_PCT = 0.02;
 const CRYPTO_TP_PCT = 0.05;
+const CRYPTO_MIN_CONFIDENCE = 0.65;
 
-function slTpFromPct(price: number, side: "BUY", stopPct: number, tpPct: number) {
+function slTpFromPct(price: number, stopPct: number, tpPct: number) {
   return {
     stopLoss: price * (1 - stopPct),
     takeProfit: price * (1 + tpPct),
@@ -53,7 +55,7 @@ function evaluateForexSignals(closes: number[], price: number): AlpacaStrategyRe
         reasoning: "EMA trend bajista — sin entrada long",
         urgency: "LOW",
         primaryStrategy: "ALPACA_FX_EMA",
-        ...slTpFromPct(price, "BUY", FOREX_STOP_PCT, FOREX_TP_PCT),
+        ...slTpFromPct(price, FOREX_STOP_PCT, FOREX_TP_PCT),
         rsi,
         strategyIds: [],
       };
@@ -71,7 +73,7 @@ function evaluateForexSignals(closes: number[], price: number): AlpacaStrategyRe
         reasoning: `RSI overbought ${rsi.toFixed(0)}`,
         urgency: "LOW",
         primaryStrategy: "ALPACA_FX_RSI",
-        ...slTpFromPct(price, "BUY", FOREX_STOP_PCT, FOREX_TP_PCT),
+        ...slTpFromPct(price, FOREX_STOP_PCT, FOREX_TP_PCT),
         rsi,
         strategyIds: [],
       };
@@ -82,7 +84,7 @@ function evaluateForexSignals(closes: number[], price: number): AlpacaStrategyRe
   }
 
   const confidence = Math.min(0.92, score);
-  const { stopLoss, takeProfit } = slTpFromPct(price, "BUY", FOREX_STOP_PCT, FOREX_TP_PCT);
+  const { stopLoss, takeProfit } = slTpFromPct(price, FOREX_STOP_PCT, FOREX_TP_PCT);
   if (confidence < 0.68) {
     return {
       direction: "HOLD",
@@ -110,17 +112,28 @@ function evaluateForexSignals(closes: number[], price: number): AlpacaStrategyRe
   };
 }
 
-function evaluateCryptoSignals(closes: number[], price: number): AlpacaStrategyResult {
+function evaluateCryptoSignals(
+  closes: number[],
+  price: number,
+  change1hPct: number,
+): AlpacaStrategyResult {
   const rsi = computeRsi(closes, 14);
   const reasons: string[] = [];
   let score = 0;
+
+  if ((rsi != null && rsi < 40) || change1hPct > 0.3) {
+    score += 0.45;
+    reasons.push(
+      `CRYPTO_SCALP RSI=${rsi?.toFixed(0) ?? "—"} Δ1h=${change1hPct.toFixed(2)}%`,
+    );
+  }
 
   if (closes.length >= 6) {
     const prev = closes[closes.length - 6]!;
     const momentumPct = ((price - prev) / prev) * 100;
     if (momentumPct >= 0.35) {
-      score += 0.4;
-      reasons.push(`Momentum +${momentumPct.toFixed(2)}% (5 barras)`);
+      score += 0.35;
+      reasons.push(`Momentum +${momentumPct.toFixed(2)}% (5×4H)`);
     } else if (momentumPct <= -1.5) {
       return {
         direction: "HOLD",
@@ -128,7 +141,7 @@ function evaluateCryptoSignals(closes: number[], price: number): AlpacaStrategyR
         reasoning: `Momentum débil ${momentumPct.toFixed(2)}%`,
         urgency: "LOW",
         primaryStrategy: "ALPACA_CRYPTO_MOM",
-        ...slTpFromPct(price, "BUY", CRYPTO_STOP_PCT, CRYPTO_TP_PCT),
+        ...slTpFromPct(price, CRYPTO_STOP_PCT, CRYPTO_TP_PCT),
         rsi,
         strategyIds: [],
       };
@@ -136,7 +149,7 @@ function evaluateCryptoSignals(closes: number[], price: number): AlpacaStrategyR
   }
 
   if (rsi != null && rsi <= 38) {
-    score += 0.35;
+    score += 0.25;
     reasons.push(`RSI oversold ${rsi.toFixed(0)}`);
   } else if (rsi != null && rsi >= 72) {
     return {
@@ -145,15 +158,15 @@ function evaluateCryptoSignals(closes: number[], price: number): AlpacaStrategyR
       reasoning: `RSI overbought ${rsi.toFixed(0)}`,
       urgency: "LOW",
       primaryStrategy: "ALPACA_CRYPTO_RSI",
-      ...slTpFromPct(price, "BUY", CRYPTO_STOP_PCT, CRYPTO_TP_PCT),
+      ...slTpFromPct(price, CRYPTO_STOP_PCT, CRYPTO_TP_PCT),
       rsi,
       strategyIds: [],
     };
   }
 
   const confidence = Math.min(0.9, score);
-  const { stopLoss, takeProfit } = slTpFromPct(price, "BUY", CRYPTO_STOP_PCT, CRYPTO_TP_PCT);
-  if (confidence < 0.68) {
+  const { stopLoss, takeProfit } = slTpFromPct(price, CRYPTO_STOP_PCT, CRYPTO_TP_PCT);
+  if (confidence < CRYPTO_MIN_CONFIDENCE) {
     return {
       direction: "HOLD",
       confidence,
@@ -172,11 +185,11 @@ function evaluateCryptoSignals(closes: number[], price: number): AlpacaStrategyR
     confidence,
     reasoning: reasons.join(" · "),
     urgency: confidence >= 0.82 ? "HIGH" : "MEDIUM",
-    primaryStrategy: "ALPACA_CRYPTO_MOM_RSI",
+    primaryStrategy: score >= 0.45 ? "ALPACA_CRYPTO_SCALP" : "ALPACA_CRYPTO_MOM_RSI",
     stopLoss,
     takeProfit,
     rsi,
-    strategyIds: ["ALPACA_CRYPTO_MOM", "ALPACA_CRYPTO_RSI"],
+    strategyIds: ["ALPACA_CRYPTO_SCALP", "ALPACA_CRYPTO_MOM", "ALPACA_CRYPTO_RSI"],
   };
 }
 
@@ -186,8 +199,17 @@ export async function evaluateAlpacaStrategy(
 ): Promise<AlpacaStrategyResult> {
   const id = normalizeAlpacaTicker(ticker);
   const asset = alpacaAssetClass(id);
-  const bars = await getRecentBars(id, 40).catch(() => []);
-  const closes = bars.map((b) => b.close).filter((n) => Number.isFinite(n) && n > 0);
+
+  let bars: AlpacaHistoryBar[] = [];
+  const metrics = asset === "crypto" ? await getAlpacaCryptoMetrics(id).catch(() => null) : null;
+
+  if (asset === "crypto") {
+    bars = metrics?.bars4h ?? (await getAlpacaCryptoBars4h(id, 80).catch(() => []));
+  } else if (asset === "forex") {
+    bars = await getRecentBars(id, 40).catch(() => []);
+  }
+
+  const closes = bars.map((b) => b.close).filter((n: number) => Number.isFinite(n) && n > 0);
 
   if (closes.length < 10) {
     const stopPct = asset === "forex" ? FOREX_STOP_PCT : CRYPTO_STOP_PCT;
@@ -198,14 +220,16 @@ export async function evaluateAlpacaStrategy(
       reasoning: `Historial insuficiente (${closes.length} barras)`,
       urgency: "LOW",
       primaryStrategy: "ALPACA_NO_DATA",
-      ...slTpFromPct(price, "BUY", stopPct, tpPct),
+      ...slTpFromPct(price, stopPct, tpPct),
       rsi: null,
       strategyIds: [],
     };
   }
 
   if (asset === "forex") return evaluateForexSignals(closes, price);
-  if (asset === "crypto") return evaluateCryptoSignals(closes, price);
+  if (asset === "crypto") {
+    return evaluateCryptoSignals(closes, price, metrics?.change1hPct ?? 0);
+  }
 
   return {
     direction: "HOLD",

@@ -172,11 +172,15 @@ const SECTIONS = [
 
 export function StrategyLabDashboard({
   initial,
+  initialSection = "library",
 }: {
   initial: StrategyLabClientSnapshot;
+  initialSection?: (typeof SECTIONS)[number]["id"];
 }) {
   const router = useRouter();
-  const [section, setSection] = useState<(typeof SECTIONS)[number]["id"]>("library");
+  const [section, setSection] = useState<(typeof SECTIONS)[number]["id"]>(
+    SECTIONS.some((s) => s.id === initialSection) ? initialSection : "library",
+  );
   const [focusId, setFocusId] = useState(initial.ranking[0]?.strategyId ?? initial.library[0]?.strategyId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -355,23 +359,42 @@ export function StrategyLabDashboard({
       {section === "backtesting" ? (
         <section className={styles.labPanel}>
           <h2 className={styles.labHeading}>Backtesting</h2>
-          <p>Uses existing Strategy Engine backtest runner (DEMO / Market Intelligence bars).</p>
+          <p>
+            Advanced runner: Yahoo ~5y / intraday 5m / swing daily, RSI·MACD·Bollinger simulation,
+            Sharpe / Sortino / max DD / win rate / profit factor, grid search + equity curve.
+          </p>
           <p>
             Open dedicated runner:{" "}
-            <a className={styles.labInlineLink} href="/investment/backtesting">
+            <a className={styles.labInlineLink} href="/investment/strategy-lab?section=backtesting">
+              Strategy Lab → Backtesting
+            </a>
+            {" · "}
+            <a className={styles.labInlineLink} href="/investment/backtesting?mode=advanced&horizon=swing&family=rsi">
               /investment/backtesting
             </a>
           </p>
+          <p className={styles.labLocked}>ANALYSIS_ONLY — never submits orders.</p>
         </section>
       ) : null}
 
       {section === "walk-forward" ? (
         <section className={styles.labPanel}>
           <h2 className={styles.labHeading}>Walk Forward Analysis</h2>
-          <p>Out-of-sample windows via existing walk-forward adapter.</p>
+          <p>
+            Train-window grid search → out-of-sample test folds (avoids fitting the full sample).
+            Aggregate OOS equity curve on the advanced backtest page.
+          </p>
+          <p>
+            <a
+              className={styles.labInlineLink}
+              href="/investment/backtesting?mode=advanced&horizon=swing&family=rsi"
+            >
+              Run advanced walk-forward
+            </a>
+          </p>
           <p>
             <a className={styles.labInlineLink} href="/investment/backtesting?mode=walkforward">
-              Run walk-forward
+              Engine score walk-forward
             </a>
           </p>
         </section>

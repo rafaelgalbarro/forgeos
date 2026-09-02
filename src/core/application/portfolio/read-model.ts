@@ -10,8 +10,7 @@ import type {
   VentureLifecycle,
   VenturePriority,
 } from "../../domain/portfolio/types";
-
-export type FreshnessStatus = "LIVE" | "STALE" | "PARTIAL";
+import type { FreshnessStatus } from "../company-dashboard/read-model";
 
 export type VenturePortfolioCard = Readonly<{
   ventureId: string;

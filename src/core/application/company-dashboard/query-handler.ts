@@ -125,11 +125,11 @@ export function buildCompanyDashboardReadModel(ventureId: string): CompanyDashbo
     return merged;
   };
 
-  const mergedBuilds = mergeById(builds as AnyRecord[], snapshotBuilds, "buildId");
-  const mergedReleases = mergeById(releases as AnyRecord[], snapshotReleases, "releaseId");
-  const mergedDeployments = mergeById(deployments as AnyRecord[], snapshotDeployments, "deploymentId");
-  const mergedPreviews = mergeById(previews as AnyRecord[], snapshotPreviews, "previewId");
-  const mergedCodebases = mergeById(codebases as AnyRecord[], snapshotCodebases, "codebaseId");
+  const mergedBuilds = mergeById(builds as unknown as AnyRecord[], snapshotBuilds, "buildId");
+  const mergedReleases = mergeById(releases as unknown as AnyRecord[], snapshotReleases, "releaseId");
+  const mergedDeployments = mergeById(deployments as unknown as AnyRecord[], snapshotDeployments, "deploymentId");
+  const mergedPreviews = mergeById(previews as unknown as AnyRecord[], snapshotPreviews, "previewId");
+  const mergedCodebases = mergeById(codebases as unknown as AnyRecord[], snapshotCodebases, "codebaseId");
   const deliveryBuilds = mergedBuilds;
   const deliveryReleases = mergedReleases;
   const deliveryDeployments = mergedDeployments;

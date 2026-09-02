@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { TradingEngine, CYCLE_TIMEOUT_MS } from '@/src/core/trading/trading-engine'
+import { TradingEngine, CYCLE_TIMEOUT_MS, EXPLICIT_CYCLE_TIMEOUT_MS } from '@/src/core/trading/trading-engine'
 import { RiskManager } from '@/src/core/trading/risk/risk-manager'
 import { OrderApprovalGate } from '@/src/core/trading/order-approval'
 import { TRADING_CONFIG } from '@/src/core/trading/trading.config'
@@ -162,9 +162,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result)
   } catch (err) {
     if (err instanceof Error && err.message === 'cycle already running') {
-      console.warn('[TradingCycle] Ciclo ya en curso — ignorando llamada duplicada')
+      console.warn('[TradingCycle] Ciclo automático ya en curso — ignorando llamada duplicada')
       return NextResponse.json(
         { skipped: true, reason: 'cycle already running' },
+        { status: 409 },
+      )
+    }
+    if (err instanceof Error && err.message === 'explicit cycle already running') {
+      console.warn('[TradingCycle] Ciclo explícito ya en curso')
+      return NextResponse.json(
+        { skipped: true, reason: 'explicit cycle already running' },
         { status: 409 },
       )
     }
@@ -212,7 +219,10 @@ export async function GET() {
       minConfidenceExtendedHours: TRADING_CONFIG.ai.minConfidenceExtendedHours,
       cycleIntervalMs: getTradingCycleIntervalMs(),
       cycleTimeoutMs: CYCLE_TIMEOUT_MS,
+      explicitCycleTimeoutMs: EXPLICIT_CYCLE_TIMEOUT_MS,
       cycleRunning: TradingEngine.isCycleRunning(),
+      autoCycleRunning: TradingEngine.isAutoCycleRunning(),
+      explicitCycleRunning: TradingEngine.isExplicitCycleRunning(),
       tradingPhase: getActiveTradingPhase(),
       paperTrading: TRADING_CONFIG.ibkr.paperTrading,
       allowedTickers: TRADING_CONFIG.allowedTickers,

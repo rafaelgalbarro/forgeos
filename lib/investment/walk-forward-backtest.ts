@@ -12,7 +12,7 @@ export type WalkForwardWindowResult = {
   readonly startBar: number;
   readonly endBar: number;
   readonly barCount: number;
-  readonly dataLabel: "DEMO" | "MI";
+  readonly dataLabel: "DEMO" | "MI" | "YAHOO";
   readonly results: readonly BacktestStrategyResult[];
 };
 
@@ -22,7 +22,7 @@ export type WalkForwardReportSnapshot = {
   readonly orderExecution: "disabled";
   readonly strategyReadiness: "NOT_READY";
   readonly autonomousLive: "LOCKED";
-  readonly dataLabel: "DEMO" | "MI";
+  readonly dataLabel: "DEMO" | "MI" | "YAHOO";
   readonly symbol: string;
   readonly regime: StrategyRegime;
   readonly strategyId: string | "ALL";

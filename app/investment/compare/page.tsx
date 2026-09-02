@@ -1,16 +1,25 @@
 import { InvestmentRouteShell } from "@/components/investment/InvestmentRouteShell";
 import { getPaperShadowComparison } from "@/lib/investment/paper-shadow-comparison";
+import { getPaperRealComparison } from "@/lib/investment/paper-real-comparison";
 import styles from "@/styles/investment/workspace.module.css";
 
 export const metadata = {
-  title: "Paper vs Shadow",
-  description: "Comparative PAPER vs SHADOW report — ANALYSIS_ONLY.",
+  title: "Paper vs Shadow / Real",
+  description: "Comparative PAPER vs SHADOW and PAPER vs REAL read-only — ANALYSIS_ONLY.",
 };
 
 export const dynamic = "force-dynamic";
 
+function fmt(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "NO_DATA";
+  return n.toFixed(2);
+}
+
 export default async function InvestmentComparePage() {
-  const snap = await getPaperShadowComparison();
+  const [snap, paperReal] = await Promise.all([
+    getPaperShadowComparison(),
+    getPaperRealComparison(),
+  ]);
 
   return (
     <>
@@ -58,8 +67,44 @@ export default async function InvestmentComparePage() {
           { href: "/investment/performance", label: "Performance →" },
           { href: "/investment/paper", label: "Paper Trading →" },
           { href: "/investment/shadow", label: "Shadow Trading →" },
+          { href: "/api/investment/compare/paper-real", label: "Paper vs Real API →" },
         ]}
       />
+
+      <section className={styles.shellPage} aria-label="Paper vs real" style={{ marginTop: 8 }}>
+        <div className={styles.grid}>
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <h2 className={styles.panelTitle}>Paper vs Real (simultaneous)</h2>
+              <span className={styles.monitorMetaText}>{paperReal.note.slice(0, 48)}</span>
+            </div>
+            <ul className={styles.panelList}>
+              <li>
+                PAPER equity: {fmt(paperReal.paper.endingEquity)} · P&L {fmt(paperReal.paper.totalPnl)} ·
+                trades {paperReal.paper.tradeCount} · {paperReal.paper.state}
+              </li>
+              <li>
+                REAL NAV: {fmt(paperReal.real.navUSD)} · cash {fmt(paperReal.real.cashUSD)} · daily P&L{" "}
+                {fmt(paperReal.real.dailyPnlUSD)} · positions{" "}
+                {paperReal.real.openPositionsCount == null
+                  ? "NO_DATA"
+                  : String(paperReal.real.openPositionsCount)}{" "}
+                · {paperReal.real.state}
+              </li>
+              <li>
+                Δ equity: {fmt(paperReal.deltas.equityDelta)} · Δ pnl: {fmt(paperReal.deltas.pnlDelta)} ·
+                Δ positions:{" "}
+                {paperReal.deltas.positionCountDelta == null
+                  ? "NO_DATA"
+                  : String(paperReal.deltas.positionCountDelta)}
+              </li>
+              <li>{paperReal.real.note}</li>
+              <li>{paperReal.deltas.note}</li>
+              <li>ANALYSIS_ONLY · orderExecution disabled · no live orders from compare</li>
+            </ul>
+          </article>
+        </div>
+      </section>
 
       <section className={styles.shellPage} aria-label="Paper vs shadow rows" style={{ marginTop: 8 }}>
         <div className={styles.grid}>

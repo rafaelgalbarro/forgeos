@@ -1,0 +1,6 @@
+{
+  "id": "OP06",
+  "name": "Partial fill",
+  "status": "PASS",
+  "evidence": "Order porder-7 PARTIALLY_FILLED remaining=3 fill@100.05"
+}

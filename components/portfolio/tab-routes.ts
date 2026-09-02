@@ -4,6 +4,7 @@ const TAB_TO_SEGMENT: Record<PortfolioViewTab, string> = {
   OVERVIEW: "",
   VENTURES: "ventures",
   VALUE: "value",
+  ANALYTICS: "analytics",
   EXECUTIONS: "executions",
   RESOURCES: "resources",
   RISKS: "",

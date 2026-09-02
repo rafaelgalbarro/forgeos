@@ -7,6 +7,7 @@ import type {
 } from "@/src/core/investment/strategy/domain/types";
 import { MarketIntelligenceEngine } from "@/src/core/investment/market-intelligence/application/market-intelligence-engine";
 import { createProviderRegistryFromEnv } from "@/src/core/investment/market-intelligence/infrastructure/provider-registry";
+import { getChartBars, isYahooFinanceEnabled } from "@/lib/market-data/yahoo-finance";
 
 export type BacktestBarResult = {
   readonly index: number;
@@ -32,7 +33,7 @@ export type BacktestRunSnapshot = {
   readonly orderExecution: "disabled";
   readonly strategyReadiness: "NOT_READY";
   readonly autonomousLive: "LOCKED";
-  readonly dataLabel: "DEMO" | "MI";
+  readonly dataLabel: "DEMO" | "MI" | "YAHOO";
   readonly symbol: string;
   readonly regime: StrategyRegime;
   readonly strategyId: string | "ALL";
@@ -85,7 +86,24 @@ function buildContext(
 async function loadPricePath(
   symbol: string,
   env: NodeJS.ProcessEnv,
-): Promise<{ prices: number[]; label: "DEMO" | "MI"; note: string }> {
+): Promise<{ prices: number[]; label: "DEMO" | "MI" | "YAHOO"; note: string }> {
+  // Prefer Yahoo multi-year daily closes when enabled (Phase I advanced history).
+  if (symbol !== "DEMO" && isYahooFinanceEnabled()) {
+    try {
+      const yahooBars = await getChartBars(symbol, "1d", "5y");
+      const closes = yahooBars.map((b) => b.close).filter((c) => Number.isFinite(c) && c > 0);
+      if (closes.length >= 40) {
+        return {
+          prices: closes,
+          label: "YAHOO",
+          note: `Yahoo Finance daily closes 5y (${closes.length} bars).`,
+        };
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
   const registry = createProviderRegistryFromEnv(env);
   if (registry.marketProviders.length > 0 && symbol !== "DEMO") {
     try {

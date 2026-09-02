@@ -3,6 +3,7 @@ import "server-only";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { submitSupervisedLiveLimitOrder } from "@/lib/investment/ibkr-supervised-submit";
+import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const COMMITTEE_MODEL = "claude-sonnet-4-6";
 const MAX_PARALLEL_POSITIONS = 3;
@@ -285,7 +286,9 @@ export function getCommitteeAnalysis(analysisId: string): CommitteeAnalysisResul
   return analysisMemory.get(analysisId) ?? null;
 }
 
-export async function runPortfolioCommitteeAnalysis(): Promise<CommitteeAnalysisResult> {
+export async function runPortfolioCommitteeAnalysis(options?: {
+  autoExecute?: boolean;
+}): Promise<CommitteeAnalysisResult> {
   const run = async (): Promise<CommitteeAnalysisResult> => {
     const rows = await ibkrServiceFetch<BrokerPosition[]>("/api/ibkr/positions");
     const positions = rows.filter((p) => Math.abs(Number(p.position ?? 0)) > 0);
@@ -305,6 +308,13 @@ export async function runPortfolioCommitteeAnalysis(): Promise<CommitteeAnalysis
       positions: clean.sort((a, b) => a.symbol.localeCompare(b.symbol)),
     };
     analysisMemory.set(result.analysisId, result);
+    if (options?.autoExecute) {
+      const exec = await executeCommitteeSales(result.analysisId, { minConfidence: 0.7 });
+      console.log(
+        `[Committee] auto-ejecución 09:00: sold=${exec.sold} freed=$${exec.capitalFreed.toFixed(2)}`,
+      );
+      return result;
+    }
     const report = buildTelegramReport(result);
     await sendTelegramMessage(report, [
       [
@@ -323,14 +333,20 @@ export async function runPortfolioCommitteeAnalysis(): Promise<CommitteeAnalysis
   ]);
 }
 
-export async function executeCommitteeSales(analysisId: string): Promise<{
+export async function executeCommitteeSales(
+  analysisId: string,
+  options?: { minConfidence?: number },
+): Promise<{
   sold: number;
   capitalFreed: number;
   details: Array<{ symbol: string; ok: boolean; orderId?: string; error?: string }>;
 }> {
   const snapshot = analysisMemory.get(analysisId);
   if (!snapshot) throw new Error(`analysisId no encontrado: ${analysisId}`);
-  const toSell = snapshot.positions.filter((p) => p.governor.decision === "VENDER" && p.governor.confidence > 0.8);
+  const minConf = options?.minConfidence ?? 0.7;
+  const toSell = snapshot.positions.filter(
+    (p) => p.governor.decision === "VENDER" && p.governor.confidence > minConf,
+  );
   const details: Array<{ symbol: string; ok: boolean; orderId?: string; error?: string }> = [];
   let sold = 0;
   let capitalFreed = 0;
@@ -342,7 +358,7 @@ export async function executeCommitteeSales(analysisId: string): Promise<{
         quantity: Math.max(1, Math.floor(pos.shares)),
         limitPrice: pos.current_price,
         rationale: `Committee auto-sell ${analysisId}: ${pos.governor.reason}`.slice(0, 4000),
-        outsideRth: false,
+        outsideRth: isIbkrCryptoTicker(pos.symbol) ? true : false,
         account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
       });
       sold += 1;
@@ -352,6 +368,6 @@ export async function executeCommitteeSales(analysisId: string): Promise<{
       details.push({ symbol: pos.symbol, ok: false, error: err instanceof Error ? err.message : "sell failed" });
     }
   }
-  await sendTelegramMessage(`✅ Vendidas ${sold} posiciones | Capital liberado: $${capitalFreed.toFixed(2)}`);
+  console.log(`[Committee] execute sales: sold=${sold} freed=$${capitalFreed.toFixed(2)}`);
   return { sold, capitalFreed: Number(capitalFreed.toFixed(2)), details };
 }

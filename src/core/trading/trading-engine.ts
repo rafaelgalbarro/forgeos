@@ -71,11 +71,8 @@ import {
   peekPremarketCandidate,
 } from '@/lib/investment/premarket-candidates'
 import {
-  ensureDailyUniverse,
   getDailyUniverse,
 } from '@/lib/investment/market-daily-universe'
-import { getScannerCandidateTickers } from '@/lib/investment/cycle-universe'
-import { getActiveCandidateTickers } from '@/lib/market-data/candidate-store'
 import {
   isAlpacaTicker,
   isAlpacaCryptoTicker,
@@ -95,9 +92,22 @@ import {
 } from '@/lib/brokers/alpaca-client'
 import { evaluateAlpacaStrategy } from '@/lib/brokers/alpaca-strategies'
 
-/** Analyze up to 100 tickers per cycle across all sessions. */
-function maxCycleTickers(): number {
-  return 100
+/** Max tickers per automatic background cycle. */
+export const MAX_AUTO_CYCLE_TICKERS = 20;
+
+/** Automatic cycle wall-clock cap (20 tickers × 3 workers × ~8s). */
+export const CYCLE_TIMEOUT_MS = 45 * 1000;
+
+/** Explicit POST cycle wall-clock cap. */
+export const EXPLICIT_CYCLE_TIMEOUT_MS = 30 * 1000;
+
+export type RunCycleOptions = {
+  explicitTickers?: boolean;
+};
+
+/** Analyze up to 20 tickers per automatic cycle; explicit cycles are uncapped. */
+function maxCycleTickers(explicit = false): number {
+  return explicit ? 500 : MAX_AUTO_CYCLE_TICKERS;
 }
 
 const GLOBAL_ETF_PRIORITY = new Set<string>([
@@ -115,8 +125,8 @@ function hasWarmIbkrPrice(ticker: string): boolean {
 /**
  * Prioritize: premarket HIGH → IBKR gainers → IBKR actives → crypto → ETFs → resto.
  */
-function prioritizeCycleTickers(tickers: readonly string[]): string[] {
-  const cap = maxCycleTickers()
+function prioritizeCycleTickers(tickers: readonly string[], explicit = false): string[] {
+  const cap = maxCycleTickers(explicit)
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
   const premarketHigh = listPremarketCandidates().map((c) => c.symbol)
   const preSet = new Set(premarketHigh)
@@ -256,44 +266,76 @@ export type TradeCycleResult = {
   haltReason?: string
 }
 
-/** Max wall-clock for one trading cycle (100 tickers @ concurrency 10). */
-export const CYCLE_TIMEOUT_MS = 3 * 60 * 1000
+/** Minimum confidence for automatic-cycle BUY → PENDING_APPROVAL / Telegram. */
+const AUTO_CYCLE_MIN_BUY_CONFIDENCE = 0.7
+
+/** USA regular session minimum (pro-strategies + gate). */
+const USA_REGULAR_MIN_CONFIDENCE = 0.65
+
+function minConfidenceForPhase(phase: string): number {
+  if (phase === 'USA_REGULAR') return USA_REGULAR_MIN_CONFIDENCE
+  if (phase === 'USA_AFTERHOURS') {
+    return TRADING_CONFIG.ai.minConfidenceExtendedHours ?? 0.75
+  }
+  return TRADING_CONFIG.ai.minConfidenceToTrade
+}
 
 export class TradingEngine {
   private risk = RiskManager.getInstance()
   private approvals = OrderApprovalGate.getInstance()
 
-  /** Per-ticker analysis + price fetch — skip fast if IBKR slow. */
-  private static readonly TICKER_TIMEOUT_MS = 5_000
+  /** Per-ticker analysis cap — EODHD typically <1s. */
+  private static readonly TICKER_TIMEOUT_MS = 8_000
   /** Once live submit started, allow longer for IBKR ack. */
   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 60_000
-  private static readonly CYCLE_CONCURRENCY = 10
+  private static readonly CYCLE_CONCURRENCY = 3
 
   private static cycleLock = { running: false, startedAt: 0, cycleId: '' as string }
+  private static explicitCycleLock = { running: false, startedAt: 0, cycleId: '' as string }
 
-  /** Acquire cycle mutex; force-release if previous cycle exceeded CYCLE_TIMEOUT_MS. */
-  static tryAcquireCycle(): boolean {
+  private static lockFor(explicit: boolean) {
+    return explicit ? TradingEngine.explicitCycleLock : TradingEngine.cycleLock
+  }
+
+  private static timeoutFor(explicit: boolean) {
+    return explicit ? EXPLICIT_CYCLE_TIMEOUT_MS : CYCLE_TIMEOUT_MS
+  }
+
+  /** Acquire automatic or explicit cycle mutex (independent locks). */
+  static tryAcquireCycle(explicit = false): boolean {
+    const lock = TradingEngine.lockFor(explicit)
+    const timeoutMs = TradingEngine.timeoutFor(explicit)
     const now = Date.now()
-    if (
-      TradingEngine.cycleLock.running &&
-      now - TradingEngine.cycleLock.startedAt > CYCLE_TIMEOUT_MS
-    ) {
+    if (lock.running && now - lock.startedAt > timeoutMs) {
       console.warn(
-        `[TradingCycle] Mutex bloqueado >${CYCLE_TIMEOUT_MS / 60_000}m — liberando ciclo ${TradingEngine.cycleLock.cycleId || 'unknown'}`,
+        `[TradingCycle] ${explicit ? 'Explícito' : 'Automático'} bloqueado >${timeoutMs / 1000}s — liberando ${lock.cycleId || 'unknown'}`,
       )
-      TradingEngine.releaseCycle()
+      TradingEngine.releaseCycle(explicit)
     }
-    if (TradingEngine.cycleLock.running) return false
-    TradingEngine.cycleLock = { running: true, startedAt: now, cycleId: '' }
+    if (lock.running) return false
+    lock.running = true
+    lock.startedAt = now
+    lock.cycleId = ''
     return true
   }
 
-  static releaseCycle(): void {
-    TradingEngine.cycleLock = { running: false, startedAt: 0, cycleId: '' }
+  static releaseCycle(explicit = false): void {
+    const lock = TradingEngine.lockFor(explicit)
+    lock.running = false
+    lock.startedAt = 0
+    lock.cycleId = ''
   }
 
   static isCycleRunning(): boolean {
+    return TradingEngine.cycleLock.running || TradingEngine.explicitCycleLock.running
+  }
+
+  static isAutoCycleRunning(): boolean {
     return TradingEngine.cycleLock.running
+  }
+
+  static isExplicitCycleRunning(): boolean {
+    return TradingEngine.explicitCycleLock.running
   }
 
   private static async withTickerTimeout<T>(
@@ -318,75 +360,37 @@ export class TradingEngine {
   }
 
   /**
-   * IBKR scanner universe is primary. MarketScanner is an optional overlay — never blocks the cycle.
-   */
-  private async resolveCycleSeedTickers(tickers: string[]): Promise<string[]> {
-    const seed = [
-      ...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
-    ]
-
-    let ibkr = (getDailyUniverse()?.tickers ?? []).map((t) => t.symbol.toUpperCase())
-    if (ibkr.length === 0) {
-      try {
-        const refreshed = await ensureDailyUniverse()
-        ibkr = refreshed.tickers.map((t) => t.symbol.toUpperCase())
-      } catch (err) {
-        console.warn(
-          '[TradingCycle] ensureDailyUniverse failed:',
-          err instanceof Error ? err.message : err,
-        )
-      }
-    }
-
-    const scannerPool = [
-      ...new Set(
-        [...getActiveCandidateTickers(), ...getScannerCandidateTickers()]
-          .map((t) => t.trim().toUpperCase())
-          .filter(Boolean),
-      ),
-    ]
-
-    if (scannerPool.length === 0) {
-      const direct = [...new Set([...ibkr, ...seed])].slice(0, maxCycleTickers())
-      console.log(
-        `[TradingCycle] MarketScanner sin candidatos → usando universo IBKR directo (${direct.length} tickers)`,
-      )
-      return direct.length > 0 ? direct : seed
-    }
-
-    const merged = [...new Set([...ibkr, ...seed, ...scannerPool])].slice(0, maxCycleTickers())
-    return merged.length > 0 ? merged : seed
-  }
-
-  /**
    * Ejecuta un ciclo de trading completo para una lista de tickers.
    * Llamado por el API route de Next.js cada X minutos.
    * Ã“rdenes vÃ¡lidas quedan en PENDING_APPROVAL (no se ejecutan automÃ¡ticamente).
    */
   async runCycle(
     tickers: string[],
-    options?: { explicitTickers?: boolean },
+    options?: RunCycleOptions,
   ): Promise<TradeCycleResult> {
-    if (!TradingEngine.tryAcquireCycle()) {
-      throw new Error('cycle already running')
+    const explicit = options?.explicitTickers ?? false
+    if (!TradingEngine.tryAcquireCycle(explicit)) {
+      throw new Error(explicit ? 'explicit cycle already running' : 'cycle already running')
     }
 
-    const cycleId = `cycle_${Date.now()}`
-    TradingEngine.cycleLock.cycleId = cycleId
+    const cycleId = `${explicit ? 'explicit' : 'auto'}_${Date.now()}`
+    const lock = TradingEngine.lockFor(explicit)
+    lock.cycleId = cycleId
     const startedAt = new Date().toISOString()
+    const timeoutMs = TradingEngine.timeoutFor(explicit)
 
     try {
       return await Promise.race([
         this.runCycleBody(tickers, cycleId, startedAt, options),
         new Promise<TradeCycleResult>((_, reject) => {
           setTimeout(
-            () => reject(new Error(`Ciclo timeout ${CYCLE_TIMEOUT_MS}ms`)),
-            CYCLE_TIMEOUT_MS,
+            () => reject(new Error(`Ciclo timeout ${timeoutMs}ms`)),
+            timeoutMs,
           )
         }),
       ])
     } finally {
-      TradingEngine.releaseCycle()
+      TradingEngine.releaseCycle(explicit)
     }
   }
 
@@ -394,7 +398,7 @@ export class TradingEngine {
     tickers: string[],
     cycleId: string,
     startedAt: string,
-    options?: { explicitTickers?: boolean },
+    options?: RunCycleOptions,
   ): Promise<TradeCycleResult> {
     const orders: OrderResult[] = []
 
@@ -423,13 +427,14 @@ export class TradingEngine {
       }
     }
 
-    // 3. Universo: explícito del POST, o MarketScanner + IBKR scanner
-    const seedTickers = options?.explicitTickers
-      ? [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))].slice(
+    const explicit = options?.explicitTickers ?? false
+    // Automatic: use pre-filtered universe as-is (max 20). Explicit: only POST tickers.
+    const seedTickers = explicit
+      ? [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
+      : [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))].slice(
           0,
-          maxCycleTickers(),
+          MAX_AUTO_CYCLE_TICKERS,
         )
-      : await this.resolveCycleSeedTickers(tickers)
     const scoped = selectTickersForOpenMarkets(seedTickers)
     if (scoped.tickers.length === 0) {
       console.log(
@@ -444,10 +449,13 @@ export class TradingEngine {
     }
     const cycleTickers = prioritizeCycleTickers(
       scoped.tickers.length > 0 ? scoped.tickers : seedTickers,
+      explicit,
     )
+    const cycleOpts: RunCycleOptions = { explicitTickers: explicit }
     console.log(
-      `[ProStrategy] Ciclo ${cycleId}: modo=${scoped.mode} evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
-        `(max=${maxCycleTickers()}, precios=IBKR, concurrency=${TradingEngine.CYCLE_CONCURRENCY})`,
+      `[ProStrategy] Ciclo ${cycleId}: modo=${explicit ? 'EXPLÍCITO' : 'AUTO'} session=${scoped.mode} ` +
+        `evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
+        `(max=${maxCycleTickers(explicit)}, EODHD, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(explicit) / 1000}s)`,
     )
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
@@ -459,7 +467,7 @@ export class TradingEngine {
         const ticker = cycleTickers[i]!
         jobs[i] = (async () => {
           const execGate = { enteredAutoExecute: false, buySignal: false }
-          const work = this.processTicker(ticker, account, execGate)
+          const work = this.processTicker(ticker, account, execGate, cycleOpts)
           try {
             let order: OrderResult
             try {
@@ -924,6 +932,7 @@ export class TradingEngine {
       primaryAccountId?: string | null
     },
     execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
+    cycleOpts?: RunCycleOptions,
   ): Promise<OrderResult> {
     const alpacaCryptoId = toAlpacaCryptoPairId(ticker)
     if (alpacaCryptoId) {
@@ -962,7 +971,7 @@ export class TradingEngine {
       }
     }
 
-    console.log(`[AutoExecute] ${ticker} → obteniendo precio IBKR…`)
+    console.log(`[AutoExecute] ${ticker} → obteniendo precio (EODHD/Alpaca)…`)
     let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
     try {
       priceData = await this.fetchPrice(ticker)
@@ -970,13 +979,13 @@ export class TradingEngine {
         `[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)} (${priceData.quoteRoute})`,
       )
     } catch {
-      console.log(`[Universe] ${ticker} sin precio IBKR, skip`)
+      console.log(`[Universe] ${ticker} sin precio, skip`)
       return {
         status: 'SKIPPED',
         ticker,
         direction: 'HOLD',
-        reason: `${ticker}: sin precio IBKR (ticker no reconocido / sin cotización)`,
-        signal: { confidence: 0, reasoning: 'Sin precio IBKR — skip silencioso', urgency: 'LOW' },
+        reason: `${ticker}: sin precio (EODHD/IBKR)`,
+        signal: { confidence: 0, reasoning: 'Sin precio — skip silencioso', urgency: 'LOW' },
         timestamp: new Date().toISOString(),
       }
     }
@@ -1127,15 +1136,27 @@ export class TradingEngine {
     }
 
     const phase = getActiveTradingPhase()
-    const minConfidence =
-      phase === 'USA_AFTERHOURS'
-        ? (TRADING_CONFIG.ai.minConfidenceExtendedHours ?? 0.75)
-        : TRADING_CONFIG.ai.minConfidenceToTrade
+    const minConfidence = minConfidenceForPhase(phase)
 
     if (signal.confidence < minConfidence) {
       return {
         status: 'REJECTED_CONFIDENCE', ticker, direction: signal.direction,
         reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mínimo ${(minConfidence * 100).toFixed(0)}% (${phase})`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const isAutoCycle = !(cycleOpts?.explicitTickers ?? false)
+    if (
+      isAutoCycle &&
+      signal.confidence < AUTO_CYCLE_MIN_BUY_CONFIDENCE
+    ) {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < umbral auto ${(AUTO_CYCLE_MIN_BUY_CONFIDENCE * 100).toFixed(0)}% (sin Telegram)`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }

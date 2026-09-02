@@ -121,6 +121,22 @@ export async function generateDailyInvestmentReport(options?: {
   };
 
   const saved = appendReport(report, { cwd });
+
+  // Optional Sheets / generic webhook export — no-op if unset; never blocks report.
+  try {
+    const { exportToWebhook } = await import("@/lib/integrations/webhook-export");
+    await exportToWebhook("daily_report", {
+      reportId: saved.id,
+      periodKey: saved.periodKey,
+      generatedAt: saved.generatedAt,
+      summaryMetrics: saved.summaryMetrics,
+      pdfPath,
+      htmlPath,
+    });
+  } catch (err) {
+    console.warn("[DailyReport] webhook export skipped:", err);
+  }
+
   return {
     report: saved,
     bundle,

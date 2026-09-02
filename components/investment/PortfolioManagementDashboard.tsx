@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { EquityCurveChart } from "@/components/investment/EquityCurveChart";
 import { LivePositionPnlPanel } from "@/components/investment/LivePositionPnlPanel";
+import { LongTermPortfolioPanel } from "@/components/investment/LongTermPortfolioPanel";
 import { PortfolioMonitorLive } from "@/components/investment/PortfolioMonitorLive";
 import { useInvestmentDashboardData } from "@/components/investment/dashboard-data-coordinator";
 import {
@@ -386,6 +387,8 @@ export function PortfolioManagementDashboard() {
       </section>
 
       <PortfolioMonitorLive />
+
+      <LongTermPortfolioPanel />
     </div>
   );
 }

@@ -540,9 +540,15 @@ export function StrategiesLaboratoryDashboard({
           <div className={styles.grid} style={{ marginTop: 10 }}>
             <article className={styles.panel}>
               <h3 className={styles.panelTitle}>Backtesting</h3>
-              <p className={styles.hubNote}>Strategy Engine DEMO / MI walk via backtest runner.</p>
-              <Link className={styles.labInlineLink} href="/investment/backtesting">
-                /investment/backtesting →
+              <p className={styles.hubNote}>
+                Advanced Yahoo ~5y / swing / intraday — grid search + walk-forward OOS equity.
+                ANALYSIS_ONLY.
+              </p>
+              <Link
+                className={styles.labInlineLink}
+                href="/investment/backtesting?mode=advanced&horizon=swing&family=rsi"
+              >
+                /investment/backtesting (advanced) →
               </Link>
             </article>
             <article className={styles.panel}>
@@ -576,8 +582,16 @@ export function StrategiesLaboratoryDashboard({
                   </Link>
                 </li>
                 <li>
+                  <Link
+                    className={styles.labInlineLink}
+                    href="/investment/backtesting?mode=advanced&horizon=swing&family=rsi"
+                  >
+                    Advanced walk-forward →
+                  </Link>
+                </li>
+                <li>
                   <Link className={styles.labInlineLink} href="/investment/backtesting?mode=walkforward">
-                    Walk-forward →
+                    Engine score walk-forward →
                   </Link>
                 </li>
               </ul>

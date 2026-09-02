@@ -104,6 +104,7 @@ export function closePanel(panelId: string): OsWorkspaceLayout {
 
 export const DESKTOP_WIDGETS = [
   { id: "w-ceo", type: "ceo" as const, title: "CEO", colSpan: 2 as const },
+  { id: "w-investment", type: "investment" as const, title: "Investment", colSpan: 2 as const },
   { id: "w-tasks", type: "tasks" as const, title: "Tasks", colSpan: 1 as const },
   { id: "w-build", type: "build" as const, title: "Build", colSpan: 1 as const },
   { id: "w-portfolio", type: "portfolio" as const, title: "Portfolio", colSpan: 1 as const },

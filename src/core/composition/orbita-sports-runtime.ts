@@ -303,11 +303,11 @@ export async function runOrbitaSportsIntegration(options?: {
     environment: "PREVIEW",
     dryRun: true,
   });
-  const deploymentStatus = !process.env.FORGEOS_DEPLOY_CREDENTIALS
+  const deploymentStatus = (!process.env.FORGEOS_DEPLOY_CREDENTIALS
     ? deployment.dryRun
       ? "PLAN_READY"
       : "BLOCKED_BY_CONFIGURATION"
-    : "PLAN_READY";
+    : "PLAN_READY") as "PLAN_READY" | "BLOCKED_BY_CONFIGURATION" | "DEPLOYED";
   checks.push({
     id: "deployment_plan",
     status: deploymentStatus === "DEPLOYED" ? "FAIL" : "PASS",

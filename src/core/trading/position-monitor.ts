@@ -19,6 +19,7 @@ import { maybeSendHourlyTelegramSummary } from "@/lib/notifications/telegram-pol
 import { recordNavSample } from "@/lib/notifications/daily-close-report";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { fetchTradingAccountSnapshot, fetchTradingPrice } from "@/lib/trading/ibkr-data";
+import { shouldSkipEodhdQuote } from "@/lib/market-data/eodhd";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { submitSupervisedLiveLimitOrder } from "@/lib/investment/ibkr-supervised-submit";
 import { TRADING_CONFIG } from "./trading.config";
@@ -633,6 +634,7 @@ async function closeDayTradingPositions(): Promise<void> {
   for (const ticker of tickers) {
     const mem = positionSLTP.get(ticker);
     if (!mem || mem.selling) continue;
+    if (shouldSkipEodhdQuote(ticker)) continue;
     try {
       const quote = await fetchTradingPrice(ticker);
       const px = quote.currentPrice;
@@ -703,6 +705,9 @@ async function tick(): Promise<void> {
 
     for (const ticker of tickers) {
       if (isSellBlacklisted(ticker) || isSellLocked(ticker) || shouldSkipUntradeableTicker(ticker)) {
+        continue;
+      }
+      if (shouldSkipEodhdQuote(ticker)) {
         continue;
       }
       const mem = positionSLTP.get(ticker);

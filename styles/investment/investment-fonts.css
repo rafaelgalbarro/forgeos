@@ -1,0 +1,16 @@
+/* Investment routes — Inter (UI) + JetBrains Mono (numbers) via next/font CSS variables */
+
+[data-product="forgeos-investment"],
+[data-product="forgeos-investment"] button,
+[data-product="forgeos-investment"] input,
+[data-product="forgeos-investment"] select,
+[data-product="forgeos-investment"] textarea {
+  font-family: var(--font-investment-sans, Inter, ui-sans-serif, system-ui, sans-serif);
+}
+
+[data-product="forgeos-investment"] code,
+[data-product="forgeos-investment"] .inv-num,
+[data-product="forgeos-investment"] [data-numeric="true"] {
+  font-family: var(--font-investment-mono, "JetBrains Mono", ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+}

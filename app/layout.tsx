@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/AppShell";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
+import "@/styles/investment/terminal-theme.css";
 import "@/styles/fhis/tokens.css";
 import "@/styles/fhis/components.css";
 import "@/styles/fhis/os.css";

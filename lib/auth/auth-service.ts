@@ -10,8 +10,13 @@ export async function login(input: LoginInput) {
   return provider().login(input);
 }
 
-export async function register(input: RegisterInput) {
-  return provider().register(input);
+export async function register(_input: RegisterInput) {
+  const { founderPrivatePlatformMessage } = await import("./founder");
+  return {
+    success: false as const,
+    error: founderPrivatePlatformMessage(),
+    message: founderPrivatePlatformMessage(),
+  };
 }
 
 export async function logout() {

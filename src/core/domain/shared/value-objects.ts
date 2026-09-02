@@ -21,6 +21,11 @@ export function nowTimestamp(): IsoTimestamp {
   return new Date().toISOString() as IsoTimestamp;
 }
 
+/** Brand an already-valid ISO string (e.g. from ClockPort) without re-parsing. */
+export function asIsoTimestamp(value: string): IsoTimestamp {
+  return value as IsoTimestamp;
+}
+
 export type Version = string & { readonly __version: unique symbol };
 
 export function Version(value: string): Result<Version, DomainError> {

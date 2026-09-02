@@ -1,0 +1,6 @@
+{
+  "id": "OP17",
+  "name": "Idempotency",
+  "status": "PASS",
+  "evidence": "LOCKED pipeline twice with same idempotencyKey; both BLOCKED placeOrderInvoked=false draft=draft-op-cert-idem-1"
+}

@@ -6,6 +6,7 @@ import {
   BuildWidget,
   CalendarWidget,
   CeoWidget,
+  InvestmentWidget,
   PortfolioWidget,
   TasksWidget,
   TimelineWidget,
@@ -13,6 +14,7 @@ import {
 
 const WIDGET_MAP = {
   ceo: CeoWidget,
+  investment: InvestmentWidget,
   tasks: TasksWidget,
   build: BuildWidget,
   portfolio: PortfolioWidget,

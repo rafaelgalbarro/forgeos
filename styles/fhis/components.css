@@ -1714,6 +1714,44 @@
   margin-bottom: var(--fhis-space-4);
 }
 
+.fhis-auth-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--fhis-space-3);
+  margin-bottom: var(--fhis-space-5);
+}
+
+.fhis-auth-brand .fhis-auth-logo {
+  margin: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #0ea5e9, #0369a1);
+  color: #f8fafc;
+  font-size: 1.1rem;
+}
+
+.fhis-auth-product {
+  margin: 0;
+  font-weight: 700;
+  font-size: var(--fhis-text-lg);
+  letter-spacing: -0.02em;
+}
+
+.fhis-auth-private {
+  margin: 0.15rem 0 0;
+  font-size: var(--fhis-text-xs);
+  opacity: 0.72;
+}
+
+.fhis-auth-footer {
+  margin: var(--fhis-space-4) 0 0;
+  font-size: var(--fhis-text-xs);
+  opacity: 0.55;
+}
+
 .fhis-auth-title { margin: 0 0 var(--fhis-space-2); font-size: var(--fhis-text-xl); }
 .fhis-auth-subtitle { margin: 0 0 var(--fhis-space-4); opacity: 0.7; font-size: var(--fhis-text-sm); }
 

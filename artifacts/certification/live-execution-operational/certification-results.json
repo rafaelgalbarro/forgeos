@@ -1,0 +1,167 @@
+{
+  "type": "LiveExecutionOperationalCertification",
+  "overall": "PASS",
+  "startedAt": "2026-08-03T21:35:51.895Z",
+  "endedAt": "2026-08-03T21:35:53.197Z",
+  "mode": "PAPER_SIMULATION",
+  "realOrdersPlaced": 0,
+  "placeOrderInvoked": false,
+  "autonomousLiveUnlocked": false,
+  "nodeBin": "C:\\Users\\RafaelGalbarroBarba\\AppData\\Local\\forgeos-node",
+  "flagsAtStart": {
+    "tradingMode": "ANALYSIS_ONLY",
+    "liveTrading": "false",
+    "ibkrReadOnly": "true"
+  },
+  "flagsAtEnd": {
+    "process": {
+      "TRADING_MODE": "ANALYSIS_ONLY",
+      "LIVE_TRADING_ENABLED": "false",
+      "IBKR_READ_ONLY": "true"
+    },
+    "disk": {
+      "readOnly": "true",
+      "liveTrading": "false"
+    }
+  },
+  "paperStorePath": "C:\\Users\\RAFAEL~1\\AppData\\Local\\Temp\\forgeos-live-exec-op-cert-1785792951899-2da6892af6e29.json",
+  "summary": {
+    "total": 22,
+    "passed": 22,
+    "failed": 0
+  },
+  "tests": [
+    {
+      "id": "OP01",
+      "name": "LMT submit",
+      "status": "PASS",
+      "evidence": "Created PENDING LMT paper order porder-1 orderId=1"
+    },
+    {
+      "id": "OP02",
+      "name": "Cancel",
+      "status": "PASS",
+      "evidence": "Order porder-2 → CANCELED reason=op_cert_cancel"
+    },
+    {
+      "id": "OP03",
+      "name": "Modify",
+      "status": "PASS",
+      "evidence": "Order porder-3 REPLACED → porder-4 @ 100.5 qty=1"
+    },
+    {
+      "id": "OP04",
+      "name": "Reject",
+      "status": "PASS",
+      "evidence": "Order porder-5 → REJECTED reason=risk_reject_simulated"
+    },
+    {
+      "id": "OP05",
+      "name": "Expire",
+      "status": "PASS",
+      "evidence": "Order porder-6 → EXPIRED reason=day_tif_expired"
+    },
+    {
+      "id": "OP06",
+      "name": "Partial fill",
+      "status": "PASS",
+      "evidence": "Order porder-7 PARTIALLY_FILLED remaining=3 fill@100.05"
+    },
+    {
+      "id": "OP07",
+      "name": "Full fill",
+      "status": "PASS",
+      "evidence": "Order porder-8 FILLED qty=2 @50.02 commission=0.5"
+    },
+    {
+      "id": "OP08",
+      "name": "Stop loss",
+      "status": "PASS",
+      "evidence": "STOP order porder-10 filled @97.95 exitReason=stop_loss_triggered"
+    },
+    {
+      "id": "OP09",
+      "name": "Take profit",
+      "status": "PASS",
+      "evidence": "TARGET order porder-12 filled @52.05 exitReason=take_profit_triggered"
+    },
+    {
+      "id": "OP10",
+      "name": "Trailing stop",
+      "status": "PASS",
+      "evidence": "TRAILING_STOP porder-13 triggered @106.8"
+    },
+    {
+      "id": "OP11",
+      "name": "Disconnect",
+      "status": "PASS",
+      "evidence": "Paper broker connected=false after simulated disconnect (was true)"
+    },
+    {
+      "id": "OP12",
+      "name": "Reconnect",
+      "status": "PASS",
+      "evidence": "POST /api/paper-trading/reconnect → connected=true + RECONNECTED journal"
+    },
+    {
+      "id": "OP13",
+      "name": "ForgeOS restart",
+      "status": "PASS",
+      "evidence": "New PaperBrokerEngine emitted RECONCILED_AFTER_RESTART detail={\"openOrders\":4}"
+    },
+    {
+      "id": "OP14",
+      "name": "TWS restart (simulated)",
+      "status": "PASS",
+      "evidence": "Simulated TWS restart via disconnect/reconnect; openOrders before=4 after=4; RECONNECTED+RECONCILED present. Real TWS not restarted (safety)."
+    },
+    {
+      "id": "OP15",
+      "name": "Order reconciliation",
+      "status": "PASS",
+      "evidence": "reconcileSnapshots unchanged=true count=4 detail=positions/orders unchanged after blocked execute"
+    },
+    {
+      "id": "OP16",
+      "name": "Position reconciliation",
+      "status": "PASS",
+      "evidence": "API positions=1 match internal non-zero book; divergent=0"
+    },
+    {
+      "id": "OP17",
+      "name": "Idempotency",
+      "status": "PASS",
+      "evidence": "LOCKED pipeline twice with same idempotencyKey; both BLOCKED placeOrderInvoked=false draft=draft-op-cert-idem-1"
+    },
+    {
+      "id": "OP18",
+      "name": "Emergency stop",
+      "status": "PASS",
+      "evidence": "LOCKED gate blocked (Kill switch / emergency stop is enabled. Submission blocked.); risk HALT_SYSTEM; cancel-all audit placeOrderInvoked=false"
+    },
+    {
+      "id": "OP19",
+      "name": "Block new entries",
+      "status": "PASS",
+      "evidence": "Risk BLOCK on max_number_of_orders; safety surface blockNewEntries=true reduceOnly=true live=false"
+    },
+    {
+      "id": "OP20",
+      "name": "Reduce-only mode",
+      "status": "PASS",
+      "evidence": "Risk PASS_WITH_REDUCED_SIZE reducedQuantity=2 (qty/notional caps)"
+    },
+    {
+      "id": "OP21",
+      "name": "Max daily loss",
+      "status": "PASS",
+      "evidence": "Risk BLOCK max_daily_loss FAIL current=600 threshold=500"
+    },
+    {
+      "id": "OP22",
+      "name": "Flags unchanged",
+      "status": "PASS",
+      "evidence": "process+disk LIVE_TRADING_ENABLED=false IBKR_READ_ONLY=true TRADING_MODE=ANALYSIS_ONLY"
+    }
+  ]
+}

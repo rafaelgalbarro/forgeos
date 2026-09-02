@@ -1,0 +1,6 @@
+{
+  "id": "OP02",
+  "name": "Cancel",
+  "status": "PASS",
+  "evidence": "Order porder-2 → CANCELED reason=op_cert_cancel"
+}

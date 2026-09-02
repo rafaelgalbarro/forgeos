@@ -1,0 +1,6 @@
+{
+  "id": "OP20",
+  "name": "Reduce-only mode",
+  "status": "PASS",
+  "evidence": "Risk PASS_WITH_REDUCED_SIZE reducedQuantity=2 (qty/notional caps)"
+}

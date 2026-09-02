@@ -1,0 +1,155 @@
+{
+  "overall": "PASS",
+  "startedAt": "2026-08-03T21:18:16.978Z",
+  "finishedAt": "2026-08-03T21:18:18.992Z",
+  "preconditions": {
+    "twsPort4001": "PASS",
+    "forgeosPort3000": "PASS",
+    "forgeosNodeHint": "C:\\Users\\RafaelGalbarroBarba\\AppData\\Local\\forgeos-node",
+    "fastapiHealth": "PASS",
+    "liveTradingEnabled": true,
+    "ibkrReadOnly": true,
+    "ibkrConnect": "PASS",
+    "nextValidId": 1,
+    "nextOrderIdReady": true,
+    "managedAccounts": "U15513057,U24225949",
+    "realAccountDetected": true,
+    "accountSummary": "PASS",
+    "positions": "PASS",
+    "resolvableContractEvidence": "conId=870512079 symbol=GNLN",
+    "orders": "PASS",
+    "marketDataEndpoint": "PARTIAL — no dedicated market-data route; freshness enforced in LOCKED gate",
+    "whatIfEndpoint": "PARTIAL — What-If via LiveExecution LOCKED scaffolding + proposal risk_checks",
+    "riskEngine": "PASS — evaluate_risk on proposal create",
+    "approvalFlow": "PASS — /api/proposals/{id}/decision",
+    "audit": "PASS — audit_log on proposal/control events",
+    "emergencyStop": "PASS — /api/control/emergency-stop",
+    "cancelOrder": "PARTIAL — simulated cancel-all / emergency stop (no live cancelOrder)",
+    "reconciliation": "PASS — snapshot compare before/after blocked execute",
+    "configuredLimits": "maxNotional=250 maxQty=2 symbols=AAPL,MSFT ttl=600"
+  },
+  "tests": [
+    {
+      "id": "T01",
+      "name": "Real account READ_ONLY",
+      "status": "PASS",
+      "evidence": "{\"health\":{\"ok\":true,\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"emergencyStop\":false},\"managedAccounts\":[\"U15513057\",\"U24225949\"],\"envFlags\":{\"IBKR_READ_ONLY\":\"true\",\"LIVE_TRADING_ENABLED\":\"false\"}}"
+    },
+    {
+      "id": "T02",
+      "name": "Create proposal: 1 share OR max notional 100 EUR/USD",
+      "status": "PASS",
+      "evidence": "{\"status\":\"PENDING\",\"notional\":50,\"proposalId\":\"1bd530ea-6742-43ec-8f4c-421134198fb8\",\"risk_checks\":[{\"name\":\"quantity_limit\",\"passed\":true,\"detail\":\"máximo 2.0\"},{\"name\":\"notional_limit\",\"passed\":true,\"detail\":\"nominal 50.00; máximo 250.00\"},{\"name\":\"symbol_allowlist\",\"passed\":true,\"detail\":[\"AAPL\",\"MSFT\"]},{\"name\":\"currency_allowlist\",\"passed\":true,\"detail\":[\"EUR\",\"USD\"]},{\"name\":\"exchange_allowlist\",\"passed\":true,\"detail\":[\"SMART\"]},{\"name\":\"limit_order_only\",\"passed\":true,\"detail\":\"solo LMT\"…"
+    },
+    {
+      "id": "T03",
+      "name": "Run What-If",
+      "status": "PASS",
+      "evidence": "{\"lockedWhatIf\":{\"estimatedMargin\":25,\"estimatedCommission\":1,\"estimatedNotional\":50,\"estimatedRisk\":1,\"computedAt\":\"2026-08-03T21:18:18.308Z\"},\"proposalRiskChecks\":[{\"name\":\"quantity_limit\",\"passed\":true,\"detail\":\"máximo 2.0\"},{\"name\":\"notional_limit\",\"passed\":true,\"detail\":\"nominal 50.00; máximo 250.00\"},{\"name\":\"symbol_allowlist\",\"passed\":true,\"detail\":[\"AAPL\",\"MSFT\"]},{\"name\":\"currency_allowlist\",\"passed\":true,\"detail\":[\"EUR\",\"USD\"]},{\"name\":\"exchange_allowlist\",\"passed\":true,\"detail\":[\"SMAR…"
+    },
+    {
+      "id": "T04",
+      "name": "Approve proposal",
+      "status": "PASS",
+      "evidence": "{\"http\":200,\"status\":\"APPROVED\",\"hasToken\":true}"
+    },
+    {
+      "id": "T05",
+      "name": "Verify execution is BLOCKED",
+      "status": "PASS",
+      "evidence": "{\"http\":423,\"body\":{\"detail\":\"LIVE_TRADING_ENABLED está desactivado\"},\"proposalAfter\":{\"id\":\"1bd530ea-6742-43ec-8f4c-421134198fb8\",\"status\":\"APPROVED\",\"symbol\":\"AAPL\",\"side\":\"BUY\",\"quantity\":1,\"order_type\":\"LMT\",\"limit_price\":50,\"currency\":\"USD\",\"exchange\":\"SMART\",\"primary_exchange\":null,\"rationale\":\"LIVE_TRADING_V1 certification proposal — SUPERVISED_LOCKED, do not execute.\",\"strategy_id\":\"manual-supervised\",\"risk_checks\":[{\"name\":\"quantity_limit\",\"passed\":true,\"detail\":\"máximo 2.0\"},{\"name\":\"n…"
+    },
+    {
+      "id": "T06",
+      "name": "Test expiry",
+      "status": "PASS",
+      "evidence": "{\"http\":409,\"body\":{\"detail\":\"La propuesta ha caducado\"}}"
+    },
+    {
+      "id": "T07",
+      "name": "Test double execution / idempotency",
+      "status": "PASS",
+      "evidence": "{\"secondHttp\":423,\"secondBody\":{\"detail\":\"LIVE_TRADING_ENABLED está desactivado\"},\"orders\":[]}"
+    },
+    {
+      "id": "T08",
+      "name": "Disallowed symbol",
+      "status": "PASS",
+      "evidence": "{\"status\":\"BLOCKED\",\"risk_checks\":[{\"name\":\"quantity_limit\",\"passed\":true,\"detail\":\"máximo 2.0\"},{\"name\":\"notional_limit\",\"passed\":true,\"detail\":\"nominal 50.00; máximo 250.00\"},{\"name\":\"symbol_allowlist\",\"passed\":false,\"detail\":[\"AAPL\",\"MSFT\"]},{\"name\":\"currency_allowlist\",\"passed\":true,\"detail\":[\"EUR\",\"USD\"]},{\"name\":\"exchange_allowlist\",\"passed\":true,\"detail\":[\"SMART\"]},{\"name\":\"limit_order_only\",\"passed\":true,\"detail\":\"solo LMT\"}]}"
+    },
+    {
+      "id": "T09",
+      "name": "Excessive notional",
+      "status": "PASS",
+      "evidence": "{\"status\":\"BLOCKED\",\"risk_checks\":[{\"name\":\"quantity_limit\",\"passed\":true,\"detail\":\"máximo 2.0\"},{\"name\":\"notional_limit\",\"passed\":false,\"detail\":\"nominal 400.00; máximo 250.00\"},{\"name\":\"symbol_allowlist\",\"passed\":true,\"detail\":[\"AAPL\",\"MSFT\"]},{\"name\":\"currency_allowlist\",\"passed\":true,\"detail\":[\"EUR\",\"USD\"]},{\"name\":\"exchange_allowlist\",\"passed\":true,\"detail\":[\"SMART\"]},{\"name\":\"limit_order_only\",\"passed\":true,\"detail\":\"solo LMT\"}]}"
+    },
+    {
+      "id": "T10",
+      "name": "Stale data",
+      "status": "PASS",
+      "evidence": "Stale market data: ageMs=3600000 max=15000"
+    },
+    {
+      "id": "T11",
+      "name": "IBKR disconnected",
+      "status": "PASS",
+      "evidence": "{\"simulatedDisconnectBlocked\":\"IBKR disconnected — execution path blocked.\",\"liveStatusConnected\":true,\"note\":\"Destructive live disconnect not performed; LOCKED gate disconnect path certified\"}"
+    },
+    {
+      "id": "T12",
+      "name": "Emergency stop",
+      "status": "PASS",
+      "evidence": "{\"enable\":{\"enabled\":true},\"execWhileStopped\":{\"http\":423,\"body\":{\"detail\":\"Parada de emergencia activada\"}},\"disable\":{\"enabled\":false},\"healthAfter\":{\"ok\":true,\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"emergencyStop\":false}}"
+    },
+    {
+      "id": "T13",
+      "name": "Simulated cancellation",
+      "status": "PASS",
+      "evidence": "{\"cancel\":{\"id\":\"audit-global-CANCEL_ALL-1785791898955\",\"operationId\":\"global\",\"at\":\"2026-08-03T21:18:18.955Z\",\"actor\":\"cert-officer\",\"event\":\"CANCEL_ALL_TRIGGERED\",\"details\":{\"simulated\":true,\"placeOrderInvoked\":false}},\"note\":\"No live cancelOrder issued; SUPERVISED_LOCKED simulated cancel-all only\"}"
+    },
+    {
+      "id": "T14",
+      "name": "Reconciliation",
+      "status": "PASS",
+      "evidence": "{\"ordersUnchanged\":true,\"ordersBefore\":[],\"ordersAfter\":[],\"positionsSampleBefore\":[{\"account\":\"U15513057\",\"conId\":870512079,\"symbol\":\"GNLN\",\"secType\":\"STK\",\"exchange\":\"NASDAQ\",\"currency\":\"USD\",\"position\":3.25,\"avgCost\":42.69593845},{\"account\":\"U24225949\",\"conId\":863279757,\"symbol\":\"AIB\",\"secType\":\"STK\",\"exchange\":\"AMEX\",\"currency\":\"USD\",\"position\":18,\"avgCost\":1.89361665}],\"positionsSampleAfter\":[{\"account\":\"U15513057\",\"conId\":870512079,\"symbol\":\"GNLN\",\"secType\":\"STK\",\"exchange\":\"NASDAQ\",\"curre…"
+    }
+  ],
+  "limits": {
+    "maxOrderNotional": "250",
+    "maxOrderQuantity": "2",
+    "allowedSymbols": "AAPL,MSFT",
+    "proposalTtlSeconds": "600",
+    "lockedGateMaxNotional": 100,
+    "lockedGateMaxRiskPerTrade": 20
+  },
+  "errors": [],
+  "flags": {
+    "LIVE_TRADING_ENABLED_env": "false",
+    "IBKR_READ_ONLY_env": "true",
+    "health": {
+      "ok": true,
+      "liveTradingEnabled": false,
+      "ibkrReadOnly": true,
+      "emergencyStop": false
+    },
+    "processEnv": {
+      "LIVE_TRADING_ENABLED": "false",
+      "IBKR_READ_ONLY": "true"
+    },
+    "placeOrderAttemptCount_viaExecuteEndpoint": 3,
+    "executeBlockedCount": 3,
+    "zeroRealOrdersConfirmed": true
+  },
+  "risks": [
+    "Real IBKR accounts are connected; accidental flag flip would allow execute path.",
+    "No dedicated IBKR market-data / contract-details / cancelOrder routes in v1 service.",
+    "HMDS farm may be intermittent (IBKR informational codes 2107/2157 observed).",
+    "Account buying power is low; live trading would still be constrained even if unlocked."
+  ],
+  "rollback": [
+    "Keep LIVE_TRADING_ENABLED=false and IBKR_READ_ONLY=true (verified at end).",
+    "POST /api/control/emergency-stop?enabled=true to halt execution path.",
+    "Reject or ignore any APPROVED proposals; do not call /execute.",
+    "Stop FastAPI (uvicorn) and/or disconnect TWS API clients if needed."
+  ]
+}

@@ -1,0 +1,212 @@
+﻿[
+    {
+        "Route":  "/investment",
+        "Status":  200,
+        "Ms":  402,
+        "Len":  59876,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/markets",
+        "Status":  200,
+        "Ms":  4302,
+        "Len":  46144,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/research",
+        "Status":  200,
+        "Ms":  2315,
+        "Len":  94714,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/opportunities",
+        "Status":  200,
+        "Ms":  1822,
+        "Len":  48070,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/portfolio",
+        "Status":  200,
+        "Ms":  1063,
+        "Len":  53363,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/orders",
+        "Status":  200,
+        "Ms":  5917,
+        "Len":  35191,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/strategies",
+        "Status":  200,
+        "Ms":  1197,
+        "Len":  177921,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/strategy",
+        "Status":  200,
+        "Ms":  2056,
+        "Len":  34167,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/risk",
+        "Status":  200,
+        "Ms":  2966,
+        "Len":  288789,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/committee",
+        "Status":  200,
+        "Ms":  3276,
+        "Len":  127472,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/ai-committee",
+        "Status":  200,
+        "Ms":  2119,
+        "Len":  127608,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/reports",
+        "Status":  200,
+        "Ms":  6983,
+        "Len":  60454,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/news",
+        "Status":  200,
+        "Ms":  2982,
+        "Len":  48223,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/calendar",
+        "Status":  200,
+        "Ms":  1817,
+        "Len":  45597,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/settings",
+        "Status":  200,
+        "Ms":  2679,
+        "Len":  61312,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/broker",
+        "Status":  200,
+        "Ms":  3404,
+        "Len":  34108,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/live",
+        "Status":  200,
+        "Ms":  3039,
+        "Len":  57343,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/paper",
+        "Status":  200,
+        "Ms":  8278,
+        "Len":  80088,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/shadow",
+        "Status":  200,
+        "Ms":  6967,
+        "Len":  34198,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/alpha",
+        "Status":  200,
+        "Ms":  6202,
+        "Len":  80096,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/strategy-lab",
+        "Status":  200,
+        "Ms":  2074,
+        "Len":  130570,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/screener",
+        "Status":  200,
+        "Ms":  6756,
+        "Len":  57202,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/scanner",
+        "Status":  200,
+        "Ms":  2839,
+        "Len":  48522,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/signals",
+        "Status":  200,
+        "Ms":  2310,
+        "Len":  48571,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/audit",
+        "Status":  200,
+        "Ms":  3747,
+        "Len":  66511,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/compare",
+        "Status":  200,
+        "Ms":  4421,
+        "Len":  49372,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/performance",
+        "Status":  200,
+        "Ms":  3482,
+        "Len":  93872,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/backtesting",
+        "Status":  200,
+        "Ms":  7824,
+        "Len":  173631,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/execution-control",
+        "Status":  200,
+        "Ms":  3634,
+        "Len":  30125,
+        "Hints":  "NOT_FOUND"
+    },
+    {
+        "Route":  "/investment/ai-lab",
+        "Status":  200,
+        "Ms":  3786,
+        "Len":  51451,
+        "Hints":  "NOT_FOUND"
+    }
+]

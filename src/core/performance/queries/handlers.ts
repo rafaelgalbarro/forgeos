@@ -26,7 +26,11 @@ import type {
 
 const REQUEST_SCOPE = {};
 
-function missionTitle(mission: { intent?: { primary?: string; extractedIdea?: string }; idea?: string; id: string }): string {
+function missionTitle(mission: {
+  intent?: { primary?: string; extractedIdea?: string } | null;
+  idea?: string;
+  id: string;
+}): string {
   return mission.intent?.primary || mission.intent?.extractedIdea || mission.idea || `Mission ${mission.id}`;
 }
 
@@ -46,8 +50,8 @@ export function getMissionCard(params: GetMissionCardParams): ReturnType<typeof 
   const preview = root.store.previewClassifications.get(params.missionId);
   const card = buildMissionCardProjection({
     missionId: mission.id,
-    ventureId: mission.ventureId,
-    workspaceId: mission.workspaceId,
+    ventureId: mission.ventureId ?? "",
+    workspaceId: mission.workspaceId ?? "",
     title: missionTitle(mission),
     status: mission.status,
     outputCount: outputs.length,
@@ -72,7 +76,7 @@ export function getMissionSummary(params: GetMissionSummaryParams) {
       .map((o) => buildOutputStatusProjection({
         outputId: o.id,
         missionId: o.missionId,
-        ventureId: mission.ventureId,
+        ventureId: mission.ventureId ?? "",
         title: o.title,
         kind: o.kind,
         status: o.status,
@@ -158,7 +162,7 @@ export function getOutputSummary(params: GetOutputSummaryParams): PaginatedResul
     .map((o) => buildOutputStatusProjection({
       outputId: o.id,
       missionId: o.missionId,
-      ventureId: mission.ventureId,
+      ventureId: mission.ventureId ?? "",
       title: o.title,
       kind: o.kind,
       status: o.status,
@@ -187,7 +191,7 @@ export function getOutputDetail(params: GetOutputDetailParams) {
     ...buildOutputStatusProjection({
       outputId: output.id,
       missionId: output.missionId,
-      ventureId: mission.ventureId,
+      ventureId: mission.ventureId ?? "",
       title: output.title,
       kind: output.kind,
       status: output.status,

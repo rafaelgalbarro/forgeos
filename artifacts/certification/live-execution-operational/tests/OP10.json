@@ -1,0 +1,6 @@
+{
+  "id": "OP10",
+  "name": "Trailing stop",
+  "status": "PASS",
+  "evidence": "TRAILING_STOP porder-13 triggered @106.8"
+}

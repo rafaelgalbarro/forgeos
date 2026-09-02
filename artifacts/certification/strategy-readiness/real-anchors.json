@@ -1,0 +1,135 @@
+[
+  {
+    "symbol": "GNLN",
+    "price": 42.69593845,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "AIB",
+    "price": 1.89361665,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "RECX",
+    "price": 0.00808,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "IVPR",
+    "price": 0.0080027,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "MLGO",
+    "price": 36.25397665,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "APLT.CVR",
+    "price": 0.0137,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "BURU",
+    "price": 0.92453665,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "JTAI",
+    "price": 17.4314,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "PTPI",
+    "price": 0.03030045,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "HYSR",
+    "price": 0.02727,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "NCNA",
+    "price": 26.46656,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "GPUS",
+    "price": 0.21715,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "CGBSF",
+    "price": 0.079049,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "FLYX",
+    "price": 7.60542375,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "INND",
+    "price": 0.000707,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "RWAX",
+    "price": 0.0002026,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "TXTM",
+    "price": 0.006767,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "APTX.OLD",
+    "price": 0.027348,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  },
+  {
+    "symbol": "SAFX",
+    "price": 0.199475,
+    "source": "ibkr_position_avgCost",
+    "delayed": false,
+    "capturedAt": "2026-08-03T21:49:02.292Z"
+  }
+]

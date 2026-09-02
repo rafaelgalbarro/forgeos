@@ -1,0 +1,6 @@
+{
+  "id": "OP18",
+  "name": "Emergency stop",
+  "status": "PASS",
+  "evidence": "LOCKED gate blocked (Kill switch / emergency stop is enabled. Submission blocked.); risk HALT_SYSTEM; cancel-all audit placeOrderInvoked=false"
+}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { VANDL_VENTURE_ID } from "@/lib/fixtures/vandl-venture";
 import { Card } from "@/components/ui/fhis/Card";
 import { Badge } from "@/components/ui/fhis/Badge";
+import { InvestmentHomeCard } from "@/components/investment/InvestmentHomeCard";
 
 export function CeoWidget() {
   return (
@@ -16,6 +17,10 @@ export function CeoWidget() {
       <Link href="/os/ceo">Abrir CEO →</Link>
     </Card>
   );
+}
+
+export function InvestmentWidget() {
+  return <InvestmentHomeCard />;
 }
 
 export function TasksWidget() {

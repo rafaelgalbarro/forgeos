@@ -1,0 +1,445 @@
+{
+  "type": "StrategyReadinessCertification",
+  "overall": "FAIL",
+  "goLiveDecision": "NOT_READY_FOR_LIVE",
+  "readyForSupervisedConsideration": false,
+  "startedAt": "2026-08-03T21:49:02.188Z",
+  "endedAt": "2026-08-03T21:49:06.368Z",
+  "realOrdersPlaced": 0,
+  "placeOrderInvoked": false,
+  "autonomousLiveUnlocked": false,
+  "flags": {
+    "TRADING_MODE": "ANALYSIS_ONLY",
+    "LIVE_TRADING_ENABLED": "false",
+    "IBKR_READ_ONLY": "true",
+    "disk": {
+      "LIVE_TRADING_ENABLED": "false",
+      "IBKR_READ_ONLY": "true"
+    }
+  },
+  "sample": {
+    "historicalClosedTrades": 19,
+    "realAnchors": 19,
+    "simulatedClosedTrades": 19,
+    "combinedClosedTrades": 38,
+    "realSessionCount": 1,
+    "taggedSessions": 1,
+    "regimes": [
+      "trend",
+      "sideways",
+      "high_vol"
+    ],
+    "liveDataAvailable": true,
+    "liveDataDisclosure": "LIVE anchors from IBKR positions avgCost only (n=19). No IBKR market-data quote endpoint; Yahoo/stub providers excluded as delayed.",
+    "disclosure": "Generated 19 paper closed trades from 19 real IBKR position avgCost anchors in a single capture window (real-capture-2026-08-03). Distinct real market sessions available from live feed: 1 (not ≥10). No dedicated IBKR market-data quote endpoint; Yahoo/stub providers treated as delayed and excluded."
+  },
+  "connectivity": {
+    "tws4001": true,
+    "ibkrService": true,
+    "health": {
+      "ok": true,
+      "liveTradingEnabled": false,
+      "ibkrReadOnly": true,
+      "emergencyStop": false
+    }
+  },
+  "ibkrStatus": {
+    "connected": true,
+    "nextOrderIdReady": true,
+    "nextValidId": 1,
+    "managedAccounts": [
+      "U15513057",
+      "U24225949"
+    ],
+    "recentErrors": [
+      {
+        "reqId": -1,
+        "code": 2107,
+        "message": "La conexión al centro de datos HMDS está inactiva pero debería estar disponible bajo demanda.euhmds",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 2104,
+        "message": "La conexión al centro de datos funciona correctamente:eufarm",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 2107,
+        "message": "La conexión al centro de datos HMDS está inactiva pero debería estar disponible bajo demanda.euhmds",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 2158,
+        "message": "La conexión de la granja de datos \"sec-def\" funciona correctamente:secdefeu",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 2157,
+        "message": "La conexión de la granja de datos \"sec-def\" se ha interrumpido:secdefeu",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 2103,
+        "message": "Se ha perdido la conexión al centro de datos:eufarm",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 1100,
+        "message": "Conectividad entre IB y TWS ha sido perdida",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 2158,
+        "message": "La conexión de la granja de datos \"sec-def\" funciona correctamente:secdefeu",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 2104,
+        "message": "La conexión al centro de datos funciona correctamente:eufarm",
+        "advanced": ""
+      },
+      {
+        "reqId": -1,
+        "code": 1102,
+        "message": "Conectividad entre IB y TWS ha sido restaurada - datos mantenidos: Las granjas siguientes están conectadas: eufarm; secdefeu. Las granjas siguientes no están conectadas: euhmds.",
+        "advanced": ""
+      }
+    ],
+    "ibkrReadOnly": true,
+    "liveTradingEnabled": false
+  },
+  "performance": {
+    "netPnl": -5.4366333028592635,
+    "winRate": 0.9473684210526315,
+    "profitFactor": 66.5280558108333,
+    "expectancy": -0.1430692974394737,
+    "sharpe": -0.4760900205620633,
+    "sortino": -0.5566403134836656,
+    "maxDrawdownPct": 0.005895280282488242,
+    "avgWin": 0.221760186036111,
+    "avgLoss": -0.06,
+    "avgMae": 0,
+    "avgMfe": 0,
+    "avgSlippageProxy": 0.3499999999999998,
+    "avgLatencyMs": 0,
+    "avgCommission": 0.3499999999999998,
+    "rejectedSignalPct": 0.02564102564102564,
+    "byStrategyRegime": [
+      {
+        "tag": "high_vol",
+        "pnl": 4.077903999999999,
+        "trades": 12
+      },
+      {
+        "tag": "sideways",
+        "pnl": 2.2034561129500085,
+        "trades": 12
+      },
+      {
+        "tag": "trend",
+        "pnl": 1.582006584349989,
+        "trades": 14
+      }
+    ],
+    "bySession": [
+      {
+        "tag": "real-capture-2026-08-03",
+        "pnl": 7.863366697299996,
+        "trades": 38
+      }
+    ],
+    "bySymbol": [
+      {
+        "symbol": "GNLN",
+        "pnl": 0.982006584349989,
+        "trades": 2
+      },
+      {
+        "symbol": "AIB",
+        "pnl": 0.10000000000000053,
+        "trades": 2
+      },
+      {
+        "symbol": "RECX",
+        "pnl": 0.09999999999999999,
+        "trades": 2
+      },
+      {
+        "symbol": "IVPR",
+        "pnl": 0.09999999999999999,
+        "trades": 2
+      },
+      {
+        "symbol": "MLGO",
+        "pnl": 0.833841462950005,
+        "trades": 2
+      },
+      {
+        "symbol": "APLT.CVR",
+        "pnl": 1.9626,
+        "trades": 2
+      },
+      {
+        "symbol": "BURU",
+        "pnl": 0.09999999999999987,
+        "trades": 2
+      },
+      {
+        "symbol": "JTAI",
+        "pnl": 0.3983536000000072,
+        "trades": 2
+      },
+      {
+        "symbol": "PTPI",
+        "pnl": 0.1,
+        "trades": 2
+      },
+      {
+        "symbol": "HYSR",
+        "pnl": 0.09999999999999999,
+        "trades": 2
+      },
+      {
+        "symbol": "NCNA",
+        "pnl": 0.608730879999996,
+        "trades": 2
+      },
+      {
+        "symbol": "GPUS",
+        "pnl": -0.12,
+        "trades": 2
+      },
+      {
+        "symbol": "CGBSF",
+        "pnl": 0.09999999999999995,
+        "trades": 2
+      },
+      {
+        "symbol": "FLYX",
+        "pnl": 0.16253017000000014,
+        "trades": 2
+      },
+      {
+        "symbol": "INND",
+        "pnl": 0.1,
+        "trades": 2
+      },
+      {
+        "symbol": "RWAX",
+        "pnl": 0.09999999999999999,
+        "trades": 2
+      },
+      {
+        "symbol": "TXTM",
+        "pnl": 0.09999999999999999,
+        "trades": 2
+      },
+      {
+        "symbol": "APTX.OLD",
+        "pnl": 1.935304,
+        "trades": 2
+      },
+      {
+        "symbol": "SAFX",
+        "pnl": 0.09999999999999998,
+        "trades": 2
+      }
+    ],
+    "startingEquity": 100000,
+    "endingEquity": 99994.56336669714
+  },
+  "strategies": {
+    "approved": [],
+    "rejected": [
+      {
+        "strategy": "sr-high_vol",
+        "trades": 12,
+        "expectancy": -0.010174666666666665,
+        "profitFactor": 34.98253333333333,
+        "maxDrawdownPct": 0.001071044451656808,
+        "netPnl": -0.12209599999999987,
+        "decision": "DISABLED",
+        "reasons": [
+          "negative_expectancy (-0.0102)"
+        ]
+      },
+      {
+        "strategy": "sr-sideways",
+        "trades": 12,
+        "expectancy": -0.16637865725416595,
+        "profitFactor": null,
+        "maxDrawdownPct": 0.001996543887129519,
+        "netPnl": -1.9965438870499912,
+        "decision": "DISABLED",
+        "reasons": [
+          "negative_expectancy (-0.1664)"
+        ]
+      },
+      {
+        "strategy": "sr-trend",
+        "trades": 14,
+        "expectancy": -0.23699952968928645,
+        "profitFactor": null,
+        "maxDrawdownPct": 0.0034589918305722145,
+        "netPnl": -3.317993415650012,
+        "decision": "DISABLED",
+        "reasons": [
+          "negative_expectancy (-0.2370)"
+        ]
+      }
+    ],
+    "all": [
+      {
+        "strategy": "sr-high_vol",
+        "trades": 12,
+        "expectancy": -0.010174666666666665,
+        "profitFactor": 34.98253333333333,
+        "maxDrawdownPct": 0.001071044451656808,
+        "netPnl": -0.12209599999999987,
+        "decision": "DISABLED",
+        "reasons": [
+          "negative_expectancy (-0.0102)"
+        ]
+      },
+      {
+        "strategy": "sr-sideways",
+        "trades": 12,
+        "expectancy": -0.16637865725416595,
+        "profitFactor": null,
+        "maxDrawdownPct": 0.001996543887129519,
+        "netPnl": -1.9965438870499912,
+        "decision": "DISABLED",
+        "reasons": [
+          "negative_expectancy (-0.1664)"
+        ]
+      },
+      {
+        "strategy": "sr-trend",
+        "trades": 14,
+        "expectancy": -0.23699952968928645,
+        "profitFactor": null,
+        "maxDrawdownPct": 0.0034589918305722145,
+        "netPnl": -3.317993415650012,
+        "decision": "DISABLED",
+        "reasons": [
+          "negative_expectancy (-0.2370)"
+        ]
+      }
+    ]
+  },
+  "shadow": {
+    "evaluations": 19,
+    "rejectedSignals": 1
+  },
+  "gates": [
+    {
+      "id": "SR01",
+      "name": "Minimum closed trades (≥30)",
+      "required": 30,
+      "actual": 38,
+      "status": "PASS",
+      "evidence": "historical=19 simulatedFromRealAnchors=19 combined=38"
+    },
+    {
+      "id": "SR02",
+      "name": "Minimum distinct real sessions (≥10)",
+      "required": 10,
+      "actual": 1,
+      "status": "NOT_READY",
+      "evidence": "realSessionCount=1 (ledger+live capture session tags). Synthetic tags do not count. Same calendar-day re-run does not invent sessions. taggedSessionsInLedger=1. LIVE anchors from IBKR positions avgCost only (n=19). No IBKR market-data quote endpoint; Yahoo/stub providers excluded as delayed."
+    },
+    {
+      "id": "SR03",
+      "name": "Regimes include trend, sideways, high_vol",
+      "required": "trend,sideways,high_vol",
+      "actual": "high_vol,sideways,trend",
+      "status": "PASS",
+      "evidence": "regimes=trend,sideways,high_vol"
+    },
+    {
+      "id": "SR04",
+      "name": "Includes spread, slippage, commissions",
+      "required": true,
+      "actual": true,
+      "status": "PASS",
+      "evidence": "avgCommission=0.3499999999999998 avgSlippageProxy=0.3499999999999998 (spread applied in sim fills)"
+    },
+    {
+      "id": "SR05",
+      "name": "No delayed-data trades",
+      "required": 0,
+      "actual": 0,
+      "status": "PASS",
+      "evidence": "delayedTrades=0; rejectedDelayedSignals=1; LIVE anchors from IBKR positions avgCost only (n=19). No IBKR market-data quote endpoint; Yahoo/stub providers excluded as delayed."
+    },
+    {
+      "id": "SR06",
+      "name": "No trade without stop",
+      "required": true,
+      "actual": true,
+      "status": "PASS",
+      "evidence": "ordersWithStop=38 tradesWithoutStop=0"
+    },
+    {
+      "id": "SR07",
+      "name": "No trade outside limits",
+      "required": 0,
+      "actual": 0,
+      "status": "PASS",
+      "evidence": "outsideLimits=0 (sim uses qty=1, position-derived symbols only)"
+    },
+    {
+      "id": "SR08",
+      "name": "Positive net expectancy",
+      "required": ">0",
+      "actual": -0.1430692974394737,
+      "status": "FAIL",
+      "evidence": "expectancy=-0.1430692974394737 netPnl=-5.4366333028592635"
+    },
+    {
+      "id": "SR09",
+      "name": "Profit factor > 1.1",
+      "required": 1.1,
+      "actual": 66.5280558108333,
+      "status": "PASS",
+      "evidence": "profitFactor=66.5280558108333 wins=36 losses=2"
+    },
+    {
+      "id": "SR10",
+      "name": "Max DD within limit (≤15%)",
+      "required": 15,
+      "actual": 0.005895280282488242,
+      "status": "PASS",
+      "evidence": "maxDrawdownPct=0.005895280282488242"
+    },
+    {
+      "id": "SR11",
+      "name": "No recon divergence / open orders clean",
+      "required": true,
+      "actual": true,
+      "status": "PASS",
+      "evidence": "openOrdersProbe=[]"
+    },
+    {
+      "id": "SR12",
+      "name": "Zero duplicate / real orders",
+      "required": 0,
+      "actual": 0,
+      "status": "PASS",
+      "evidence": "duplicateTradeIds=0; Harness never called IBKR placeOrder; paper/shadow only. realOrdersPlaced=0"
+    }
+  ],
+  "gaps": [
+    "Need ≥10 distinct real sessions; have 1. No multi-session real quote history (IBKR has no market-data route; cannot invent sessions from one capture day).",
+    "Expectancy not positive after commissions (-0.1430692974394737).",
+    "No strategies APPROVED after auto-disable (rejected=sr-high_vol,sr-sideways,sr-trend)."
+  ]
+}

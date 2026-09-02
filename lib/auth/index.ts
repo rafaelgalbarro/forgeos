@@ -13,7 +13,16 @@ export {
   setActiveWorkspace,
 } from "./auth-service";
 export { getAuthProvider } from "./auth-factory";
-export { readSession, clearSession, updateSession } from "./session-store";
+export { readSession, clearSession, updateSession, touchSession } from "./session-store";
+export { AUTH_COOKIE_NAME, isAuthCookieValid } from "./session-cookie";
+export {
+  getFounderUsername,
+  isFounderIdentity,
+  founderPrivatePlatformMessage,
+  SESSION_INACTIVITY_MS,
+} from "./founder";
+export type { AuthRole } from "./founder";
+
 export { mergeWorkspaceIntoAiContext, workspaceContextFromActive } from "./ai-context-bridge";
 export type {
   AuthUser,

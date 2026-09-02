@@ -41,6 +41,9 @@ export default function PortfolioListPage() {
               <Link href={`/portfolio/${portfolio.id}/value`} className="fhis-btn">
                 Value
               </Link>
+              <Link href={`/portfolio/${portfolio.id}/analytics`} className="fhis-btn">
+                Analytics
+              </Link>
             </div>
           </article>
         ))}

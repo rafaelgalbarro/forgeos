@@ -4,31 +4,38 @@ import { useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/fhis/Input";
 import { Button } from "@/components/ui/fhis/Button";
-import { forgotPassword, verifyEmail } from "@/lib/auth";
 
+/**
+ * Requests a Resend password-reset email via /api/auth/forgot-password.
+ */
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
   const [message, setMessage] = useState("");
-  const [demoToken, setDemoToken] = useState<string | undefined>();
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleForgot(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const result = await forgotPassword(email);
-    setLoading(false);
-    setMessage(result.message);
-    setDemoToken(result.demoToken);
-  }
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
-    if (!token.trim()) return;
-    setLoading(true);
-    const result = await verifyEmail(token.trim());
-    setLoading(false);
-    setMessage(result.message);
+    setError("");
+    setMessage("");
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await res.json()) as { success?: boolean; message?: string };
+      if (!res.ok || !data.success) {
+        setError(data.message ?? "No se pudo enviar el email.");
+      } else {
+        setMessage(data.message ?? "Revisa tu bandeja de entrada.");
+      }
+    } catch {
+      setError("Error de red al solicitar el reset.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -37,32 +44,17 @@ export function ForgotPasswordForm() {
         <Input
           label="Email"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
         <Button type="submit" disabled={loading}>
-          Enviar instrucciones
+          {loading ? "Enviando…" : "Enviar enlace de recuperación"}
         </Button>
       </form>
-      <hr className="fhis-auth-divider" />
-      <form onSubmit={handleVerify}>
-        <Input
-          label="Token verificación email (demo)"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          hint="Pega el token recibido al registrarte"
-        />
-        <Button type="submit" variant="secondary" disabled={loading}>
-          Verificar email
-        </Button>
-      </form>
-      {demoToken && (
-        <p className="fhis-auth-hint">
-          Token demo reset: <code>{demoToken}</code>
-        </p>
-      )}
-      {message && <p className="fhis-auth-success">{message}</p>}
+      {error ? <p className="fhis-auth-error">{error}</p> : null}
+      {message ? <p className="fhis-auth-success">{message}</p> : null}
       <p className="fhis-auth-links">
         <Link href="/login">Volver a login</Link>
       </p>

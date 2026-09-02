@@ -89,27 +89,43 @@ export async function POST(req: NextRequest) {
     // Stale PreSubmitted/Submitted cancel runs inside TradingEngine.runCycle()
 
     const body = await req.json().catch(() => ({})) as { tickers?: string[] }
-    const universe = await resolveTradingCycleTickersAsync(400)
-    const requested: string[] = Array.isArray(body.tickers) && body.tickers.length > 0
-      ? body.tickers
-      : universe.tickers
-    const queued = popCycleQueue()
-    const tickers = [...new Set([...queued, ...requested])]
+    const explicitTickers = Array.isArray(body.tickers) && body.tickers.length > 0
+    let tickers: string[]
+    let universeSize = 0
 
-    console.log(
-      `[TradingCycle] 🚀 Iniciando ciclo con ${tickers.length} tickers (source=${universe.source} universe=${universe.universeSize}):`,
-      tickers.slice(0, 20),
-      tickers.length > 20 ? `…(+${tickers.length - 20})` : '',
-      queued.length ? `(cola Telegram ${queued.join(",")})` : "",
-    )
+    if (explicitTickers) {
+      tickers = [
+        ...new Set(
+          body.tickers!
+            .map((t) => t.trim().toUpperCase())
+            .filter(Boolean),
+        ),
+      ]
+      universeSize = tickers.length
+      console.log(
+        `[TradingCycle] 🚀 Ciclo EXPLÍCITO con ${tickers.length} tickers (sin universo):`,
+        tickers,
+      )
+    } else {
+      const universe = await resolveTradingCycleTickersAsync(400)
+      const queued = popCycleQueue()
+      tickers = [...new Set([...queued, ...universe.tickers])]
+      universeSize = universe.universeSize
+      console.log(
+        `[TradingCycle] 🚀 Iniciando ciclo con ${tickers.length} tickers (source=${universe.source} universe=${universe.universeSize}):`,
+        tickers.slice(0, 20),
+        tickers.length > 20 ? `…(+${tickers.length - 20})` : '',
+        queued.length ? `(cola Telegram ${queued.join(",")})` : "",
+      )
+    }
 
-    const result = await engine.runCycle(tickers)
+    const result = await engine.runCycle(tickers, { explicitTickers })
 
     const daily = getDailyMarketUniverse()
     void sendCyclePremiumReport(result, {
       analyzed: tickers.length,
-      universeScanned: daily?.screenerCount ?? universe.universeSize,
-      universeFiltered: daily?.tickers.length ?? universe.universeSize,
+      universeScanned: daily?.screenerCount ?? universeSize,
+      universeFiltered: daily?.tickers.length ?? universeSize,
     }).catch((err) => console.warn('[TradingCycle] Premium report failed:', err))
 
     // Guardar en memoria global para el dashboard (en prod usar DB)

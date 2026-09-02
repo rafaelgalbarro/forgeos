@@ -7,9 +7,11 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import type { OhlcvBar } from "@/lib/market-data/types";
+import { getHistory as getEodhdHistory, isEodhdConfigured } from "@/lib/market-data/eodhd";
 import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
 import { getOrSetIbkrCached, ibkrCacheKey } from "@/lib/trading/ibkr-cache";
 import { IBKR_CRYPTO_SEC_TYPE, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
+import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 
 export type IbkrBarSize = "1 min" | "5 mins" | "15 mins" | "1 hour" | "1 day";
 
@@ -100,12 +102,46 @@ export async function ibkrHistorical(
   }, ttlForBar(bar));
 }
 
-/** Daily bars for swing indicators (EMA200 needs ~1Y). */
+/** Daily bars for swing indicators (EMA200 needs ~1Y / 252 sessions). */
 export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
+  const ticker = symbol.trim().toUpperCase();
+  const allowed = (TRADING_CONFIG.allowedTickers as readonly string[]).includes(ticker);
+
+  async function loadEodhdBars(): Promise<OhlcvBar[]> {
+    if (!isEodhdConfigured()) return [];
+    const rows = await getEodhdHistory(ticker, 400);
+    return rows
+      .map((r) => ({
+        open: r.open,
+        high: r.high,
+        low: r.low,
+        close: r.close,
+        volume: r.volume,
+        date: r.date,
+      }))
+      .filter((b) => b.date && b.close > 0);
+  }
+
+  if (allowed) {
+    const eodhd = await loadEodhdBars();
+    if (eodhd.length >= 20) {
+      console.log(`[History] ${ticker}: EODHD directo (${eodhd.length} barras)`);
+      return eodhd;
+    }
+  }
+
   const year = await ibkrHistorical(symbol, "1 Y", "1 day");
   if (year.length >= 50) return year;
+
+  const eodhd = await loadEodhdBars();
+  if (eodhd.length >= 20) {
+    console.log(`[History] ${ticker}: fallback EODHD (${eodhd.length} barras, IBKR=${year.length})`);
+    return eodhd;
+  }
+
   const sixty = await ibkrHistorical(symbol, "60 D", "1 day");
-  return sixty.length > year.length ? sixty : year;
+  if (sixty.length > year.length) return sixty;
+  return year.length > 0 ? year : eodhd;
 }
 
 /** Intraday 5-min bars for VWAP / momentum. */

@@ -15,7 +15,7 @@ import {
 import { registerExecutedPosition } from './position-monitor'
 import { evaluateProStrategies, capitalPctFromConfidence } from './strategies/pro-strategies'
 import { getMacroContext } from '@/lib/market-data/macro-context'
-import { notifyPreTradeHold } from '@/lib/notifications/telegram-bot'
+import { notifyPreTradeHold, notifyPendingApproval } from '@/lib/notifications/telegram-bot'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -80,10 +80,12 @@ import {
   isAlpacaTicker,
   isAlpacaCryptoTicker,
   isAlpacaForexTicker,
+  toAlpacaCryptoPairId,
   ALPACA_CRYPTO_ORDER_NOTIONAL_USD,
   ALPACA_FOREX_ORDER_UNITS,
   alpacaAssetClass,
 } from '@/lib/brokers/alpaca-pairs'
+import { getQuote as getEodhdQuote } from '@/lib/market-data/eodhd'
 import {
   getPrice as getAlpacaPrice,
   getPositions as getAlpacaPositions,
@@ -179,6 +181,7 @@ function markTimeoutSkip(ticker: string): void {
 }
 
 function isTimeoutSkipped(ticker: string): boolean {
+  if (isAlpacaCryptoTicker(ticker) || isIbkrCryptoTicker(ticker)) return false
   const key = ticker.trim().toUpperCase()
   const until = timeoutSkipUntil.get(key)
   if (until == null) return false
@@ -360,7 +363,10 @@ export class TradingEngine {
    * Llamado por el API route de Next.js cada X minutos.
    * Ã“rdenes vÃ¡lidas quedan en PENDING_APPROVAL (no se ejecutan automÃ¡ticamente).
    */
-  async runCycle(tickers: string[]): Promise<TradeCycleResult> {
+  async runCycle(
+    tickers: string[],
+    options?: { explicitTickers?: boolean },
+  ): Promise<TradeCycleResult> {
     if (!TradingEngine.tryAcquireCycle()) {
       throw new Error('cycle already running')
     }
@@ -371,7 +377,7 @@ export class TradingEngine {
 
     try {
       return await Promise.race([
-        this.runCycleBody(tickers, cycleId, startedAt),
+        this.runCycleBody(tickers, cycleId, startedAt, options),
         new Promise<TradeCycleResult>((_, reject) => {
           setTimeout(
             () => reject(new Error(`Ciclo timeout ${CYCLE_TIMEOUT_MS}ms`)),
@@ -388,6 +394,7 @@ export class TradingEngine {
     tickers: string[],
     cycleId: string,
     startedAt: string,
+    options?: { explicitTickers?: boolean },
   ): Promise<TradeCycleResult> {
     const orders: OrderResult[] = []
 
@@ -416,8 +423,13 @@ export class TradingEngine {
       }
     }
 
-    // 3. Universo: MarketScanner opcional → si pool=0, IBKR scanner directo
-    const seedTickers = await this.resolveCycleSeedTickers(tickers)
+    // 3. Universo: explícito del POST, o MarketScanner + IBKR scanner
+    const seedTickers = options?.explicitTickers
+      ? [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))].slice(
+          0,
+          maxCycleTickers(),
+        )
+      : await this.resolveCycleSeedTickers(tickers)
     const scoped = selectTickersForOpenMarkets(seedTickers)
     if (scoped.tickers.length === 0) {
       console.log(
@@ -757,20 +769,34 @@ export class TradingEngine {
       }
     }
 
-    console.log(`[AutoExecute] ${ticker} → precio Alpaca (${asset})…`)
-    let quote: Awaited<ReturnType<typeof getAlpacaPrice>>
+    console.log(`[AutoExecute] ${ticker} → precio ${asset === 'forex' ? 'EODHD' : 'Alpaca'} (${asset})…`)
+    let quote: { price: number; source: string }
     try {
-      quote = await getAlpacaPrice(ticker)
-      console.log(`[AutoExecute] ${ticker} → Alpaca $${quote.price.toFixed(asset === 'forex' ? 5 : 2)} (${quote.source})`)
+      if (asset === 'forex') {
+        const eod = await getEodhdQuote(ticker)
+        if (!eod || !(eod.price > 0)) {
+          throw new Error('precio EODHD forex no disponible')
+        }
+        quote = { price: eod.price, source: eod.source }
+        console.log(
+          `[AutoExecute] ${ticker} → EODHD $${quote.price.toFixed(5)} (${quote.source})`,
+        )
+      } else {
+        const alpaca = await getAlpacaPrice(ticker)
+        quote = { price: alpaca.price, source: alpaca.source }
+        console.log(
+          `[AutoExecute] ${ticker} → Alpaca $${quote.price.toFixed(2)} (${quote.source})`,
+        )
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'precio Alpaca no disponible'
-      console.log(`[AutoExecute] ${ticker} → skip Alpaca: ${msg}`)
+      const msg = err instanceof Error ? err.message : 'precio no disponible'
+      console.log(`[AutoExecute] ${ticker} → skip: ${msg}`)
       return {
         status: 'SKIPPED',
         ticker,
         direction: 'HOLD',
-        reason: msg,
-        signal: { confidence: 0, reasoning: 'Sin precio Alpaca', urgency: 'LOW' },
+        reason: asset === 'forex' ? `${ticker}: sin precio forex EODHD` : msg,
+        signal: { confidence: 0, reasoning: 'Sin precio', urgency: 'LOW' },
         timestamp: new Date().toISOString(),
       }
     }
@@ -833,20 +859,29 @@ export class TradingEngine {
 
     if (execGate) execGate.enteredAutoExecute = true
     try {
-      const submitted =
-        asset === 'crypto'
-          ? await placeAlpacaOrder({
-              symbol: ticker,
-              side: 'buy',
-              type: 'market',
-              notional: ALPACA_CRYPTO_ORDER_NOTIONAL_USD,
-            })
-          : await placeAlpacaOrder({
-              symbol: ticker,
-              side: 'buy',
-              type: 'market',
-              qty: ALPACA_FOREX_ORDER_UNITS,
-            })
+      if (asset === 'forex') {
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `${ticker}: señal forex (EODHD) — ejecución Alpaca paper no soportada`,
+          signal: {
+            confidence: signal.confidence,
+            reasoning: signal.reasoning,
+            urgency: signal.urgency,
+          },
+          timestamp: new Date().toISOString(),
+          stopLoss: signal.stopLoss,
+          takeProfit: signal.takeProfit,
+        }
+      }
+
+      const submitted = await placeAlpacaOrder({
+        symbol: ticker,
+        side: 'buy',
+        type: 'market',
+        notional: ALPACA_CRYPTO_ORDER_NOTIONAL_USD,
+      })
 
       console.log(
         `[AutoExecute] ${ticker} → Alpaca PAPER ${submitted.side} ${submitted.symbol} id=${submitted.id} status=${submitted.status}`,
@@ -890,6 +925,15 @@ export class TradingEngine {
     },
     execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
   ): Promise<OrderResult> {
+    const alpacaCryptoId = toAlpacaCryptoPairId(ticker)
+    if (alpacaCryptoId) {
+      return this.processAlpacaTicker(alpacaCryptoId, account, execGate)
+    }
+
+    if (isAlpacaForexTicker(ticker)) {
+      return this.processAlpacaTicker(ticker, account, execGate)
+    }
+
     if (isAlpacaTicker(ticker)) {
       return this.processAlpacaTicker(ticker, account, execGate)
     }
@@ -1387,6 +1431,47 @@ export class TradingEngine {
 
     incrementAutoApprovalCount()
     if (execGate) execGate.enteredAutoExecute = true
+
+    if (TRADING_CONFIG.semiAutomatic.telegramApprovalRequired) {
+      console.log(
+        `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → PENDING_APPROVAL (Telegram)`,
+      )
+      void notifyPendingApproval({
+        ticker,
+        direction: 'BUY',
+        entry: priceData.currentPrice,
+        stopLoss: effectiveStopLoss,
+        takeProfit: effectiveTakeProfit,
+        confidence: signal.confidence,
+        approvalId: pending.approvalId,
+        shares: resolvedShares,
+        orderValueUSD,
+        reasoning: signal.reasoning,
+      }).catch((err) => {
+        console.warn(
+          '[TradingEngine] notifyPendingApproval error:',
+          err instanceof Error ? err.message : err,
+        )
+      })
+      return {
+        status: 'PENDING_APPROVAL',
+        approvalId: pending.approvalId,
+        ticker,
+        direction: 'BUY',
+        sharesOrValue: resolvedShares,
+        price: priceData.currentPrice,
+        reason: signal.reasoning,
+        signal: {
+          confidence: signal.confidence,
+          reasoning: signal.reasoning,
+          urgency: signal.urgency,
+        },
+        timestamp: new Date().toISOString(),
+        stopLoss: effectiveStopLoss,
+        takeProfit: effectiveTakeProfit,
+      }
+    }
+
     console.log(`[Signal] ${ticker} → auto-ejecutar`)
     console.log(
       `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → auto-ejecutar`,

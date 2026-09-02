@@ -2,6 +2,7 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { getIbkrPrice } from "@/lib/market-data/ibkr-prices";
+import { getQuote as getEodhdQuote, shouldSkipEodhdQuote } from "@/lib/market-data/eodhd";
 import {
   resolveLimitPriceFromQuote,
   type LiveLimitQuote,
@@ -158,12 +159,46 @@ export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSna
   );
 }
 
+const IBKR_PRICE_TIMEOUT_MS = 2_500;
+
+async function getIbkrPriceWithTimeout(symbol: string) {
+  return Promise.race([
+    getIbkrPrice(symbol),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), IBKR_PRICE_TIMEOUT_MS)),
+  ]);
+}
+
+function snapshotFromEodhd(symbol: string, eod: NonNullable<Awaited<ReturnType<typeof getEodhdQuote>>>): TradingPriceSnapshot {
+  const bid = eod.low > 0 && eod.high > 0 ? Math.min(eod.price, (eod.high + eod.low) / 2) : eod.price;
+  const ask = eod.high > 0 && eod.low > 0 ? Math.max(eod.price, (eod.high + eod.low) / 2) : eod.price;
+  return {
+    ticker: symbol,
+    currentPrice: eod.price,
+    previousClose: eod.previousClose,
+    bid,
+    ask,
+    change1d: eod.change,
+    high52w: eod.high52w,
+    low52w: eod.low52w,
+    volume: eod.volume,
+    changePercentage: eod.changePercentage,
+    quoteSymbol: symbol,
+    quoteExchange: "EODHD",
+    quoteCurrency: "USD",
+    quoteRoute: "EODHD-REALTIME",
+    quoteErrors: [],
+  };
+}
+
 async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapshot> {
   const symbol = ticker.trim().toUpperCase();
   const quoteErrors: string[] = [];
 
-  // IBKR market-data only — no FMP (quota exhausted)
-  const ibkr = await getIbkrPrice(symbol);
+  if (shouldSkipEodhdQuote(symbol)) {
+    throw new Error(`sin precio — ticker ${symbol} en lista de ignorados EODHD`);
+  }
+
+  const ibkr = await getIbkrPriceWithTimeout(symbol);
   if (ibkr && ibkr.price > 0) {
     console.log(
       `[Universe] ${symbol} precio IBKR $${ibkr.price.toFixed(2)} via ${ibkr.exchange}/${ibkr.currency}`,
@@ -177,7 +212,7 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
       change1d: 0,
       high52w: ibkr.price,
       low52w: ibkr.price,
-      volume: 0,
+      volume: ibkr.volume ?? 0,
       changePercentage: 0,
       quoteSymbol: symbol,
       quoteExchange: ibkr.exchange,
@@ -186,8 +221,17 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
       quoteErrors,
     };
   }
-  quoteErrors.push("IBKR: no price");
-  throw new Error(`sin precio IBKR — skip (${quoteErrors.join("; ")})`);
+  quoteErrors.push(`IBKR: no price within ${IBKR_PRICE_TIMEOUT_MS}ms`);
+
+  const eod = await getEodhdQuote(symbol);
+  if (eod && eod.price > 0) {
+    console.log(
+      `[Universe] ${symbol} precio EODHD $${eod.price.toFixed(2)} Δ${eod.changePercentage.toFixed(2)}% (IBKR timeout)`,
+    );
+    return snapshotFromEodhd(symbol, eod);
+  }
+  quoteErrors.push("EODHD: no price");
+  throw new Error(`sin precio IBKR/EODHD — skip (${quoteErrors.join("; ")})`);
 }
 
 export async function fetchTradingPosition(

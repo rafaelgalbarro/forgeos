@@ -193,6 +193,43 @@ export async function notifySignalDetected(payload: SignalTelegramPayload): Prom
   );
 }
 
+/** Pending approval — always sent when TELEGRAM_APPROVAL_REQUIRED=true. */
+export async function notifyPendingApproval(
+  payload: SignalTelegramPayload & { approvalId: string },
+): Promise<void> {
+  const { enabled } = cfg();
+  if (!enabled) {
+    console.warn("[Telegram] notifyPendingApproval omitido — bot no configurado");
+    return;
+  }
+
+  const entryFmt =
+    payload.entry >= 1 ? payload.entry.toFixed(2) : payload.entry.toFixed(5);
+  const slFmt =
+    payload.stopLoss >= 1 ? payload.stopLoss.toFixed(2) : payload.stopLoss.toFixed(5);
+  const tpFmt =
+    payload.takeProfit >= 1 ? payload.takeProfit.toFixed(2) : payload.takeProfit.toFixed(5);
+
+  const lines = [
+    "🔔 <b>APROBACIÓN REQUERIDA</b>",
+    `<b>${payload.ticker}</b> ${payload.direction}`,
+    `Entrada: $${entryFmt}`,
+    `SL: $${slFmt} | TP: $${tpFmt}`,
+    `Confianza: ${(payload.confidence * 100).toFixed(0)}%`,
+    payload.shares != null ? `Qty: ${payload.shares}` : null,
+    payload.orderValueUSD != null ? `Valor: $${payload.orderValueUSD.toFixed(2)}` : null,
+    payload.reasoning ? `📝 ${payload.reasoning.slice(0, 300)}` : null,
+    `ID: <code>${payload.approvalId}</code>`,
+  ].filter((line): line is string => Boolean(line));
+
+  await sendTelegramMessage(lines.join("\n"), [
+    [
+      { text: "✅ Aprobar", callback_data: `approve:${payload.approvalId}` },
+      { text: "❌ Rechazar", callback_data: `reject:${payload.approvalId}` },
+    ],
+  ]);
+}
+
 /** Circuit breaker — solo alerta crítica si pérdida ≥10% NAV. */
 export async function notifyCircuitBreaker(dailyLossPct: number): Promise<void> {
   if (!(dailyLossPct >= 10)) {

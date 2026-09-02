@@ -14,7 +14,13 @@ export const ALPACA_CRYPTO_PAIRS = [
   "BTCUSD",
   "ETHUSD",
   "SOLUSD",
+  "AVAXUSD",
+  "DOGEUSD",
   "XRPUSD",
+  "ADAUSD",
+  "LINKUSD",
+  "LTCUSD",
+  "BCHUSD",
 ] as const;
 
 /** @deprecated use ALPACA_FOREX_PAIRS */
@@ -40,7 +46,13 @@ const CRYPTO_SLASH: Record<string, string> = {
   BTCUSD: "BTC/USD",
   ETHUSD: "ETH/USD",
   SOLUSD: "SOL/USD",
+  AVAXUSD: "AVAX/USD",
+  DOGEUSD: "DOGE/USD",
   XRPUSD: "XRP/USD",
+  ADAUSD: "ADA/USD",
+  LINKUSD: "LINK/USD",
+  LTCUSD: "LTC/USD",
+  BCHUSD: "BCH/USD",
 };
 
 export function normalizeAlpacaTicker(ticker: string): string {
@@ -68,6 +80,15 @@ export function toAlpacaForexDisplay(pairId: string): string {
 export function toAlpacaCryptoSymbol(pairId: string): string {
   const id = normalizeAlpacaTicker(pairId);
   return CRYPTO_SLASH[id] ?? id;
+}
+
+/** Map BTC / BTCUSD / BTCUSDT → BTCUSD when Alpaca supports the pair. */
+export function toAlpacaCryptoPairId(ticker: string): string | null {
+  const id = normalizeAlpacaTicker(ticker);
+  if (CRYPTO_SET.has(id)) return id;
+  const base = id.endsWith("USDT") && id.length > 4 ? id.slice(0, -4) : id.endsWith("USD") && id.length > 3 ? id.slice(0, -3) : id;
+  const pairId = `${base}USD`;
+  return CRYPTO_SET.has(pairId) ? pairId : null;
 }
 
 export function alpacaAssetClass(ticker: string): "forex" | "crypto" | null {

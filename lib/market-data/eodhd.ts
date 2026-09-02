@@ -258,3 +258,61 @@ export async function getHistory(ticker: string, days = 180): Promise<EodhdBar[]
 export function getEodhdQuotesTtlMs(): number {
   return QUOTES_TTL_MS;
 }
+
+export type EodhdScreenerRow = {
+  symbol: string;
+  changePct: number;
+  volume: number;
+  price: number;
+};
+
+/** US screener — top gainers with volume/price filters (cached 3 min). */
+export async function screenerUsGainers(options?: {
+  minVolume?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  limit?: number;
+}): Promise<EodhdScreenerRow[]> {
+  const minVolume = options?.minVolume ?? 500_000;
+  const minPrice = options?.minPrice ?? 5;
+  const maxPrice = options?.maxPrice ?? 500;
+  const limit = options?.limit ?? 100;
+  if (!isEodhdConfigured()) return [];
+
+  const cacheId = cacheKey("eodhd-screener-us", String(minVolume), String(limit));
+  const hit = getCached<EodhdScreenerRow[]>(cacheId);
+  if (hit) return hit;
+
+  const filters = JSON.stringify([
+    ["exchange", "=", "US"],
+    ["volume", ">", minVolume],
+    ["adjusted_close", ">", minPrice],
+    ["adjusted_close", "<", maxPrice],
+  ]);
+  const rows = await eodhdFetch<
+    Array<{
+      code?: string;
+      close?: number;
+      adjusted_close?: number;
+      change_p?: number;
+      volume?: number;
+    }>
+  >(
+    `/screener?filters=${encodeURIComponent(filters)}&sort=change_p.desc&limit=${limit}`,
+  );
+
+  const out = (rows ?? [])
+    .map((r) => {
+      const code = String(r.code ?? "").trim().toUpperCase();
+      const symbol = code.includes(".") ? code.split(".")[0]! : code;
+      const price = Number(r.adjusted_close ?? r.close ?? 0);
+      const volume = Number(r.volume ?? 0);
+      const changePct = Number(r.change_p ?? 0);
+      if (!symbol || !(price > 0)) return null;
+      return { symbol, changePct, volume, price };
+    })
+    .filter((r): r is EodhdScreenerRow => r != null);
+
+  if (out.length > 0) setCached(cacheId, out, QUOTES_TTL_MS);
+  return out;
+}

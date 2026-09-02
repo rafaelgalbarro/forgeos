@@ -195,13 +195,16 @@ export async function notifySignalDetected(payload: SignalTelegramPayload): Prom
 
 /** Pending approval — always sent when TELEGRAM_APPROVAL_REQUIRED=true. */
 export async function notifyPendingApproval(
-  payload: SignalTelegramPayload & { approvalId: string },
+  payload: SignalTelegramPayload & { approvalId: string; cycleChannel?: string },
 ): Promise<void> {
   const { enabled } = cfg();
   if (!enabled) {
     console.warn("[Telegram] notifyPendingApproval omitido — bot no configurado");
     return;
   }
+
+  const channel = payload.cycleChannel?.trim();
+  const channelLine = channel ? `[${channel.toUpperCase()}] ` : "";
 
   const entryFmt =
     payload.entry >= 1 ? payload.entry.toFixed(2) : payload.entry.toFixed(5);
@@ -211,7 +214,7 @@ export async function notifyPendingApproval(
     payload.takeProfit >= 1 ? payload.takeProfit.toFixed(2) : payload.takeProfit.toFixed(5);
 
   const lines = [
-    "🔔 <b>APROBACIÓN REQUERIDA</b>",
+    `${channelLine}🔔 <b>APROBACIÓN REQUERIDA</b>`,
     `<b>${payload.ticker}</b> ${payload.direction}`,
     `Entrada: $${entryFmt}`,
     `SL: $${slFmt} | TP: $${tpFmt}`,
@@ -228,6 +231,55 @@ export async function notifyPendingApproval(
       { text: "❌ Rechazar", callback_data: `reject:${payload.approvalId}` },
     ],
   ]);
+}
+
+const CYCLE_CHANNEL_LABEL: Record<string, string> = {
+  stocks: "📈 STOCKS",
+  crypto: "₿ CRYPTO",
+  forex: "💱 FOREX",
+};
+
+/** Summary Telegram after typed cycle (stocks / crypto / forex). */
+export async function notifyTypedCycleComplete(params: {
+  channel: "stocks" | "crypto" | "forex";
+  result: {
+    cycleId: string;
+    orders: Array<{
+      ticker: string;
+      status: string;
+      direction: string;
+      signal?: { confidence?: number };
+    }>;
+  };
+  tickers: string[];
+}): Promise<void> {
+  const { enabled } = cfg();
+  if (!enabled) return;
+
+  const label = CYCLE_CHANNEL_LABEL[params.channel] ?? params.channel.toUpperCase();
+  const buySignals = params.result.orders.filter(
+    (o) => o.direction === "BUY" && o.status !== "SKIPPED",
+  );
+  const pending = params.result.orders.filter((o) => o.status === "PENDING_APPROVAL");
+  const executed = params.result.orders.filter((o) => o.status === "EXECUTED");
+  const holds = params.result.orders.filter((o) => o.status === "HOLD").length;
+
+  const highlights = buySignals
+    .slice(0, 5)
+    .map(
+      (o) =>
+        `• ${o.ticker} ${o.status} conf=${((o.signal?.confidence ?? 0) * 100).toFixed(0)}%`,
+    );
+
+  const lines = [
+    `${label} <b>Ciclo completado</b>`,
+    `ID: <code>${params.result.cycleId}</code>`,
+    `Analizados: ${params.tickers.length} | BUY: ${buySignals.length} | HOLD: ${holds}`,
+    `Pendientes: ${pending.length} | Ejecutados: ${executed.length}`,
+    highlights.length ? highlights.join("\n") : "Sin señales BUY destacadas",
+  ];
+
+  await sendTelegramMessage(lines.join("\n"));
 }
 
 /** Circuit breaker — solo alerta crítica si pérdida ≥10% NAV. */

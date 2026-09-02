@@ -8,6 +8,7 @@ export const ALPACA_FOREX_PAIRS = [
   "USDJPY",
   "AUDUSD",
   "USDCHF",
+  "USDCAD",
 ] as const;
 
 export const ALPACA_CRYPTO_PAIRS = [
@@ -23,10 +24,8 @@ export const ALPACA_CRYPTO_PAIRS = [
   "BCHUSD",
 ] as const;
 
-/** @deprecated use ALPACA_FOREX_PAIRS */
-export const FOREX_PAIRS = ALPACA_FOREX_PAIRS;
-/** @deprecated use ALPACA_CRYPTO_PAIRS */
-export const CRYPTO_PAIRS = ALPACA_CRYPTO_PAIRS;
+export const FOREX_CYCLE_PAIRS = ALPACA_FOREX_PAIRS;
+export const CRYPTO_CYCLE_PAIRS = ALPACA_CRYPTO_PAIRS;
 
 export type AlpacaForexPairId = (typeof ALPACA_FOREX_PAIRS)[number];
 export type AlpacaCryptoPairId = (typeof ALPACA_CRYPTO_PAIRS)[number];
@@ -40,6 +39,7 @@ const FOREX_DISPLAY: Record<string, string> = {
   USDJPY: "USD/JPY",
   AUDUSD: "AUD/USD",
   USDCHF: "USD/CHF",
+  USDCAD: "USD/CAD",
 };
 
 const CRYPTO_SLASH: Record<string, string> = {

@@ -101,8 +101,15 @@ export const CYCLE_TIMEOUT_MS = 45 * 1000;
 /** Explicit POST cycle wall-clock cap. */
 export const EXPLICIT_CYCLE_TIMEOUT_MS = 30 * 1000;
 
+export type CycleKind = "auto" | "explicit" | "stocks" | "crypto" | "forex";
+
 export type RunCycleOptions = {
   explicitTickers?: boolean;
+  cycleKind?: CycleKind;
+  /** Minimum BUY confidence before enqueue / Telegram (default 0.70 auto, 0.65 typed). */
+  minBuyConfidence?: number;
+  /** Forex cycle — signal only, no IBKR/Alpaca execution. */
+  analysisOnly?: boolean;
 };
 
 /** Analyze up to 20 tickers per automatic cycle; explicit cycles are uncapped. */
@@ -290,52 +297,101 @@ export class TradingEngine {
   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 60_000
   private static readonly CYCLE_CONCURRENCY = 3
 
-  private static cycleLock = { running: false, startedAt: 0, cycleId: '' as string }
-  private static explicitCycleLock = { running: false, startedAt: 0, cycleId: '' as string }
+  private static cycleLock = { running: false, startedAt: 0, cycleId: "" as string };
+  private static explicitCycleLock = { running: false, startedAt: 0, cycleId: "" as string };
+  private static stocksCycleLock = { running: false, startedAt: 0, cycleId: "" as string };
+  private static cryptoCycleLock = { running: false, startedAt: 0, cycleId: "" as string };
+  private static forexCycleLock = { running: false, startedAt: 0, cycleId: "" as string };
 
-  private static lockFor(explicit: boolean) {
-    return explicit ? TradingEngine.explicitCycleLock : TradingEngine.cycleLock
+  static resolveCycleKind(options?: RunCycleOptions): CycleKind {
+    if (options?.cycleKind) return options.cycleKind;
+    if (options?.explicitTickers) return "explicit";
+    return "auto";
   }
 
-  private static timeoutFor(explicit: boolean) {
-    return explicit ? EXPLICIT_CYCLE_TIMEOUT_MS : CYCLE_TIMEOUT_MS
+  private static lockFor(kind: CycleKind) {
+    switch (kind) {
+      case "explicit":
+        return TradingEngine.explicitCycleLock;
+      case "stocks":
+        return TradingEngine.stocksCycleLock;
+      case "crypto":
+        return TradingEngine.cryptoCycleLock;
+      case "forex":
+        return TradingEngine.forexCycleLock;
+      default:
+        return TradingEngine.cycleLock;
+    }
   }
 
-  /** Acquire automatic or explicit cycle mutex (independent locks). */
-  static tryAcquireCycle(explicit = false): boolean {
-    const lock = TradingEngine.lockFor(explicit)
-    const timeoutMs = TradingEngine.timeoutFor(explicit)
-    const now = Date.now()
+  private static timeoutFor(kind: CycleKind) {
+    if (kind === "explicit") return EXPLICIT_CYCLE_TIMEOUT_MS;
+    return CYCLE_TIMEOUT_MS;
+  }
+
+  /** Acquire cycle mutex — each CycleKind has an independent lock. */
+  static tryAcquireCycleKind(kind: CycleKind): boolean {
+    const lock = TradingEngine.lockFor(kind);
+    const timeoutMs = TradingEngine.timeoutFor(kind);
+    const now = Date.now();
     if (lock.running && now - lock.startedAt > timeoutMs) {
       console.warn(
-        `[TradingCycle] ${explicit ? 'Explícito' : 'Automático'} bloqueado >${timeoutMs / 1000}s — liberando ${lock.cycleId || 'unknown'}`,
-      )
-      TradingEngine.releaseCycle(explicit)
+        `[TradingCycle] ${kind} bloqueado >${timeoutMs / 1000}s — liberando ${lock.cycleId || "unknown"}`,
+      );
+      TradingEngine.releaseCycleKind(kind);
     }
-    if (lock.running) return false
-    lock.running = true
-    lock.startedAt = now
-    lock.cycleId = ''
-    return true
+    if (lock.running) return false;
+    lock.running = true;
+    lock.startedAt = now;
+    lock.cycleId = "";
+    return true;
   }
 
+  static releaseCycleKind(kind: CycleKind): void {
+    const lock = TradingEngine.lockFor(kind);
+    lock.running = false;
+    lock.startedAt = 0;
+    lock.cycleId = "";
+  }
+
+  /** @deprecated use tryAcquireCycleKind */
+  static tryAcquireCycle(explicit = false): boolean {
+    return TradingEngine.tryAcquireCycleKind(explicit ? "explicit" : "auto");
+  }
+
+  /** @deprecated use releaseCycleKind */
   static releaseCycle(explicit = false): void {
-    const lock = TradingEngine.lockFor(explicit)
-    lock.running = false
-    lock.startedAt = 0
-    lock.cycleId = ''
+    TradingEngine.releaseCycleKind(explicit ? "explicit" : "auto");
   }
 
   static isCycleRunning(): boolean {
-    return TradingEngine.cycleLock.running || TradingEngine.explicitCycleLock.running
+    return (
+      TradingEngine.cycleLock.running ||
+      TradingEngine.explicitCycleLock.running ||
+      TradingEngine.stocksCycleLock.running ||
+      TradingEngine.cryptoCycleLock.running ||
+      TradingEngine.forexCycleLock.running
+    );
   }
 
   static isAutoCycleRunning(): boolean {
-    return TradingEngine.cycleLock.running
+    return TradingEngine.cycleLock.running;
   }
 
   static isExplicitCycleRunning(): boolean {
-    return TradingEngine.explicitCycleLock.running
+    return TradingEngine.explicitCycleLock.running;
+  }
+
+  static isStocksCycleRunning(): boolean {
+    return TradingEngine.stocksCycleLock.running;
+  }
+
+  static isCryptoCycleRunning(): boolean {
+    return TradingEngine.cryptoCycleLock.running;
+  }
+
+  static isForexCycleRunning(): boolean {
+    return TradingEngine.forexCycleLock.running;
   }
 
   private static async withTickerTimeout<T>(
@@ -368,16 +424,16 @@ export class TradingEngine {
     tickers: string[],
     options?: RunCycleOptions,
   ): Promise<TradeCycleResult> {
-    const explicit = options?.explicitTickers ?? false
-    if (!TradingEngine.tryAcquireCycle(explicit)) {
-      throw new Error(explicit ? 'explicit cycle already running' : 'cycle already running')
+    const kind = TradingEngine.resolveCycleKind(options)
+    if (!TradingEngine.tryAcquireCycleKind(kind)) {
+      throw new Error(`${kind} cycle already running`)
     }
 
-    const cycleId = `${explicit ? 'explicit' : 'auto'}_${Date.now()}`
-    const lock = TradingEngine.lockFor(explicit)
+    const cycleId = `${kind}_${Date.now()}`
+    const lock = TradingEngine.lockFor(kind)
     lock.cycleId = cycleId
     const startedAt = new Date().toISOString()
-    const timeoutMs = TradingEngine.timeoutFor(explicit)
+    const timeoutMs = TradingEngine.timeoutFor(kind)
 
     try {
       return await Promise.race([
@@ -390,7 +446,7 @@ export class TradingEngine {
         }),
       ])
     } finally {
-      TradingEngine.releaseCycle(explicit)
+      TradingEngine.releaseCycleKind(kind)
     }
   }
 
@@ -427,15 +483,21 @@ export class TradingEngine {
       }
     }
 
-    const explicit = options?.explicitTickers ?? false
-    // Automatic: use pre-filtered universe as-is (max 20). Explicit: only POST tickers.
+    const kind = TradingEngine.resolveCycleKind(options)
+    const explicit = kind === "explicit"
     const seedTickers = explicit
       ? [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
       : [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))].slice(
           0,
-          MAX_AUTO_CYCLE_TICKERS,
+          kind === "stocks" || kind === "crypto" || kind === "forex"
+            ? MAX_AUTO_CYCLE_TICKERS
+            : MAX_AUTO_CYCLE_TICKERS,
         )
-    const scoped = selectTickersForOpenMarkets(seedTickers)
+
+    const scoped =
+      kind === "crypto" || kind === "forex"
+        ? { tickers: seedTickers, mode: kind }
+        : selectTickersForOpenMarkets(seedTickers)
     if (scoped.tickers.length === 0) {
       console.log(
         `[ProStrategy] Ciclo ${cycleId}: sin tickers (ni crypto); solo monitor de posiciones`,
@@ -451,11 +513,15 @@ export class TradingEngine {
       scoped.tickers.length > 0 ? scoped.tickers : seedTickers,
       explicit,
     )
-    const cycleOpts: RunCycleOptions = { explicitTickers: explicit }
+    const cycleOpts: RunCycleOptions = {
+      ...options,
+      cycleKind: kind,
+      explicitTickers: explicit,
+    }
     console.log(
-      `[ProStrategy] Ciclo ${cycleId}: modo=${explicit ? 'EXPLÍCITO' : 'AUTO'} session=${scoped.mode} ` +
+      `[ProStrategy] Ciclo ${cycleId}: kind=${kind} session=${scoped.mode} ` +
         `evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
-        `(max=${maxCycleTickers(explicit)}, EODHD, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(explicit) / 1000}s)`,
+        `(max=${maxCycleTickers(explicit)}, EODHD, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(kind) / 1000}s)`,
     )
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
@@ -753,6 +819,7 @@ export class TradingEngine {
       primaryAccountId?: string | null
     },
     execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
+    cycleOpts?: RunCycleOptions,
   ): Promise<OrderResult> {
     const asset = alpacaAssetClass(ticker)
     if (!asset) {
@@ -845,12 +912,13 @@ export class TradingEngine {
       }
     }
 
-    if (signal.confidence < TRADING_CONFIG.ai.minConfidenceToTrade) {
+    if (signal.confidence < (cycleOpts?.minBuyConfidence ?? TRADING_CONFIG.ai.minConfidenceToTrade)) {
+      const minConf = cycleOpts?.minBuyConfidence ?? TRADING_CONFIG.ai.minConfidenceToTrade
       return {
         status: 'REJECTED_CONFIDENCE',
         ticker,
         direction: 'BUY',
-        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mínimo ${(TRADING_CONFIG.ai.minConfidenceToTrade * 100).toFixed(0)}%`,
+        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mínimo ${(minConf * 100).toFixed(0)}%`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -934,17 +1002,59 @@ export class TradingEngine {
     execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
     cycleOpts?: RunCycleOptions,
   ): Promise<OrderResult> {
+    const kind = cycleOpts?.cycleKind ?? (cycleOpts?.explicitTickers ? "explicit" : "auto");
+
+    if (kind === "stocks") {
+      if (
+        isAlpacaCryptoTicker(ticker) ||
+        isAlpacaForexTicker(ticker) ||
+        isIbkrCryptoTicker(ticker) ||
+        toAlpacaCryptoPairId(ticker)
+      ) {
+        return {
+          status: "SKIPPED",
+          ticker,
+          direction: "HOLD",
+          reason: `${ticker}: fuera de ciclo stocks`,
+          signal: { confidence: 0, reasoning: "Non-stock ticker", urgency: "LOW" },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+
+    if (kind === "crypto" && !toAlpacaCryptoPairId(ticker)) {
+      return {
+        status: "SKIPPED",
+        ticker,
+        direction: "HOLD",
+        reason: `${ticker}: fuera de ciclo crypto`,
+        signal: { confidence: 0, reasoning: "Non-crypto ticker", urgency: "LOW" },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    if (kind === "forex" && !isAlpacaForexTicker(ticker)) {
+      return {
+        status: "SKIPPED",
+        ticker,
+        direction: "HOLD",
+        reason: `${ticker}: fuera de ciclo forex`,
+        signal: { confidence: 0, reasoning: "Non-forex ticker", urgency: "LOW" },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
     const alpacaCryptoId = toAlpacaCryptoPairId(ticker)
     if (alpacaCryptoId) {
-      return this.processAlpacaTicker(alpacaCryptoId, account, execGate)
+      return this.processAlpacaTicker(alpacaCryptoId, account, execGate, cycleOpts)
     }
 
     if (isAlpacaForexTicker(ticker)) {
-      return this.processAlpacaTicker(ticker, account, execGate)
+      return this.processAlpacaTicker(ticker, account, execGate, cycleOpts)
     }
 
     if (isAlpacaTicker(ticker)) {
-      return this.processAlpacaTicker(ticker, account, execGate)
+      return this.processAlpacaTicker(ticker, account, execGate, cycleOpts)
     }
 
     if (isTimeoutSkipped(ticker)) {
@@ -1147,16 +1257,17 @@ export class TradingEngine {
       }
     }
 
-    const isAutoCycle = !(cycleOpts?.explicitTickers ?? false)
-    if (
-      isAutoCycle &&
-      signal.confidence < AUTO_CYCLE_MIN_BUY_CONFIDENCE
-    ) {
+    const cycleKind = cycleOpts?.cycleKind ?? (cycleOpts?.explicitTickers ? "explicit" : "auto")
+    const minBuyThreshold =
+      cycleOpts?.minBuyConfidence ??
+      (cycleKind === "auto" ? AUTO_CYCLE_MIN_BUY_CONFIDENCE : 0.65)
+
+    if (cycleKind !== "explicit" && signal.confidence < minBuyThreshold) {
       return {
         status: 'HOLD',
         ticker,
         direction: 'HOLD',
-        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < umbral auto ${(AUTO_CYCLE_MIN_BUY_CONFIDENCE * 100).toFixed(0)}% (sin Telegram)`,
+        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < umbral ${(minBuyThreshold * 100).toFixed(0)}% (${cycleKind})`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -1382,6 +1493,19 @@ export class TradingEngine {
       }
     }
 
+    if (cycleOpts?.analysisOnly && signal.direction === 'BUY') {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `[Análisis forex] ${signal.reasoning}`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+        stopLoss: effectiveStopLoss,
+        takeProfit: effectiveTakeProfit,
+      }
+    }
+
     const pending = this.approvals.enqueue({
       ticker,
       direction: signal.direction,
@@ -1468,6 +1592,7 @@ export class TradingEngine {
         shares: resolvedShares,
         orderValueUSD,
         reasoning: signal.reasoning,
+        cycleChannel: cycleKind === 'stocks' || cycleKind === 'crypto' || cycleKind === 'forex' ? cycleKind : undefined,
       }).catch((err) => {
         console.warn(
           '[TradingEngine] notifyPendingApproval error:',

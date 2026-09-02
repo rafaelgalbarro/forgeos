@@ -127,31 +127,51 @@ async function runCycle() {
       signal: AbortSignal.timeout(60_000),
     }).catch(() => null);
 
-    const res = await fetch(`${BASE_URL}/api/trading/cycle`, {
-      method: "POST",
-      headers: {
-        "x-internal-api-key": API_KEY,
-        "content-type": "application/json",
-      },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    const body = await res.text().catch(() => "");
-    if (!res.ok) {
-      console.error(
-        `[Scheduler] Ciclo HTTP ${res.status}:`,
-        body.slice(0, 300) || res.statusText,
-      );
+    const endpoints = [
+      "/api/trading/cycle/stocks",
+      "/api/trading/cycle/crypto",
+      "/api/trading/cycle/forex",
+    ];
+
+    const results = await Promise.all(
+      endpoints.map(async (path) => {
+        const res = await fetch(`${BASE_URL}${path}`, {
+          method: "POST",
+          headers: {
+            "x-internal-api-key": API_KEY,
+            "content-type": "application/json",
+          },
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        const body = await res.text().catch(() => "");
+        return { path, status: res.status, ok: res.ok, body: body.slice(0, 200) };
+      }),
+    );
+
+    const failed = results.filter((r) => !r.ok && r.status !== 409);
+    if (failed.length > 0) {
+      for (const r of failed) {
+        console.error(`[Scheduler] ${r.path} HTTP ${r.status}:`, r.body || "error");
+      }
       return;
     }
-    console.log("[Scheduler] Ciclo completado:", new Date().toISOString(), `status=${res.status}`);
+
+    const skipped = results.filter((r) => r.status === 409);
+    const ok = results.filter((r) => r.ok);
+    console.log(
+      "[Scheduler] Ciclos typed completados:",
+      new Date().toISOString(),
+      `ok=${ok.length} skipped=${skipped.length}`,
+      ok.map((r) => r.path.replace("/api/trading/cycle/", "")).join(", "),
+    );
   } catch (err) {
     console.error("[Scheduler] Error en ciclo:", err instanceof Error ? err.message : String(err));
   }
 }
 
 async function loop() {
-  const interval = await resolveIntervalMs();
-  console.log(`[Scheduler] Próximo ciclo en ${interval / 1000}s…`);
+  const interval = 3 * 60 * 1000;
+  console.log(`[Scheduler] Próximo ciclo typed (stocks+crypto+forex) en ${interval / 1000}s…`);
   await runCycle();
   setTimeout(() => {
     void loop();
@@ -159,6 +179,6 @@ async function loop() {
 }
 
 console.log(
-  `[Scheduler] Iniciando ciclo adaptativo 24h (Madrid)… key=${API_KEY ? `set(len=${API_KEY.length})` : "MISSING"}`,
+  `[Scheduler] Iniciando 3 ciclos typed cada 3min (stocks/crypto/forex)… key=${API_KEY ? `set(len=${API_KEY.length})` : "MISSING"}`,
 );
 void loop();

@@ -1,0 +1,6 @@
+{
+  "id": "OP15",
+  "name": "Order reconciliation",
+  "status": "PASS",
+  "evidence": "reconcileSnapshots unchanged=true count=4 detail=positions/orders unchanged after blocked execute"
+}

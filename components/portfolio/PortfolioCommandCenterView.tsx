@@ -5,6 +5,7 @@ import Link from "next/link";
 import { VentureGridCard } from "./VentureGridCard";
 import { ExecutionBoard } from "./ExecutionBoard";
 import { ValueBoard } from "./ValueBoard";
+import { PortfolioAnalyticsBoard } from "./PortfolioAnalyticsBoard";
 import { ResourceBoard } from "./ResourceBoard";
 import { MultiCreateFlow } from "./MultiCreateFlow";
 import type {
@@ -58,6 +59,9 @@ export function PortfolioCommandCenterView({
 
       {(activeTab === "OVERVIEW" || activeTab === "EXECUTIONS") && <ExecutionBoard rows={model.executions} />}
       {(activeTab === "OVERVIEW" || activeTab === "VALUE") && <ValueBoard rows={model.value} />}
+      {(activeTab === "OVERVIEW" || activeTab === "ANALYTICS") && (
+        <PortfolioAnalyticsBoard analytics={model.analytics} />
+      )}
       {(activeTab === "OVERVIEW" || activeTab === "RESOURCES") && <ResourceBoard rows={model.resources} />}
 
       {activeTab === "OVERVIEW" && (

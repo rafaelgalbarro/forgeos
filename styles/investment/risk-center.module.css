@@ -1,0 +1,255 @@
+.riskRoot {
+  margin-top: 12px;
+  display: grid;
+  gap: 14px;
+}
+
+.kpiBar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.kpiCard {
+  border: 1px solid var(--investment-border, #1f2d3d);
+  background: rgba(10, 15, 22, 0.92);
+  padding: 12px 14px;
+  border-radius: 6px;
+}
+
+.kpiLabel {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--investment-text, #9fb4c9);
+}
+
+.kpiValue {
+  margin: 6px 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--investment-title, #dde9f7);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--investment-border, #1f2d3d);
+  background: rgba(11, 17, 26, 0.92);
+}
+
+.bannerTag {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border: 1px solid var(--investment-border-strong, #2a3d53);
+  color: var(--investment-accent, #f8b84e);
+}
+
+.bannerNote {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--investment-text, #9fb4c9);
+}
+
+.metricsGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.metricCard {
+  border: 1px solid var(--investment-border, #1f2d3d);
+  background: rgba(11, 17, 26, 0.88);
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.metricTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.metricLabel {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--investment-text, #9fb4c9);
+}
+
+.metricValue {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--investment-title, #dde9f7);
+  font-variant-numeric: tabular-nums;
+}
+
+.metricMeta {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--investment-text, #9fb4c9);
+  line-height: 1.35;
+}
+
+.light {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lightDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.lightGreen .lightDot {
+  background: #22c55e;
+}
+
+.lightAmber .lightDot {
+  background: #f59e0b;
+}
+
+.lightRed .lightDot {
+  background: #ef4444;
+}
+
+.lightNoData .lightDot {
+  background: #64748b;
+}
+
+.sectionGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.panel {
+  border: 1px solid var(--investment-border, #1f2d3d);
+  background: rgba(11, 17, 26, 0.88);
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--investment-title, #dde9f7);
+}
+
+.panelList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 6px;
+  color: var(--investment-text, #9fb4c9);
+  font-size: 0.8rem;
+}
+
+.panelList li[data-severity="CRITICAL"],
+.panelList li[data-priority="HIGH"] {
+  color: #fca5a5;
+}
+
+.panelList li[data-severity="WARN"],
+.panelList li[data-priority="MEDIUM"] {
+  color: #fcd34d;
+}
+
+.scenarioCard {
+  border: 1px dashed var(--investment-border-strong, #2a3d53);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  background: rgba(15, 23, 32, 0.7);
+}
+
+.scenarioTitle {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--investment-title, #dde9f7);
+}
+
+.scenarioDesc {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--investment-text, #9fb4c9);
+}
+
+.simTag {
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--investment-accent, #f8b84e);
+  border: 1px solid rgba(248, 184, 78, 0.35);
+  padding: 2px 6px;
+  width: fit-content;
+}
+
+.advisoryBox {
+  border-left: 3px solid var(--investment-accent, #f8b84e);
+  padding: 8px 10px;
+  background: rgba(248, 184, 78, 0.06);
+}
+
+.advisoryTitle {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  color: var(--investment-title, #dde9f7);
+}
+
+.advisoryText {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--investment-text, #9fb4c9);
+}
+
+@media (max-width: 720px) {
+  .kpiBar {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phase J — max drawdown realtime */
+.maxDdPanel {
+  border: 1px solid var(--investment-border-strong, #2a3d53);
+  background: linear-gradient(180deg, rgba(16, 23, 32, 0.96), rgba(10, 15, 22, 0.94));
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.maxDdValue {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--investment-title, #dde9f7);
+  letter-spacing: 0.02em;
+}
+

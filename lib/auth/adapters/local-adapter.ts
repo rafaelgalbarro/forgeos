@@ -1,13 +1,18 @@
-/** Program 3000 — Local auth adapter (default; no external deps). */
+/** Program 3000 — Local auth adapter (private Founder-only platform). */
 
 import type { AuthProvider } from "../provider-interface";
 import type { AuthResult, AuthSession, RegisterInput } from "../types";
 import { clearSession, readSession, writeSession } from "../session-store";
 import {
+  founderPrivatePlatformMessage,
+  getFounderUsername,
+  isFounderIdentity,
+  SESSION_INACTIVITY_MS,
+} from "../founder";
+import {
   createId,
   findUserByEmail,
-  getPreferences,
-  getWorkspaceById,
+  getStoredUsers,
   hashPassword,
   saveOrganization,
   savePreferences,
@@ -21,11 +26,9 @@ import {
 } from "@/lib/workspace/store";
 import { DEFAULT_PREFERENCES } from "@/lib/workspace/types";
 
-const SESSION_DAYS = 14;
-
 function buildSession(user: StoredAuthUser, workspaceId: string): AuthSession {
-  const expires = new Date();
-  expires.setDate(expires.getDate() + SESSION_DAYS);
+  const now = new Date();
+  const expires = new Date(now.getTime() + SESSION_INACTIVITY_MS);
   return {
     userId: user.id,
     email: user.email,
@@ -34,6 +37,8 @@ function buildSession(user: StoredAuthUser, workspaceId: string): AuthSession {
     emailVerified: user.emailVerified,
     activeWorkspaceId: workspaceId,
     expiresAt: expires.toISOString(),
+    lastActivityAt: now.toISOString(),
+    role: user.role === "FOUNDER" || isFounderIdentity(user.email) ? "FOUNDER" : "USER",
     provider: "local",
   };
 }
@@ -67,51 +72,92 @@ function provisionWorkspace(user: StoredAuthUser, organizationName?: string) {
   return wsId;
 }
 
+function resolveLoginEmail(raw: string): string {
+  const id = raw.trim().toLowerCase();
+  if (id.includes("@")) return id;
+  // Username login → stable local email for Founder
+  if (isFounderIdentity(id)) return `${getFounderUsername()}@forgeos.local`;
+  return id;
+}
+
+function findFounderUser(): StoredAuthUser | undefined {
+  return getStoredUsers().find(
+    (u) => u.role === "FOUNDER" || isFounderIdentity(u.email) || isFounderIdentity(u.name),
+  );
+}
+
+/** First-login bootstrap for Founder when no stored user exists yet. */
+async function ensureFounderUser(loginRaw: string, password: string): Promise<StoredAuthUser | null> {
+  if (!isFounderIdentity(loginRaw)) return null;
+  const email = resolveLoginEmail(loginRaw);
+  const existing =
+    findFounderUser() ||
+    findUserByEmail(email) ||
+    findUserByEmail(loginRaw.trim()) ||
+    findUserByEmail(`${getFounderUsername()}@forgeos.local`);
+  if (existing) {
+    if (existing.role !== "FOUNDER") {
+      existing.role = "FOUNDER";
+      existing.updatedAt = new Date().toISOString();
+      saveStoredUser(existing);
+    }
+    return existing;
+  }
+
+  const now = new Date().toISOString();
+  const user: StoredAuthUser = {
+    id: createId("user"),
+    email,
+    name: getFounderUsername(),
+    passwordHash: await hashPassword(password),
+    emailVerified: "verified",
+    role: "FOUNDER",
+    createdAt: now,
+    updatedAt: now,
+  };
+  saveStoredUser(user);
+  return user;
+}
+
 export const localAuthAdapter: AuthProvider = {
   id: "local",
 
-  async register(input: RegisterInput): Promise<AuthResult> {
-    const email = input.email.trim().toLowerCase();
-    if (!email || !input.password || input.password.length < 8) {
-      return { success: false, error: "Email y contraseña (mín. 8 caracteres) requeridos." };
-    }
-    if (findUserByEmail(email)) {
-      return { success: false, error: "Este email ya está registrado." };
-    }
-
-    const now = new Date().toISOString();
-    const user: StoredAuthUser = {
-      id: createId("user"),
-      email,
-      name: input.name.trim() || email.split("@")[0]!,
-      passwordHash: await hashPassword(input.password),
-      emailVerified: "pending",
-      createdAt: now,
-      updatedAt: now,
-    };
-    saveStoredUser(user);
-
-    const verifyToken = createId("verify");
-    saveVerifyToken(email, verifyToken);
-
-    const workspaceId = provisionWorkspace(user, input.organizationName);
-    const session = buildSession(user, workspaceId);
-    writeSession(session);
-
+  async register(_input: RegisterInput): Promise<AuthResult> {
     return {
-      success: true,
-      session,
-      message: `Cuenta creada. Verifica tu email (demo token: ${verifyToken}).`,
+      success: false,
+      error: founderPrivatePlatformMessage(),
+      message: founderPrivatePlatformMessage(),
     };
   },
 
   async login(input) {
-    const user = findUserByEmail(input.email.trim());
-    if (!user) return { success: false, error: "Credenciales incorrectas." };
-    const hash = await hashPassword(input.password);
-    if (hash !== user.passwordHash) return { success: false, error: "Credenciales incorrectas." };
+    if (!isFounderIdentity(input.email)) {
+      return { success: false, error: founderPrivatePlatformMessage() };
+    }
 
-    const workspaces = (await import("@/lib/workspace/store")).getWorkspaces().filter((w) => w.ownerId === user.id);
+    let user =
+      findFounderUser() ||
+      findUserByEmail(input.email.trim()) ||
+      findUserByEmail(resolveLoginEmail(input.email)) ||
+      (await ensureFounderUser(input.email, input.password));
+
+    if (!user) return { success: false, error: "Credenciales incorrectas." };
+
+    // Existing Founder: verify password (bootstrap path already hashed matching password)
+    const hash = await hashPassword(input.password);
+    if (hash !== user.passwordHash) {
+      // If we just created via ensureFounderUser in this call, hashes match.
+      // Re-fetch after ensure path when user existed with wrong password.
+      return { success: false, error: "Credenciales incorrectas." };
+    }
+
+    if (user.role !== "FOUNDER") {
+      user.role = "FOUNDER";
+      user.updatedAt = new Date().toISOString();
+      saveStoredUser(user);
+    }
+
+    const workspaces = (await import("@/lib/workspace/store")).getWorkspaces().filter((w) => w.ownerId === user!.id);
     const workspaceId = workspaces[0]?.id;
     if (!workspaceId) {
       const wsId = provisionWorkspace(user);
@@ -134,7 +180,14 @@ export const localAuthAdapter: AuthProvider = {
   },
 
   async forgotPassword(email: string) {
-    const user = findUserByEmail(email.trim());
+    if (!isFounderIdentity(email)) {
+      return {
+        success: true,
+        message: "Si el email existe, recibirás instrucciones.",
+      };
+    }
+    const user =
+      findUserByEmail(email.trim()) || findUserByEmail(resolveLoginEmail(email));
     const token = createId("reset");
     if (user) saveResetToken(user.email, token);
     return {

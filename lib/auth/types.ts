@@ -1,8 +1,12 @@
 /** Program 3000 Sprint 1 — Identity types. */
 
+import type { AuthRole } from "./founder";
+
 export type AuthProviderId = "local" | "supabase" | "authjs";
 
 export type EmailVerificationStatus = "pending" | "verified";
+
+export type { AuthRole };
 
 export interface AuthUser {
   id: string;
@@ -10,6 +14,7 @@ export interface AuthUser {
   name: string;
   avatarUrl?: string;
   emailVerified: EmailVerificationStatus;
+  role?: AuthRole;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,6 +27,9 @@ export interface AuthSession {
   emailVerified: EmailVerificationStatus;
   activeWorkspaceId: string;
   expiresAt: string;
+  /** Sliding inactivity window — updated on activity. */
+  lastActivityAt: string;
+  role: AuthRole;
   provider: AuthProviderId;
 }
 

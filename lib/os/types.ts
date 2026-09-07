@@ -13,7 +13,8 @@ export type OsModuleId =
   | "analytics"
   | "calendar"
   | "settings"
-  | "labs";
+  | "labs"
+  | "investment";
 
 export type OsNotificationSource =
   | "ceo"
@@ -22,14 +23,15 @@ export type OsNotificationSource =
   | "workers"
   | "board"
   | "capital"
-  | "deployment";
+  | "deployment"
+  | "investment";
 
 export interface OsNavItem {
   id: OsModuleId;
   label: string;
   href: string;
-  icon: string;
   description: string;
+  icon: string;
   pinned?: boolean;
 }
 
@@ -43,7 +45,18 @@ export interface OsSearchResult {
   title: string;
   subtitle: string;
   href: string;
-  category: "venture" | "research" | "knowledge" | "worker" | "build" | "deployment" | "timeline" | "capital" | "settings" | "shortcut";
+  category:
+    | "venture"
+    | "research"
+    | "knowledge"
+    | "worker"
+    | "build"
+    | "deployment"
+    | "timeline"
+    | "capital"
+    | "settings"
+    | "shortcut"
+    | "investment";
 }
 
 export interface OsCommand {
@@ -91,7 +104,7 @@ export interface OsWorkspaceLayout {
 
 export interface OsWidget {
   id: string;
-  type: "ceo" | "tasks" | "build" | "portfolio" | "timeline" | "calendar";
+  type: "ceo" | "tasks" | "build" | "portfolio" | "timeline" | "calendar" | "investment";
   title: string;
   colSpan: 1 | 2;
 }

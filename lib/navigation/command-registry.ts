@@ -203,6 +203,15 @@ export const PRODUCT_COMMANDS: ProductCommand[] = [
     status: "active",
   },
   {
+    id: "open-investment",
+    label: "ForgeOS Investment",
+    description: "ForgeOS Investment — AI Investment Operating System",
+    href: "/investment",
+    keywords: ["investment", "forgeos investment", "ibkr", "broker", "portfolio", "trading", "inversión"],
+    group: "navigate",
+    status: "active",
+  },
+  {
     id: "marketplace",
     label: "Marketplace",
     description: "Plantillas y activos",

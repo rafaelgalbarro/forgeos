@@ -1,20 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/fhis/Input";
 import { Button } from "@/components/ui/fhis/Button";
 import { login } from "@/lib/auth";
 import { useAuthOptional } from "./AuthProvider";
 
-export function LoginForm() {
+/** Allow only same-origin relative paths (open-redirect safe). */
+function safeRedirectPath(raw: string | null | undefined): string {
+  if (!raw) return "/investment";
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) return "/investment";
+  if (raw === "/register" || raw.startsWith("/register/")) return "/investment";
+  return raw;
+}
+
+function LoginFormInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuthOptional();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const privateNotice = searchParams?.get("notice") === "private";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,15 +37,21 @@ export function LoginForm() {
       return;
     }
     await auth?.refresh();
-    router.push("/workspace");
+    const redirect = searchParams ? searchParams.get("redirect") : null;
+    router.push(safeRedirectPath(redirect));
   }
 
   return (
     <form onSubmit={handleSubmit} className="fhis-auth-form">
+      {privateNotice ? (
+        <p className="fhis-auth-error" role="status">
+          Plataforma privada
+        </p>
+      ) : null}
       <Input
-        label="Email"
-        type="email"
-        autoComplete="email"
+        label="Usuario / Email"
+        type="text"
+        autoComplete="username"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
@@ -54,9 +70,15 @@ export function LoginForm() {
       </Button>
       <p className="fhis-auth-links">
         <Link href="/forgot-password">¿Olvidaste tu contraseña?</Link>
-        {" · "}
-        <Link href="/register">Crear cuenta</Link>
       </p>
     </form>
+  );
+}
+
+export function LoginForm() {
+  return (
+    <Suspense fallback={<p className="fhis-auth-links">Cargando…</p>}>
+      <LoginFormInner />
+    </Suspense>
   );
 }

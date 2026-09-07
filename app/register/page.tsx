@@ -1,12 +1,8 @@
-import { AuthShell } from "@/components/auth/AuthShell";
-import { RegisterForm } from "@/components/auth/RegisterForm";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Crear cuenta — ForgeOS" };
+export const metadata = { title: "Registro deshabilitado — ForgeOS" };
 
+/** Public registration is disabled — private Founder platform. */
 export default function RegisterPage() {
-  return (
-    <AuthShell title="Crear cuenta" subtitle="User · Workspace · Organization">
-      <RegisterForm />
-    </AuthShell>
-  );
+  redirect("/login?notice=private");
 }

@@ -104,7 +104,7 @@ export function BetaDashboard() {
           <Panel className="fhis-beta-invite-banner">
             <p>Invitación canjeada. Crea tu cuenta para acceder al producto.</p>
             <div className="fhis-beta-invite-actions">
-              <Link href="/register" className="fhis-btn fhis-btn-primary fhis-btn-sm">
+              <Link href="/login" className="fhis-btn fhis-btn-primary fhis-btn-sm">
                 Registrarse
               </Link>
               <Link href="/login" className="fhis-btn fhis-btn-ghost fhis-btn-sm">

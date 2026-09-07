@@ -133,7 +133,7 @@ export function SupportHub() {
                 <li><Link href="/waitlist">Waitlist</Link></li>
                 <li><Link href="/feedback">Feedback</Link></li>
                 <li><Link href="/status">Estado del sistema</Link></li>
-                <li><Link href="/register">Registro</Link></li>
+                <li><Link href="/login">Iniciar sesión</Link></li>
                 <li><Link href="/os">Entrar a ForgeOS</Link></li>
               </ul>
             </Panel>

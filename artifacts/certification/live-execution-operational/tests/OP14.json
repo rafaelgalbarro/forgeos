@@ -1,0 +1,6 @@
+{
+  "id": "OP14",
+  "name": "TWS restart (simulated)",
+  "status": "PASS",
+  "evidence": "Simulated TWS restart via disconnect/reconnect; openOrders before=4 after=4; RECONNECTED+RECONCILED present. Real TWS not restarted (safety)."
+}

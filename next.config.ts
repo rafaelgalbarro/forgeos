@@ -14,6 +14,24 @@ const nextConfig: NextConfig = {
     if (!dev) {
       config.cache = { type: "memory" };
     }
+    if (dev) {
+      // Keep runtime snapshots / logs / sqlite outside the webpack watch graph.
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          "**/.git/**",
+          "**/node_modules/**",
+          "**/.next/**",
+          "**/.runtime/**",
+          "**/var/**",
+          "**/.forgeos/**",
+          "**/data/**/*.json",
+          "**/data/**/*.sqlite",
+          "**/data/**/*.db",
+          "**/*.log",
+        ],
+      };
+    }
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -28,6 +46,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/new-app", destination: "/", permanent: true },
+      { source: "/broker", destination: "/investment/broker", permanent: true },
       { source: "/ventures", destination: "/ventures/aurea-facilities", permanent: false },
       { source: "/build", destination: "/os/build", permanent: false },
     ];

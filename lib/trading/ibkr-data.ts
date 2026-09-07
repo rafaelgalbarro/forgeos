@@ -1,0 +1,380 @@
+import "server-only";
+
+import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import { getIbkrPrice } from "@/lib/market-data/ibkr-prices";
+import { getQuote as getEodhdQuote, shouldSkipEodhdQuote } from "@/lib/market-data/eodhd";
+import { getPrice as getAlpacaPrice } from "@/lib/brokers/alpaca-client";
+import {
+  isAlpacaCryptoTicker,
+  toAlpacaCryptoPairId,
+} from "@/lib/brokers/alpaca-pairs";
+import {
+  resolveLimitPriceFromQuote,
+  type LiveLimitQuote,
+} from "@/lib/trading/limit-price";
+import {
+  getOrSetIbkrCached,
+  ibkrCacheKey,
+  IBKR_PRICE_CACHE_TTL_MS,
+} from "@/lib/trading/ibkr-cache";
+
+type AccountTag = { value?: string; currency?: string };
+type AccountMap = Record<string, Record<string, AccountTag>>;
+
+function parseTagNumber(tags: Record<string, AccountTag> | undefined, tag: string): number {
+  const raw = tags?.[tag]?.value;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function primaryAccountId(): string {
+  return (process.env.IBKR_ACCOUNT_ID ?? "").trim();
+}
+
+export type TradingAccountBreakdown = {
+  accountId: string;
+  nav: number;
+  cash: number;
+};
+
+export type TradingAccountSnapshot = {
+  navUSD: number;
+  cashUSD: number;
+  dailyPnlUSD: number;
+  openPositionsCount: number;
+  primaryAccountId: string | null;
+  combinedNav: number;
+  combinedCash: number;
+  tradingCashUSD: number;
+  accounts: TradingAccountBreakdown[];
+};
+
+export type TradingPriceSnapshot = {
+  ticker: string;
+  currentPrice: number;
+  previousClose: number;
+  bid: number;
+  ask: number;
+  change1d: number;
+  high52w: number;
+  low52w: number;
+  volume: number;
+  changePercentage: number;
+  priceAvg50?: number;
+  priceAvg200?: number;
+  quoteSymbol: string;
+  quoteExchange: string;
+  quoteCurrency: string;
+  quoteRoute: string;
+  quoteErrors: readonly string[];
+};
+
+export type TradingPositionSnapshot = {
+  shares: number;
+  avgCost: number;
+  unrealizedPnl: number;
+};
+
+/** Direct IBKR FastAPI read — cached 5 min for dashboard/scanners (not live approval). */
+export async function fetchTradingAccountSnapshot(): Promise<TradingAccountSnapshot> {
+  return getOrSetIbkrCached(ibkrCacheKey("account"), fetchTradingAccountSnapshotLive);
+}
+
+async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot> {
+  const [account, positions] = await Promise.all([
+    ibkrServiceFetch<AccountMap>("/api/ibkr/account"),
+    ibkrServiceFetch<unknown[]>("/api/ibkr/positions").catch(() => []),
+  ]);
+
+  const ids = Object.keys(account ?? {});
+  const accounts: TradingAccountBreakdown[] = ids.map((accountId) => ({
+    accountId,
+    nav: parseTagNumber(account[accountId], "NetLiquidation"),
+    cash: parseTagNumber(account[accountId], "TotalCashValue"),
+  }));
+
+  const combinedNav = accounts.reduce((sum, row) => sum + row.nav, 0);
+  const combinedCash = accounts.reduce((sum, row) => sum + row.cash, 0);
+  const primary = primaryAccountId();
+  const primaryRow = primary ? accounts.find((row) => row.accountId === primary) : undefined;
+  const tradingCashUSD = primaryRow?.cash ?? combinedCash;
+  const dailyPnlUSD = ids.reduce((sum, id) => {
+    return (
+      sum +
+      parseTagNumber(account[id], "UnrealizedPnL") +
+      parseTagNumber(account[id], "RealizedPnL")
+    );
+  }, 0);
+
+  const ZERO_VALUE_SYMBOLS = new Set([
+    "RWAX",
+    "IVPR",
+    "INND",
+    "APLT.CVR",
+    "CGBSF",
+    "APTX.OLD",
+    "APLT",
+  ]);
+
+  const openPositionsCount = Array.isArray(positions)
+    ? positions.filter((p) => {
+        const row = p as {
+          position?: number;
+          account?: string;
+          symbol?: string;
+          avgCost?: number;
+          marketValue?: number;
+        };
+        if (typeof row.position !== "number" || Math.abs(row.position) <= 0) return false;
+        if (primary && row.account && row.account !== primary) return false;
+        const symbol = String(row.symbol ?? "")
+          .trim()
+          .toUpperCase();
+        if (symbol && ZERO_VALUE_SYMBOLS.has(symbol)) return false;
+        // Solo contar posiciones con valor actual > $5
+        const qty = Math.abs(row.position);
+        const avgCost = Number(row.avgCost ?? 0);
+        const marketValue = Number(row.marketValue ?? 0);
+        const notional =
+          Number.isFinite(marketValue) && Math.abs(marketValue) > 0
+            ? Math.abs(marketValue)
+            : qty * (Number.isFinite(avgCost) ? avgCost : 0);
+        return notional > 5;
+      }).length
+    : 0;
+
+  return {
+    navUSD: combinedNav,
+    cashUSD: tradingCashUSD,
+    dailyPnlUSD,
+    openPositionsCount,
+    primaryAccountId: primary || null,
+    combinedNav,
+    combinedCash,
+    tradingCashUSD,
+    accounts,
+  };
+}
+
+export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSnapshot> {
+  return getOrSetIbkrCached(
+    ibkrCacheKey("price", ticker),
+    () => fetchTradingPriceLive(ticker),
+    IBKR_PRICE_CACHE_TTL_MS,
+  );
+}
+
+function snapshotFromEodhd(symbol: string, eod: NonNullable<Awaited<ReturnType<typeof getEodhdQuote>>>): TradingPriceSnapshot {
+  const bid = eod.low > 0 && eod.high > 0 ? Math.min(eod.price, (eod.high + eod.low) / 2) : eod.price;
+  const ask = eod.high > 0 && eod.low > 0 ? Math.max(eod.price, (eod.high + eod.low) / 2) : eod.price;
+  return {
+    ticker: symbol,
+    currentPrice: eod.price,
+    previousClose: eod.previousClose,
+    bid,
+    ask,
+    change1d: eod.change,
+    high52w: eod.high52w,
+    low52w: eod.low52w,
+    volume: eod.volume,
+    changePercentage: eod.changePercentage,
+    quoteSymbol: symbol,
+    quoteExchange: "EODHD",
+    quoteCurrency: "USD",
+    quoteRoute: "EODHD-REALTIME",
+    quoteErrors: [],
+  };
+}
+
+function snapshotFromIbkr(
+  symbol: string,
+  ibkr: NonNullable<Awaited<ReturnType<typeof getIbkrPrice>>>,
+): TradingPriceSnapshot {
+  return {
+    ticker: symbol,
+    currentPrice: ibkr.price,
+    previousClose: ibkr.price,
+    bid: ibkr.bid ?? ibkr.price,
+    ask: ibkr.ask ?? ibkr.price,
+    change1d: 0,
+    high52w: ibkr.price,
+    low52w: ibkr.price,
+    volume: ibkr.volume ?? 0,
+    changePercentage: 0,
+    quoteSymbol: symbol,
+    quoteExchange: ibkr.exchange,
+    quoteCurrency: ibkr.currency,
+    quoteRoute: ibkr.route,
+    quoteErrors: [],
+  };
+}
+
+function snapshotFromAlpaca(
+  symbol: string,
+  quote: Awaited<ReturnType<typeof getAlpacaPrice>>,
+): TradingPriceSnapshot {
+  const bid = quote.bid ?? quote.price;
+  const ask = quote.ask ?? quote.price;
+  return {
+    ticker: symbol,
+    currentPrice: quote.price,
+    previousClose: quote.price,
+    bid,
+    ask,
+    change1d: 0,
+    high52w: quote.price,
+    low52w: quote.price,
+    volume: 0,
+    changePercentage: 0,
+    quoteSymbol: quote.symbol,
+    quoteExchange: "ALPACA",
+    quoteCurrency: "USD",
+    quoteRoute: quote.source,
+    quoteErrors: [],
+  };
+}
+
+function resolveAlpacaCryptoId(symbol: string): string | null {
+  if (isAlpacaCryptoTicker(symbol)) return symbol;
+  return toAlpacaCryptoPairId(symbol);
+}
+
+/** EODHD primary for equities; Alpaca for crypto; IBKR optional fallback. */
+async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapshot> {
+  const symbol = ticker.trim().toUpperCase();
+  const quoteErrors: string[] = [];
+
+  const alpacaCryptoId = resolveAlpacaCryptoId(symbol);
+  if (alpacaCryptoId) {
+    try {
+      const quote = await getAlpacaPrice(alpacaCryptoId);
+      if (quote.price > 0) {
+        console.log(
+          `[Universe] ${symbol} precio Alpaca $${quote.price.toFixed(2)} (${quote.source})`,
+        );
+        return snapshotFromAlpaca(symbol, quote);
+      }
+      quoteErrors.push("Alpaca: no price");
+    } catch (err) {
+      quoteErrors.push(`Alpaca: ${err instanceof Error ? err.message : "error"}`);
+    }
+  }
+
+  if (!shouldSkipEodhdQuote(symbol)) {
+    const eod = await getEodhdQuote(symbol);
+    if (eod?.price > 0) {
+      console.log(
+        `[Universe] ${symbol} precio EODHD $${eod.price.toFixed(2)} Δ${eod.changePercentage.toFixed(2)}%`,
+      );
+      return snapshotFromEodhd(symbol, eod);
+    }
+    quoteErrors.push("EODHD: no price");
+  } else {
+    quoteErrors.push("EODHD: ticker en lista de ignorados");
+  }
+
+  try {
+    const ibkr = await getIbkrPrice(symbol);
+    if (ibkr?.price > 0) {
+      console.log(
+        `[Universe] ${symbol} precio IBKR fallback $${ibkr.price.toFixed(2)} via ${ibkr.exchange}/${ibkr.currency}`,
+      );
+      return snapshotFromIbkr(symbol, ibkr);
+    }
+    quoteErrors.push("IBKR: no price");
+  } catch (err) {
+    quoteErrors.push(`IBKR: ${err instanceof Error ? err.message : "error"}`);
+  }
+
+  throw new Error(`sin precio — skip (${quoteErrors.join("; ")})`);
+}
+
+export async function fetchTradingPosition(
+  ticker: string,
+): Promise<TradingPositionSnapshot | undefined> {
+  return getOrSetIbkrCached(ibkrCacheKey("position", ticker), () => fetchTradingPositionLive(ticker));
+}
+
+async function fetchTradingPositionLive(
+  ticker: string,
+): Promise<TradingPositionSnapshot | undefined> {
+  const positions = await ibkrServiceFetch<
+    Array<{
+      symbol?: string;
+      position?: number;
+      avgCost?: number;
+      unrealizedPnl?: number;
+    }>
+  >("/api/ibkr/positions");
+  const pos = positions.find((p) => (p.symbol ?? "").toUpperCase() === ticker.toUpperCase());
+  if (!pos) return undefined;
+  return {
+    shares: Number(pos.position ?? 0),
+    avgCost: Number(pos.avgCost ?? 0),
+    unrealizedPnl: Number(pos.unrealizedPnl ?? 0),
+  };
+}
+
+export async function fetchTradingOpenSymbols(): Promise<string[]> {
+  return getOrSetIbkrCached(ibkrCacheKey("open-symbols"), fetchTradingOpenSymbolsLive);
+}
+
+async function fetchTradingOpenSymbolsLive(): Promise<string[]> {
+  try {
+    const positions = await ibkrServiceFetch<
+      Array<{ symbol?: string; position?: number }>
+    >("/api/ibkr/positions");
+    if (!Array.isArray(positions)) return [];
+    return positions
+      .filter((p) => typeof p.position === "number" && Math.abs(p.position) > 0)
+      .map((p) => (p.symbol ?? "").toUpperCase())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function asPositive(n: unknown): number | null {
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+async function fetchIbkrLiveLimitQuote(ticker: string): Promise<LiveLimitQuote | null> {
+  const ibkr = await getIbkrPrice(ticker.trim().toUpperCase());
+  if (!ibkr || !(ibkr.price > 0)) return null;
+  const bid = ibkr.bid ?? ibkr.price;
+  const ask = ibkr.ask ?? ibkr.price;
+  return {
+    bid,
+    ask,
+    last: ibkr.price,
+    mid: (bid + ask) / 2,
+  };
+}
+
+/**
+ * Live LMT price from IBKR market-data at approval/submit time.
+ * FMP is never used for realtime prices (Starter 429).
+ */
+export async function fetchLiveLimitPrice(args: {
+  readonly symbol: string;
+  readonly side: "BUY" | "SELL";
+  readonly asset: "STK" | "FOREX";
+  readonly suggested?: number | null;
+}): Promise<number> {
+  const quote = await fetchIbkrLiveLimitQuote(args.symbol);
+
+  const fromLive = quote
+    ? resolveLimitPriceFromQuote({
+        asset: args.asset,
+        side: args.side,
+        quote,
+        suggested: args.suggested,
+      })
+    : null;
+  if (fromLive != null) return fromLive;
+
+  const suggested = asPositive(args.suggested);
+  if (suggested != null) return suggested;
+  throw new Error(`No IBKR limitPrice for ${args.symbol}`);
+}

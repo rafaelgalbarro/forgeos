@@ -1,0 +1,205 @@
+﻿[
+    {
+        "Api":  "/api/investment/dashboard",
+        "Status":  200,
+        "Ms":  202,
+        "Len":  2190,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:33.999Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"brokerStatus\":{\"state\":\"STALE\",\"updatedAt\":null,\"stale\":true,\"source\":\"fallback\",\"dataSource\":\"DEMO\",\"error\":\"IBKR service is not running\",\"data\":{\"connected\":false,\"managedAccounts\":[\"PAPER_SIM\"],\"maskedAccounts\":[\"PAPER_SIM\"],\"ibkrReadOnly\":true,\"liveTradingEnabled\":false,\"eng"
+    },
+    {
+        "Api":  "/api/investment/monitor",
+        "Status":  200,
+        "Ms":  149,
+        "Len":  77337,
+        "Snip":  "{\"monitorStartedAt\":\"2026-08-04T11:35:08.960Z\",\"monitorRunning\":true,\"evaluationCount\":120,\"lastEvaluatedAt\":\"2026-08-04T11:51:34.100Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"observation\":{\"asOf\":\"2026-08-04T11:51:34.104Z\",\"baseCurrency\":\"USD\",\"positionCount\":3,\"symbols\":[\"AAPL\",\"MSFT\",\"JPM\"],\"cash\":{\"status\":\"MEASURED\",\"value\":2500,\"unit\":\"CURRENCY\"},\"capitalInvested\":{\"status\":\"MEAS"
+    },
+    {
+        "Api":  "/api/investment/opportunities",
+        "Status":  200,
+        "Ms":  133,
+        "Len":  5394,
+        "Snip":  "{\"scannedAt\":\"2026-08-04T11:51:35.121Z\",\"generatedAt\":\"2026-08-04T11:51:35.128Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"opportunities\":[],\"count\":0,\"candidates\":[{\"id\":\"bnd-tlt:decorrelation:1785844295121\",\"instrument\":{\"id\":\"bnd-tlt\",\"symbol\":\"TLT\",\"name\":\"iShares 20+ Year Treasury\",\"assetClass\":\"bonds\",\"market\":\"ARCA\",\"currency\":\"USD\",\""
+    },
+    {
+        "Api":  "/api/investment/portfolio",
+        "Status":  200,
+        "Ms":  9183,
+        "Len":  5548,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:44.293Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"dataSource\":\"DEMO\",\"baseCurrency\":\"USD\",\"note\":\"DEMO fallback â IBKR snapshot failed (fetch failed) Â· ANALYSIS_ONLY Â· no orders\",\"summary\":{\"portfolioValue\":{\"label\":\"Valor cartera\",\"value\":15770,\"display\":\"15,770\",\"status\":\"MEASURED\",\"unit\":\"CURRENCY\"},\"pnlDaily\":{\"label\":\""
+    },
+    {
+        "Api":  "/api/investment/orders",
+        "Status":  200,
+        "Ms":  4713,
+        "Len":  1426,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:49.028Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"safety\":{\"mode\":\"ANALYSIS_ONLY\",\"liveTradingEnabled\":false,\"liveTradingEnabledValue\":\"false\",\"ibkrReadOnly\":true,\"killSwitchEnabled\":false,\"autonomousLock\":\"LOCKED\"},\"brokerConnected\":null,\"dataSource\":\"UNAVAILABLE\",\"orders\":[],\"auditItems\":[{\"id\":\"analysis-1785828099883-uojaz35f\",\"kind\":\"analysis\",\"occur"
+    },
+    {
+        "Api":  "/api/investment/strategies",
+        "Status":  200,
+        "Ms":  3207,
+        "Len":  4154,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:52.229Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"strategyReadiness\":\"NOT_READY\",\"autonomousLive\":\"LOCKED\",\"strategies\":[{\"strategyId\":\"trend-following\",\"name\":\"Trend Following\",\"version\":\"1.0.0\",\"regimes\":\"bullish, bearish, risk-on, risk-off\",\"description\":\"Price trends persist over intermediate horizons\",\"status\":\"REGISTERED\"},{\"strategyId\":\"momentum\","
+    },
+    {
+        "Api":  "/api/investment/risk",
+        "Status":  200,
+        "Ms":  2008,
+        "Len":  37040,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:54.223Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"monitorLabel\":\"DEMO\",\"monitorNote\":\"DEMO fallback â IBKR snapshot failed (fetch failed)\",\"monitorRunning\":true,\"evaluationCount\":127,\"analyticsAsOf\":\"2026-08-04T11:51:54.216Z\",\"overallLight\":\"RED\",\"metrics\":[{\"key\":\"exposure\",\"label\":\"ExposiciÃ³n\",\"value\":8"
+    },
+    {
+        "Api":  "/api/investment/research",
+        "Status":  200,
+        "Ms":  2033,
+        "Len":  30583,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:56.225Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"symbols\":[\"AAPL\",\"MSFT\",\"SPY\"],\"engines\":[{\"id\":\"news\",\"title\":\"News Engine\",\"wiring\":\"CONFIG_REQUIRED\",\"description\":\"Configured news/RSS/official releases via Market Intelligence â no fabricated headlines.\",\"providers\":[]},{\"id\":\"macro\",\"title\":\"Macro Eng"
+    },
+    {
+        "Api":  "/api/investment/screener",
+        "Status":  200,
+        "Ms":  128,
+        "Len":  333,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:56.387Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"tradeGate\":\"NO_TRADE_ON_DELAYED_OR_STALE\",\"symbols\":[\"AAPL\",\"MSFT\",\"SPY\"],\"providersConfigured\":0,\"empty\":true,\"note\":\"No Market Intelligence providers configured â set env API keys/flags. NO_DATA (not DEMO fabrications).\",\"result\":null}"
+    },
+    {
+        "Api":  "/api/investment/audit",
+        "Status":  200,
+        "Ms":  1939,
+        "Len":  1239,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:51:58.327Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"count\":6,\"totalUnfiltered\":6,\"items\":[{\"id\":\"analysis-1785828099883-uojaz35f\",\"kind\":\"analysis\",\"occurredAt\":\"2026-08-04T07:21:39.881Z\",\"symbol\":\"SPY\",\"summary\":\"analysis\",\"provenance\":\"alpha-engine\"},{\"id\":\"analysis-1785828153289-12isbt1n\",\"kind\":\"analysis\",\"occurredAt\":\"2026-08-04T07:22:33.285Z\",\"symbol"
+    },
+    {
+        "Api":  "/api/investment/live",
+        "Status":  200,
+        "Ms":  10420,
+        "Len":  8328,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:08.602Z\",\"safety\":{\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"tradingMode\":\"ANALYSIS_ONLY\",\"mode\":\"ANALYSIS_ONLY\",\"state\":\"LOCKED\",\"autonomousLock\":\"LOCKED\",\"emergencyStop\":false,\"blockNewEntries\":true,\"reduceOnly\":true,\"executionDisconnected\":true},\"systemState\":{\"tradingMode\":\"ANALYSIS_ONLY\",\"autonomousLock\":\"LOCKED\",\"dataFreshness\":\"UNKNOWN\",\"haltReason\":nu"
+    },
+    {
+        "Api":  "/api/investment/reports",
+        "Status":  200,
+        "Ms":  4826,
+        "Len":  11184,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:13.553Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"autoGenerated\":[\"rpt_weekly_2026-W32_2026-08-04T11-52-13-376Z_80256e1e\",\"rpt_monthly_2026-08_2026-08-04T11-52-13-449Z_da5a3f63\",\"rpt_annual_2026_2026-08-04T11-52-13-517Z_960e688c\"],\"total\":4,\"items\":[{\"id\":\"rpt_annual_2026_2026-08-04T11-52-13-517Z_960e688c\",\"generatedAt\":\"2026-0"
+    },
+    {
+        "Api":  "/api/investment/reports/daily",
+        "Status":  200,
+        "Ms":  3762,
+        "Len":  684,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:17.348Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"total\":1,\"items\":[{\"id\":\"daily_pdf_2026-08-04_20260804110839_v1_d5c81c\",\"generatedAt\":\"2026-08-04T11:08:39.003Z\",\"periodType\":\"daily\",\"periodKey\":\"2026-08-04\",\"title\":\"Informe diario Â· 2026-08-04 Â· v1\",\"version\":1,\"paperPnl\":\"-5.44\",\"shadowPnl\":\"NO_DATA\",\"note\":\"Daily gather f"
+    },
+    {
+        "Api":  "/api/investment/reports/morning-briefing",
+        "Status":  200,
+        "Ms":  4424,
+        "Len":  1003,
+        "Snip":  "{\"type\":\"morning-briefing\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"count\":2,\"history\":[{\"id\":\"morning-briefing-20260804T105210Z\",\"type\":\"morning-briefing\",\"generatedAt\":\"2026-08-04T10:52:10.951Z\",\"briefingDate\":\"2026-08-04\",\"pdfRelativePath\":\".forgeos/reports/morning-briefing/20260804T105210Z/morning-briefing.pdf\",\"jsonRelativePath\":\".forgeos/reports/morning-"
+    },
+    {
+        "Api":  "/api/investment/market-intelligence",
+        "Status":  200,
+        "Ms":  3365,
+        "Len":  458,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:25.140Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"marketProviders\":[],\"newsProviders\":[],\"economicProviders\":[],\"sentimentProviders\":[],\"totalConfigured\":0,\"note\":\"No Market Intelligence providers configured â set API keys / enable flags in env. DEMO not fabricated.\",\"assetClassesSupported\":[\"stocks\",\"ETF\",\"forex\",\"futures\",\"options\",\"bonds\",\"commoditi"
+    },
+    {
+        "Api":  "/api/investment/market-scanner",
+        "Status":  200,
+        "Ms":  5692,
+        "Len":  54676,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:30.751Z\",\"runtime\":{\"status\":\"stopped\",\"startedAt\":null,\"lastCycleAt\":\"2026-08-04T11:52:30.739Z\",\"cyclesCompleted\":1,\"pollIntervalMs\":30000,\"lastError\":null,\"lastResult\":{\"cycleId\":\"cac-1785844350739\",\"generatedAt\":\"2026-08-04T11:52:30.739Z\",\"symbolsScanned\":5,\"accepted\":[],\"discarded\":[{\"id\":\"cac-1785844350739-AAPL\",\"symbol\":\"AAPL\",\"score\":0.358,\"risk\":\"Elevated c"
+    },
+    {
+        "Api":  "/api/investment/alpha-engine",
+        "Status":  200,
+        "Ms":  10902,
+        "Len":  44860,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:41.641Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"strategyReadiness\":\"NOT_READY\",\"autonomousLive\":\"LOCKED\",\"goLive\":\"NOT_READY_FOR_LIVE\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"ordersSubmitted\":0,\"topOpportunities\":[],\"rejectedOpportunities\":[{\"id\":\"alpha-etf-spy:correlation:1785844361635\",\"asset\":\"SPY\",\"market\":\"etf\",\"direction\":\"neutral\",\"strat"
+    },
+    {
+        "Api":  "/api/investment/strategy-lab",
+        "Status":  200,
+        "Ms":  6249,
+        "Len":  76157,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:47.835Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"strategyReadiness\":\"NOT_READY\",\"autonomousLive\":\"LOCKED\",\"goLive\":\"NOT_READY_FOR_LIVE\",\"liveTradingEnabled\":false,\"productionMutation\":\"forbidden\",\"tradeDataLabel\":\"PAPER\",\"distinctSessions\":1,\"sections\":[\"library\",\"builder\",\"backtesting\",\"walk-forward\",\"monte-carlo\",\"optimizer\",\"portfolio-tester\",\"benchm"
+    },
+    {
+        "Api":  "/api/investment/strategy-center",
+        "Status":  200,
+        "Ms":  5776,
+        "Len":  9056,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:52:53.744Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"strategyReadiness\":\"NOT_READY\",\"autonomousLive\":\"LOCKED\",\"goLive\":\"NOT_READY_FOR_LIVE\",\"liveTradingEnabled\":false,\"strategies\":[{\"strategyId\":\"trend-following\",\"name\":\"Trend Following\",\"version\":\"1.0.0\",\"enabled\":true,\"regimes\":\"bullish, bearish, risk-on, risk-off\",\"description\":\"Price trends persist over"
+    },
+    {
+        "Api":  "/api/investment/continuous-analysis",
+        "Status":  200,
+        "Ms":  6822,
+        "Len":  848,
+        "Snip":  "{\"status\":\"stopped\",\"startedAt\":null,\"lastCycleAt\":null,\"cyclesCompleted\":0,\"pollIntervalMs\":30000,\"lastError\":null,\"lastResult\":null,\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"autonomousLive\":\"LOCKED\",\"goLive\":\"NOT_READY_FOR_LIVE\",\"agentsRegistered\":25,\"agentIds\":[\"specialty-technical\",\"specialty-fundamental\",\"specialty-quant\",\"specialty-macro\",\"specialty-senti"
+    },
+    {
+        "Api":  "/api/investment/ibkr-market-data",
+        "Status":  200,
+        "Ms":  6694,
+        "Len":  677,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:53:07.276Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"status\":\"READ_ONLY_ROUTE\",\"availableReadPaths\":[\"/health\",\"/api/ibkr/connect\",\"/api/ibkr/status\",\"/api/ibkr/account\",\"/api/ibkr/positions\",\"/api/ibkr/orders\",\"/api/ibkr/history\"],\"missingPaths\":[\"/api/ibkr/market-data\",\"/api/ibkr/bars\",\"/api/ibkr/quotes\"],\"no"
+    },
+    {
+        "Api":  "/api/investment/probe-gather",
+        "Status":  200,
+        "Ms":  10819,
+        "Len":  435,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T11:53:18.094Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"autonomousLive\":\"LOCKED\",\"symbols\":[\"AAPL\",\"MSFT\",\"SPY\"],\"providersConfigured\":0,\"providersUsed\":[],\"counts\":{\"marketSnapshots\":0,\"news\":0,\"economic\":0,\"sentiment\":0},\"empty\":true,\"note\":\"No Market Intelligence providers configured â set env API keys/flags."
+    },
+    {
+        "Api":  "/api/broker/status",
+        "Status":  503,
+        "Ms":  21587,
+        "Len":  0,
+        "Snip":  "{\"connected\":false,\"state\":\"SERVICE_UNAVAILABLE\",\"error\":\"IBKR service is not running\"}"
+    },
+    {
+        "Api":  "/api/broker/accounts",
+        "Status":  503,
+        "Ms":  5462,
+        "Len":  0,
+        "Snip":  "{\"connected\":false,\"state\":\"SERVICE_UNAVAILABLE\",\"error\":\"IBKR service is not running\"}"
+    },
+    {
+        "Api":  "/api/broker/positions",
+        "Status":  503,
+        "Ms":  6886,
+        "Len":  0,
+        "Snip":  "{\"connected\":false,\"state\":\"SERVICE_UNAVAILABLE\",\"error\":\"IBKR service is not running\"}"
+    },
+    {
+        "Api":  "/api/broker/orders",
+        "Status":  503,
+        "Ms":  5253,
+        "Len":  0,
+        "Snip":  "{\"connected\":false,\"state\":\"SERVICE_UNAVAILABLE\",\"error\":\"IBKR service is not running\"}"
+    },
+    {
+        "Api":  "/api/broker/account-summary",
+        "Status":  503,
+        "Ms":  5110,
+        "Len":  0,
+        "Snip":  "{\"connected\":false,\"state\":\"SERVICE_UNAVAILABLE\",\"error\":\"IBKR service is not running\"}"
+    },
+    {
+        "Api":  "/api/broker/executions",
+        "Status":  503,
+        "Ms":  5024,
+        "Len":  0,
+        "Snip":  "{\"connected\":false,\"state\":\"SERVICE_UNAVAILABLE\",\"error\":\"IBKR service is not running\"}"
+    },
+    {
+        "Api":  "/api/broker/connection",
+        "Status":  503,
+        "Ms":  4808,
+        "Len":  0,
+        "Snip":  "{\"connected\":false,\"state\":\"SERVICE_UNAVAILABLE\",\"error\":\"IBKR service is not running\"}"
+    }
+]

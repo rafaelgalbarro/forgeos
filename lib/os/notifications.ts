@@ -112,4 +112,5 @@ export const NOTIFICATION_SOURCE_LABELS: Record<OsNotification["source"], string
   board: "Board",
   capital: "Capital",
   deployment: "Deployment",
+  investment: "Investment",
 };

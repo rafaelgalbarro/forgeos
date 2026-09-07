@@ -1,0 +1,98 @@
+[
+  {
+    "id": "SR01",
+    "name": "Minimum closed trades (≥30)",
+    "required": 30,
+    "actual": 38,
+    "status": "PASS",
+    "evidence": "historical=19 simulatedFromRealAnchors=19 combined=38"
+  },
+  {
+    "id": "SR02",
+    "name": "Minimum distinct real sessions (≥10)",
+    "required": 10,
+    "actual": 1,
+    "status": "NOT_READY",
+    "evidence": "realSessionCount=1 (ledger+live capture session tags). Synthetic tags do not count. Same calendar-day re-run does not invent sessions. taggedSessionsInLedger=1. LIVE anchors from IBKR positions avgCost only (n=19). No IBKR market-data quote endpoint; Yahoo/stub providers excluded as delayed."
+  },
+  {
+    "id": "SR03",
+    "name": "Regimes include trend, sideways, high_vol",
+    "required": "trend,sideways,high_vol",
+    "actual": "high_vol,sideways,trend",
+    "status": "PASS",
+    "evidence": "regimes=trend,sideways,high_vol"
+  },
+  {
+    "id": "SR04",
+    "name": "Includes spread, slippage, commissions",
+    "required": true,
+    "actual": true,
+    "status": "PASS",
+    "evidence": "avgCommission=0.3499999999999998 avgSlippageProxy=0.3499999999999998 (spread applied in sim fills)"
+  },
+  {
+    "id": "SR05",
+    "name": "No delayed-data trades",
+    "required": 0,
+    "actual": 0,
+    "status": "PASS",
+    "evidence": "delayedTrades=0; rejectedDelayedSignals=1; LIVE anchors from IBKR positions avgCost only (n=19). No IBKR market-data quote endpoint; Yahoo/stub providers excluded as delayed."
+  },
+  {
+    "id": "SR06",
+    "name": "No trade without stop",
+    "required": true,
+    "actual": true,
+    "status": "PASS",
+    "evidence": "ordersWithStop=38 tradesWithoutStop=0"
+  },
+  {
+    "id": "SR07",
+    "name": "No trade outside limits",
+    "required": 0,
+    "actual": 0,
+    "status": "PASS",
+    "evidence": "outsideLimits=0 (sim uses qty=1, position-derived symbols only)"
+  },
+  {
+    "id": "SR08",
+    "name": "Positive net expectancy",
+    "required": ">0",
+    "actual": -0.1430692974394737,
+    "status": "FAIL",
+    "evidence": "expectancy=-0.1430692974394737 netPnl=-5.4366333028592635"
+  },
+  {
+    "id": "SR09",
+    "name": "Profit factor > 1.1",
+    "required": 1.1,
+    "actual": 66.5280558108333,
+    "status": "PASS",
+    "evidence": "profitFactor=66.5280558108333 wins=36 losses=2"
+  },
+  {
+    "id": "SR10",
+    "name": "Max DD within limit (≤15%)",
+    "required": 15,
+    "actual": 0.005895280282488242,
+    "status": "PASS",
+    "evidence": "maxDrawdownPct=0.005895280282488242"
+  },
+  {
+    "id": "SR11",
+    "name": "No recon divergence / open orders clean",
+    "required": true,
+    "actual": true,
+    "status": "PASS",
+    "evidence": "openOrdersProbe=[]"
+  },
+  {
+    "id": "SR12",
+    "name": "Zero duplicate / real orders",
+    "required": 0,
+    "actual": 0,
+    "status": "PASS",
+    "evidence": "duplicateTradeIds=0; Harness never called IBKR placeOrder; paper/shadow only. realOrdersPlaced=0"
+  }
+]

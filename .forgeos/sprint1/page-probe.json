@@ -1,0 +1,100 @@
+﻿[
+    {
+        "Page":  "/investment",
+        "Status":  200,
+        "Ms":  417,
+        "Len":  59905,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/markets",
+        "Status":  200,
+        "Ms":  4522,
+        "Len":  46141,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/research",
+        "Status":  200,
+        "Ms":  2904,
+        "Len":  94820,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/portfolio",
+        "Status":  200,
+        "Ms":  3890,
+        "Len":  53382,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/opportunities",
+        "Status":  200,
+        "Ms":  6017,
+        "Len":  48070,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/orders",
+        "Status":  200,
+        "Ms":  22844,
+        "Len":  59173,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/risk",
+        "Status":  200,
+        "Ms":  10612,
+        "Len":  309725,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/ai-committee",
+        "Status":  200,
+        "Ms":  5885,
+        "Len":  127625,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/reports",
+        "Status":  200,
+        "Ms":  4130,
+        "Len":  53024,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/broker",
+        "Status":  200,
+        "Ms":  5818,
+        "Len":  34109,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/live",
+        "Status":  200,
+        "Ms":  20691,
+        "Len":  77389,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/settings",
+        "Status":  200,
+        "Ms":  3478,
+        "Len":  71723,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/news",
+        "Status":  200,
+        "Ms":  2083,
+        "Len":  48226,
+        "HasErrorMarker":  false
+    },
+    {
+        "Page":  "/investment/committee",
+        "Status":  200,
+        "Ms":  3525,
+        "Len":  127492,
+        "HasErrorMarker":  false
+    }
+]

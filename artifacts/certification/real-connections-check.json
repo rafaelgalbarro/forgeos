@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-08-04T07:38:50.766491+00:00",
+  "ORDERS_SENT": 0,
+  "IBKR_SOCKET_4001": "PASS",
+  "FASTAPI_8000": "PASS",
+  "masked_accounts": [
+    "U1***57",
+    "U2***49"
+  ],
+  "nextValidId": 1,
+  "ibkrReadOnly_service": true,
+  "liveTradingEnabled_service": false,
+  "TWS_LIVE_SESSION": "PASS",
+  "REAL_ACCOUNTS": "PASS",
+  "REAL_ACCOUNT_SUMMARY": "PASS",
+  "REAL_POSITIONS": "PASS",
+  "position_count": 19,
+  "open_orders_count": 0,
+  "FORGEOS_3000": "PASS",
+  "broker_status_connected": true,
+  "investment_broker_page": {
+    "DATA_SOURCE_IBKR": false,
+    "STATUS_CONNECTED": true,
+    "IBKR_READ_ONLY_true": false,
+    "LIVE_TRADING_ENABLED_false": false
+  },
+  "LIVE_MARKET_DATA": "FAIL",
+  "market_data_note": "No /api/ibkr/quotes or bid/ask/last route; LIVE_MARKET_DATA cannot be confirmed for trading",
+  "market_data_samples": [
+    {
+      "symbol": "GNLN",
+      "conId": 870512079,
+      "bid": null,
+      "ask": null,
+      "last": null,
+      "timestamp": null,
+      "marketDataType": "UNAVAILABLE"
+    },
+    {
+      "symbol": "AIB",
+      "conId": 863279757,
+      "bid": null,
+      "ask": null,
+      "last": null,
+      "timestamp": null,
+      "marketDataType": "UNAVAILABLE"
+    },
+    {
+      "symbol": "RECX",
+      "conId": 662024615,
+      "bid": null,
+      "ask": null,
+      "last": null,
+      "timestamp": null,
+      "marketDataType": "UNAVAILABLE"
+    }
+  ],
+  "position_compare": {
+    "symbol": "GNLN",
+    "tws_quantity": 3.25,
+    "tws_avgCost": 42.69593845,
+    "forgeos_quantity": 3.25,
+    "forgeos_avgCost": 42.69593845,
+    "quantity_match": true,
+    "avgCost_match": true
+  },
+  "POSITION_COMPARE": "PASS",
+  "DEMO_OR_FALLBACK_DETECTED": "NO",
+  "conclusion": "REAL_CONNECTIONS_NOT_CONFIRMED"
+}

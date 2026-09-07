@@ -2,6 +2,7 @@ export type PortfolioViewTab =
   | "OVERVIEW"
   | "VENTURES"
   | "VALUE"
+  | "ANALYTICS"
   | "EXECUTIONS"
   | "RESOURCES"
   | "RISKS"
@@ -91,6 +92,19 @@ export interface PortfolioAlert {
   ventureId?: string;
 }
 
+export interface PortfolioAnalyticsBoardModel {
+  generatedAt: string;
+  asOf: string;
+  baseCurrency: string;
+  metrics: Array<{ key: string; label: string; value: string; status: string; note?: string }>;
+  risks: Array<{ key: string; label: string; value: string; status: string; note?: string }>;
+  byPosition: Array<{ key: string; label: string; weight: string; risk: string; exposure: string }>;
+  bySector: Array<{ key: string; label: string; weight: string; risk: string; exposure: string }>;
+  byIndustry: Array<{ key: string; label: string; weight: string; risk: string; exposure: string }>;
+  byCountry: Array<{ key: string; label: string; weight: string; risk: string; exposure: string }>;
+  byCurrency: Array<{ key: string; label: string; weight: string; risk: string; exposure: string }>;
+}
+
 export interface MultiCreateBatchResult {
   name: string;
   status: "created" | "rejected" | "queued" | "blocked";
@@ -115,6 +129,7 @@ export interface PortfolioCommandCenterReadModel {
   ventures: PortfolioVentureCardModel[];
   executions: PortfolioExecutionRow[];
   value: PortfolioValueRow[];
+  analytics: PortfolioAnalyticsBoardModel;
   resources: PortfolioResourceRow[];
   alerts: PortfolioAlert[];
   approvals: Array<{ id: string; title: string; status: string; ventureId?: string }>;

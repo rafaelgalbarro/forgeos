@@ -314,6 +314,12 @@ class IBKRClient(EWrapper, EClient):
 
     def accountSummary(self, reqId, account, tag, value, currency) -> None:
         self.account_data.setdefault(account, {})[tag] = {"value": value, "currency": currency}
+        # Per-currency cash balances (CashBalance arrives with currency=USD/EUR)
+        if tag == "CashBalance" and currency:
+            self.account_data.setdefault(account, {})[f"CashBalance_{str(currency).upper()}"] = {
+                "value": value,
+                "currency": currency,
+            }
 
     def accountSummaryEnd(self, reqId: int) -> None:
         self.account_done.set()
@@ -328,9 +334,15 @@ class IBKRClient(EWrapper, EClient):
             "MaintMarginReq",
             "UnrealizedPnL",
             "RealizedPnL",
+            "CashBalance",
         }
         if key in wanted and accountName:
             self.account_data.setdefault(accountName, {})[key] = {"value": val, "currency": currency}
+            if key == "CashBalance" and currency:
+                self.account_data.setdefault(accountName, {})[f"CashBalance_{str(currency).upper()}"] = {
+                    "value": val,
+                    "currency": currency,
+                }
 
     def accountDownloadEnd(self, accountName: str) -> None:
         done = self._acct_update_done.get(accountName)
@@ -623,6 +635,9 @@ class IBKRClient(EWrapper, EClient):
             for account in self._known_accounts():
                 tags_for = self.account_data.get(account) or {}
                 if "NetLiquidation" not in tags_for and "TotalCashValue" not in tags_for:
+                    self._fill_account_via_updates(account)
+                # Always refresh CashBalance_USD/EUR via account updates when missing
+                elif "CashBalance_USD" not in tags_for and "CashBalance_EUR" not in tags_for:
                     self._fill_account_via_updates(account)
             return self.account_data
 
@@ -1079,17 +1094,105 @@ class IBKRClient(EWrapper, EClient):
         contract.symbol = str(proposal.get("symbol") or "").upper().strip()
         sec_type = str(proposal.get("sec_type") or "STK").upper().strip() or "STK"
         contract.secType = sec_type
-        contract.currency = str(proposal.get("currency") or "USD").upper().strip() or "USD"
+        requested_ccy = str(proposal.get("currency") or "USD").upper().strip() or "USD"
+        contract.currency = requested_ccy
         exchange = str(proposal.get("exchange") or "").upper().strip()
         if sec_type == "CRYPTO":
             contract.exchange = "PAXOS" if exchange in {"", "SMART"} else exchange
         else:
             contract.secType = "STK"
             contract.exchange = exchange or "SMART"
-            contract.currency = "USD"
+            # Prefer proposal currency (USD for US listings / ADRs). Do not silently
+            # force USD when the caller requested EUR for EU-listed names.
+            contract.currency = requested_ccy if requested_ccy in {"USD", "EUR"} else "USD"
         if proposal.get("primary_exchange"):
             contract.primaryExchange = proposal["primary_exchange"]
         return contract
+
+    def _cash_by_currency(self) -> dict[str, float]:
+        """Best-effort USD/EUR cash from last account_summary / updates."""
+        out = {"USD": 0.0, "EUR": 0.0}
+        try:
+            data = self.account_summary()
+        except Exception as exc:
+            log.warning("account_summary for currency check failed: %s", exc)
+            return out
+        primary = (settings.default_account_id(self.accounts) or "").strip()
+        accounts = [primary] if primary and primary in data else list(data.keys())
+        for acct in accounts:
+            tags = data.get(acct) or {}
+            for ccy in ("USD", "EUR"):
+                row = tags.get(f"CashBalance_{ccy}")
+                if row and row.get("value") is not None:
+                    try:
+                        out[ccy] = max(out[ccy], float(row["value"]))
+                    except (TypeError, ValueError):
+                        pass
+            # Fallback: TotalCashValue currency
+            tc = tags.get("TotalCashValue") or {}
+            try:
+                val = float(tc.get("value") or 0)
+            except (TypeError, ValueError):
+                val = 0.0
+            ccy = str(tc.get("currency") or "").upper()
+            if val > 0 and ccy in out and out[ccy] <= 0:
+                out[ccy] = val
+        return out
+
+    # US-listed products that typically need settled USD (no EUR listing)
+    _USD_REQUIRED = {
+        "VXX", "UVXY", "SVXY", "TQQQ", "SQQQ", "SPXU", "UPRO", "SOXL", "SOXS",
+        "IBIT", "FETH", "BITO", "ARKB", "GBTC", "ETHA", "BITB", "SPY", "QQQ", "IWM",
+    }
+    _EU_ADR_USD = {"GSK", "SHEL", "BP", "AZN", "UL", "NVS", "ASML", "NVO"}
+
+    def _resolve_order_currency(self, proposal: dict[str, Any]) -> dict[str, Any]:
+        """
+        Adjust proposal currency/exchange before placeOrder to avoid Inactive
+        when the account is EUR-funded and the contract is USD.
+        """
+        p = dict(proposal)
+        symbol = str(p.get("symbol") or "").upper().strip()
+        sec = str(p.get("sec_type") or "STK").upper()
+        if sec != "STK":
+            return p
+
+        cash = self._cash_by_currency()
+        usd = float(cash.get("USD") or 0)
+        eur = float(cash.get("EUR") or 0)
+        notional = float(p.get("quantity") or 0) * float(p.get("limit_price") or 0)
+
+        # European ADRs on SMART/USD — keep USD even if cash is EUR (IBKR FX)
+        if symbol in self._EU_ADR_USD:
+            p["currency"] = "USD"
+            p["exchange"] = p.get("exchange") or "SMART"
+            log.info(
+                "Currency fix %s: European ADR → USD/SMART (cash USD=%.2f EUR=%.2f)",
+                symbol, usd, eur,
+            )
+            return p
+
+        # Leveraged / vol / crypto ETFs need USD balance
+        if symbol in self._USD_REQUIRED:
+            if usd < max(1.0, notional * 0.5) and eur > 0:
+                log.warning(
+                    "Currency fix %s: requires USD (have USD=%.2f EUR=%.2f notional=%.2f) — "
+                    "proceeding USD/SMART; IBKR may FX-convert or reject Inactive",
+                    symbol, usd, eur, notional,
+                )
+            p["currency"] = "USD"
+            p["exchange"] = p.get("exchange") or "SMART"
+            return p
+
+        # Default US equity: USD/SMART; if only EUR available, still USD (auto FX)
+        p["currency"] = "USD"
+        p["exchange"] = p.get("exchange") or "SMART"
+        if usd < 1 and eur > notional * 0.5:
+            log.info(
+                "Currency fix %s: no USD cash (EUR=%.2f) — order USD/SMART expecting IBKR FX",
+                symbol, eur,
+            )
+        return p
 
     def _resolve_contract_details(self, contract: Contract, timeout: float = 30.0):
         self._ensure_connected_for_contract_details()
@@ -1233,8 +1336,18 @@ class IBKRClient(EWrapper, EClient):
         skip_contract_details: bool = False,
     ) -> int:
         self._ensure_connected_for_contract_details()
+        proposal = self._resolve_order_currency(proposal)
         contract = self._basic_contract_from_proposal(proposal)
         sec_type = str(contract.secType or "STK").upper()
+        log.info(
+            "placeOrder contract %s sec=%s exchange=%s currency=%s qty=%s lmt=%s",
+            contract.symbol,
+            contract.secType,
+            contract.exchange,
+            contract.currency,
+            proposal.get("quantity"),
+            proposal.get("limit_price"),
+        )
         details = None
         if not skip_contract_details:
             try:

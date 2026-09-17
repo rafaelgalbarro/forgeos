@@ -46,7 +46,7 @@ const MONITOR_INTERVAL_MS = 30_000;
 const STALE_HOURS = 24;
 const TRAILING_STOP_PCT = TRADING_CONFIG.risk.trailingStopPct;
 const DEFAULT_SL_PCT = 0.03; // -3%
-const DEFAULT_TP_PCT = 0.05; // +5%
+const DEFAULT_TP_PCT = 0.08; // +8%
 const HARD_STOP_LOSS_PCT = -5;
 const PROFIT_APPROVAL_PCT = 8;
 const MADRID_TZ = "Europe/Madrid";
@@ -458,6 +458,23 @@ async function closePosition(
     shares: pos.shares,
     inherited: !pos.orderId,
   });
+
+  // Immediate Telegram exit alert (STOP LOSS / TAKE PROFIT)
+  try {
+    const { getExitManager } = await import("@/lib/trading/exit-manager");
+    await getExitManager().notifyExit({
+      symbol: ticker,
+      side: "SELL",
+      qty: pos.shares,
+      price,
+      entry: pos.entryPrice,
+      pnlPct: pnlPct / 100,
+      pnlUSD,
+      reason: kind === "SL" ? "STOP_LOSS" : "TAKE_PROFIT",
+    });
+  } catch {
+    /* non-fatal */
+  }
 
   publishInvestmentEvent({
     type: "position_closed",

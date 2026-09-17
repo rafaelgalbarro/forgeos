@@ -25,6 +25,11 @@ import {
   minConfidenceForForgePhase,
   type ForgeTradingPhase,
 } from "@/lib/trading/cycle-schedule";
+import {
+  fetchCapitalSnapshot,
+  requiresUsdBalance,
+  type CapitalSnapshot,
+} from "@/lib/trading/capital";
 
 export type AgentSignal = {
   agent: string;
@@ -478,4 +483,166 @@ export function phaseLabelForTelegram(phase?: ForgeTradingPhase): string {
     default:
       return "⏸ CLOSED";
   }
+}
+
+export type PreOrderRiskResult = {
+  allow: boolean;
+  reason: string;
+  qty: number;
+  notional: number;
+  stopLoss: number;
+  takeProfit: number;
+  stopLossPct: number;
+  takeProfitPct: number;
+  capital: CapitalSnapshot;
+  atrPct: number;
+};
+
+function atrPctFromBars(price: number, bars: readonly OhlcvBar[]): number {
+  if (!(price > 0) || bars.length < 15) return 0.03;
+  const a = atr(bars, 14);
+  if (a == null || !(a > 0)) return 0.03;
+  return Math.min(0.05, Math.max(0.01, a / price));
+}
+
+/**
+ * PRE_ORDER_RISK_CHECK — runs before any order proposal.
+ * Capital, exposure, duplicate ticker, ATR-based SL/TP, qty sizing.
+ */
+export async function runPreOrderRiskCheck(input: {
+  ticker: string;
+  price: number;
+  confidence: number;
+  bars?: readonly OhlcvBar[];
+  capital?: CapitalSnapshot;
+}): Promise<PreOrderRiskResult> {
+  const ticker = input.ticker.trim().toUpperCase();
+  const price = input.price;
+  const capital = input.capital ?? (await fetchCapitalSnapshot());
+
+  const available =
+    capital.availableFunds > 0
+      ? capital.availableFunds
+      : Math.max(capital.cashUSD, capital.cashEUR, capital.tradingCashUSD);
+
+  const atrPct = atrPctFromBars(price, input.bars ?? []);
+  let stopLossPct = atrPct;
+  let takeProfitPct = atrPct * 2;
+  // Caps: SL never > 5% down, TP never < 3% up
+  stopLossPct = Math.min(0.05, Math.max(0.01, stopLossPct));
+  takeProfitPct = Math.max(0.03, takeProfitPct);
+
+  const stopLoss = price * (1 - stopLossPct);
+  const takeProfit = price * (1 + takeProfitPct);
+
+  const reject = (reason: string): PreOrderRiskResult => ({
+    allow: false,
+    reason,
+    qty: 0,
+    notional: 0,
+    stopLoss,
+    takeProfit,
+    stopLossPct,
+    takeProfitPct,
+    capital,
+    atrPct,
+  });
+
+  if (!(price > 0)) return reject("precio inválido");
+
+  if (capital.openTickers.includes(ticker)) {
+    return reject(`posición duplicada en ${ticker}`);
+  }
+
+  const nav = capital.navUSD > 0 ? capital.navUSD : available;
+  if (nav > 0 && capital.exposureUSD / nav > 0.9) {
+    return reject(
+      `exposición ${(capital.exposureUSD / nav * 100).toFixed(0)}% > 90% del capital`,
+    );
+  }
+
+  if (requiresUsdBalance(ticker) && capital.cashUSD < price && capital.cashEUR > 0 && capital.cashUSD < 1) {
+    return reject(`${ticker} requiere saldo USD (cashUSD≈$0, cashEUR€${capital.cashEUR.toFixed(2)})`);
+  }
+
+  const deployable80 = available * 0.8;
+  // Small accounts (<$500): allow up to 80% so 1 share is feasible; else max 20% per position
+  const maxByRisk = available < 500 ? deployable80 : available * 0.2;
+  const budget = Math.min(deployable80, maxByRisk);
+
+  let qty = Math.floor(budget / price);
+  if (qty === 0) {
+    return reject(
+      `capital insuficiente — precio $${price.toFixed(2)} > presupuesto $${budget.toFixed(2)} (cash≈$${available.toFixed(2)})`,
+    );
+  }
+
+  const confMul =
+    input.confidence >= 0.8 ? 1 : input.confidence >= 0.7 ? 0.75 : 0.5;
+  qty = Math.max(1, Math.floor(qty * confMul));
+  while (qty > 1 && qty * price > deployable80) qty -= 1;
+  if (qty * price > deployable80) {
+    return reject(`notional $${(qty * price).toFixed(2)} > 80% capital`);
+  }
+
+  return {
+    allow: true,
+    reason: "PRE_ORDER_RISK_CHECK OK",
+    qty,
+    notional: qty * price,
+    stopLoss,
+    takeProfit,
+    stopLossPct,
+    takeProfitPct,
+    capital,
+    atrPct,
+  };
+}
+
+/** Detailed pre-order console log. */
+export function logPreOrderDecision(params: {
+  ticker: string;
+  allow: boolean;
+  reason?: string;
+  price: number;
+  qty: number;
+  notional: number;
+  stopLoss: number;
+  takeProfit: number;
+  confidence: number;
+  agents: string;
+  capital: CapitalSnapshot;
+}): void {
+  const {
+    ticker,
+    allow,
+    reason,
+    price,
+    qty,
+    notional,
+    stopLoss,
+    takeProfit,
+    confidence,
+    agents,
+    capital,
+  } = params;
+  const avail = Math.max(capital.availableFunds, capital.cashUSD, capital.cashEUR);
+  const pctCap = avail > 0 ? (notional / avail) * 100 : 0;
+  const slPct = price > 0 ? ((stopLoss - price) / price) * 100 : 0;
+  const tpPct = price > 0 ? ((takeProfit - price) / price) * 100 : 0;
+
+  console.log(`[PreOrder] ${ticker} BUY`);
+  console.log(
+    `  Capital: $${capital.cashUSD.toFixed(2)} USD / €${capital.cashEUR.toFixed(2)} EUR (avail $${avail.toFixed(2)})`,
+  );
+  console.log(`  Precio: $${price.toFixed(2)} | Qty calculada: ${qty}`);
+  console.log(`  Notional: $${notional.toFixed(2)} (${pctCap.toFixed(1)}% del capital)`);
+  console.log(
+    `  Stop Loss: $${stopLoss.toFixed(2)} (${slPct.toFixed(1)}%) | Take Profit: $${takeProfit.toFixed(2)} (+${tpPct.toFixed(1)}%)`,
+  );
+  console.log(`  Confianza: ${(confidence * 100).toFixed(0)}% | Agentes: ${agents}`);
+  console.log(
+    `  Exposición actual: $${capital.exposureUSD.toFixed(2)} (${capital.openTickers.length} posiciones)`,
+  );
+  console.log(allow ? `  ✅ APROBADO para ejecución` : `  ❌ RECHAZADO: ${reason ?? "risk"}`);
 }

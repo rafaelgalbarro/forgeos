@@ -1,10 +1,10 @@
 /**
- * USA stocks cycle universe — curated sectors + EODHD real-time movers.
+ * USA stocks cycle universe — curated sectors + EODHD movers, filtered by capital.
  */
 
 import "server-only";
 
-import { screenerUsGainers } from "@/lib/market-data/eodhd";
+import { screenerUsGainers, getBatchQuotes } from "@/lib/market-data/eodhd";
 import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 import {
   isAlpacaCryptoTicker,
@@ -12,6 +12,7 @@ import {
   toAlpacaCryptoPairId,
 } from "@/lib/brokers/alpaca-pairs";
 import { USA_CURATED_UNIVERSE } from "@/lib/trading/usa-sectors";
+import { fetchCapitalSnapshot } from "@/lib/trading/capital";
 
 /** Final tickers analyzed per stocks cycle. */
 export const MAX_STOCKS_CYCLE_TICKERS = 50;
@@ -22,7 +23,7 @@ const MIN_VOLUME = 500_000;
 const MIN_PRICE = 5;
 const MAX_PRICE = 500;
 
-/** @deprecated use USA_CURATED_UNIVERSE — kept for callers expecting QUALITY_USA_STOCKS_FALLBACK */
+/** @deprecated use USA_CURATED_UNIVERSE */
 export const QUALITY_USA_STOCKS_FALLBACK = USA_CURATED_UNIVERSE.slice(0, 20);
 
 export type StocksUniverseResult = {
@@ -30,9 +31,9 @@ export type StocksUniverseResult = {
   source: "eodhd-screener+curated" | "curated-fallback";
   scanned: number;
   momentum: Array<{ symbol: string; changePct: number }>;
+  capitalFilter?: { available: number; excluded: string[]; included: string[] };
 };
 
-/** Exclude spot crypto / forex from the stocks cycle (crypto ETFs like IBIT are OK). */
 export function isUsStockTicker(ticker: string): boolean {
   const t = ticker.trim().toUpperCase();
   if (!t) return false;
@@ -43,31 +44,88 @@ export function isUsStockTicker(ticker: string): boolean {
   return true;
 }
 
-function curatedFallback(momentumMap?: Map<string, number>): StocksUniverseResult {
-  const tickers = USA_CURATED_UNIVERSE.filter(isUsStockTicker).slice(0, MAX_STOCKS_CYCLE_TICKERS);
-  console.log(`[StocksUniverse] curated fallback → ${tickers.length} tickers`);
+async function filterByAffordableCapital(
+  tickers: string[],
+  priceHint?: Map<string, number>,
+): Promise<{ tickers: string[]; available: number; excluded: string[]; included: string[] }> {
+  let available = 0;
+  try {
+    const cap = await fetchCapitalSnapshot();
+    available = Math.max(cap.availableFunds, cap.cashUSD, cap.cashEUR, cap.tradingCashUSD);
+  } catch {
+    available = 0;
+  }
+
+  if (!(available > 0)) {
+    return { tickers, available: 0, excluded: [], included: tickers };
+  }
+
+  const maxPrice = available * 0.8;
+  const needQuotes = tickers.filter((t) => !(priceHint?.get(t) && (priceHint.get(t) ?? 0) > 0));
+  const quotes = needQuotes.length > 0 ? await getBatchQuotes(needQuotes) : new Map();
+
+  const affordable: string[] = [];
+  const expensive: string[] = [];
+  const excludedDetail: string[] = [];
+  const includedDetail: string[] = [];
+
+  for (const symbol of tickers) {
+    const px =
+      priceHint?.get(symbol) ??
+      quotes.get(symbol)?.price ??
+      0;
+    if (!(px > 0)) {
+      // Unknown price — keep (will fail later if truly unaffordable)
+      affordable.push(symbol);
+      continue;
+    }
+    if (px > maxPrice) {
+      expensive.push(symbol);
+      excludedDetail.push(`${symbol}($${px.toFixed(0)})`);
+    } else {
+      affordable.push(symbol);
+      includedDetail.push(`${symbol}($${px.toFixed(0)})`);
+    }
+  }
+
+  // Affordable first, then expensive (won't buy but still analyzable if user wants — we DROP expensive)
+  const ordered = [...affordable];
+
+  console.log(
+    `[Universe] Filtrando por capital $${available.toFixed(0)}: excluidos ${excludedDetail.slice(0, 8).join(", ") || "ninguno"}, incluidos ${includedDetail.slice(0, 8).join(", ") || "ninguno"}`,
+  );
+
   return {
-    tickers: [...tickers],
-    source: "curated-fallback",
-    scanned: USA_CURATED_UNIVERSE.length,
-    momentum: tickers.map((symbol) => ({
-      symbol,
-      changePct: momentumMap?.get(symbol) ?? 0,
-    })),
+    tickers: ordered,
+    available,
+    excluded: expensive,
+    included: affordable,
   };
 }
 
-/**
- * Each cycle:
- * 1) EODHD top movers (price 5–500, avgvol > 500k)
- * 2) Union with curated ~100 list (cap 80)
- * 3) Sort by abs(change) desc
- * 4) Top 30 gainers + top 20 curated = up to 50
- */
+function curatedFallback(momentumMap?: Map<string, number>): Promise<StocksUniverseResult> {
+  const tickers = USA_CURATED_UNIVERSE.filter(isUsStockTicker).slice(0, MAX_STOCKS_CYCLE_TICKERS);
+  return filterByAffordableCapital([...tickers]).then((f) => ({
+    tickers: f.tickers.slice(0, MAX_STOCKS_CYCLE_TICKERS),
+    source: "curated-fallback" as const,
+    scanned: USA_CURATED_UNIVERSE.length,
+    momentum: f.tickers.map((symbol) => ({
+      symbol,
+      changePct: momentumMap?.get(symbol) ?? 0,
+    })),
+    capitalFilter: {
+      available: f.available,
+      excluded: f.excluded,
+      included: f.included.slice(0, 20),
+    },
+  }));
+}
+
 export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult> {
   const curated = USA_CURATED_UNIVERSE.filter(isUsStockTicker);
   const curatedSet = new Set(curated);
   const changeBySymbol = new Map<string, number>();
+  const priceBySymbol = new Map<string, number>();
 
   let screener: Awaited<ReturnType<typeof screenerUsGainers>> = [];
   try {
@@ -88,6 +146,7 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
   for (const row of screener) {
     if (!isUsStockTicker(row.symbol)) continue;
     changeBySymbol.set(row.symbol, row.changePct);
+    if (row.price > 0) priceBySymbol.set(row.symbol, row.price);
   }
 
   const union = new Set<string>();
@@ -123,21 +182,25 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
     if (curatedPick.length >= TOP_CURATED) break;
   }
 
-  // Fill remaining slots from absolute movers if needed
   const selected = [...new Set([...gainers, ...curatedPick])];
   for (const r of ranked) {
     if (selected.length >= MAX_STOCKS_CYCLE_TICKERS) break;
     if (!selected.includes(r.symbol)) selected.push(r.symbol);
   }
 
-  const tickers = selected.slice(0, MAX_STOCKS_CYCLE_TICKERS);
+  const filtered = await filterByAffordableCapital(
+    selected.slice(0, MAX_STOCKS_CYCLE_TICKERS),
+    priceBySymbol,
+  );
+
+  const tickers = filtered.tickers.slice(0, MAX_STOCKS_CYCLE_TICKERS);
   const momentum = tickers.map((symbol) => ({
     symbol,
     changePct: changeBySymbol.get(symbol) ?? 0,
   }));
 
   console.log(
-    `[StocksUniverse] screener=${screener.length} union=${unionList.length} → gainers=${gainers.length} curated+=${curatedPick.length} cycle=${tickers.length}`,
+    `[StocksUniverse] screener=${screener.length} → cycle=${tickers.length} (capital-filtered, excl=${filtered.excluded.length})`,
   );
 
   return {
@@ -145,5 +208,10 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
     source: "eodhd-screener+curated",
     scanned: screener.length,
     momentum,
+    capitalFilter: {
+      available: filtered.available,
+      excluded: filtered.excluded,
+      included: filtered.included.slice(0, 20),
+    },
   };
 }

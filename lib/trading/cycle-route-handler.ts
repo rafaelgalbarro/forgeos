@@ -17,6 +17,7 @@ import {
   getCurrentTradingPhase,
   nextOpenLabel,
 } from "@/lib/trading/cycle-schedule";
+import { getExitManager } from "@/lib/trading/exit-manager";
 
 const engine = new TradingEngine();
 
@@ -80,6 +81,24 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
 
   try {
     await expireStalePendingApprovals();
+
+    // Exit manager — evaluate open positions each cycle (SL/TP alerts; monitor executes)
+    if (config.kind === "stocks") {
+      try {
+        const exits = await getExitManager().checkPositions();
+        if (exits.length > 0) {
+          console.log(
+            `[ExitManager] ${exits.length} salidas candidatas:`,
+            exits.map((e) => `${e.symbol}:${e.reason}`).join(", "),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          "[ExitManager] check failed:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
 
     const result = await engine.runCycle(config.tickers, {
       cycleKind: config.kind,

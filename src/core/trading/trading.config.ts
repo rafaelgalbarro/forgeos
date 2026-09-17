@@ -17,8 +17,8 @@ export const TRADING_CONFIG = {
     maxOpenPositions: 5,
     /** Default SL: -3% por posición */
     defaultStopLossPct: 0.03,
-    /** Default TP: +5% baseline (estrategias pueden override) */
-    defaultTakeProfitPct: 0.05,
+    /** Default TP: +8% baseline (ExitManager / strategies can override) */
+    defaultTakeProfitPct: 0.08,
     /** Trailing stop: 1.5% desde el máximo alcanzado */
     trailingStopPct: 0.015,
     /** Cash-based dynamic sizing (see dynamic-sizing.ts) */

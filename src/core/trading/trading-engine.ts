@@ -16,6 +16,8 @@ import { registerExecutedPosition } from './position-monitor'
 import { evaluateProStrategies, capitalPctFromConfidence } from './strategies/pro-strategies'
 import { getMacroContext } from '@/lib/market-data/macro-context'
 import { notifyPreTradeHold, notifyPendingApproval, notifyInstantExecution } from '@/lib/notifications/telegram-bot'
+import { runPreOrderRiskCheck, logPreOrderDecision } from '@/lib/trading/agents'
+import { fetchCapitalSnapshot } from '@/lib/trading/capital'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -240,6 +242,37 @@ function resolveAccountCapitalPolicy(
   const capitalPct = capitalPctFromConfidence(confidence) * Math.max(0.1, Math.min(1, sizeFactor))
   const deployableUSD = cash * capitalPct
   return { accountId: id, minPrice: 0.75, maxPrice: 500, deployableUSD, capitalPct }
+}
+
+/**
+ * Dynamic position sizing — never use >80% cash; max 20% per position
+ * (80% allowed on micro accounts < $500 so 1 share remains feasible).
+ */
+export function resolvePositionSize(
+  account: { cashUSD: number; availableFunds?: number },
+  price: number,
+  confidence: number,
+): { qty: number; deployable: number; reason?: string } {
+  const cash = Math.max(0, account.availableFunds ?? account.cashUSD)
+  if (!(price > 0) || !(cash > 0)) {
+    return { qty: 0, deployable: 0, reason: 'sin capital o precio' }
+  }
+  const availableUSD = cash * 0.8
+  const maxByRisk = cash < 500 ? availableUSD : cash * 0.2
+  const deployable = Math.min(availableUSD, maxByRisk)
+  let qty = Math.floor(deployable / price)
+  if (qty === 0) {
+    return {
+      qty: 0,
+      deployable,
+      reason: `precio $${price.toFixed(2)} > capital $${deployable.toFixed(2)}`,
+    }
+  }
+  const confidenceMultiplier =
+    confidence >= 0.8 ? 1.0 : confidence >= 0.7 ? 0.75 : 0.5
+  qty = Math.max(1, Math.floor(qty * confidenceMultiplier))
+  while (qty > 1 && qty * price > availableUSD) qty -= 1
+  return { qty, deployable }
 }
 
 export type OrderResult = {
@@ -1232,10 +1265,15 @@ export class TradingEngine {
       at: new Date().toISOString(),
     })
 
-    // Account-aware price filter + confidence-tier sizing
+    // Account-aware price filter + PRE_ORDER_RISK_CHECK + dynamic sizing
+    const capitalSnap = await fetchCapitalSnapshot().catch(() => null)
+    const cashForSizing = capitalSnap
+      ? Math.max(capitalSnap.availableFunds, capitalSnap.cashUSD, capitalSnap.cashEUR, capitalSnap.tradingCashUSD)
+      : account.cashUSD
+
     const capital = resolveAccountCapitalPolicy(
       account.primaryAccountId ?? process.env.IBKR_ACCOUNT_ID,
-      account.cashUSD,
+      cashForSizing,
       signal.confidence,
       strategy.positionSizeFactor ?? 1,
     )
@@ -1249,6 +1287,36 @@ export class TradingEngine {
         ticker,
         direction: signal.direction,
         reason: `Precio $${priceData.currentPrice.toFixed(2)} fuera de rango cuenta $${capital.minPrice}-$${capital.maxPrice}`,
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const preRisk = await runPreOrderRiskCheck({
+      ticker,
+      price: priceData.currentPrice,
+      confidence: signal.confidence,
+      capital: capitalSnap ?? undefined,
+    })
+    logPreOrderDecision({
+      ticker,
+      allow: preRisk.allow,
+      reason: preRisk.reason,
+      price: priceData.currentPrice,
+      qty: preRisk.qty,
+      notional: preRisk.notional,
+      stopLoss: preRisk.stopLoss,
+      takeProfit: preRisk.takeProfit,
+      confidence: signal.confidence,
+      agents: signal.primaryStrategy || 'PRO',
+      capital: preRisk.capital,
+    })
+    if (!preRisk.allow) {
+      return {
+        status: 'REJECTED_RISK',
+        ticker,
+        direction: signal.direction,
+        reason: preRisk.reason,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -1388,20 +1456,34 @@ export class TradingEngine {
       }
     }
 
-    // Strategy SL/TP override
+    // Strategy SL/TP override — prefer ATR dynamic from pre-order risk
     const strategyStopLoss = signal.stopLoss
     const strategyTakeProfit = signal.takeProfit
     const riskOk = {
       ...riskCheck,
-      stopLossPrice: strategyStopLoss > 0 ? strategyStopLoss : riskCheck.stopLossPrice,
-      takeProfitPrice: strategyTakeProfit > 0 ? strategyTakeProfit : riskCheck.takeProfitPrice,
+      stopLossPrice:
+        strategyStopLoss > 0
+          ? strategyStopLoss
+          : preRisk.stopLoss > 0
+            ? preRisk.stopLoss
+            : riskCheck.stopLossPrice,
+      takeProfitPrice:
+        strategyTakeProfit > 0
+          ? strategyTakeProfit
+          : preRisk.takeProfit > 0
+            ? preRisk.takeProfit
+            : riskCheck.takeProfitPrice,
     }
 
-    const orderValueUSD = riskOk.maxOrderValueUSD
-    // Sizing: conf tier 15–30% cash × VIX factor
-    let resolvedShares = Math.floor(capital.deployableUSD / priceData.currentPrice)
+    const sized = resolvePositionSize(
+      { cashUSD: cashForSizing, availableFunds: cashForSizing },
+      priceData.currentPrice,
+      signal.confidence,
+    )
+    let resolvedShares = sized.qty > 0 ? sized.qty : preRisk.qty
+    const orderValueUSD = resolvedShares * priceData.currentPrice
     console.log(
-      `[AutoExecute] ${ticker} → cash $${account.cashUSD.toFixed(2)} | sizing ${(capital.capitalPct * 100).toFixed(0)}%: $${capital.deployableUSD.toFixed(2)} | precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}`,
+      `[AutoExecute] ${ticker} → cash $${cashForSizing.toFixed(2)} | deployable $${sized.deployable.toFixed(2)} | precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}`,
     )
     if (resolvedShares <= 0) {
       console.warn(`[AutoExecute] ${ticker} → capital insuficiente (qty=0) — skip`)
@@ -1409,7 +1491,7 @@ export class TradingEngine {
         status: 'REJECTED_RISK',
         ticker,
         direction: signal.direction,
-        reason: `capital insuficiente — cash $${account.cashUSD.toFixed(2)} precio $${priceData.currentPrice.toFixed(2)}`,
+        reason: sized.reason ?? `capital insuficiente — cash $${cashForSizing.toFixed(2)} precio $${priceData.currentPrice.toFixed(2)}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }

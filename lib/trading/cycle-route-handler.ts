@@ -13,6 +13,10 @@ import { expireStalePendingApprovals } from "@/lib/investment/order-approval-ser
 import { publishInvestmentEvent } from "@/lib/notifications/investment-events";
 import { notifyTypedCycleComplete } from "@/lib/notifications/telegram-bot";
 import { startPositionMonitor } from "@/src/core/trading/position-monitor";
+import {
+  getCurrentTradingPhase,
+  nextOpenLabel,
+} from "@/lib/trading/cycle-schedule";
 
 const engine = new TradingEngine();
 
@@ -45,11 +49,24 @@ function storeLastCycle(kind: TypedCycleKind, result: TradeCycleResult): void {
 export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<NextResponse> {
   startPositionMonitor();
 
+  const phase = getCurrentTradingPhase();
+  if (config.kind === "stocks" && phase === "CLOSED") {
+    return NextResponse.json({
+      orders: [],
+      reason: "market_closed",
+      nextOpen: nextOpenLabel("CLOSED"),
+      cycleKind: config.kind,
+      skipped: true,
+    });
+  }
+
   if (!config.windowOpen) {
     return NextResponse.json({
       skipped: true,
       reason: `outside ${config.windowLabel}`,
       cycleKind: config.kind,
+      phase,
+      nextOpen: nextOpenLabel(phase),
     });
   }
 
@@ -66,7 +83,7 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
 
     const result = await engine.runCycle(config.tickers, {
       cycleKind: config.kind,
-      minBuyConfidence: config.minBuyConfidence ?? 0.65,
+      minBuyConfidence: config.minBuyConfidence ?? 0.6,
       analysisOnly: config.analysisOnly ?? false,
     });
 
@@ -75,7 +92,7 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
     publishInvestmentEvent({
       type: "cycle_complete",
       at: new Date().toISOString(),
-      payload: { ...result, cycleKind: config.kind },
+      payload: { ...result, cycleKind: config.kind, phase },
     });
 
     void notifyTypedCycleComplete({
@@ -88,10 +105,10 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
 
     const pending = result.orders.filter((o) => o.status === "PENDING_APPROVAL").length;
     console.log(
-      `[Cycle/${config.kind}] ✅ ${result.orders.length} results, pending=${pending}`,
+      `[Cycle/${config.kind}] ✅ ${result.orders.length} results, pending=${pending} phase=${phase}`,
     );
 
-    return NextResponse.json({ ...result, cycleKind: config.kind });
+    return NextResponse.json({ ...result, cycleKind: config.kind, phase });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "cycle failed";
     if (msg.includes("cycle already running")) {

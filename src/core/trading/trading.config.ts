@@ -11,8 +11,8 @@ export const TRADING_CONFIG = {
      * Primary stock sizing: computeDynamicSizing() from live IBKR cash.
      */
     maxPositionPct: 0.20,
-    /** Si el P&L del día supera esta pérdida, el sistema se detiene */
-    dailyLossLimitPct: 0.10,
+    /** Si el P&L del día supera esta pérdida, el sistema se detiene (Risk Manager 5%) */
+    dailyLossLimitPct: 0.05,
     /** Diversification hard cap — máx 5 posiciones simultáneas */
     maxOpenPositions: 5,
     /** Default SL: -3% por posición */
@@ -56,8 +56,8 @@ export const TRADING_CONFIG = {
     model: 'claude-sonnet-4-6',
     /** Ciclo rápido: 3 minutos */
     analysisCycleMs: 3 * 60 * 1000,
-    /** Confianza mínima (0-1) — timing 24h global */
-    minConfidenceToTrade: 0.68,
+    /** Confianza mínima (0-1) — umbral USA/EU/ASIA 0.60 */
+    minConfidenceToTrade: 0.6,
     /** After-hours / extended: umbral más alto */
     minConfidenceExtendedHours: 0.75,
     /** Mínimo de estrategias confirmando para BUY (1 = OK con score ≥68%) */
@@ -177,19 +177,19 @@ export const TRADING_CONFIG = {
     enabled:
       String(process.env.TELEGRAM_APPROVAL_REQUIRED ?? "false").trim().toLowerCase() !== "true",
     autoApproveThreshold: {
-      minConfidence: 0.68,
+      minConfidence: 0.6,
       requirePattern: false,
       requireNewsSentiment: false,
-      maxPositionValueUSD: 500,
+      maxPositionValueUSD: 250,
       maxDailyAutoTrades: 40,
     },
     notifyAndWait: {
-      confidenceRange: [0.5, 0.68] as const,
+      confidenceRange: [0.5, 0.65] as const,
       waitMinutes: Math.max(1, Number(process.env.APPROVAL_TIMEOUT_MINUTES ?? 5) || 5),
       executeIfNoResponse: false,
     },
     alwaysHold: {
-      belowConfidence: 0.6,
+      belowConfidence: 0.5,
       marketVolatilityHigh: false,
       newsConflicting: false,
     },

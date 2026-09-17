@@ -13,7 +13,7 @@ export async function POST() {
   return runTypedTradingCycle({
     kind: "crypto",
     tickers: CRYPTO_TICKERS,
-    minBuyConfidence: 0.65,
+    minBuyConfidence: 0.5,
     windowOpen: isCryptoCycleWindow(),
     windowLabel: "crypto 24/7",
   });

@@ -47,6 +47,7 @@ import {
 } from "@/src/core/trading/market-session";
 import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { isLossStreakBlacklisted } from "@/src/core/trading/strategies/strategy-blacklist";
+import { combineEquityAgents } from "@/lib/trading/agents";
 
 export type ProStrategyId =
   | "ASIA_TREND_NOCTURNO"
@@ -128,7 +129,7 @@ export type ScreenerInputs = {
   change1hPct?: number;
 };
 
-const CRYPTO_MIN_CONFIDENCE = 0.65;
+const CRYPTO_MIN_CONFIDENCE = 0.5;
 
 const REVERSAL_ONLY_IDS: ProStrategyId[] = ["USA_REVERSAL_OVERSOLD", "CRYPTO_RSI_OVERSOLD"];
 
@@ -365,11 +366,14 @@ async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
 
 function minTradeConfidenceForPhase(phase: string, crypto: boolean): number {
   if (crypto) return CRYPTO_MIN_CONFIDENCE;
-  if (phase === "USA_REGULAR") return 0.65;
+  if (phase === "USA_PREMARKET" || phase === "PRE_MARKET") return 0.62;
+  if (phase === "USA_REGULAR" || phase === "USA_OPEN" || phase === "EUROPA" || phase === "ASIA") {
+    return 0.6;
+  }
   if (phase === "USA_AFTERHOURS") {
     return TRADING_CONFIG.ai.minConfidenceExtendedHours ?? 0.75;
   }
-  return TRADING_CONFIG.ai.minConfidenceToTrade;
+  return 0.6;
 }
 
 /**
@@ -1250,7 +1254,55 @@ export async function evaluateProStrategies(
     hits.push(...filtered);
   }
 
+  // Multi-agent layer (Momentum + Technical + Sector Rotation)
+  const agentCombo = !crypto
+    ? await combineEquityAgents({
+        symbol,
+        price,
+        changePct: change1d,
+        volume,
+        avgVolume: vol20,
+        bars,
+        rsi: rsiVal,
+      })
+    : null;
+
+  if (agentCombo?.defensiveBlock) {
+    return hold(agentCombo.reasoning, rsiVal);
+  }
+
   if (hits.length === 0) {
+    if (agentCombo?.direction === "BUY" && agentCombo.confidence >= minTradeConfidenceForPhase(phase, crypto)) {
+      const stopLoss = price * 0.98;
+      const takeProfit = price * 1.06;
+      console.log(
+        `[Signal] ${symbol} BUY agents=${agentCombo.agents.join("+")} conf=${(agentCombo.confidence * 100).toFixed(0)}%`,
+      );
+      return {
+        direction: "BUY",
+        confidence: agentCombo.confidence,
+        reasoning: agentCombo.reasoning,
+        urgency: agentCombo.confidence >= 0.78 ? "HIGH" : "MEDIUM",
+        strategyIds: ["USA_EODHD_MOMENTUM"],
+        primaryStrategy: agentCombo.agents.join("+"),
+        stopLossPct: 0.02,
+        takeProfitPct: 0.06,
+        stopLoss,
+        takeProfit,
+        rsi: rsiVal,
+        positionSizeFactor: 1,
+        capitalPct: capitalPctFromConfidence(agentCombo.confidence),
+        metrics: {
+          change1d,
+          relVolume: relVol,
+          ema9,
+          ema21,
+          ema50,
+          vwapApprox: vwap5m,
+          dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
+        },
+      };
+    }
     console.log(`[ProStrategy] ${symbol}: ninguna señal (${phase})`);
     return hold("Ninguna estrategia activa en sesión", rsiVal);
   }
@@ -1265,13 +1317,19 @@ export async function evaluateProStrategies(
     relVol,
     news4h,
     sentiment: sentScore,
-    sectorPos: null,
+    sectorPos: agentCombo?.direction === "BUY" ? true : null,
     sectorNeg: null,
     rsiOk: rsiVal != null && rsiVal >= 45 && rsiVal <= 65,
     firstHour,
     marketPos: spyChange > 0 || (crypto && (change1d > 0 || change1h > 0)),
     change1d,
   });
+
+  if (agentCombo?.direction === "BUY" && agentCombo.confidence > scored.confidence) {
+    scored.confidence = Math.min(0.95, agentCombo.confidence);
+  } else if (agentCombo && agentCombo.confidence > 0) {
+    scored.confidence = Math.min(0.95, scored.confidence + Math.min(0.08, agentCombo.confidence * 0.1));
+  }
 
   if (scored.confidence < minTradeConfidence) {
     return hold(

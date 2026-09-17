@@ -11,6 +11,8 @@ import {
   alpacaAssetClass,
   normalizeAlpacaTicker,
 } from "@/lib/brokers/alpaca-pairs";
+import { runCryptoScalpAgent } from "@/lib/trading/agents";
+import type { OhlcvBar } from "@/lib/market-data/types";
 
 export type AlpacaStrategyResult = {
   direction: "BUY" | "HOLD";
@@ -28,7 +30,7 @@ const FOREX_STOP_PCT = 0.005;
 const FOREX_TP_PCT = 0.015;
 const CRYPTO_STOP_PCT = 0.02;
 const CRYPTO_TP_PCT = 0.05;
-const CRYPTO_MIN_CONFIDENCE = 0.65;
+const CRYPTO_MIN_CONFIDENCE = 0.5;
 
 function slTpFromPct(price: number, stopPct: number, tpPct: number) {
   return {
@@ -116,7 +118,38 @@ function evaluateCryptoSignals(
   closes: number[],
   price: number,
   change1hPct: number,
+  bars4h?: Array<{ date: string; open: number; high: number; low: number; close: number; volume: number }>,
 ): AlpacaStrategyResult {
+  // Prefer multi-agent crypto scalp when OHLCV bars available
+  if (bars4h && bars4h.length >= 20) {
+    const { signal, stopLoss, takeProfit } = runCryptoScalpAgent(price, bars4h);
+    const rsiVal = computeRsi(closes, 14);
+    if (signal.action === "HOLD" || (signal.confidence ?? 0) < CRYPTO_MIN_CONFIDENCE) {
+      return {
+        direction: "HOLD",
+        confidence: signal.confidence ?? 0,
+        reasoning: signal.reason,
+        urgency: "LOW",
+        primaryStrategy: "CRYPTO_SCALP_AGENT",
+        stopLoss,
+        takeProfit,
+        rsi: rsiVal,
+        strategyIds: [],
+      };
+    }
+    return {
+      direction: "BUY",
+      confidence: Math.min(0.95, signal.confidence ?? signal.confidenceBoost),
+      reasoning: signal.reason,
+      urgency: (signal.confidence ?? 0) >= 0.75 ? "HIGH" : "MEDIUM",
+      primaryStrategy: "CRYPTO_SCALP_AGENT",
+      stopLoss,
+      takeProfit,
+      rsi: rsiVal,
+      strategyIds: ["CRYPTO_SCALP_AGENT"],
+    };
+  }
+
   const rsi = computeRsi(closes, 14);
   const reasons: string[] = [];
   let score = 0;
@@ -228,7 +261,15 @@ export async function evaluateAlpacaStrategy(
 
   if (asset === "forex") return evaluateForexSignals(closes, price);
   if (asset === "crypto") {
-    return evaluateCryptoSignals(closes, price, metrics?.change1hPct ?? 0);
+    const ohlcv: OhlcvBar[] = bars.map((b) => ({
+      date: String(b.time ?? ""),
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume ?? 0,
+    }));
+    return evaluateCryptoSignals(closes, price, metrics?.change1hPct ?? 0, ohlcv);
   }
 
   return {

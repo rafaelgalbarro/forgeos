@@ -1,10 +1,9 @@
 /**
- * USA stocks cycle universe — EODHD screener ∩ allowedTickers, momentum ranked.
+ * USA stocks cycle universe — curated sectors + EODHD real-time movers.
  */
 
 import "server-only";
 
-import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 import { screenerUsGainers } from "@/lib/market-data/eodhd";
 import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 import {
@@ -12,45 +11,28 @@ import {
   isAlpacaForexTicker,
   toAlpacaCryptoPairId,
 } from "@/lib/brokers/alpaca-pairs";
+import { USA_CURATED_UNIVERSE } from "@/lib/trading/usa-sectors";
 
-export const MAX_STOCKS_CYCLE_TICKERS = 20;
-const MIN_SCREENER_TICKERS = 5;
+/** Final tickers analyzed per stocks cycle. */
+export const MAX_STOCKS_CYCLE_TICKERS = 50;
+const MAX_UNION = 80;
+const TOP_GAINERS = 30;
+const TOP_CURATED = 20;
 const MIN_VOLUME = 500_000;
 const MIN_PRICE = 5;
 const MAX_PRICE = 500;
 
-/** Fixed quality USA equities when EODHD screener is unavailable or too thin. */
-export const QUALITY_USA_STOCKS_FALLBACK = [
-  "SPY",
-  "QQQ",
-  "IWM",
-  "ARKK",
-  "AAPL",
-  "MSFT",
-  "NVDA",
-  "TSLA",
-  "AMZN",
-  "GOOGL",
-  "META",
-  "IBIT",
-  "GLD",
-  "TLT",
-  "TQQQ",
-  "SQQQ",
-  "VXX",
-  "BITO",
-  "FETH",
-  "ARKB",
-] as const;
+/** @deprecated use USA_CURATED_UNIVERSE — kept for callers expecting QUALITY_USA_STOCKS_FALLBACK */
+export const QUALITY_USA_STOCKS_FALLBACK = USA_CURATED_UNIVERSE.slice(0, 20);
 
 export type StocksUniverseResult = {
   tickers: string[];
-  source: "eodhd-screener" | "quality-fallback";
+  source: "eodhd-screener+curated" | "curated-fallback";
   scanned: number;
   momentum: Array<{ symbol: string; changePct: number }>;
 };
 
-/** Exclude crypto, forex, and any non-equity ticker from the stocks cycle. */
+/** Exclude spot crypto / forex from the stocks cycle (crypto ETFs like IBIT are OK). */
 export function isUsStockTicker(ticker: string): boolean {
   const t = ticker.trim().toUpperCase();
   if (!t) return false;
@@ -61,33 +43,31 @@ export function isUsStockTicker(ticker: string): boolean {
   return true;
 }
 
-function stockAllowedSet(): Set<string> {
-  return new Set(
-    (TRADING_CONFIG.allowedTickers as readonly string[])
-      .map((t) => t.trim().toUpperCase())
-      .filter(isUsStockTicker),
-  );
-}
-
-function qualityFallbackUniverse(): StocksUniverseResult {
-  const tickers = QUALITY_USA_STOCKS_FALLBACK.filter(isUsStockTicker).slice(
-    0,
-    MAX_STOCKS_CYCLE_TICKERS,
-  );
-
-  console.log(`[StocksUniverse] quality fallback → ${tickers.length} tickers`);
+function curatedFallback(momentumMap?: Map<string, number>): StocksUniverseResult {
+  const tickers = USA_CURATED_UNIVERSE.filter(isUsStockTicker).slice(0, MAX_STOCKS_CYCLE_TICKERS);
+  console.log(`[StocksUniverse] curated fallback → ${tickers.length} tickers`);
   return {
     tickers: [...tickers],
-    source: "quality-fallback",
-    scanned: QUALITY_USA_STOCKS_FALLBACK.length,
-    momentum: tickers.map((symbol) => ({ symbol, changePct: 0 })),
+    source: "curated-fallback",
+    scanned: USA_CURATED_UNIVERSE.length,
+    momentum: tickers.map((symbol) => ({
+      symbol,
+      changePct: momentumMap?.get(symbol) ?? 0,
+    })),
   };
 }
 
-/** Dynamic USA stocks universe for Cycle 1. */
+/**
+ * Each cycle:
+ * 1) EODHD top movers (price 5–500, avgvol > 500k)
+ * 2) Union with curated ~100 list (cap 80)
+ * 3) Sort by abs(change) desc
+ * 4) Top 30 gainers + top 20 curated = up to 50
+ */
 export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult> {
-  const allowed = stockAllowedSet();
-  const momentum: Array<{ symbol: string; changePct: number }> = [];
+  const curated = USA_CURATED_UNIVERSE.filter(isUsStockTicker);
+  const curatedSet = new Set(curated);
+  const changeBySymbol = new Map<string, number>();
 
   let screener: Awaited<ReturnType<typeof screenerUsGainers>> = [];
   try {
@@ -95,38 +75,74 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
       minVolume: MIN_VOLUME,
       minPrice: MIN_PRICE,
       maxPrice: MAX_PRICE,
-      limit: 120,
+      limit: 50,
     });
   } catch (err) {
     console.warn(
       "[StocksUniverse] EODHD screener error:",
       err instanceof Error ? err.message : err,
     );
-    return qualityFallbackUniverse();
+    return curatedFallback();
   }
 
-  const fromScreener = screener
-    .filter((r) => isUsStockTicker(r.symbol) && allowed.has(r.symbol))
-    .sort((a, b) => b.changePct - a.changePct);
-
-  if (fromScreener.length < MIN_SCREENER_TICKERS) {
-    console.log(
-      `[StocksUniverse] screener ${screener.length} → allowed ${fromScreener.length} (<${MIN_SCREENER_TICKERS}) — quality fallback`,
-    );
-    return qualityFallbackUniverse();
+  for (const row of screener) {
+    if (!isUsStockTicker(row.symbol)) continue;
+    changeBySymbol.set(row.symbol, row.changePct);
   }
 
-  const tickers = fromScreener.slice(0, MAX_STOCKS_CYCLE_TICKERS).map((r) => {
-    momentum.push({ symbol: r.symbol, changePct: r.changePct });
-    return r.symbol;
-  });
+  const union = new Set<string>();
+  for (const row of screener) {
+    if (isUsStockTicker(row.symbol)) union.add(row.symbol);
+  }
+  for (const t of curated) union.add(t);
+  const unionList = [...union].slice(0, MAX_UNION);
+
+  const ranked = unionList
+    .map((symbol) => ({
+      symbol,
+      changePct: changeBySymbol.get(symbol) ?? 0,
+      absChange: Math.abs(changeBySymbol.get(symbol) ?? 0),
+      curated: curatedSet.has(symbol),
+    }))
+    .sort((a, b) => b.absChange - a.absChange);
+
+  if (screener.length === 0) {
+    return curatedFallback(changeBySymbol);
+  }
+
+  const gainers = ranked
+    .filter((r) => r.changePct > 0)
+    .slice(0, TOP_GAINERS)
+    .map((r) => r.symbol);
+
+  const curatedPick: string[] = [];
+  for (const r of ranked) {
+    if (!r.curated) continue;
+    if (gainers.includes(r.symbol)) continue;
+    curatedPick.push(r.symbol);
+    if (curatedPick.length >= TOP_CURATED) break;
+  }
+
+  // Fill remaining slots from absolute movers if needed
+  const selected = [...new Set([...gainers, ...curatedPick])];
+  for (const r of ranked) {
+    if (selected.length >= MAX_STOCKS_CYCLE_TICKERS) break;
+    if (!selected.includes(r.symbol)) selected.push(r.symbol);
+  }
+
+  const tickers = selected.slice(0, MAX_STOCKS_CYCLE_TICKERS);
+  const momentum = tickers.map((symbol) => ({
+    symbol,
+    changePct: changeBySymbol.get(symbol) ?? 0,
+  }));
 
   console.log(
-    `[StocksUniverse] EODHD screener ${screener.length} → allowed ${fromScreener.length} → cycle ${tickers.length}`,
+    `[StocksUniverse] screener=${screener.length} union=${unionList.length} → gainers=${gainers.length} curated+=${curatedPick.length} cycle=${tickers.length}`,
   );
+
   return {
     tickers,
-    source: "eodhd-screener",
+    source: "eodhd-screener+curated",
     scanned: screener.length,
     momentum,
   };

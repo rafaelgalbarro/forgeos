@@ -264,51 +264,72 @@ export type EodhdScreenerRow = {
   changePct: number;
   volume: number;
   price: number;
+  marketCap?: number;
+  sector?: string;
+  industry?: string;
 };
 
-/** US screener — top gainers with volume/price filters (cached 3 min). */
+/** US screener — All-in-One fields: adjusted_close, refund_1d_p, avgvol_200d (cached 3 min). */
 export async function screenerUsGainers(options?: {
   minVolume?: number;
   minPrice?: number;
   maxPrice?: number;
   limit?: number;
+  sort?: "refund_1d_p-desc" | "refund_1d_p-asc" | "avgvol_200d-desc";
 }): Promise<EodhdScreenerRow[]> {
   const minVolume = options?.minVolume ?? 500_000;
   const minPrice = options?.minPrice ?? 5;
   const maxPrice = options?.maxPrice ?? 500;
   const limit = options?.limit ?? 100;
+  const sort = options?.sort ?? "refund_1d_p-desc";
   if (!isEodhdConfigured()) return [];
 
-  const cacheId = cacheKey("eodhd-screener-us", String(minVolume), String(limit));
+  const cacheId = cacheKey("eodhd-screener-us-v2", String(minVolume), String(limit), sort);
   const hit = getCached<EodhdScreenerRow[]>(cacheId);
   if (hit) return hit;
 
   const filters = JSON.stringify([
     ["exchange", "=", "US"],
-    ["price", ">", minPrice],
-    ["price", "<", maxPrice],
-    ["volume", ">", minVolume],
+    ["adjusted_close", ">", minPrice],
+    ["adjusted_close", "<", maxPrice],
+    ["avgvol_200d", ">", minVolume],
   ]);
+  const fields =
+    "code,adjusted_close,refund_1d_p,avgvol_200d,market_capitalization,sector,industry";
   const rows = await eodhdFetch<
     Array<{
       code?: string;
+      adjusted_close?: number;
       close?: number;
+      refund_1d_p?: number;
       change_p?: number;
+      avgvol_200d?: number;
       volume?: number;
+      market_capitalization?: number;
+      sector?: string;
+      industry?: string;
     }>
   >(
-    `/screener?filters=${encodeURIComponent(filters)}&sort=change_p-desc&limit=${limit}&fields=code,close,change_p,volume`,
+    `/screener?filters=${encodeURIComponent(filters)}&sort=${encodeURIComponent(sort)}&limit=${limit}&fields=${encodeURIComponent(fields)}`,
   );
 
   const out = (rows ?? [])
     .map((r) => {
       const code = String(r.code ?? "").trim().toUpperCase();
       const symbol = code.includes(".") ? code.split(".")[0]! : code;
-      const price = Number(r.close ?? 0);
-      const volume = Number(r.volume ?? 0);
-      const changePct = Number(r.change_p ?? 0);
+      const price = Number(r.adjusted_close ?? r.close ?? 0);
+      const volume = Number(r.avgvol_200d ?? r.volume ?? 0);
+      const changePct = Number(r.refund_1d_p ?? r.change_p ?? 0);
       if (!symbol || !(price > 0)) return null;
-      return { symbol, changePct, volume, price };
+      return {
+        symbol,
+        changePct,
+        volume,
+        price,
+        marketCap: Number(r.market_capitalization ?? 0) || undefined,
+        sector: r.sector ? String(r.sector) : undefined,
+        industry: r.industry ? String(r.industry) : undefined,
+      };
     })
     .filter((r): r is EodhdScreenerRow => r != null);
 

@@ -282,6 +282,48 @@ export async function notifyTypedCycleComplete(params: {
   await sendTelegramMessage(lines.join("\n"));
 }
 
+/** Immediate Telegram after instant auto-execution (<$250). */
+export async function notifyInstantExecution(params: {
+  ticker: string;
+  shares: number;
+  price: number;
+  confidence: number;
+  strategy: string;
+  stopLoss: number;
+  takeProfit: number;
+  channel?: string;
+}): Promise<void> {
+  const { enabled } = cfg();
+  if (!enabled) return;
+
+  const { phaseLabelForTelegram } = await import("@/lib/trading/agents");
+  const label = phaseLabelForTelegram();
+  const tpPct =
+    params.price > 0
+      ? (((params.takeProfit - params.price) / params.price) * 100).toFixed(0)
+      : "0";
+  const timeMadrid = new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date());
+
+  const priceFmt = params.price >= 1 ? params.price.toFixed(2) : params.price.toFixed(5);
+  const slFmt = params.stopLoss >= 1 ? params.stopLoss.toFixed(2) : params.stopLoss.toFixed(5);
+  const tpFmt = params.takeProfit >= 1 ? params.takeProfit.toFixed(2) : params.takeProfit.toFixed(5);
+
+  const lines = [
+    `✅ <b>[EJECUTADO]</b> ${label}`,
+    `BUY ${params.ticker} × ${params.shares} @ $${priceFmt}`,
+    `📊 Confianza: ${(params.confidence * 100).toFixed(0)}% | ${params.strategy}`,
+    `🎯 Stop: $${slFmt} | Target: $${tpFmt} (+${tpPct}%)`,
+    `⏱ ${timeMadrid} Madrid`,
+  ];
+  await sendTelegramMessage(lines.join("\n"));
+}
+
 /** Circuit breaker — solo alerta crítica si pérdida ≥10% NAV. */
 export async function notifyCircuitBreaker(dailyLossPct: number): Promise<void> {
   if (!(dailyLossPct >= 10)) {

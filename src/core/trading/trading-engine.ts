@@ -15,7 +15,7 @@ import {
 import { registerExecutedPosition } from './position-monitor'
 import { evaluateProStrategies, capitalPctFromConfidence } from './strategies/pro-strategies'
 import { getMacroContext } from '@/lib/market-data/macro-context'
-import { notifyPreTradeHold, notifyPendingApproval } from '@/lib/notifications/telegram-bot'
+import { notifyPreTradeHold, notifyPendingApproval, notifyInstantExecution } from '@/lib/notifications/telegram-bot'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -93,7 +93,8 @@ import {
 import { evaluateAlpacaStrategy } from '@/lib/brokers/alpaca-strategies'
 
 /** Max tickers per automatic background cycle. */
-export const MAX_AUTO_CYCLE_TICKERS = 20;
+/** Analyze up to 50 tickers per automatic / typed cycle; explicit cycles are uncapped. */
+export const MAX_AUTO_CYCLE_TICKERS = 50;
 
 /** Automatic cycle wall-clock cap (20 tickers × 3 workers × ~8s). */
 export const CYCLE_TIMEOUT_MS = 45 * 1000;
@@ -277,25 +278,31 @@ export type TradeCycleResult = {
 const AUTO_CYCLE_MIN_BUY_CONFIDENCE = 0.7
 
 /** USA regular session minimum (pro-strategies + gate). */
-const USA_REGULAR_MIN_CONFIDENCE = 0.65
+const USA_REGULAR_MIN_CONFIDENCE = 0.6
 
 function minConfidenceForPhase(phase: string): number {
-  if (phase === 'USA_REGULAR') return USA_REGULAR_MIN_CONFIDENCE
+  if (phase === 'USA_REGULAR' || phase === 'USA_OPEN' || phase === 'EUROPA' || phase === 'ASIA') {
+    return USA_REGULAR_MIN_CONFIDENCE
+  }
+  if (phase === 'USA_PREMARKET' || phase === 'PRE_MARKET') return 0.62
   if (phase === 'USA_AFTERHOURS') {
     return TRADING_CONFIG.ai.minConfidenceExtendedHours ?? 0.75
   }
-  return TRADING_CONFIG.ai.minConfidenceToTrade
+  return 0.6
 }
 
 export class TradingEngine {
   private risk = RiskManager.getInstance()
   private approvals = OrderApprovalGate.getInstance()
 
-  /** Per-ticker analysis cap — EODHD typically <1s. */
-  private static readonly TICKER_TIMEOUT_MS = 8_000
+  /** Per-ticker analysis cap — skip silently after 6s. */
+  private static readonly TICKER_TIMEOUT_MS = 6_000
   /** Once live submit started, allow longer for IBKR ack. */
   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 60_000
-  private static readonly CYCLE_CONCURRENCY = 3
+  private static readonly CYCLE_CONCURRENCY = 5
+  /** Auto-execute without Telegram when notional ≤ this and conf ≥ threshold. */
+  private static readonly INSTANT_EXEC_MAX_NOTIONAL_USD = 250
+  private static readonly MANUAL_APPROVAL_CONFIDENCE = 0.65
 
   private static cycleLock = { running: false, startedAt: 0, cycleId: "" as string };
   private static explicitCycleLock = { running: false, startedAt: 0, cycleId: "" as string };
@@ -1004,6 +1011,23 @@ export class TradingEngine {
   ): Promise<OrderResult> {
     const kind = cycleOpts?.cycleKind ?? (cycleOpts?.explicitTickers ? "explicit" : "auto");
 
+    // Risk Manager — drawdown diario
+    const dailyPnlPct =
+      account.navUSD > 0 && Number.isFinite(account.dailyPnlUSD)
+        ? (account.dailyPnlUSD / account.navUSD) * 100
+        : 0
+    if (dailyPnlPct <= -5) {
+      this.risk.halt(`Risk STOP: drawdown día ${dailyPnlPct.toFixed(1)}% > 5%`)
+      return {
+        status: 'SKIPPED',
+        ticker,
+        direction: 'HOLD',
+        reason: `Risk STOP drawdown ${dailyPnlPct.toFixed(1)}%`,
+        signal: { confidence: 0, reasoning: 'Daily drawdown halt', urgency: 'HIGH' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     if (kind === "stocks") {
       if (
         isAlpacaCryptoTicker(ticker) ||
@@ -1258,16 +1282,28 @@ export class TradingEngine {
     }
 
     const cycleKind = cycleOpts?.cycleKind ?? (cycleOpts?.explicitTickers ? "explicit" : "auto")
+    const dailyDdPct =
+      account.navUSD > 0 && Number.isFinite(account.dailyPnlUSD)
+        ? (account.dailyPnlUSD / account.navUSD) * 100
+        : 0
+    const conservativeMode = dailyDdPct <= -3
     const minBuyThreshold =
-      cycleOpts?.minBuyConfidence ??
-      (cycleKind === "auto" ? AUTO_CYCLE_MIN_BUY_CONFIDENCE : 0.65)
+      cycleOpts?.minBuyConfidence != null
+        ? conservativeMode
+          ? Math.max(0.8, cycleOpts.minBuyConfidence)
+          : cycleOpts.minBuyConfidence
+        : conservativeMode
+          ? 0.8
+          : cycleKind === "auto"
+            ? AUTO_CYCLE_MIN_BUY_CONFIDENCE
+            : 0.6
 
     if (cycleKind !== "explicit" && signal.confidence < minBuyThreshold) {
       return {
         status: 'HOLD',
         ticker,
         direction: 'HOLD',
-        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < umbral ${(minBuyThreshold * 100).toFixed(0)}% (${cycleKind})`,
+        reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < umbral ${(minBuyThreshold * 100).toFixed(0)}% (${cycleKind}${conservativeMode ? ", conservador" : ""})`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
@@ -1577,7 +1613,17 @@ export class TradingEngine {
     incrementAutoApprovalCount()
     if (execGate) execGate.enteredAutoExecute = true
 
-    if (TRADING_CONFIG.semiAutomatic.telegramApprovalRequired) {
+    const instantEligible =
+      signal.confidence >= (cycleOpts?.minBuyConfidence ?? minBuyThreshold) &&
+      orderValueUSD <= TradingEngine.INSTANT_EXEC_MAX_NOTIONAL_USD
+
+    const needsManualTelegram =
+      TRADING_CONFIG.semiAutomatic.telegramApprovalRequired &&
+      (!instantEligible ||
+        signal.confidence < TradingEngine.MANUAL_APPROVAL_CONFIDENCE ||
+        orderValueUSD > TradingEngine.INSTANT_EXEC_MAX_NOTIONAL_USD)
+
+    if (needsManualTelegram) {
       console.log(
         `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → PENDING_APPROVAL (Telegram)`,
       )
@@ -1618,7 +1664,7 @@ export class TradingEngine {
       }
     }
 
-    console.log(`[Signal] ${ticker} → auto-ejecutar`)
+    console.log(`[Signal] ${ticker} → auto-ejecutar instantáneo (notional=$${orderValueUSD.toFixed(0)})`)
     console.log(
       `[Signal] ${ticker}: ${signal.primaryStrategy} conf=${(signal.confidence * 100).toFixed(0)}% → auto-ejecutar`,
     )
@@ -1639,10 +1685,20 @@ export class TradingEngine {
           console.log(`[AutoExecute] ${ticker} → EJECUTADO ibkrId=${oid} ✅`)
         } else {
           console.warn(
-            `[AutoExecute] ${ticker} → EXECUTED sin ibkrId confirmado (orderId=${oid || 'n/a'}) — sin Telegram`,
+            `[AutoExecute] ${ticker} → EXECUTED sin ibkrId confirmado (orderId=${oid || 'n/a'})`,
           )
         }
-        // Telegram solo desde registerExecutedPosition cuando ibkrId es real
+        void notifyInstantExecution({
+          ticker,
+          shares: resolvedShares,
+          price: priceData.currentPrice,
+          confidence: signal.confidence,
+          strategy: signal.primaryStrategy,
+          stopLoss: effectiveStopLoss,
+          takeProfit: effectiveTakeProfit,
+          channel: cycleKind === 'stocks' || cycleKind === 'crypto' || cycleKind === 'forex' ? cycleKind : 'stocks',
+        }).catch(() => undefined)
+        // Telegram digest also from registerExecutedPosition when ibkrId is real
       } else if (executed.status === 'SKIPPED') {
         return executed
       } else {

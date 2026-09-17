@@ -367,5 +367,5 @@ export function computeTechnicalIndicators(bars: readonly OhlcvBar[]): Technical
   return { trend, momentum, volatility, volume, levels: levelData };
 }
 
-/** Export helpers used by pattern recognition. */
-export { rsi, rsiSeries, ema, emaSeries, atr, closes, last, macd, relativeVolume };
+/** Export helpers used by pattern recognition + multi-agents. */
+export { rsi, rsiSeries, ema, emaSeries, atr, bollinger, closes, last, macd, relativeVolume };

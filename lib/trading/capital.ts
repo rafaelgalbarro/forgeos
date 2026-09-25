@@ -119,8 +119,8 @@ export async function fetchCapitalSnapshot(): Promise<CapitalSnapshot> {
 }
 
 /**
- * Pick IBKR account with the most USD cash (CashBalance_USD / TotalCashValue USD).
- * Used when IBKR_CRYPTO_ENABLED routes crypto to PAXOS.
+ * Pick IBKR account with the most **positive** USD cash.
+ * Never routes USD buys to an account with CashBalance_USD ≤ 0 (e.g. EUR-heavy with USD short).
  */
 export async function pickIbkrAccountWithMostUsd(): Promise<{
   accountId: string | null;
@@ -134,41 +134,41 @@ export async function pickIbkrAccountWithMostUsd(): Promise<{
       return { accountId: fallback, cashUSD: 0 };
     }
 
-    let bestId = ids[0]!;
-    let bestUsd = -1;
+    let bestId: string | null = null;
+    let bestUsd = 0;
     for (const id of ids) {
       const tags = account[id];
       const cbUsd = num(tags, "CashBalance_USD");
-      const total = num(tags, "TotalCashValue");
-      const cur = tagCurrency(tags, "TotalCashValue");
-      const available = num(tags, "AvailableFunds");
+      // Explicit negative USD → never use this account for USD equity buys
+      if (cbUsd < 0) {
+        console.log(`[Capital] skip ${id}: CashBalance_USD=$${cbUsd.toFixed(2)} (negativo)`);
+        continue;
+      }
       let usd = cbUsd;
-      if (!(usd > 0) && cur === "USD" && total > 0) usd = total;
-      if (!(usd > 0) && available > 0 && cur !== "EUR") usd = available;
+      if (!(usd > 0)) {
+        const total = num(tags, "TotalCashValue");
+        const cur = tagCurrency(tags, "TotalCashValue");
+        if (cur === "USD" && total > 0) usd = total;
+      }
       if (usd > bestUsd) {
         bestUsd = usd;
         bestId = id;
       }
     }
 
-    const primary = (process.env.IBKR_ACCOUNT_ID ?? "").trim();
-    if (!(bestUsd > 0) && primary && ids.includes(primary)) {
-      return { accountId: primary, cashUSD: 0 };
+    if (!bestId || !(bestUsd > 0)) {
+      console.warn("[Capital] ninguna cuenta con cashUSD > 0");
+      return { accountId: null, cashUSD: 0 };
     }
 
-    console.log(
-      `[Capital] cuenta con más USD: ${bestId} cashUSD=$${Math.max(0, bestUsd).toFixed(2)}`,
-    );
-    return { accountId: bestId, cashUSD: Math.max(0, bestUsd) };
+    console.log(`[Capital] cuenta con más USD: ${bestId} cashUSD=$${bestUsd.toFixed(2)}`);
+    return { accountId: bestId, cashUSD: bestUsd };
   } catch (err) {
     console.warn(
       "[Capital] pickIbkrAccountWithMostUsd failed:",
       err instanceof Error ? err.message : err,
     );
-    return {
-      accountId: (process.env.IBKR_ACCOUNT_ID ?? "").trim() || null,
-      cashUSD: 0,
-    };
+    return { accountId: null, cashUSD: 0 };
   }
 }
 

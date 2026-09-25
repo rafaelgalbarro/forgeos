@@ -109,7 +109,7 @@ export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
 
   async function loadEodhdBars(): Promise<OhlcvBar[]> {
     if (!isEodhdConfigured()) return [];
-    const rows = await getEodhdHistory(ticker, 400);
+    const rows = await getEodhdHistory(ticker, 275);
     return rows
       .map((r) => ({
         open: r.open,

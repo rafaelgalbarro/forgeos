@@ -1,5 +1,5 @@
 /**
- * Persistent IBKR non-tradable tickers (INACTIVE / reject 201 / 10147).
+ * Persistent IBKR non-tradable tickers (INACTIVE / reject codes).
  * File: .forgeos/cache/ibkr-non-tradable.json
  */
 
@@ -7,13 +7,15 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { notifyOrderRejected } from "@/lib/notifications/telegram-bot";
+import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
 const CACHE_DIR = path.join(process.cwd(), ".forgeos", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "ibkr-non-tradable.json");
 
 /** IBKR codes that mean the symbol cannot be traded on this account. */
-export const IBKR_NON_TRADABLE_CODES = new Set([201, 10147]);
+export const IBKR_NON_TRADABLE_CODES = new Set([
+  201, 202, 203, 460, 10147, 10148,
+]);
 
 export type IbkrNonTradableEntry = {
   symbol: string;
@@ -87,13 +89,13 @@ export function shouldPersistIbkrNonTradable(params: {
   if (/^inactive$/i.test(status)) return true;
   const msg = String(params.message ?? "");
   if (/\bINACTIVE\b/i.test(msg)) return true;
-  if (/\b(201|10147)\b/.test(msg)) return true;
+  if (/\b(201|202|203|460|10147|10148)\b/.test(msg)) return true;
   return false;
 }
 
 /**
- * Persist ticker as non-tradable. Telegram once per symbol (first time only).
- * Returns true if newly added.
+ * Persist ticker as non-tradable. Telegram once per symbol:
+ * "⛔ NO NEGOCIABLE EWP: INACTIVE (probable PRIIPs/permisos)"
  */
 export async function recordIbkrNonTradable(params: {
   symbol: string;
@@ -106,10 +108,7 @@ export async function recordIbkrNonTradable(params: {
   if (!shouldPersistIbkrNonTradable(params)) return false;
 
   const cache = load();
-  const existing = cache.entries[symbol];
-  if (existing) {
-    return false;
-  }
+  if (cache.entries[symbol]) return false;
 
   const code =
     params.code != null && Number.isFinite(Number(params.code))
@@ -135,16 +134,22 @@ export async function recordIbkrNonTradable(params: {
   writeDisk(cache);
 
   console.warn(
-    `[IbkrNonTradable] ${symbol} añadido a lista persistente ` +
-      `(status=${ibkrStatus} code=${code ?? "—"}): ${message}`,
+    `[IbkrNonTradable] ${symbol} añadido (${ibkrStatus} code=${code ?? "—"}) @ ${entry.addedAt}: ${message}`,
   );
 
+  const statusLabel = /inactive/i.test(ibkrStatus)
+    ? "INACTIVE"
+    : code != null
+      ? String(code)
+      : ibkrStatus;
+  const detail =
+    /inactive/i.test(ibkrStatus) || code === 201 || code === 10147
+      ? "probable PRIIPs/permisos"
+      : message.slice(0, 80);
+  const line = `⛔ NO NEGOCIABLE ${symbol}: ${statusLabel} (${detail})`;
+
   try {
-    await notifyOrderRejected({
-      ticker: symbol,
-      code,
-      message: `${message} (excluido de futuras órdenes)`,
-    });
+    await sendTelegramMessage(line);
     entry.telegramSent = true;
     cache.entries[symbol] = entry;
     writeDisk(cache);

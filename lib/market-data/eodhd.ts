@@ -1,6 +1,6 @@
 /**
  * EODHD market data — primary fallback when IBKR times out.
- * Quotes TTL 3 min · History TTL 24 h · skip tickers after 3 consecutive failures.
+ * Quotes TTL 3 min · History TTL 12 h · skip tickers after 3 consecutive failures.
  */
 
 import "server-only";
@@ -33,7 +33,8 @@ export type EodhdBar = {
 };
 
 const QUOTES_TTL_MS = 3 * 60 * 1000;
-const HISTORY_TTL_MS = 24 * 60 * 60 * 1000;
+/** Daily EOD history cache — 12 h so cycles every 3 min reuse bars. */
+const HISTORY_TTL_MS = 12 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 
@@ -221,8 +222,8 @@ export async function getBatchQuotes(tickers: readonly string[]): Promise<Map<st
   return out;
 }
 
-/** Daily EOD history — cached 24 h. */
-export async function getHistory(ticker: string, days = 180): Promise<EodhdBar[]> {
+/** Daily EOD history — cached 12 h (~275 sessions ≈ 1Y trading days). */
+export async function getHistory(ticker: string, days = 275): Promise<EodhdBar[]> {
   const symbol = ticker.trim().toUpperCase();
   if (!symbol || !isEodhdConfigured()) return [];
 

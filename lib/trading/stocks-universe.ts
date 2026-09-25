@@ -1,8 +1,8 @@
 /**
- * USA stocks cycle universe — curated sectors + EODHD movers, filtered by capital.
+ * Stocks cycle universe — phase-aware ADRs / USA equities only (IBKR EU retail).
  *
- * Cycle tickers are IBKR-executable equities/ADRs only (EU retail PRIIPs).
- * US ETFs remain in usa-sectors for agents / regime indicators — never ordered here.
+ * US ETFs stay in usa-sectors as indicators (sector rotation / regime) — never ordered.
+ * Crypto / forex never enter this universe.
  */
 
 import "server-only";
@@ -20,32 +20,47 @@ import {
   isIbkrExecutableEquity,
   isIbkrNonExecutableUsEtf,
 } from "@/lib/trading/usa-sectors";
-import { fetchCapitalSnapshot } from "@/lib/trading/capital";
+import { fetchCapitalSnapshot, pickIbkrAccountWithMostUsd } from "@/lib/trading/capital";
 import { isIbkrNonTradable } from "@/lib/trading/ibkr-non-tradable";
+import {
+  getCurrentTradingPhase,
+  type ForgeTradingPhase,
+} from "@/lib/trading/cycle-schedule";
 
 /** Final tickers analyzed per stocks cycle. */
 export const MAX_STOCKS_CYCLE_TICKERS = 50;
-const MAX_UNION = 80;
-const TOP_GAINERS = 30;
-const TOP_CURATED = 20;
 const MIN_VOLUME = 500_000;
 const MIN_PRICE = 5;
 const MAX_PRICE = 500;
 
-/** @deprecated use USA_CURATED_UNIVERSE */
+/** European ADRs / dual-listed — EUROPA phase (08:00–14:00 Madrid). */
+export const EUROPE_ADR_CYCLE = [
+  "ASML", "SAP", "SHEL", "BP", "GSK", "AZN", "NVO", "UL", "SNY", "NGG",
+  "BBVA", "SAN", "TEF", "ING", "DB", "ERIC", "NOK", "STM", "PHG", "DEO",
+  "BUD", "CRH", "SPOT", "ARM", "LVMUY", "NESN", "RHHBY", "ADDYY", "DANOY",
+  "SIEGY", "VWAGY",
+] as const;
+
+/** Asian / EM ADRs — ASIA phase (01:00–08:00 Madrid). */
+export const ASIA_ADR_CYCLE = [
+  "TSM", "SONY", "BABA", "JD", "BIDU", "NIO", "SE", "GRAB", "MELI",
+  "IBN", "HDB", "WIT", "TCEHY",
+] as const;
+
+/** @deprecated use USA_EXECUTABLE_EQUITIES */
 export const QUALITY_USA_STOCKS_FALLBACK = USA_EXECUTABLE_EQUITIES.slice(0, 20);
 
 export type StocksUniverseResult = {
   tickers: string[];
-  source: "eodhd-screener+curated" | "curated-fallback";
+  source: string;
+  phase: ForgeTradingPhase;
   scanned: number;
   momentum: Array<{ symbol: string; changePct: number }>;
   capitalFilter?: { available: number; excluded: string[]; included: string[] };
-  /** Indicator ETFs kept out of the order universe (PRIIPs). */
   indicatorEtfsExcluded?: string[];
 };
 
-/** US equity/ADR eligible for stocks-cycle IBKR orders (not ETF, not crypto/FX). */
+/** Equity/ADR eligible for stocks-cycle IBKR orders (not ETF, not crypto/FX). */
 export function isUsStockTicker(ticker: string): boolean {
   const t = ticker.trim().toUpperCase();
   if (!t) return false;
@@ -59,14 +74,34 @@ export function isUsStockTicker(ticker: string): boolean {
   return true;
 }
 
+function phaseSeedTickers(phase: ForgeTradingPhase): string[] {
+  switch (phase) {
+    case "EUROPA":
+      return [...EUROPE_ADR_CYCLE];
+    case "ASIA":
+      return [...ASIA_ADR_CYCLE];
+    case "PRE_MARKET":
+    case "USA_REGULAR":
+      return [...USA_EXECUTABLE_EQUITIES];
+    case "CLOSED":
+    default:
+      return [];
+  }
+}
+
 async function filterByAffordableCapital(
   tickers: string[],
   priceHint?: Map<string, number>,
 ): Promise<{ tickers: string[]; available: number; excluded: string[]; included: string[] }> {
   let available = 0;
   try {
-    const cap = await fetchCapitalSnapshot();
-    available = Math.max(cap.availableFunds, cap.cashUSD, cap.cashEUR, cap.tradingCashUSD);
+    const richest = await pickIbkrAccountWithMostUsd();
+    if (richest.cashUSD > 0) {
+      available = richest.cashUSD;
+    } else {
+      const cap = await fetchCapitalSnapshot();
+      available = Math.max(0, cap.cashUSD);
+    }
   } catch {
     available = 0;
   }
@@ -85,12 +120,8 @@ async function filterByAffordableCapital(
   const includedDetail: string[] = [];
 
   for (const symbol of tickers) {
-    const px =
-      priceHint?.get(symbol) ??
-      quotes.get(symbol)?.price ??
-      0;
+    const px = priceHint?.get(symbol) ?? quotes.get(symbol)?.price ?? 0;
     if (!(px > 0)) {
-      // Unknown price — keep (will fail later if truly unaffordable)
       affordable.push(symbol);
       continue;
     }
@@ -103,45 +134,62 @@ async function filterByAffordableCapital(
     }
   }
 
-  // Affordable first, then expensive (won't buy but still analyzable if user wants — we DROP expensive)
-  const ordered = [...affordable];
-
   console.log(
-    `[Universe] Filtrando por capital $${available.toFixed(0)}: excluidos ${excludedDetail.slice(0, 8).join(", ") || "ninguno"}, incluidos ${includedDetail.slice(0, 8).join(", ") || "ninguno"}`,
+    `[Universe] Filtrando por cashUSD $${available.toFixed(0)}: excluidos ${excludedDetail.slice(0, 8).join(", ") || "ninguno"}, incluidos ${includedDetail.slice(0, 8).join(", ") || "ninguno"}`,
   );
 
   return {
-    tickers: ordered,
+    tickers: [...affordable],
     available,
     excluded: expensive,
     included: affordable,
   };
 }
 
-function curatedFallback(momentumMap?: Map<string, number>): Promise<StocksUniverseResult> {
-  const tickers = USA_EXECUTABLE_EQUITIES.filter(isUsStockTicker).slice(0, MAX_STOCKS_CYCLE_TICKERS);
-  return filterByAffordableCapital([...tickers]).then((f) => ({
-    tickers: f.tickers.slice(0, MAX_STOCKS_CYCLE_TICKERS),
-    source: "curated-fallback" as const,
-    scanned: USA_CURATED_UNIVERSE.length,
-    momentum: f.tickers.map((symbol) => ({
+function finalize(
+  tickers: string[],
+  phase: ForgeTradingPhase,
+  source: string,
+  scanned: number,
+  changeBySymbol: Map<string, number>,
+  capitalFilter?: StocksUniverseResult["capitalFilter"],
+): StocksUniverseResult {
+  const clean = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(isUsStockTicker))];
+  const ranked = clean
+    .map((symbol) => ({
       symbol,
-      changePct: momentumMap?.get(symbol) ?? 0,
-    })),
-    capitalFilter: {
-      available: f.available,
-      excluded: f.excluded,
-      included: f.included.slice(0, 20),
-    },
-    indicatorEtfsExcluded: USA_CURATED_UNIVERSE.filter(isIbkrNonExecutableUsEtf).slice(0, 40),
-  }));
+      changePct: changeBySymbol.get(symbol) ?? 0,
+    }))
+    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+
+  const limited = ranked.slice(0, MAX_STOCKS_CYCLE_TICKERS);
+  const out = limited.map((r) => r.symbol);
+
+  console.log(
+    `[StocksUniverse] phase=${phase} source=${source} → ${out.length} equities/ADRs ` +
+      `(ETFs/crypto/forex excluded)`,
+  );
+
+  return {
+    tickers: out,
+    source,
+    phase,
+    scanned,
+    momentum: limited,
+    capitalFilter,
+    indicatorEtfsExcluded: USA_CURATED_UNIVERSE.filter(isIbkrNonExecutableUsEtf).slice(0, 50),
+  };
 }
 
 export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult> {
-  const curated = USA_EXECUTABLE_EQUITIES.filter(isUsStockTicker);
-  const curatedSet = new Set(curated);
+  const phase = getCurrentTradingPhase();
+  const seed = phaseSeedTickers(phase).filter(isUsStockTicker);
   const changeBySymbol = new Map<string, number>();
   const priceBySymbol = new Map<string, number>();
+
+  if (phase === "CLOSED" || seed.length === 0) {
+    return finalize([], phase, "closed", 0, changeBySymbol);
+  }
 
   let screener: Awaited<ReturnType<typeof screenerUsGainers>> = [];
   try {
@@ -156,7 +204,6 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
       "[StocksUniverse] EODHD screener error:",
       err instanceof Error ? err.message : err,
     );
-    return curatedFallback();
   }
 
   for (const row of screener) {
@@ -165,71 +212,34 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
     if (row.price > 0) priceBySymbol.set(row.symbol, row.price);
   }
 
-  const union = new Set<string>();
-  for (const row of screener) {
-    if (isUsStockTicker(row.symbol)) union.add(row.symbol);
-  }
-  for (const t of curated) union.add(t);
-  const unionList = [...union].slice(0, MAX_UNION);
+  const union = new Set<string>(seed);
 
-  const ranked = unionList
-    .map((symbol) => ({
-      symbol,
-      changePct: changeBySymbol.get(symbol) ?? 0,
-      absChange: Math.abs(changeBySymbol.get(symbol) ?? 0),
-      curated: curatedSet.has(symbol),
-    }))
-    .sort((a, b) => b.absChange - a.absChange);
-
-  if (screener.length === 0) {
-    return curatedFallback(changeBySymbol);
+  // PRE_MARKET / USA_REGULAR: merge top movers (stocks only)
+  if (phase === "PRE_MARKET" || phase === "USA_REGULAR") {
+    for (const row of screener) {
+      if (isUsStockTicker(row.symbol)) union.add(row.symbol);
+    }
   }
 
-  const gainers = ranked
-    .filter((r) => r.changePct > 0)
-    .slice(0, TOP_GAINERS)
-    .map((r) => r.symbol);
-
-  const curatedPick: string[] = [];
-  for (const r of ranked) {
-    if (!r.curated) continue;
-    if (gainers.includes(r.symbol)) continue;
-    curatedPick.push(r.symbol);
-    if (curatedPick.length >= TOP_CURATED) break;
+  // EUROPA / ASIA: keep phase ADRs; enrich momentum from screener when present
+  for (const t of seed) {
+    if (!changeBySymbol.has(t)) changeBySymbol.set(t, 0);
   }
 
-  const selected = [...new Set([...gainers, ...curatedPick])];
-  for (const r of ranked) {
-    if (selected.length >= MAX_STOCKS_CYCLE_TICKERS) break;
-    if (!selected.includes(r.symbol)) selected.push(r.symbol);
-  }
+  const filtered = await filterByAffordableCapital([...union], priceBySymbol);
 
-  const filtered = await filterByAffordableCapital(
-    selected.slice(0, MAX_STOCKS_CYCLE_TICKERS),
-    priceBySymbol,
-  );
-
-  const tickers = filtered.tickers.slice(0, MAX_STOCKS_CYCLE_TICKERS);
-  const momentum = tickers.map((symbol) => ({
-    symbol,
-    changePct: changeBySymbol.get(symbol) ?? 0,
-  }));
-
-  console.log(
-    `[StocksUniverse] screener=${screener.length} → cycle=${tickers.length} ` +
-      `(equities/ADRs only, ETFs=indicators, capital excl=${filtered.excluded.length})`,
-  );
-
-  return {
-    tickers,
-    source: "eodhd-screener+curated",
-    scanned: screener.length,
-    momentum,
-    capitalFilter: {
+  return finalize(
+    filtered.tickers,
+    phase,
+    phase === "PRE_MARKET" || phase === "USA_REGULAR"
+      ? "phase+eodhd-movers"
+      : `phase-${phase.toLowerCase()}`,
+    screener.length,
+    changeBySymbol,
+    {
       available: filtered.available,
       excluded: filtered.excluded,
       included: filtered.included.slice(0, 20),
     },
-    indicatorEtfsExcluded: USA_CURATED_UNIVERSE.filter(isIbkrNonExecutableUsEtf).slice(0, 40),
-  };
+  );
 }

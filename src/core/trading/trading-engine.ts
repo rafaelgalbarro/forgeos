@@ -22,11 +22,13 @@ import {
   isIbkrExecutableEquity,
   isIbkrNonExecutableUsEtf,
 } from '@/lib/trading/usa-sectors'
+import { isUsStockTicker } from '@/lib/trading/stocks-universe'
 import {
   isIbkrNonTradable,
   recordIbkrNonTradable,
   shouldPersistIbkrNonTradable,
 } from '@/lib/trading/ibkr-non-tradable'
+import { getCurrentTradingPhase } from '@/lib/trading/cycle-schedule'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -220,7 +222,9 @@ function markTimeoutSkip(ticker: string): void {
 }
 
 function isTimeoutSkipped(ticker: string): boolean {
-  if (isAlpacaCryptoTicker(ticker) || isIbkrCryptoTicker(ticker)) return false
+  // Stocks/crypto get prices from EODHD — never block them after an IBKR timeout.
+  // Only forex keeps the temporary skip list.
+  if (!isAlpacaForexTicker(ticker)) return false
   const key = ticker.trim().toUpperCase()
   const until = timeoutSkipUntil.get(key)
   if (until == null) return false
@@ -349,8 +353,8 @@ export class TradingEngine {
   private risk = RiskManager.getInstance()
   private approvals = OrderApprovalGate.getInstance()
 
-  /** Per-ticker analysis cap — skip silently after 6s. */
-  private static readonly TICKER_TIMEOUT_MS = 6_000
+  /** Per-ticker analysis cap — skip silently after 15s. */
+  private static readonly TICKER_TIMEOUT_MS = 15_000
   /** Once live submit started, allow longer for IBKR ack. */
   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 60_000
   private static readonly CYCLE_CONCURRENCY = 5
@@ -656,20 +660,15 @@ export class TradingEngine {
     const scopedRaw =
       kind === "crypto" || kind === "forex"
         ? { tickers: seedTickers, mode: kind }
-        : selectTickersForOpenMarkets(seedTickers)
-    // Stocks: only individual equities/ADRs — strip US ETFs (PRIIPs) and crypto injected by session helper
+        : kind === "stocks"
+          ? { tickers: seedTickers.filter(isUsStockTicker), mode: "combined" as const }
+          : selectTickersForOpenMarkets(seedTickers)
+    // Stocks: never re-inject crypto/forex/ETFs from session helpers
     const scoped =
       kind === "stocks"
         ? {
             ...scopedRaw,
-            tickers: scopedRaw.tickers.filter(
-              (t) =>
-                isIbkrExecutableEquity(t) &&
-                !isIbkrNonExecutableUsEtf(t) &&
-                !isIbkrCryptoTicker(t) &&
-                !isIbkrNonTradable(t) &&
-                !toAlpacaCryptoPairId(t),
-            ),
+            tickers: scopedRaw.tickers.filter(isUsStockTicker),
           }
         : scopedRaw
     if (scoped.tickers.length === 0) {
@@ -683,10 +682,14 @@ export class TradingEngine {
         haltReason: this.risk.isHalted() ? this.risk.getHaltReason() : undefined,
       }
     }
-    const cycleTickers = prioritizeCycleTickers(
-      scoped.tickers.length > 0 ? scoped.tickers : seedTickers,
-      explicit,
-    )
+    // Stocks: preserve momentum order from universe — do not re-rank with crypto/ETFs
+    const cycleTickers =
+      kind === "stocks"
+        ? scoped.tickers.filter(isUsStockTicker).slice(0, maxCycleTickers(explicit))
+        : prioritizeCycleTickers(
+            scoped.tickers.length > 0 ? scoped.tickers : seedTickers,
+            explicit,
+          )
     const cycleOpts: RunCycleOptions = {
       ...options,
       cycleKind: kind,
@@ -813,6 +816,43 @@ export class TradingEngine {
       `[ProStrategy] Ciclo fin: ${orders.length} tickers | señales BUY=${señalesBuy} | auto-ejecutadas=${autoEjecutadas} | fallidas=${fallidas}` +
         (skippedTimeout ? ` | skip-timeout=${skippedTimeout}` : ''),
     )
+
+    if (kind === "stocks") {
+      const fase = getCurrentTradingPhase()
+      const analyzedOk = orders.filter((o) => {
+        if (
+          o.status === "SKIPPED" &&
+          /fuera de ciclo|ETF indicador|crypto|forex|non-tradable/i.test(o.reason ?? "")
+        ) {
+          return false
+        }
+        return true
+      }).length
+      const señales = orders.filter(
+        (o) =>
+          o.direction === "BUY" &&
+          !["SKIPPED", "HOLD", "REJECTED_CONFIDENCE"].includes(o.status),
+      ).length
+      const buyN = orders.filter((o) => o.direction === "BUY").length
+      const enviadas = orders.filter(
+        (o) => o.status === "EXECUTED" || o.status === "PENDING_APPROVAL",
+      ).length
+      const rechazadas = orders.filter(
+        (o) =>
+          o.status === "ERROR" ||
+          /ORDER_REJECTED|INACTIVE|no EXECUTED|NO NEGOCIABLE/i.test(o.reason ?? ""),
+      ).length
+      const noNegociables = orders.filter((o) =>
+        /non-tradable|NO NEGOCIABLE|INACTIVE|PRIIPs/i.test(o.reason ?? ""),
+      ).length
+      const sinCapital = orders.filter((o) =>
+        /capital insuficiente/i.test(o.reason ?? ""),
+      ).length
+      console.log(
+        `[Cycle/stocks] fase=${fase} analizados=${analyzedOk} señales=${señales} BUY=${buyN} ` +
+          `enviadas=${enviadas} rechazadas=${rechazadas} no_negociables=${noNegociables} sin_capital=${sinCapital}`,
+      )
+    }
 
     return {
       cycleId, startedAt, completedAt: new Date().toISOString(),
@@ -1471,14 +1511,37 @@ export class TradingEngine {
       at: new Date().toISOString(),
     })
 
-    // Account-aware price filter + PRE_ORDER_RISK_CHECK + dynamic sizing
+    // Account-aware price filter + PRE_ORDER_RISK_CHECK + dynamic sizing (USD cash only)
+    const richest = await pickIbkrAccountWithMostUsd().catch(() => ({
+      accountId: null as string | null,
+      cashUSD: 0,
+    }))
     const capitalSnap = await fetchCapitalSnapshot().catch(() => null)
-    const cashForSizing = capitalSnap
-      ? Math.max(capitalSnap.availableFunds, capitalSnap.cashUSD, capitalSnap.cashEUR, capitalSnap.tradingCashUSD)
-      : account.cashUSD
+    const cashForSizing =
+      richest.cashUSD > 0
+        ? richest.cashUSD
+        : Math.max(0, capitalSnap?.cashUSD ?? account.cashUSD)
+
+    if (!(cashForSizing > 0)) {
+      console.warn(`[AutoExecute] ${ticker} → capital insuficiente (cashUSD=0)`)
+      return {
+        status: 'REJECTED_RISK',
+        ticker,
+        direction: signal.direction,
+        reason: 'capital insuficiente',
+        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    // Prefer destination account with positive USD for all subsequent sizing / submit
+    if (richest.accountId) {
+      account.primaryAccountId = richest.accountId
+      account.cashUSD = richest.cashUSD
+    }
 
     const capital = resolveAccountCapitalPolicy(
-      account.primaryAccountId ?? process.env.IBKR_ACCOUNT_ID,
+      richest.accountId ?? account.primaryAccountId ?? process.env.IBKR_ACCOUNT_ID,
       cashForSizing,
       signal.confidence,
       strategy.positionSizeFactor ?? 1,
@@ -1687,21 +1750,29 @@ export class TradingEngine {
       signal.confidence,
     )
     let resolvedShares = sized.qty > 0 ? sized.qty : preRisk.qty
-    const orderValueUSD = resolvedShares * priceData.currentPrice
-    console.log(
-      `[AutoExecute] ${ticker} → cash $${cashForSizing.toFixed(2)} | deployable $${sized.deployable.toFixed(2)} | precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}`,
-    )
-    if (resolvedShares <= 0) {
-      console.warn(`[AutoExecute] ${ticker} → capital insuficiente (qty=0) — skip`)
+    // Cap notional to available USD cash; if < 1 share → skip this cycle
+    while (resolvedShares > 1 && resolvedShares * priceData.currentPrice > cashForSizing) {
+      resolvedShares -= 1
+    }
+    if (resolvedShares <= 0 || priceData.currentPrice > cashForSizing) {
+      console.warn(
+        `[AutoExecute] ${ticker} → capital insuficiente ` +
+          `(precio $${priceData.currentPrice.toFixed(2)} > cashUSD $${cashForSizing.toFixed(2)})`,
+      )
       return {
         status: 'REJECTED_RISK',
         ticker,
         direction: signal.direction,
-        reason: sized.reason ?? `capital insuficiente — cash $${cashForSizing.toFixed(2)} precio $${priceData.currentPrice.toFixed(2)}`,
+        reason: 'capital insuficiente',
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
       }
     }
+    const orderValueUSD = resolvedShares * priceData.currentPrice
+    console.log(
+      `[AutoExecute] ${ticker} → account=${richest.accountId ?? 'default'} cashUSD $${cashForSizing.toFixed(2)} | ` +
+        `deployable $${sized.deployable.toFixed(2)} | precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}`,
+    )
     resolvedShares = Math.max(1, resolvedShares)
     console.log(
       `[AutoExecute] ${ticker} BUY qty=${resolvedShares} precio=$${priceData.currentPrice.toFixed(2)} ` +
@@ -2188,9 +2259,19 @@ export class TradingEngine {
 
     const side = params.direction === 'SELL' ? 'SELL' : 'BUY'
     let account = process.env.IBKR_ACCOUNT_ID?.trim() || undefined
-    if (isIbkrCryptoTicker(params.ticker) && isIbkrCryptoEnabled()) {
-      const richest = await pickIbkrAccountWithMostUsd()
+    // Always route to the account with most positive USD (never USD-negative)
+    const richest = await pickIbkrAccountWithMostUsd().catch(() => ({
+      accountId: null as string | null,
+      cashUSD: 0,
+    }))
+    if (richest.accountId && richest.cashUSD > 0) {
+      account = richest.accountId
+    } else if (isIbkrCryptoTicker(params.ticker) && isIbkrCryptoEnabled()) {
+      // crypto path still needs an account id if available
       if (richest.accountId) account = richest.accountId
+    }
+    if (params.direction !== 'SELL' && !(richest.cashUSD > 0) && !isIbkrCryptoTicker(params.ticker)) {
+      throw new Error('capital insuficiente — ninguna cuenta con cashUSD > 0')
     }
     console.log(
       `[AutoExecute] ${params.ticker} ${side} → llamando submitSupervisedLiveLimitOrder ` +

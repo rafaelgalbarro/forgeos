@@ -1,5 +1,8 @@
 /**
  * USA stocks cycle universe — curated sectors + EODHD movers, filtered by capital.
+ *
+ * Cycle tickers are IBKR-executable equities/ADRs only (EU retail PRIIPs).
+ * US ETFs remain in usa-sectors for agents / regime indicators — never ordered here.
  */
 
 import "server-only";
@@ -11,8 +14,14 @@ import {
   isAlpacaForexTicker,
   toAlpacaCryptoPairId,
 } from "@/lib/brokers/alpaca-pairs";
-import { USA_CURATED_UNIVERSE } from "@/lib/trading/usa-sectors";
+import {
+  USA_CURATED_UNIVERSE,
+  USA_EXECUTABLE_EQUITIES,
+  isIbkrExecutableEquity,
+  isIbkrNonExecutableUsEtf,
+} from "@/lib/trading/usa-sectors";
 import { fetchCapitalSnapshot } from "@/lib/trading/capital";
+import { isIbkrNonTradable } from "@/lib/trading/ibkr-non-tradable";
 
 /** Final tickers analyzed per stocks cycle. */
 export const MAX_STOCKS_CYCLE_TICKERS = 50;
@@ -24,7 +33,7 @@ const MIN_PRICE = 5;
 const MAX_PRICE = 500;
 
 /** @deprecated use USA_CURATED_UNIVERSE */
-export const QUALITY_USA_STOCKS_FALLBACK = USA_CURATED_UNIVERSE.slice(0, 20);
+export const QUALITY_USA_STOCKS_FALLBACK = USA_EXECUTABLE_EQUITIES.slice(0, 20);
 
 export type StocksUniverseResult = {
   tickers: string[];
@@ -32,8 +41,11 @@ export type StocksUniverseResult = {
   scanned: number;
   momentum: Array<{ symbol: string; changePct: number }>;
   capitalFilter?: { available: number; excluded: string[]; included: string[] };
+  /** Indicator ETFs kept out of the order universe (PRIIPs). */
+  indicatorEtfsExcluded?: string[];
 };
 
+/** US equity/ADR eligible for stocks-cycle IBKR orders (not ETF, not crypto/FX). */
 export function isUsStockTicker(ticker: string): boolean {
   const t = ticker.trim().toUpperCase();
   if (!t) return false;
@@ -41,6 +53,9 @@ export function isUsStockTicker(ticker: string): boolean {
   if (isAlpacaCryptoTicker(t)) return false;
   if (isAlpacaForexTicker(t)) return false;
   if (toAlpacaCryptoPairId(t)) return false;
+  if (isIbkrNonExecutableUsEtf(t)) return false;
+  if (!isIbkrExecutableEquity(t)) return false;
+  if (isIbkrNonTradable(t)) return false;
   return true;
 }
 
@@ -104,7 +119,7 @@ async function filterByAffordableCapital(
 }
 
 function curatedFallback(momentumMap?: Map<string, number>): Promise<StocksUniverseResult> {
-  const tickers = USA_CURATED_UNIVERSE.filter(isUsStockTicker).slice(0, MAX_STOCKS_CYCLE_TICKERS);
+  const tickers = USA_EXECUTABLE_EQUITIES.filter(isUsStockTicker).slice(0, MAX_STOCKS_CYCLE_TICKERS);
   return filterByAffordableCapital([...tickers]).then((f) => ({
     tickers: f.tickers.slice(0, MAX_STOCKS_CYCLE_TICKERS),
     source: "curated-fallback" as const,
@@ -118,11 +133,12 @@ function curatedFallback(momentumMap?: Map<string, number>): Promise<StocksUnive
       excluded: f.excluded,
       included: f.included.slice(0, 20),
     },
+    indicatorEtfsExcluded: USA_CURATED_UNIVERSE.filter(isIbkrNonExecutableUsEtf).slice(0, 40),
   }));
 }
 
 export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult> {
-  const curated = USA_CURATED_UNIVERSE.filter(isUsStockTicker);
+  const curated = USA_EXECUTABLE_EQUITIES.filter(isUsStockTicker);
   const curatedSet = new Set(curated);
   const changeBySymbol = new Map<string, number>();
   const priceBySymbol = new Map<string, number>();
@@ -200,7 +216,8 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
   }));
 
   console.log(
-    `[StocksUniverse] screener=${screener.length} → cycle=${tickers.length} (capital-filtered, excl=${filtered.excluded.length})`,
+    `[StocksUniverse] screener=${screener.length} → cycle=${tickers.length} ` +
+      `(equities/ADRs only, ETFs=indicators, capital excl=${filtered.excluded.length})`,
   );
 
   return {
@@ -213,5 +230,6 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
       excluded: filtered.excluded,
       included: filtered.included.slice(0, 20),
     },
+    indicatorEtfsExcluded: USA_CURATED_UNIVERSE.filter(isIbkrNonExecutableUsEtf).slice(0, 40),
   };
 }

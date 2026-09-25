@@ -15,6 +15,8 @@ export type InvestmentRuntimeFlags = {
   readonly liveTradingEnabled: boolean;
   readonly ibkrReadOnly: boolean;
   readonly forexEnabled: boolean;
+  /** When true, crypto cycle trades via IBKR CRYPTO/PAXOS (not Alpaca). Default false. */
+  readonly ibkrCryptoEnabled: boolean;
   readonly paperTrading: boolean;
   readonly tradingMode: string;
   readonly modeLabel: "ANALYSIS_ONLY" | "LIVE";
@@ -29,6 +31,7 @@ export function getInvestmentRuntimeFlags(): InvestmentRuntimeFlags {
     process.env.FOREX_ENABLED ?? process.env.ALLOW_FOREX,
     false,
   );
+  const ibkrCryptoEnabled = parseBool(process.env.IBKR_CRYPTO_ENABLED, false);
   const tradingMode = (
     process.env.TRADING_MODE?.trim() ||
     (liveTradingEnabled ? "live" : "ANALYSIS_ONLY")
@@ -43,6 +46,7 @@ export function getInvestmentRuntimeFlags(): InvestmentRuntimeFlags {
     liveTradingEnabled,
     ibkrReadOnly,
     forexEnabled,
+    ibkrCryptoEnabled,
     paperTrading,
     tradingMode,
     modeLabel: ordersLive ? "LIVE" : "ANALYSIS_ONLY",
@@ -56,4 +60,9 @@ export function isForexModuleEnabled(): boolean {
 
 export function isLiveTradingEnabled(): boolean {
   return getInvestmentRuntimeFlags().liveTradingEnabled;
+}
+
+/** Crypto on IBKR PAXOS instead of Alpaca — default off (permissions pending). */
+export function isIbkrCryptoEnabled(): boolean {
+  return getInvestmentRuntimeFlags().ibkrCryptoEnabled;
 }

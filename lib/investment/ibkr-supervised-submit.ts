@@ -15,6 +15,10 @@ import {
   ibkrCryptoSymbol,
   isIbkrCryptoTicker,
 } from "@/src/core/trading/crypto-ibkr";
+import {
+  recordIbkrNonTradable,
+  shouldPersistIbkrNonTradable,
+} from "@/lib/trading/ibkr-non-tradable";
 
 type RiskCheck = {
   readonly name?: string;
@@ -120,16 +124,37 @@ async function notifyRejection(
     (typeof (err as { message?: string })?.message === "string" &&
       (err as { message: string }).message) ||
     (err instanceof Error ? err.message : String(err));
-  await notifyOrderRejected({
-    ticker: symbol,
-    code,
-    message,
-  }).catch((notifyErr) =>
-    console.warn(
-      "[AutoExecute] notifyOrderRejected failed:",
-      notifyErr instanceof Error ? notifyErr.message : notifyErr,
-    ),
-  );
+  const ibkrStatus =
+    (typeof payload?.ibkrStatus === "string" && payload.ibkrStatus) ||
+    (typeof payload?.ibkr_status === "string" && payload.ibkr_status) ||
+    (err instanceof IbkrOrderRejectedError ? err.ibkrStatus : null);
+
+  if (
+    shouldPersistIbkrNonTradable({ code, ibkrStatus, message })
+  ) {
+    await recordIbkrNonTradable({
+      symbol,
+      code,
+      message,
+      ibkrStatus,
+    }).catch((persistErr) =>
+      console.warn(
+        "[AutoExecute] recordIbkrNonTradable failed:",
+        persistErr instanceof Error ? persistErr.message : persistErr,
+      ),
+    );
+  } else {
+    await notifyOrderRejected({
+      ticker: symbol,
+      code,
+      message,
+    }).catch((notifyErr) =>
+      console.warn(
+        "[AutoExecute] notifyOrderRejected failed:",
+        notifyErr instanceof Error ? notifyErr.message : notifyErr,
+      ),
+    );
+  }
 }
 
 function isOrderRejectedError(err: unknown): boolean {

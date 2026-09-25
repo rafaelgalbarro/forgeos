@@ -118,6 +118,60 @@ export async function fetchCapitalSnapshot(): Promise<CapitalSnapshot> {
   return getOrSetIbkrCached(ibkrCacheKey("capital-v2"), loadCapitalLive, 30_000);
 }
 
+/**
+ * Pick IBKR account with the most USD cash (CashBalance_USD / TotalCashValue USD).
+ * Used when IBKR_CRYPTO_ENABLED routes crypto to PAXOS.
+ */
+export async function pickIbkrAccountWithMostUsd(): Promise<{
+  accountId: string | null;
+  cashUSD: number;
+}> {
+  try {
+    const account = await ibkrServiceFetch<AccountMap>("/api/ibkr/account");
+    const ids = Object.keys(account ?? {});
+    if (ids.length === 0) {
+      const fallback = (process.env.IBKR_ACCOUNT_ID ?? "").trim() || null;
+      return { accountId: fallback, cashUSD: 0 };
+    }
+
+    let bestId = ids[0]!;
+    let bestUsd = -1;
+    for (const id of ids) {
+      const tags = account[id];
+      const cbUsd = num(tags, "CashBalance_USD");
+      const total = num(tags, "TotalCashValue");
+      const cur = tagCurrency(tags, "TotalCashValue");
+      const available = num(tags, "AvailableFunds");
+      let usd = cbUsd;
+      if (!(usd > 0) && cur === "USD" && total > 0) usd = total;
+      if (!(usd > 0) && available > 0 && cur !== "EUR") usd = available;
+      if (usd > bestUsd) {
+        bestUsd = usd;
+        bestId = id;
+      }
+    }
+
+    const primary = (process.env.IBKR_ACCOUNT_ID ?? "").trim();
+    if (!(bestUsd > 0) && primary && ids.includes(primary)) {
+      return { accountId: primary, cashUSD: 0 };
+    }
+
+    console.log(
+      `[Capital] cuenta con más USD: ${bestId} cashUSD=$${Math.max(0, bestUsd).toFixed(2)}`,
+    );
+    return { accountId: bestId, cashUSD: Math.max(0, bestUsd) };
+  } catch (err) {
+    console.warn(
+      "[Capital] pickIbkrAccountWithMostUsd failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return {
+      accountId: (process.env.IBKR_ACCOUNT_ID ?? "").trim() || null,
+      cashUSD: 0,
+    };
+  }
+}
+
 /** Tickers that typically need settled USD (leveraged / vol / crypto ETFs). */
 export const USD_REQUIRED_ETFS = new Set([
   "VXX",

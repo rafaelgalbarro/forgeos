@@ -17,7 +17,16 @@ import { evaluateProStrategies, capitalPctFromConfidence } from './strategies/pr
 import { getMacroContext } from '@/lib/market-data/macro-context'
 import { notifyPreTradeHold, notifyPendingApproval, notifyInstantExecution } from '@/lib/notifications/telegram-bot'
 import { runPreOrderRiskCheck, logPreOrderDecision } from '@/lib/trading/agents'
-import { fetchCapitalSnapshot } from '@/lib/trading/capital'
+import { fetchCapitalSnapshot, pickIbkrAccountWithMostUsd } from '@/lib/trading/capital'
+import {
+  isIbkrExecutableEquity,
+  isIbkrNonExecutableUsEtf,
+} from '@/lib/trading/usa-sectors'
+import {
+  isIbkrNonTradable,
+  recordIbkrNonTradable,
+  shouldPersistIbkrNonTradable,
+} from '@/lib/trading/ibkr-non-tradable'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -30,8 +39,9 @@ import {
   fetchTradingPrice,
 } from '@/lib/trading/ibkr-data'
 import { midFromBidAsk } from '@/lib/trading/limit-price'
-import { getInvestmentRuntimeFlags } from '@/lib/investment/runtime-flags'
+import { getInvestmentRuntimeFlags, isIbkrCryptoEnabled } from '@/lib/investment/runtime-flags'
 import {
+  IbkrOrderRejectedError,
   IbkrSubmitTimeoutError,
   submitSupervisedLiveLimitOrder,
 } from '@/lib/investment/ibkr-supervised-submit'
@@ -389,7 +399,12 @@ export class TradingEngine {
   }): Promise<void> {
     try {
       const { sendCriticalTelegramAlert } = await import("@/lib/notifications/telegram-policy")
-      const label = args.broker === "ibkr" ? "IBKR (stocks)" : "Alpaca (crypto)"
+      const label =
+        args.broker === "ibkr"
+          ? isIbkrCryptoEnabled()
+            ? "IBKR (stocks/crypto)"
+            : "IBKR (stocks)"
+          : "Alpaca (crypto)"
       const text = [
         `🛑 RISK STOP ${label}`,
         `Drawdown día: ${args.dailyPnlPct.toFixed(1)}% (> 5%)`,
@@ -579,16 +594,21 @@ export class TradingEngine {
       throw err
     }
 
-    // 2. Per-broker halt — IBKR STOP must not block crypto; Alpaca STOP must not block stocks
+    // 2. Per-broker halt — IBKR STOP must not block Alpaca crypto; Alpaca STOP must not block stocks
     if (kind === "crypto") {
-      if (isBrokerDayStopped("alpaca")) {
+      const cryptoBroker: BrokerId = isIbkrCryptoEnabled() ? "ibkr" : "alpaca"
+      if (isBrokerDayStopped(cryptoBroker)) {
         return {
           cycleId, startedAt, completedAt: new Date().toISOString(),
           accountSnapshot: account, orders: [],
-          systemHalted: true, haltReason: getBrokerDayStopReason("alpaca"),
+          systemHalted: true, haltReason: getBrokerDayStopReason(cryptoBroker),
         }
       }
-      if (this.risk.isHalted() && !isIbkrDrawdownHaltReason(this.risk.getHaltReason())) {
+      if (
+        cryptoBroker === "alpaca" &&
+        this.risk.isHalted() &&
+        !isIbkrDrawdownHaltReason(this.risk.getHaltReason())
+      ) {
         return {
           cycleId, startedAt, completedAt: new Date().toISOString(),
           accountSnapshot: account, orders: [],
@@ -633,10 +653,25 @@ export class TradingEngine {
           MAX_AUTO_CYCLE_TICKERS,
         )
 
-    const scoped =
+    const scopedRaw =
       kind === "crypto" || kind === "forex"
         ? { tickers: seedTickers, mode: kind }
         : selectTickersForOpenMarkets(seedTickers)
+    // Stocks: only individual equities/ADRs — strip US ETFs (PRIIPs) and crypto injected by session helper
+    const scoped =
+      kind === "stocks"
+        ? {
+            ...scopedRaw,
+            tickers: scopedRaw.tickers.filter(
+              (t) =>
+                isIbkrExecutableEquity(t) &&
+                !isIbkrNonExecutableUsEtf(t) &&
+                !isIbkrCryptoTicker(t) &&
+                !isIbkrNonTradable(t) &&
+                !toAlpacaCryptoPairId(t),
+            ),
+          }
+        : scopedRaw
     if (scoped.tickers.length === 0) {
       console.log(
         `[ProStrategy] Ciclo ${cycleId}: sin tickers (ni crypto); solo monitor de posiciones`,
@@ -1154,7 +1189,8 @@ export class TradingEngine {
         ? (account.dailyPnlUSD / account.navUSD) * 100
         : 0
     if (dailyPnlPct <= -5 && kind !== "forex") {
-      const broker: BrokerId = kind === "crypto" ? "alpaca" : "ibkr"
+      const broker: BrokerId =
+        kind === "crypto" && !isIbkrCryptoEnabled() ? "alpaca" : "ibkr"
       const openingNav =
         getDayOpeningNav(broker) ??
         (account.navUSD - (Number.isFinite(account.dailyPnlUSD) ? account.dailyPnlUSD : 0))
@@ -1200,17 +1236,61 @@ export class TradingEngine {
           timestamp: new Date().toISOString(),
         };
       }
+      if (isIbkrNonExecutableUsEtf(ticker) || !isIbkrExecutableEquity(ticker)) {
+        return {
+          status: "SKIPPED",
+          ticker,
+          direction: "HOLD",
+          reason: `${ticker}: ETF indicador (PRIIPs / no ejecutable IBKR UE)`,
+          signal: { confidence: 0, reasoning: "US ETF indicator-only", urgency: "LOW" },
+          timestamp: new Date().toISOString(),
+        };
+      }
+      if (isIbkrNonTradable(ticker)) {
+        return {
+          status: "SKIPPED",
+          ticker,
+          direction: "HOLD",
+          reason: `${ticker}: en lista IBKR non-tradable (INACTIVE/201/10147)`,
+          signal: { confidence: 0, reasoning: "IBKR non-tradable cache", urgency: "LOW" },
+          timestamp: new Date().toISOString(),
+        };
+      }
     }
 
-    if (kind === "crypto" && !toAlpacaCryptoPairId(ticker)) {
-      return {
-        status: "SKIPPED",
-        ticker,
-        direction: "HOLD",
-        reason: `${ticker}: fuera de ciclo crypto`,
-        signal: { confidence: 0, reasoning: "Non-crypto ticker", urgency: "LOW" },
-        timestamp: new Date().toISOString(),
-      };
+    if (kind === "crypto") {
+      if (isIbkrCryptoEnabled()) {
+        if (!isIbkrCryptoTicker(ticker)) {
+          return {
+            status: "SKIPPED",
+            ticker,
+            direction: "HOLD",
+            reason: `${ticker}: fuera de ciclo crypto IBKR/PAXOS`,
+            signal: { confidence: 0, reasoning: "Non-IBKR-crypto ticker", urgency: "LOW" },
+            timestamp: new Date().toISOString(),
+          };
+        }
+        if (isIbkrNonTradable(ticker)) {
+          return {
+            status: "SKIPPED",
+            ticker,
+            direction: "HOLD",
+            reason: `${ticker}: en lista IBKR non-tradable`,
+            signal: { confidence: 0, reasoning: "IBKR non-tradable cache", urgency: "LOW" },
+            timestamp: new Date().toISOString(),
+          };
+        }
+        // Fall through to IBKR CRYPTO/PAXOS path below
+      } else if (!toAlpacaCryptoPairId(ticker)) {
+        return {
+          status: "SKIPPED",
+          ticker,
+          direction: "HOLD",
+          reason: `${ticker}: fuera de ciclo crypto`,
+          signal: { confidence: 0, reasoning: "Non-crypto ticker", urgency: "LOW" },
+          timestamp: new Date().toISOString(),
+        };
+      }
     }
 
     if (kind === "forex" && !isAlpacaForexTicker(ticker)) {
@@ -1224,17 +1304,20 @@ export class TradingEngine {
       };
     }
 
-    const alpacaCryptoId = toAlpacaCryptoPairId(ticker)
-    if (alpacaCryptoId) {
-      return this.processAlpacaTicker(alpacaCryptoId, account, execGate, cycleOpts)
-    }
+    // Alpaca paper path — skipped when crypto uses IBKR PAXOS
+    if (!(kind === "crypto" && isIbkrCryptoEnabled())) {
+      const alpacaCryptoId = toAlpacaCryptoPairId(ticker)
+      if (alpacaCryptoId) {
+        return this.processAlpacaTicker(alpacaCryptoId, account, execGate, cycleOpts)
+      }
 
-    if (isAlpacaForexTicker(ticker)) {
-      return this.processAlpacaTicker(ticker, account, execGate, cycleOpts)
-    }
+      if (isAlpacaForexTicker(ticker)) {
+        return this.processAlpacaTicker(ticker, account, execGate, cycleOpts)
+      }
 
-    if (isAlpacaTicker(ticker)) {
-      return this.processAlpacaTicker(ticker, account, execGate, cycleOpts)
+      if (isAlpacaTicker(ticker)) {
+        return this.processAlpacaTicker(ticker, account, execGate, cycleOpts)
+      }
     }
 
     if (isTimeoutSkipped(ticker)) {
@@ -1951,7 +2034,7 @@ export class TradingEngine {
     }
   }
 
-  /** Account snapshot by cycle kind — crypto=Alpaca, forex=soft fail, stocks=IBKR. */
+  /** Account snapshot by cycle kind — crypto=Alpaca or IBKR(PAXOS), forex=soft fail, stocks=IBKR. */
   private async fetchAccountSnapshotForKind(kind: CycleKind): Promise<{
     navUSD: number
     cashUSD: number
@@ -1960,6 +2043,24 @@ export class TradingEngine {
     primaryAccountId?: string | null
   }> {
     if (kind === "crypto") {
+      if (isIbkrCryptoEnabled()) {
+        const [snap, richest] = await Promise.all([
+          fetchTradingAccountSnapshot(),
+          pickIbkrAccountWithMostUsd(),
+        ])
+        console.log(
+          `[Cycle/crypto] account source=IBKR/PAXOS ` +
+            `account=${richest.accountId ?? "default"} cashUSD=$${richest.cashUSD.toFixed(2)} ` +
+            `nav=$${snap.navUSD.toFixed(2)}`,
+        )
+        return {
+          navUSD: snap.navUSD,
+          cashUSD: richest.cashUSD > 0 ? richest.cashUSD : snap.cashUSD,
+          dailyPnlUSD: snap.dailyPnlUSD,
+          openPositionsCount: snap.openPositionsCount,
+          primaryAccountId: richest.accountId ?? snap.primaryAccountId,
+        }
+      }
       if (!isAlpacaConfigured()) {
         throw new Error("Alpaca paper no configurado (ALPACA_API_KEY / ALPACA_SECRET)")
       }
@@ -2086,7 +2187,11 @@ export class TradingEngine {
     }
 
     const side = params.direction === 'SELL' ? 'SELL' : 'BUY'
-    const account = process.env.IBKR_ACCOUNT_ID?.trim() || undefined
+    let account = process.env.IBKR_ACCOUNT_ID?.trim() || undefined
+    if (isIbkrCryptoTicker(params.ticker) && isIbkrCryptoEnabled()) {
+      const richest = await pickIbkrAccountWithMostUsd()
+      if (richest.accountId) account = richest.accountId
+    }
     console.log(
       `[AutoExecute] ${params.ticker} ${side} → llamando submitSupervisedLiveLimitOrder ` +
         `qty=${params.shares} limitSuggested=$${params.limitPrice ?? 'n/a'} account=${account ?? 'default'} outsideRth=${params.outsideRth ?? true}`,
@@ -2140,6 +2245,22 @@ export class TradingEngine {
       })
       return submitted.ibkrOrderId
     } catch (err) {
+      if (err instanceof IbkrOrderRejectedError) {
+        if (
+          shouldPersistIbkrNonTradable({
+            code: err.code,
+            ibkrStatus: err.ibkrStatus,
+            message: err.message,
+          })
+        ) {
+          void recordIbkrNonTradable({
+            symbol: params.ticker,
+            code: err.code,
+            message: err.message,
+            ibkrStatus: err.ibkrStatus,
+          })
+        }
+      }
       if (isTimeoutFailure(err)) {
         console.log(`[AutoExecute] ${params.ticker} → skip (timeout IBKR)`)
         throw err instanceof IbkrSubmitTimeoutError

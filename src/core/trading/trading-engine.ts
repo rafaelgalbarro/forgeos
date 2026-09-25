@@ -15,7 +15,12 @@ import {
 import { registerExecutedPosition } from './position-monitor'
 import { evaluateProStrategies, capitalPctFromConfidence } from './strategies/pro-strategies'
 import { getMacroContext } from '@/lib/market-data/macro-context'
-import { notifyPreTradeHold, notifyPendingApproval, notifyInstantExecution } from '@/lib/notifications/telegram-bot'
+import {
+  notifyPreTradeHold,
+  notifyPendingApproval,
+  notifyInstantExecution,
+  sendTelegramMessage,
+} from '@/lib/notifications/telegram-bot'
 import { runPreOrderRiskCheck, logPreOrderDecision } from '@/lib/trading/agents'
 import { fetchCapitalSnapshot, pickIbkrAccountWithMostUsd } from '@/lib/trading/capital'
 import {
@@ -114,6 +119,10 @@ import {
   isIbkrDrawdownHaltReason,
   type BrokerId,
 } from '@/lib/trading/nav-day-open'
+import {
+  isRebuyCooldownActive,
+  MAX_CRYPTO_OPEN_POSITIONS,
+} from '@/lib/trading/trailing-registry'
 
 /** Max tickers per automatic background cycle. */
 /** Analyze up to 50 tickers per automatic / typed cycle; explicit cycles are uncapped. */
@@ -306,6 +315,7 @@ export type OrderResult = {
     | 'PENDING_APPROVAL'
     | 'REJECTED_RISK'
     | 'REJECTED_CONFIDENCE'
+    | 'SIGNAL_NO_CAPITAL'
     | 'HOLD'
     | 'SKIPPED'
     | 'ERROR'
@@ -313,11 +323,66 @@ export type OrderResult = {
   direction: 'BUY' | 'SELL' | 'HOLD'
   sharesOrValue?: number
   price?: number
+  /** Strategy / agent combo that produced the signal (e.g. "momentum+news"). */
+  agents?: string
   reason: string
   signal: { confidence: number; reasoning: string; urgency: string }
   timestamp: string
   stopLoss?: number
   takeProfit?: number
+}
+
+const NO_CAPITAL_TELEGRAM_TTL_MS = 4 * 60 * 60 * 1000
+const noCapitalTelegramAt = new Map<string, number>()
+
+/** BUY signal kept for visibility — no order when cash cannot buy 1 share. */
+async function emitSignalNoCapital(params: {
+  ticker: string
+  confidence: number
+  price: number
+  available: number
+  agents?: string
+  reasoning: string
+  urgency: string
+}): Promise<OrderResult> {
+  const ticker = params.ticker.toUpperCase()
+  const now = Date.now()
+  const last = noCapitalTelegramAt.get(ticker) ?? 0
+  if (now - last >= NO_CAPITAL_TELEGRAM_TTL_MS) {
+    noCapitalTelegramAt.set(ticker, now)
+    const conf = Math.round(params.confidence * 100)
+    const line =
+      `💡 OPORTUNIDAD 🇺🇸 ${ticker} BUY ${conf}% @ $${params.price.toFixed(2)} ` +
+      `— sin capital (disponible $${Math.max(0, params.available).toFixed(0)})`
+    void sendTelegramMessage(line).catch((err) => {
+      console.warn(
+        `[Telegram] SIGNAL_NO_CAPITAL ${ticker}:`,
+        err instanceof Error ? err.message : err,
+      )
+    })
+  }
+  console.log(
+    `[Signal] ${ticker}: SIGNAL_NO_CAPITAL conf=${(params.confidence * 100).toFixed(0)}% ` +
+      `price=$${params.price.toFixed(2)} cash≈$${params.available.toFixed(0)}`,
+  )
+  return {
+    status: 'SIGNAL_NO_CAPITAL',
+    ticker,
+    direction: 'BUY',
+    price: params.price,
+    agents: params.agents,
+    reason: `sin capital — precio $${params.price.toFixed(2)} > disponible $${params.available.toFixed(2)}`,
+    signal: {
+      confidence: params.confidence,
+      reasoning: params.reasoning,
+      urgency: params.urgency,
+    },
+    timestamp: new Date().toISOString(),
+  }
+}
+
+function isCapitalAffordabilityReject(reason: string): boolean {
+  return /capital insuficiente|precio \$[\d.]+ > (presupuesto|capital)|sin capital/i.test(reason)
 }
 
 export type TradeCycleResult = {
@@ -700,6 +765,8 @@ export class TradingEngine {
         `evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
         `(max=${maxCycleTickers(explicit)}, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(kind) / 1000}s)`,
     )
+    const cycleBodyStartedMs = Date.now()
+    const tickerDurationsMs: Array<{ ticker: string; ms: number }> = []
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
     let cursor = 0
@@ -714,6 +781,7 @@ export class TradingEngine {
         const i = cursor++
         const ticker = cycleTickers[i]!
         jobs[i] = (async () => {
+          const tickerStartedMs = Date.now()
           const execGate = { enteredAutoExecute: false, buySignal: false }
           const work = this.processTicker(ticker, account, execGate, cycleOpts)
           try {
@@ -761,6 +829,8 @@ export class TradingEngine {
             }
             if (order.status === 'EXECUTED') {
               console.log(`[Signal] ${ticker}: EXECUTED conf=${(order.signal.confidence * 100).toFixed(0)}%`)
+            } else if (order.status === 'SIGNAL_NO_CAPITAL') {
+              /* already logged in emitSignalNoCapital */
             } else if (order.direction === 'BUY') {
               console.log(
                 `[Signal] ${ticker}: BUY status=${order.status} conf=${(order.signal.confidence * 100).toFixed(0)}% reason=${order.reason}`,
@@ -784,6 +854,8 @@ export class TradingEngine {
               signal: { confidence: 0, reasoning: 'Error en ciclo', urgency: 'LOW' as const },
               timestamp: new Date().toISOString(),
             }
+          } finally {
+            tickerDurationsMs.push({ ticker, ms: Date.now() - tickerStartedMs })
           }
         })()
         await jobs[i]
@@ -830,8 +902,9 @@ export class TradingEngine {
       }).length
       const señales = orders.filter(
         (o) =>
-          o.direction === "BUY" &&
-          !["SKIPPED", "HOLD", "REJECTED_CONFIDENCE"].includes(o.status),
+          (o.direction === "BUY" &&
+            !["SKIPPED", "HOLD", "REJECTED_CONFIDENCE"].includes(o.status)) ||
+          o.status === "SIGNAL_NO_CAPITAL",
       ).length
       const buyN = orders.filter((o) => o.direction === "BUY").length
       const enviadas = orders.filter(
@@ -840,18 +913,27 @@ export class TradingEngine {
       const rechazadas = orders.filter(
         (o) =>
           o.status === "ERROR" ||
+          (o.status === "REJECTED_RISK" && !isCapitalAffordabilityReject(o.reason ?? "")) ||
           /ORDER_REJECTED|INACTIVE|no EXECUTED|NO NEGOCIABLE/i.test(o.reason ?? ""),
       ).length
-      const noNegociables = orders.filter((o) =>
-        /non-tradable|NO NEGOCIABLE|INACTIVE|PRIIPs/i.test(o.reason ?? ""),
-      ).length
-      const sinCapital = orders.filter((o) =>
-        /capital insuficiente/i.test(o.reason ?? ""),
+      const sinCapital = orders.filter(
+        (o) =>
+          o.status === "SIGNAL_NO_CAPITAL" ||
+          (o.status === "REJECTED_RISK" && isCapitalAffordabilityReject(o.reason ?? "")),
       ).length
       console.log(
         `[Cycle/stocks] fase=${fase} analizados=${analyzedOk} señales=${señales} BUY=${buyN} ` +
-          `enviadas=${enviadas} rechazadas=${rechazadas} no_negociables=${noNegociables} sin_capital=${sinCapital}`,
+          `enviadas=${enviadas} sin_capital=${sinCapital} rechazadas=${rechazadas}`,
       )
+
+      const cycleElapsedMs = Date.now() - cycleBodyStartedMs
+      if (cycleElapsedMs > 100_000) {
+        const slowest = [...tickerDurationsMs].sort((a, b) => b.ms - a.ms).slice(0, 5)
+        console.log(
+          `[Cycle/stocks] lento ${(cycleElapsedMs / 1000).toFixed(1)}s — top5: ` +
+            slowest.map((r) => `${r.ticker}=${(r.ms / 1000).toFixed(1)}s`).join(", "),
+        )
+      }
     }
 
     return {
@@ -1104,6 +1186,35 @@ export class TradingEngine {
         reason: `${ticker}: posición Alpaca ya abierta`,
         signal: { confidence: 0, reasoning: 'Alpaca position exists', urgency: 'LOW' },
         timestamp: new Date().toISOString(),
+      }
+    }
+
+    // Crypto: max 5 open positions — HOLD only, never force-close for the limit
+    if (asset === 'crypto') {
+      const cryptoOpen = positions.filter((p) => {
+        const sym = String(p.symbol ?? "").replace("/", "").toUpperCase()
+        return isAlpacaCryptoTicker(sym) && Math.abs(Number(p.qty ?? 0)) > 0
+      }).length
+      const openCount = Math.max(cryptoOpen, account.openPositionsCount)
+      if (openCount >= MAX_CRYPTO_OPEN_POSITIONS) {
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: 'límite 5 posiciones',
+          signal: { confidence: 0, reasoning: 'Max 5 crypto positions', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        }
+      }
+      if (isRebuyCooldownActive(ticker)) {
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `${ticker}: cooldown 6h post-venta`,
+          signal: { confidence: 0, reasoning: 'Rebuy cooldown 6h', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        }
       }
     }
 
@@ -1511,7 +1622,8 @@ export class TradingEngine {
       at: new Date().toISOString(),
     })
 
-    // Account-aware price filter + PRE_ORDER_RISK_CHECK + dynamic sizing (USD cash only)
+    // Account-aware PRE_ORDER_RISK_CHECK + dynamic sizing (USD cash only).
+    // Capital never filters the universe — unaffordable BUY → SIGNAL_NO_CAPITAL.
     const richest = await pickIbkrAccountWithMostUsd().catch(() => ({
       accountId: null as string | null,
       cashUSD: 0,
@@ -1522,16 +1634,18 @@ export class TradingEngine {
         ? richest.cashUSD
         : Math.max(0, capitalSnap?.cashUSD ?? account.cashUSD)
 
-    if (!(cashForSizing > 0)) {
-      console.warn(`[AutoExecute] ${ticker} → capital insuficiente (cashUSD=0)`)
-      return {
-        status: 'REJECTED_RISK',
+    const agentsLabel = signal.primaryStrategy || 'PRO'
+
+    if (!(cashForSizing > 0) || priceData.currentPrice > cashForSizing) {
+      return emitSignalNoCapital({
         ticker,
-        direction: signal.direction,
-        reason: 'capital insuficiente',
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-        timestamp: new Date().toISOString(),
-      }
+        confidence: signal.confidence,
+        price: priceData.currentPrice,
+        available: cashForSizing,
+        agents: agentsLabel,
+        reasoning: signal.reasoning,
+        urgency: signal.urgency,
+      })
     }
 
     // Prefer destination account with positive USD for all subsequent sizing / submit
@@ -1555,6 +1669,8 @@ export class TradingEngine {
         status: 'REJECTED_RISK',
         ticker,
         direction: signal.direction,
+        price: priceData.currentPrice,
+        agents: agentsLabel,
         reason: `Precio $${priceData.currentPrice.toFixed(2)} fuera de rango cuenta $${capital.minPrice}-$${capital.maxPrice}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
@@ -1577,14 +1693,27 @@ export class TradingEngine {
       stopLoss: preRisk.stopLoss,
       takeProfit: preRisk.takeProfit,
       confidence: signal.confidence,
-      agents: signal.primaryStrategy || 'PRO',
+      agents: agentsLabel,
       capital: preRisk.capital,
     })
     if (!preRisk.allow) {
+      if (isCapitalAffordabilityReject(preRisk.reason)) {
+        return emitSignalNoCapital({
+          ticker,
+          confidence: signal.confidence,
+          price: priceData.currentPrice,
+          available: cashForSizing,
+          agents: agentsLabel,
+          reasoning: signal.reasoning,
+          urgency: signal.urgency,
+        })
+      }
       return {
         status: 'REJECTED_RISK',
         ticker,
         direction: signal.direction,
+        price: priceData.currentPrice,
+        agents: agentsLabel,
         reason: preRisk.reason,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
@@ -1755,18 +1884,15 @@ export class TradingEngine {
       resolvedShares -= 1
     }
     if (resolvedShares <= 0 || priceData.currentPrice > cashForSizing) {
-      console.warn(
-        `[AutoExecute] ${ticker} → capital insuficiente ` +
-          `(precio $${priceData.currentPrice.toFixed(2)} > cashUSD $${cashForSizing.toFixed(2)})`,
-      )
-      return {
-        status: 'REJECTED_RISK',
+      return emitSignalNoCapital({
         ticker,
-        direction: signal.direction,
-        reason: 'capital insuficiente',
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-        timestamp: new Date().toISOString(),
-      }
+        confidence: signal.confidence,
+        price: priceData.currentPrice,
+        available: cashForSizing,
+        agents: agentsLabel,
+        reasoning: signal.reasoning,
+        urgency: signal.urgency,
+      })
     }
     const orderValueUSD = resolvedShares * priceData.currentPrice
     console.log(
@@ -2011,6 +2137,7 @@ export class TradingEngine {
         direction: 'BUY',
         sharesOrValue: resolvedShares,
         price: priceData.currentPrice,
+        agents: agentsLabel,
         reason: signal.reasoning,
         signal: {
           confidence: signal.confidence,

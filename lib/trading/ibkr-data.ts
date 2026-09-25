@@ -289,24 +289,81 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
   throw new Error(`sin precio — skip (${quoteErrors.join("; ")})`);
 }
 
-export async function fetchTradingPosition(
-  ticker: string,
-): Promise<TradingPositionSnapshot | undefined> {
-  // Shared positions snapshot (30s) — never one HTTP call per ticker.
-  const positions = await ibkrServiceFetch<
+export type IbkrPositionRow = {
+  symbol: string;
+  qty: number;
+  avgCost: number;
+  marketValue: number;
+  /** Implied mark = |marketValue|/qty when available. */
+  currentPrice: number;
+  account?: string;
+  secType?: string;
+  unrealizedPnl: number;
+};
+
+/** Shared IBKR positions snapshot (30s) — one broker call for ExitManager + per-ticker lookups. */
+export async function fetchCachedIbkrPositions(): Promise<IbkrPositionRow[]> {
+  return getOrSetIbkrCached(ibkrCacheKey("positions-rows"), fetchIbkrPositionsLive, 30_000);
+}
+
+async function fetchIbkrPositionsLive(): Promise<IbkrPositionRow[]> {
+  const rows = await ibkrServiceFetch<
     Array<{
       symbol?: string;
       position?: number;
       avgCost?: number;
+      marketValue?: number;
+      marketPrice?: number;
+      account?: string;
+      secType?: string;
       unrealizedPnl?: number;
     }>
-  >("/api/ibkr/positions");
-  const pos = positions.find((p) => (p.symbol ?? "").toUpperCase() === ticker.toUpperCase());
+  >("/api/ibkr/positions").catch(() => []);
+  const primary = primaryAccountId();
+  const out: IbkrPositionRow[] = [];
+  for (const p of Array.isArray(rows) ? rows : []) {
+    if (primary && p.account && p.account !== primary) continue;
+    const qty = Math.abs(Number(p.position ?? 0));
+    if (!(qty > 0)) continue;
+    const symbol = String(p.symbol ?? "").trim().toUpperCase();
+    if (!symbol) continue;
+    const avgCost = Number(p.avgCost ?? 0);
+    const marketValue = Number(p.marketValue ?? 0);
+    const marketPrice = Number(p.marketPrice ?? 0);
+    const fromMv = qty > 0 && Number.isFinite(marketValue) && Math.abs(marketValue) > 0
+      ? Math.abs(marketValue) / qty
+      : 0;
+    const currentPrice =
+      Number.isFinite(marketPrice) && marketPrice > 0
+        ? marketPrice
+        : fromMv > 0
+          ? fromMv
+          : avgCost;
+    out.push({
+      symbol,
+      qty,
+      avgCost,
+      marketValue,
+      currentPrice,
+      account: p.account,
+      secType: String(p.secType ?? "STK"),
+      unrealizedPnl: Number(p.unrealizedPnl ?? 0),
+    });
+  }
+  return out;
+}
+
+export async function fetchTradingPosition(
+  ticker: string,
+): Promise<TradingPositionSnapshot | undefined> {
+  // Shared positions snapshot (30s) — never one HTTP call per ticker.
+  const positions = await fetchCachedIbkrPositions();
+  const pos = positions.find((p) => p.symbol === ticker.toUpperCase());
   if (!pos) return undefined;
   return {
-    shares: Number(pos.position ?? 0),
-    avgCost: Number(pos.avgCost ?? 0),
-    unrealizedPnl: Number(pos.unrealizedPnl ?? 0),
+    shares: pos.qty,
+    avgCost: pos.avgCost,
+    unrealizedPnl: pos.unrealizedPnl,
   };
 }
 

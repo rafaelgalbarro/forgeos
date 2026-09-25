@@ -85,19 +85,19 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
   try {
     await expireStalePendingApprovals();
 
-    // Exit manager — evaluate open positions each cycle (SL/TP alerts; monitor executes)
-    if (config.kind === "stocks") {
+    // Exit manager — SL / trailing TP at start of stocks + crypto cycles
+    if (config.kind === "stocks" || config.kind === "crypto") {
       try {
-        const exits = await getExitManager().checkPositions();
-        if (exits.length > 0) {
+        const summary = await getExitManager().runChannel(config.kind);
+        if (summary.actions.length > 0) {
           console.log(
-            `[ExitManager] ${exits.length} salidas candidatas:`,
-            exits.map((e) => `${e.symbol}:${e.reason}`).join(", "),
+            `[ExitManager] ${config.kind}: ${summary.actions.length} salidas ` +
+              summary.actions.map((e) => `${e.symbol}:${e.reason}`).join(", "),
           );
         }
       } catch (err) {
         console.warn(
-          "[ExitManager] check failed:",
+          `[ExitManager] ${config.kind} check failed:`,
           err instanceof Error ? err.message : err,
         );
       }

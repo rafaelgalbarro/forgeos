@@ -40,34 +40,12 @@ function toPosition(source: BrokerPosition): PortfolioAnalyticsPosition {
 
 /**
  * Read-only HTTP fetcher for normalized portfolio snapshots.
- * Does not import Interactive Brokers SDKs; composition root may inject broker adapter fetch.
+ * Routes through ibkrServiceFetch so account/positions share the 30s cache.
  */
 export function createDefaultPortfolioAnalyticsHttpFetcher(): PortfolioAnalyticsHttpFetcher {
-  const baseUrl = process.env.IBKR_SERVICE_URL ?? "http://127.0.0.1:8002";
   return async <T>(path: string): Promise<T> => {
-    const apiKey = process.env.IBKR_INTERNAL_API_KEY;
-    if (!apiKey) {
-      throw new Error("Falta IBKR_INTERNAL_API_KEY en el servidor de ForgeOS");
-    }
-    const response = await fetch(`${baseUrl}${path}`, {
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Internal-API-Key": apiKey,
-      },
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const detail = (body as { detail?: unknown }).detail;
-      let message = `Broker service error ${response.status}`;
-      if (typeof detail === "string" && detail.trim()) {
-        message = detail;
-      } else if (detail && typeof detail === "object" && "error" in detail) {
-        message = String((detail as { error: unknown }).error);
-      }
-      throw new Error(message);
-    }
-    return body as T;
+    const { ibkrServiceFetch } = await import("@/lib/ibkr/service-client");
+    return ibkrServiceFetch<T>(path);
   };
 }
 

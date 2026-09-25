@@ -177,6 +177,12 @@ def init_db() -> None:
         )
 
 
+# Max wait for any IBKR callback (account, positions, quotes, contract details).
+IBKR_WAIT_TIMEOUT_SEC = 5.0
+# Market-data / subscription errors — unblock waiters immediately (do not spin).
+IBKR_FAST_FAIL_CODES = {
+    10089, 354, 10167, 10197, 162, 200, 366, 420, 10168,
+}
 # Hard IBKR reject / no-permission / cancel codes — never treat as EXECUTED.
 IBKR_ORDER_REJECT_CODES = {
     103, 107, 109, 110, 201, 202, 203, 321, 322, 387, 388, 460,
@@ -359,6 +365,7 @@ class IBKRClient(EWrapper, EClient):
     def error(self, reqId, errorCode, errorString, advancedOrderRejectJson="") -> None:
         entry = {"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson}
         self.errors.append(entry)
+        code = int(errorCode) if errorCode is not None else 0
         # Always log order-related errors loudly
         if isinstance(reqId, int) and reqId in self.place_ack_events:
             ctx = self.order_context.get(reqId, {})
@@ -366,24 +373,24 @@ class IBKRClient(EWrapper, EClient):
             log.warning("%s error orderId=%s code=%s: %s %s", kind, reqId, errorCode, errorString, advancedOrderRejectJson or "")
             self.place_ack_errors.setdefault(reqId, []).append(entry)
             self.place_ack_events[reqId].set()
-        elif int(errorCode) not in {2104, 2106, 2158, 2119}:
+        elif code not in {2104, 2106, 2158, 2119}:
             # Skip noisy market-data-farm connectivity messages
             log.info("IBKR error reqId=%s code=%s: %s", reqId, errorCode, errorString)
         if isinstance(reqId, int) and reqId in self.contract_details_done:
             event = self.contract_details_done.get(reqId)
             if event:
                 event.set()
-        if int(errorCode) in {502, 504, 1100, 1101, 1102, 1300, 2110}:
+        if code in {502, 504, 1100, 1101, 1102, 1300, 2110} or code in IBKR_FAST_FAIL_CODES:
             for event in list(self.contract_details_done.values()):
                 event.set()
-        # Unblock scanner waiters on hard failures
-        if isinstance(reqId, int) and reqId in self.scanner_done:
-            done = self.scanner_done.get(reqId)
-            if done:
-                done.set()
-        # Hard historical-data failures should unblock waiters (never invent bars).
-        if reqId in self.history_bars and int(errorCode) in {162, 200, 354, 366, 420, 10168}:
-            self.history_done.set()
+            # Unblock quote / market-data waiters immediately (e.g. 10089 subscription)
+            for event in list(getattr(self, "tick_done", {}).values()):
+                event.set()
+            for event in list(getattr(self, "scanner_done", {}).values()):
+                event.set()
+            if reqId in getattr(self, "history_bars", {}):
+                self.history_done.set()
+            log.warning("IBKR fast-fail code=%s reqId=%s: %s", code, reqId, errorString)
 
     def accountSummary(self, reqId, account, tag, value, currency) -> None:
         self.account_data.setdefault(account, {})[tag] = {"value": value, "currency": currency}
@@ -659,8 +666,11 @@ class IBKRClient(EWrapper, EClient):
         raise TimeoutError("No se recibió nextValidId desde IB Gateway")
 
     def ensure_connected(self) -> None:
+        """Do not auto-connect — that floods TWS. Dashboard button must POST /connect."""
         if not self.isConnected() or self.next_order_id is None:
-            self.connect_gateway()
+            raise ConnectionError(
+                "IBKR disconnected — use dashboard «Reconectar Broker» (POST /api/ibkr/connect)"
+            )
 
     def status(self) -> dict[str, Any]:
         reachable = self._tws_reachable()
@@ -687,7 +697,7 @@ class IBKRClient(EWrapper, EClient):
                 ids.append(account)
         return ids
 
-    def _fill_account_via_updates(self, account: str, timeout: float = 8.0) -> None:
+    def _fill_account_via_updates(self, account: str, timeout: float = IBKR_WAIT_TIMEOUT_SEC) -> None:
         """reqAccountUpdates for a specific account when summary 'All' omitted it."""
         done = threading.Event()
         self._acct_update_done[account] = done
@@ -708,7 +718,7 @@ class IBKRClient(EWrapper, EClient):
             self.account_done.clear()
             tags = "NetLiquidation,TotalCashValue,AvailableFunds,BuyingPower,GrossPositionValue,MaintMarginReq,UnrealizedPnL,RealizedPnL"
             self.reqAccountSummary(9101, "All", tags)
-            if not self.account_done.wait(10):
+            if not self.account_done.wait(IBKR_WAIT_TIMEOUT_SEC):
                 raise TimeoutError("Timeout leyendo cuenta")
             self.cancelAccountSummary(9101)
             for account in self._known_accounts():
@@ -725,7 +735,7 @@ class IBKRClient(EWrapper, EClient):
         self.positions_data = []
         self.positions_done.clear()
         self.reqPositions()
-        if not self.positions_done.wait(10):
+        if not self.positions_done.wait(IBKR_WAIT_TIMEOUT_SEC):
             raise TimeoutError("Timeout leyendo posiciones")
         self.cancelPositions()
         return self.positions_data
@@ -764,7 +774,7 @@ class IBKRClient(EWrapper, EClient):
         log.info("SCANNER reqId=%s code=%s limit=%s", req_id, code, rows_n)
         try:
             self.reqScannerSubscription(req_id, sub, [], [])
-            if not done.wait(20):
+            if not done.wait(IBKR_WAIT_TIMEOUT_SEC):
                 log.warning("SCANNER timeout reqId=%s code=%s", req_id, code)
             with self._scanner_lock:
                 rows = list(self.scanner_data.get(req_id, []))
@@ -814,7 +824,7 @@ class IBKRClient(EWrapper, EClient):
         self.orders_done.clear()
         # reqAllOpenOrders reliably ends with openOrderEnd even when empty.
         self.reqAllOpenOrders()
-        if not self.orders_done.wait(15):
+        if not self.orders_done.wait(IBKR_WAIT_TIMEOUT_SEC):
             # Empty book often still returns []; treat soft timeout as empty snapshot.
             return list(self.orders_data)
         return self.orders_data
@@ -884,7 +894,7 @@ class IBKRClient(EWrapper, EClient):
                 False,
                 [],
             )
-            finished = self.history_done.wait(20)
+            finished = self.history_done.wait(IBKR_WAIT_TIMEOUT_SEC)
             bars = list(self.history_bars.get(req_id, []))
             recent_errors = self.errors[before_errors:]
             note = (
@@ -919,20 +929,10 @@ class IBKRClient(EWrapper, EClient):
 
     def place_limit_order(self, proposal: dict[str, Any], *, skip_contract_details: bool = False) -> int:
         if skip_contract_details:
-            try:
-                if not self.isConnected() or self.next_order_id is None:
-                    self._reconnect_and_settle(5.0)
-                return self._place_limit_order_validated_once(
-                    proposal, transmit=True, what_if=False, skip_contract_details=True
-                )
-            except Exception as exc:
-                if not self._is_disconnect_error(exc) and self.isConnected():
-                    raise
-                log.warning("placeOrder (basic contract) disconnect — reconnect + retry once: %s", exc)
-                self._reconnect_and_settle(5.0)
-                return self._place_limit_order_validated_once(
-                    proposal, transmit=True, what_if=False, skip_contract_details=True
-                )
+            self.ensure_connected()
+            return self._place_limit_order_validated_once(
+                proposal, transmit=True, what_if=False, skip_contract_details=True
+            )
         return self.place_limit_order_validated(proposal, transmit=True, what_if=False)
 
     def _next_forex_req_id(self) -> int:
@@ -1031,7 +1031,7 @@ class IBKRClient(EWrapper, EClient):
                 "mode": "READ_ONLY",
             }
 
-    def forex_quote(self, pair: dict[str, Any], *, timeout: float = 8.0) -> dict[str, Any]:
+    def forex_quote(self, pair: dict[str, Any], *, timeout: float = IBKR_WAIT_TIMEOUT_SEC) -> dict[str, Any]:
         """READ_ONLY bid/ask for IDEALPRO CASH via reqMktData."""
         try:
             from .forex_pairs import build_cash_contract, pip_size
@@ -1118,7 +1118,7 @@ class IBKRClient(EWrapper, EClient):
                 False,
                 [],
             )
-            finished = self.history_done.wait(25)
+            finished = self.history_done.wait(IBKR_WAIT_TIMEOUT_SEC)
             bars = list(self.history_bars.get(req_id, []))
             return {
                 "pairId": pair["pair_id"],
@@ -1161,10 +1161,45 @@ class IBKRClient(EWrapper, EClient):
         time.sleep(wait_seconds)
 
     def _ensure_connected_for_contract_details(self) -> None:
-        if self.isConnected() and self.next_order_id is not None:
-            return
-        log.warning("IBKR desconectado antes de reqContractDetails — reconectando")
-        self._reconnect_and_settle(5.0)
+        self.ensure_connected()
+
+    def _resolve_contract_details(self, contract: Contract, timeout: float = IBKR_WAIT_TIMEOUT_SEC):
+        self._ensure_connected_for_contract_details()
+        req_id = (self.next_order_id or 1000) + 100_000
+        done = threading.Event()
+        self.contract_details_done[req_id] = done
+        self.contract_details_data.pop(req_id, None)
+        self.reqContractDetails(req_id, contract)
+        if not done.wait(timeout):
+            self.contract_details_done.pop(req_id, None)
+            log.warning(
+                "Timeout %.0fs en reqContractDetails symbol=%s — usando contrato básico",
+                timeout,
+                getattr(contract, "symbol", "?"),
+            )
+            return None
+        details = self.contract_details_data.get(req_id)
+        self.contract_details_done.pop(req_id, None)
+        self.contract_details_data.pop(req_id, None)
+        if details is None:
+            log.warning("ContractDetails vacío symbol=%s — usando contrato básico", getattr(contract, "symbol", "?"))
+        return details
+
+    def _resolve_market_rules(self, market_rule_ids: str) -> dict[int, list[dict[str, float]]]:
+        rules: dict[int, list[dict[str, float]]] = {}
+        for part in (market_rule_ids or "").split(","):
+            value = part.strip()
+            if not value:
+                continue
+            rule_id = int(value)
+            done = threading.Event()
+            self.market_rules_done[rule_id] = done
+            self.market_rules_data.pop(rule_id, None)
+            self.reqMarketRule(rule_id)
+            if done.wait(IBKR_WAIT_TIMEOUT_SEC):
+                rules[rule_id] = self.market_rules_data.get(rule_id, [])
+            self.market_rules_done.pop(rule_id, None)
+        return rules
 
     @staticmethod
     def _basic_contract_from_proposal(proposal: dict[str, Any]) -> Contract:
@@ -1273,44 +1308,6 @@ class IBKRClient(EWrapper, EClient):
             )
         return p
 
-    def _resolve_contract_details(self, contract: Contract, timeout: float = 30.0):
-        self._ensure_connected_for_contract_details()
-        req_id = (self.next_order_id or 1000) + 100_000
-        done = threading.Event()
-        self.contract_details_done[req_id] = done
-        self.contract_details_data.pop(req_id, None)
-        self.reqContractDetails(req_id, contract)
-        if not done.wait(timeout):
-            self.contract_details_done.pop(req_id, None)
-            log.warning(
-                "Timeout %.0fs en reqContractDetails symbol=%s — usando contrato básico",
-                timeout,
-                getattr(contract, "symbol", "?"),
-            )
-            return None
-        details = self.contract_details_data.get(req_id)
-        self.contract_details_done.pop(req_id, None)
-        self.contract_details_data.pop(req_id, None)
-        if details is None:
-            log.warning("ContractDetails vacío symbol=%s — usando contrato básico", getattr(contract, "symbol", "?"))
-        return details
-
-    def _resolve_market_rules(self, market_rule_ids: str) -> dict[int, list[dict[str, float]]]:
-        rules: dict[int, list[dict[str, float]]] = {}
-        for part in (market_rule_ids or "").split(","):
-            value = part.strip()
-            if not value:
-                continue
-            rule_id = int(value)
-            done = threading.Event()
-            self.market_rules_done[rule_id] = done
-            self.market_rules_data.pop(rule_id, None)
-            self.reqMarketRule(rule_id)
-            if done.wait(10):
-                rules[rule_id] = self.market_rules_data.get(rule_id, [])
-            self.market_rules_done.pop(rule_id, None)
-        return rules
-
     @staticmethod
     def _pick_price_increment(price: Decimal, details, rules: dict[int, list[dict[str, float]]]) -> Decimal:
         candidates: list[Decimal] = []
@@ -1381,30 +1378,23 @@ class IBKRClient(EWrapper, EClient):
             log.warning("PRE-ORDER buying power check failed: %s", exc)
 
     def place_limit_order_validated(self, proposal: dict[str, Any], *, transmit: bool, what_if: bool) -> int:
-        last_exc: BaseException | None = None
-        for attempt in (1, 2):
-            try:
-                if attempt == 2 or not self.isConnected() or self.next_order_id is None:
-                    self._reconnect_and_settle(5.0)
-                return self._place_limit_order_validated_once(
-                    proposal,
-                    transmit=transmit,
-                    what_if=what_if,
-                    skip_contract_details=attempt == 2,
-                )
-            except Exception as exc:
-                last_exc = exc
-                dropped = self._is_disconnect_error(exc) or not self.isConnected()
-                log.warning(
-                    "placeOrder attempt=%s failed dropped=%s: %s",
-                    attempt,
-                    dropped,
-                    exc,
-                )
-                if attempt == 1 and dropped:
-                    continue
-                raise
-        raise RuntimeError(str(last_exc) if last_exc else "placeOrder failed")
+        """Place order without auto-reconnect — disconnected → raise (dashboard must reconnect)."""
+        self.ensure_connected()
+        try:
+            return self._place_limit_order_validated_once(
+                proposal,
+                transmit=transmit,
+                what_if=what_if,
+                skip_contract_details=False,
+            )
+        except Exception as exc:
+            dropped = self._is_disconnect_error(exc) or not self.isConnected()
+            log.warning(
+                "placeOrder failed dropped=%s: %s — no auto-reconnect (use dashboard)",
+                dropped,
+                exc,
+            )
+            raise
 
     def _place_limit_order_validated_once(
         self,
@@ -1498,7 +1488,7 @@ class IBKRClient(EWrapper, EClient):
                 raise ConnectionError(f"placeOrder failed (socket): {exc}") from exc
         if not self.isConnected():
             raise ConnectionError("IBKR disconnected during placeOrder")
-        ack.wait(6)
+        ack.wait(IBKR_WAIT_TIMEOUT_SEC)
         errors = self.place_ack_errors.get(order_id, [])
         status = self.place_ack_status.get(order_id, "NO_ACK")
         log.info("PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))
@@ -1628,7 +1618,7 @@ class IBKRClient(EWrapper, EClient):
                 "account": account,
             }
             self.placeOrder(order_id, contract, order)
-        ack.wait(6)
+        ack.wait(IBKR_WAIT_TIMEOUT_SEC)
         errors = self.place_ack_errors.get(order_id, [])
         status = self.place_ack_status.get(order_id, "NO_ACK")
         log.info("FOREX PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))

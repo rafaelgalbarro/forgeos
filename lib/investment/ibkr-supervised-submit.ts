@@ -7,7 +7,7 @@ import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
-import { ensureIbkrBrokerConnected, reconnectIbkrBroker } from "@/lib/trading/ibkr-reconnect";
+import { ensureIbkrBrokerConnected } from "@/lib/trading/ibkr-reconnect";
 import { notifyOrderRejected } from "@/lib/notifications/telegram-bot";
 import {
   IBKR_CRYPTO_EXCHANGE,
@@ -168,13 +168,9 @@ function isOrderRejectedError(err: unknown): boolean {
 async function ensureConnectedBeforeContractDetails(symbol: string): Promise<void> {
   const connected = await ensureIbkrBrokerConnected();
   if (connected) return;
-  console.warn(`[AutoExecute] ${symbol} → desconectado antes de reqContractDetails, reconectando…`);
-  const re = await reconnectIbkrBroker();
-  if (!re.connected) {
-    throw new Error(`IBKR desconectado — no se pudo reconectar (${re.error ?? "unknown"})`);
-  }
-  console.log(`[AutoExecute] ${symbol} → reconectado, esperando 5s…`);
-  await sleep(5_000);
+  throw new Error(
+    `IBKR desconectado — pulsa «Reconectar Broker» en el dashboard (${symbol})`,
+  );
 }
 
 async function withBrokerRetry<T>(
@@ -190,17 +186,17 @@ async function withBrokerRetry<T>(
       throw new IbkrSubmitTimeoutError(symbol, err instanceof Error ? err.message : String(err));
     }
     if (!isDisconnectError(err)) throw err;
+    // Wait/retry status only — never POST connect from order path
     console.warn(
-      `[AutoExecute] ${symbol} → broker desconectado en ${step}, reconectando…`,
+      `[AutoExecute] ${symbol} → broker desconectado en ${step}, esperando status…`,
     );
-    const re = await reconnectIbkrBroker();
-    if (!re.connected) {
+    const ok = await ensureIbkrBrokerConnected();
+    if (!ok) {
       throw new Error(
-        `IBKR reconnect failed after ${step}: ${re.error ?? "not connected"}`,
+        `IBKR desconectado tras ${step} — pulsa «Reconectar Broker» en el dashboard`,
       );
     }
-    console.log(`[AutoExecute] ${symbol} → reconectado, esperando 5s y reintentando ${step}…`);
-    await sleep(5_000);
+    console.log(`[AutoExecute] ${symbol} → status connected, reintentando ${step}…`);
     try {
       return await fn();
     } catch (retryErr) {
@@ -245,13 +241,9 @@ export async function submitSupervisedLiveLimitOrder(args: {
 
   const connected = await ensureIbkrBrokerConnected();
   if (!connected) {
-    console.warn(`[AutoExecute] ${symbol} → broker no conectado, forzando reconnect…`);
-    const re = await reconnectIbkrBroker();
-    if (!re.connected) {
-      throw new Error(`IBKR desconectado — no se pudo reconectar (${re.error ?? "unknown"})`);
-    }
-    console.log(`[AutoExecute] ${symbol} → reconectado, esperando 5s…`);
-    await sleep(5_000);
+    throw new Error(
+      `IBKR desconectado — pulsa «Reconectar Broker» en el dashboard (${symbol})`,
+    );
   }
 
   const rationale = (args.rationale.trim().length >= 10

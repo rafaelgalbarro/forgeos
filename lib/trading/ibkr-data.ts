@@ -76,9 +76,13 @@ export type TradingPositionSnapshot = {
   unrealizedPnl: number;
 };
 
-/** Direct IBKR FastAPI read — cached 5 min for dashboard/scanners (not live approval). */
+/** Direct IBKR FastAPI read — outer TTL 30s (matches shared account/positions cache). */
 export async function fetchTradingAccountSnapshot(): Promise<TradingAccountSnapshot> {
-  return getOrSetIbkrCached(ibkrCacheKey("account"), fetchTradingAccountSnapshotLive);
+  return getOrSetIbkrCached(
+    ibkrCacheKey("account-snap"),
+    fetchTradingAccountSnapshotLive,
+    30_000,
+  );
 }
 
 async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot> {
@@ -288,12 +292,7 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
 export async function fetchTradingPosition(
   ticker: string,
 ): Promise<TradingPositionSnapshot | undefined> {
-  return getOrSetIbkrCached(ibkrCacheKey("position", ticker), () => fetchTradingPositionLive(ticker));
-}
-
-async function fetchTradingPositionLive(
-  ticker: string,
-): Promise<TradingPositionSnapshot | undefined> {
+  // Shared positions snapshot (30s) — never one HTTP call per ticker.
   const positions = await ibkrServiceFetch<
     Array<{
       symbol?: string;
@@ -312,7 +311,7 @@ async function fetchTradingPositionLive(
 }
 
 export async function fetchTradingOpenSymbols(): Promise<string[]> {
-  return getOrSetIbkrCached(ibkrCacheKey("open-symbols"), fetchTradingOpenSymbolsLive);
+  return getOrSetIbkrCached(ibkrCacheKey("open-symbols"), fetchTradingOpenSymbolsLive, 30_000);
 }
 
 async function fetchTradingOpenSymbolsLive(): Promise<string[]> {

@@ -1,6 +1,15 @@
 import "server-only";
 
 import { IBKR_SERVICE_UNAVAILABLE, resolveIbkrServicePath } from "./broker-path-map";
+import {
+  getCachedIbkrAccount,
+  getCachedIbkrPositions,
+  recordBrokerConnectCall,
+  startBrokerCallMetricsLogger,
+} from "./broker-reads";
+
+/** Default timeout for all ForgeOS → broker HTTP calls. */
+export const IBKR_SERVICE_FETCH_TIMEOUT_MS = 8_000;
 
 function getBaseUrl(): string {
   return process.env.IBKR_SERVICE_URL ?? "http://127.0.0.1:8002";
@@ -32,19 +41,42 @@ function summarizeNonJson(text: string): string {
   return trimmed.replace(/\s+/g, " ").slice(0, 160) || "Empty non-JSON response";
 }
 
-export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+function normalizePath(path: string): string {
+  return resolveIbkrServicePath(path).split("?")[0]!.replace(/\/$/, "") || "/";
+}
+
+function isGet(init: RequestInit): boolean {
+  const m = (init.method ?? "GET").toUpperCase();
+  return m === "GET" || m === "";
+}
+
+function mergeAbortSignals(
+  userSignal: AbortSignal | null | undefined,
+  timeoutMs: number,
+): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!userSignal) return timeout;
+  if (typeof AbortSignal.any === "function") {
+    return AbortSignal.any([userSignal, timeout]);
+  }
+  // Fallback: prefer user signal if already aborted, else timeout
+  if (userSignal.aborted) return userSignal;
+  return timeout;
+}
+
+async function rawIbkrFetch<T>(servicePath: string, init: RequestInit = {}): Promise<T> {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new IbkrServiceUnavailableError("Falta IBKR_INTERNAL_API_KEY en el servidor de ForgeOS");
   }
 
-  const servicePath = resolveIbkrServicePath(path);
+  const signal = mergeAbortSignals(init.signal, IBKR_SERVICE_FETCH_TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(`${getBaseUrl()}${servicePath}`, {
       ...init,
       cache: "no-store",
-      signal: init.signal,
+      signal,
       headers: {
         "Content-Type": "application/json",
         "X-Internal-API-Key": apiKey,
@@ -54,7 +86,11 @@ export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}):
   } catch (error) {
     const message = error instanceof Error ? error.message : "IBKR service unreachable";
     throw new IbkrServiceUnavailableError(
-      message.includes("fetch failed") || message.includes("ECONNREFUSED")
+      message.includes("fetch failed") ||
+        message.includes("ECONNREFUSED") ||
+        message.includes("TimeoutError") ||
+        message.includes("aborted") ||
+        message.includes("timed out")
         ? IBKR_SERVICE_UNAVAILABLE.error
         : message,
     );
@@ -94,7 +130,6 @@ export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}):
             : detailRaw && typeof detailRaw === "object" && detailRaw !== null && "ibkrError" in detailRaw
               ? String((detailRaw as { ibkrError: unknown }).ibkrError)
               : `IBKR service error ${response.status}`;
-    // Preserve structured offline payloads from FastAPI (TWS_OFFLINE etc.).
     if (
       detailRaw &&
       typeof detailRaw === "object" &&
@@ -106,7 +141,6 @@ export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}):
       (err as Error & { payload?: unknown }).payload = structured;
       throw err;
     }
-    // Order rejection (422) — structured proposal detail
     if (
       response.status === 422 &&
       detailRaw &&
@@ -126,4 +160,30 @@ export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}):
   }
 
   return body as T;
+}
+
+/**
+ * ForgeOS → ibkr-broker HTTP client.
+ * GET /account and /positions are cached 30s with in-flight dedupe (all consumers share one call).
+ * Default AbortSignal timeout: 8s.
+ */
+export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  startBrokerCallMetricsLogger();
+
+  const servicePath = resolveIbkrServicePath(path);
+  const norm = normalizePath(path);
+  const method = (init.method ?? "GET").toUpperCase();
+
+  if (method === "POST" && (norm.endsWith("/connect") || norm.endsWith("/reconnect") || norm.endsWith("/auto-reconnect"))) {
+    recordBrokerConnectCall();
+  }
+
+  if (isGet(init) && norm.endsWith("/account")) {
+    return getCachedIbkrAccount(() => rawIbkrFetch<T>(servicePath, init));
+  }
+  if (isGet(init) && norm.endsWith("/positions")) {
+    return getCachedIbkrPositions(() => rawIbkrFetch<T>(servicePath, init));
+  }
+
+  return rawIbkrFetch<T>(servicePath, init);
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import { invalidateIbkrAccountPositionsCache } from "@/lib/ibkr/broker-reads";
 import { invalidateIbkrReadCache } from "@/lib/trading/ibkr-cache";
 import { sendCriticalTelegramAlert } from "@/lib/notifications/telegram-policy";
 
@@ -12,6 +13,14 @@ export type IbkrReconnectResult = {
   attempt?: number;
 };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Explicit reconnect — ONLY from the dashboard "Reconectar Broker" button.
+ * Never call from cycles, monitors, cron, or order submit.
+ */
 export async function reconnectIbkrBroker(): Promise<IbkrReconnectResult> {
   try {
     const result = await ibkrServiceFetch<{
@@ -22,6 +31,7 @@ export async function reconnectIbkrBroker(): Promise<IbkrReconnectResult> {
       body: "{}",
     });
     invalidateIbkrReadCache();
+    invalidateIbkrAccountPositionsCache();
     return {
       connected: Boolean(result.connected),
       state: result.state,
@@ -34,58 +44,45 @@ export async function reconnectIbkrBroker(): Promise<IbkrReconnectResult> {
   }
 }
 
-/** Soft reconnect + docker restart IB Gateway (up to 3 attempts, ~45s wait each). */
+/** @deprecated Prefer reconnectIbkrBroker from UI only. Kept for explicit dashboard paths. */
 export async function autoReconnectIbkrBroker(): Promise<IbkrReconnectResult> {
-  try {
-    console.log("[AutoReconnect] Calling /api/ibkr/auto-reconnect…");
-    const result = await ibkrServiceFetch<{
-      connected?: boolean;
-      state?: string;
-      mode?: string;
-      attempt?: number;
-      message?: string;
-      ok?: boolean;
-    }>("/api/ibkr/auto-reconnect", {
-      method: "POST",
-      body: "{}",
-      // docker restart + 45s × 3 can take >2 minutes
-      signal: AbortSignal.timeout(240_000),
-    });
-    invalidateIbkrReadCache();
-    return {
-      connected: Boolean(result.connected),
-      state: result.state,
-      mode: result.mode,
-      attempt: result.attempt,
-      error: result.connected ? undefined : result.message,
-    };
-  } catch (err) {
-    return {
-      connected: false,
-      error: err instanceof Error ? err.message : "IBKR auto-reconnect failed",
-    };
-  }
+  return reconnectIbkrBroker();
 }
 
+/**
+ * Status-only gate — wait/retry if disconnected.
+ * NEVER POSTs /connect or /reconnect (that floods the broker).
+ */
 export async function ensureIbkrBrokerConnected(): Promise<boolean> {
-  try {
-    const status = await ibkrServiceFetch<{ connected?: boolean; twsReachable?: boolean }>(
-      "/api/ibkr/status",
-    );
-    if (status.connected) return true;
-    if (status.twsReachable === false) return false;
-    const reconnected = await reconnectIbkrBroker();
-    return reconnected.connected;
-  } catch {
-    return false;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const status = await ibkrServiceFetch<{ connected?: boolean; twsReachable?: boolean }>(
+        "/api/ibkr/status",
+      );
+      if (status.connected) return true;
+      if (status.twsReachable === false) return false;
+    } catch {
+      /* broker busy / offline */
+    }
+    if (attempt < 3) await sleep(1_500);
   }
+  return false;
 }
 
-/** Cancel PreSubmitted/Submitted orders older than maxAgeSec (default 5 min). */
+const CANCEL_STALE_MIN_INTERVAL_MS = 5 * 60_000;
+let lastCancelStaleAt = 0;
+
+/** Cancel PreSubmitted/Submitted orders older than maxAgeSec — at most once per 5 minutes. */
 export async function cancelStaleIbkrOrders(maxAgeSec = 300): Promise<{
   count: number;
   cancelled: unknown[];
+  skipped?: boolean;
 }> {
+  const now = Date.now();
+  if (now - lastCancelStaleAt < CANCEL_STALE_MIN_INTERVAL_MS) {
+    return { count: 0, cancelled: [], skipped: true };
+  }
+  lastCancelStaleAt = now;
   try {
     const result = await ibkrServiceFetch<{
       count?: number;
@@ -108,54 +105,37 @@ export async function cancelStaleIbkrOrders(maxAgeSec = 300): Promise<{
 }
 
 let monitorTimer: ReturnType<typeof setInterval> | null = null;
-let consecutiveAutoReconnectFailures = 0;
-let autoReconnectInFlight = false;
+let disconnectAlertSent = false;
 
-const MONITOR_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MONITOR_INTERVAL_MS = 5 * 60 * 1000;
 
-/** Background reconnect every 5 minutes when IBKR is down. */
+/**
+ * Background status watcher — logs disconnect + one Telegram alert.
+ * Does NOT call connect/reconnect (user must use dashboard button).
+ */
 export function startIbkrReconnectMonitor(): void {
   if (monitorTimer) return;
-  void tickReconnectMonitor();
-  monitorTimer = setInterval(() => void tickReconnectMonitor(), MONITOR_INTERVAL_MS);
+  void tickStatusMonitor();
+  monitorTimer = setInterval(() => void tickStatusMonitor(), MONITOR_INTERVAL_MS);
 }
 
-async function tickReconnectMonitor(): Promise<void> {
-  if (autoReconnectInFlight) return;
+async function tickStatusMonitor(): Promise<void> {
   try {
     const status = await ibkrServiceFetch<{ connected?: boolean; twsReachable?: boolean }>(
       "/api/ibkr/status",
     );
     if (status.connected) {
-      consecutiveAutoReconnectFailures = 0;
+      disconnectAlertSent = false;
       return;
     }
-
-    autoReconnectInFlight = true;
-    try {
-      for (let i = 1; i <= 3; i += 1) {
-        console.log(`[AutoReconnect] Intento ${i}/3 reconectando IBKR...`);
-        const result = await autoReconnectIbkrBroker();
-        if (result.connected) {
-          consecutiveAutoReconnectFailures = 0;
-          console.log(
-            `[AutoReconnect] OK mode=${result.mode ?? "n/a"} attempt=${result.attempt ?? i}`,
-          );
-          return;
-        }
-        console.warn(
-          `[AutoReconnect] Intento ${i}/3 falló: ${result.error ?? "still disconnected"}`,
-        );
-      }
-
-      consecutiveAutoReconnectFailures += 1;
-      if (consecutiveAutoReconnectFailures === 1) {
-        await sendCriticalTelegramAlert(
-          "🚨 IBKR DESCONECTADO — Requiere 2FA manual",
-        );
-      }
-    } finally {
-      autoReconnectInFlight = false;
+    console.warn(
+      `[IbkrMonitor] disconnected twsReachable=${String(status.twsReachable)} — use dashboard Reconectar Broker`,
+    );
+    if (!disconnectAlertSent) {
+      disconnectAlertSent = true;
+      await sendCriticalTelegramAlert(
+        "🚨 IBKR DESCONECTADO — Pulsa «Reconectar Broker» en el dashboard (sin auto-connect)",
+      );
     }
   } catch {
     /* FastAPI offline — next tick */

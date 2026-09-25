@@ -23,9 +23,9 @@ import type {
   SectionState,
 } from "./types";
 
-const POLL_CONNECTED_MS = 8_000;
-const POLL_DISCONNECTED_MS = 30_000;
-const FETCH_TIMEOUT_MS = 6_000;
+const POLL_CONNECTED_MS = 30_000;
+const POLL_DISCONNECTED_MS = 60_000;
+const FETCH_TIMEOUT_MS = 8_000;
 const CONNECT_TIMEOUT_MS = 12_000;
 
 type TerminalApi = {
@@ -130,7 +130,6 @@ export function BrokerTerminalProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<BrokerTerminalSnapshot>(() => emptySnapshot());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const autoConnectAttempted = useRef(false);
   const inFlight = useRef(false);
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
@@ -246,14 +245,7 @@ export function BrokerTerminalProvider({ children }: { children: ReactNode }) {
     async function boot() {
       try {
         await refreshLive();
-        if (!cancelled && !autoConnectAttempted.current) {
-          autoConnectAttempted.current = true;
-          const current = await fetchJsonWithTimeout<BrokerStatus>("/status", undefined, CONNECT_TIMEOUT_MS);
-          if (current.ok && current.data && (!current.data.connected || !current.data.nextOrderIdReady)) {
-            await fetchJsonWithTimeout<BrokerStatus>("/connect", { method: "POST", body: "{}" }, CONNECT_TIMEOUT_MS);
-            if (!cancelled) await refreshLive();
-          }
-        }
+        // No auto POST /connect — only the dashboard "Reconectar Broker" button may connect.
       } catch (error) {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : "No se pudo actualizar");

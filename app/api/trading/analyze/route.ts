@@ -13,18 +13,7 @@ import {
   IbkrServiceUnavailableError,
   ibkrServiceFetch,
 } from "@/lib/ibkr/service-client";
-
-type AccountTag = { value?: string; currency?: string };
-type AccountMap = Record<string, Record<string, AccountTag>>;
-
-function sumTag(account: AccountMap, tag: string): number {
-  let total = 0;
-  for (const tags of Object.values(account ?? {})) {
-    const n = Number(tags?.[tag]?.value);
-    if (Number.isFinite(n)) total += n;
-  }
-  return total;
-}
+import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
 
 async function fetchPriceData(ticker: string) {
   const history = await ibkrServiceFetch<{
@@ -51,11 +40,11 @@ async function fetchPriceData(ticker: string) {
 }
 
 async function fetchAccountSnapshot() {
-  const account = await ibkrServiceFetch<AccountMap>("/api/ibkr/account");
+  const snap = await fetchTradingAccountSnapshot();
   return {
-    navUSD: sumTag(account, "NetLiquidation"),
-    cashUSD: sumTag(account, "TotalCashValue"),
-    dailyPnlUSD: sumTag(account, "UnrealizedPnL") + sumTag(account, "RealizedPnL"),
+    navUSD: snap.navUSD,
+    cashUSD: snap.cashUSD,
+    dailyPnlUSD: snap.dailyPnlUSD,
   };
 }
 

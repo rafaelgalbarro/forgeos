@@ -48,7 +48,10 @@ function storeLastCycle(kind: TypedCycleKind, result: TradeCycleResult): void {
 }
 
 export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<NextResponse> {
-  startPositionMonitor();
+  // Position monitor + exit manager touch IBKR — only for stocks
+  if (config.kind === "stocks") {
+    startPositionMonitor();
+  }
 
   const phase = getCurrentTradingPhase();
   if (config.kind === "stocks" && phase === "CLOSED") {
@@ -106,6 +109,18 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
       analysisOnly: config.analysisOnly ?? false,
     });
 
+    // Soft skip when IBKR unavailable (stocks) — HTTP 200
+    if (result.reason === "ibkr_unavailable") {
+      console.warn(`[Cycle/${config.kind}] ibkr_unavailable — returning empty orders`);
+      return NextResponse.json({
+        orders: [],
+        reason: "ibkr_unavailable",
+        cycleKind: config.kind,
+        phase,
+        skipped: true,
+      });
+    }
+
     storeLastCycle(config.kind, result);
 
     publishInvestmentEvent({
@@ -132,6 +147,19 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
     const msg = err instanceof Error ? err.message : "cycle failed";
     if (msg.includes("cycle already running")) {
       return NextResponse.json({ skipped: true, reason: msg, cycleKind: config.kind }, { status: 409 });
+    }
+    // Stocks: IBKR snapshot failures → 200 soft skip (also covered by result.reason)
+    if (
+      config.kind === "stocks" &&
+      /snapshot de cuenta|ibkr|unavailable|2fa|timeout|ECONNREFUSED/i.test(msg)
+    ) {
+      console.warn(`[Cycle/stocks] IBKR soft-fail: ${msg}`);
+      return NextResponse.json({
+        orders: [],
+        reason: "ibkr_unavailable",
+        cycleKind: config.kind,
+        skipped: true,
+      });
     }
     console.error(`[Cycle/${config.kind}] Error:`, err);
     return NextResponse.json({ error: msg, cycleKind: config.kind }, { status: 500 });

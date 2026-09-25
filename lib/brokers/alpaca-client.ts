@@ -22,6 +22,8 @@ export type AlpacaAccount = {
   portfolioValue: number;
   buyingPower: number;
   equity: number;
+  /** Equity at prior trading-day close — use for daily P&L (equity − lastEquity). */
+  lastEquity: number;
   patternDayTrader: boolean;
   tradingBlocked: boolean;
   accountBlocked: boolean;
@@ -138,6 +140,7 @@ export async function getAccount(): Promise<AlpacaAccount> {
     portfolioValue: Number(raw.portfolio_value ?? 0),
     buyingPower: Number(raw.buying_power ?? 0),
     equity: Number(raw.equity ?? 0),
+    lastEquity: Number(raw.last_equity ?? 0),
     patternDayTrader: Boolean(raw.pattern_day_trader),
     tradingBlocked: Boolean(raw.trading_blocked),
     accountBlocked: Boolean(raw.account_blocked),

@@ -19,6 +19,12 @@ import {
   ensureDailySizingRebalance,
 } from '../dynamic-sizing'
 import { isTickerAllowedForTrading } from '@/lib/investment/cycle-universe'
+import {
+  activateBrokerDayStop,
+  getBrokerDayStopReason,
+  getDayOpeningNav,
+  isBrokerDayStopped,
+} from '@/lib/trading/nav-day-open'
 
 export type RiskCheckResult =
   | { allowed: true; maxOrderValueUSD: number; stopLossPrice: number; takeProfitPrice: number }
@@ -102,9 +108,17 @@ export class RiskManager {
       confidence,
     })
 
-    // 1. Circuit breaker global
+    // 1. Circuit breaker global (manual / emergency — not broker day-drawdown)
     if (this.halted) {
       return { allowed: false, reason: `Sistema detenido: ${this.haltReason}` }
+    }
+
+    // 1a. IBKR day-drawdown STOP (does not block Alpaca crypto cycles)
+    if (isBrokerDayStopped("ibkr")) {
+      return {
+        allowed: false,
+        reason: `IBKR day STOP: ${getBrokerDayStopReason("ibkr")}`,
+      }
     }
 
     // 1b. Phase G — portfolio optimizer gate (fresh policy and/or persisted caps)
@@ -129,12 +143,41 @@ export class RiskManager {
       }
     }
 
-    // 2. Límite de pérdida diaria
+    // 2. Límite de pérdida diaria — IBKR only; never UnrealizedPnL (dailyPnl from day-open NAV)
     const dailyLossLimit = account.navUSD * TRADING_CONFIG.risk.dailyLossLimitPct
     if (account.dailyPnlUSD <= -dailyLossLimit) {
       const lossPct = account.navUSD > 0 ? (Math.abs(account.dailyPnlUSD) / account.navUSD) * 100 : 10
-      this.halt(`Pérdida diaria de ${Math.abs(account.dailyPnlUSD).toFixed(2)}$ supera límite de ${dailyLossLimit.toFixed(2)}$`, lossPct)
-      return { allowed: false, reason: this.haltReason }
+      const openingNav =
+        getDayOpeningNav("ibkr") ??
+        (account.navUSD - (Number.isFinite(account.dailyPnlUSD) ? account.dailyPnlUSD : 0))
+      const reason = `Pérdida diaria de ${Math.abs(account.dailyPnlUSD).toFixed(2)}$ supera límite de ${dailyLossLimit.toFixed(2)}$`
+      const newlyStopped = activateBrokerDayStop({
+        broker: "ibkr",
+        reason,
+        openingNav,
+        currentNav: account.navUSD,
+        dailyPnlPct: -lossPct,
+      })
+      if (newlyStopped) {
+        void (async () => {
+          try {
+            const { sendCriticalTelegramAlert } = await import("@/lib/notifications/telegram-policy")
+            await sendCriticalTelegramAlert(
+              [
+                "🛑 RISK STOP IBKR (stocks)",
+                `Drawdown día: ${(-lossPct).toFixed(1)}%`,
+                `NAV apertura: $${openingNav.toFixed(2)}`,
+                `NAV actual: $${account.navUSD.toFixed(2)}`,
+                `Δ: $${account.dailyPnlUSD.toFixed(2)}`,
+                "Solo IBKR detenido — ciclo crypto Alpaca sigue activo.",
+              ].join("\n"),
+            )
+          } catch {
+            /* ignore */
+          }
+        })()
+      }
+      return { allowed: false, reason }
     }
 
     // 3. Ticker permitido: allowlist estática o candidatos del scanner del día

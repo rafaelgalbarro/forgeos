@@ -87,19 +87,28 @@ import {
 import { getQuote as getEodhdQuote } from '@/lib/market-data/eodhd'
 import {
   getPrice as getAlpacaPrice,
+  getAccount as getAlpacaAccount,
   getPositions as getAlpacaPositions,
   hasAlpacaPosition,
   isAlpacaConfigured,
   placeOrder as placeAlpacaOrder,
 } from '@/lib/brokers/alpaca-client'
 import { evaluateAlpacaStrategy } from '@/lib/brokers/alpaca-strategies'
+import {
+  activateBrokerDayStop,
+  getDayOpeningNav,
+  getBrokerDayStopReason,
+  isBrokerDayStopped,
+  isIbkrDrawdownHaltReason,
+  type BrokerId,
+} from '@/lib/trading/nav-day-open'
 
 /** Max tickers per automatic background cycle. */
 /** Analyze up to 50 tickers per automatic / typed cycle; explicit cycles are uncapped. */
 export const MAX_AUTO_CYCLE_TICKERS = 50;
 
-/** Automatic cycle wall-clock cap (20 tickers × 3 workers × ~8s). */
-export const CYCLE_TIMEOUT_MS = 45 * 1000;
+/** Automatic / typed cycle wall-clock cap. */
+export const CYCLE_TIMEOUT_MS = 120 * 1000;
 
 /** Explicit POST cycle wall-clock cap. */
 export const EXPLICIT_CYCLE_TIMEOUT_MS = 30 * 1000;
@@ -305,6 +314,8 @@ export type TradeCycleResult = {
   orders: OrderResult[]
   systemHalted: boolean
   haltReason?: string
+  /** Soft-skip reason (e.g. ibkr_unavailable) — HTTP 200 to callers. */
+  reason?: string
 }
 
 /** Minimum confidence for automatic-cycle BUY → PENDING_APPROVAL / Telegram. */
@@ -367,6 +378,33 @@ export class TradingEngine {
   private static timeoutFor(kind: CycleKind) {
     if (kind === "explicit") return EXPLICIT_CYCLE_TIMEOUT_MS;
     return CYCLE_TIMEOUT_MS;
+  }
+
+  /** Telegram when a broker day STOP activates (opening NAV, current NAV, real %). */
+  private static async notifyBrokerDayStopTelegram(args: {
+    broker: BrokerId
+    openingNav: number
+    currentNav: number
+    dailyPnlPct: number
+  }): Promise<void> {
+    try {
+      const { sendCriticalTelegramAlert } = await import("@/lib/notifications/telegram-policy")
+      const label = args.broker === "ibkr" ? "IBKR (stocks)" : "Alpaca (crypto)"
+      const text = [
+        `🛑 RISK STOP ${label}`,
+        `Drawdown día: ${args.dailyPnlPct.toFixed(1)}% (> 5%)`,
+        `NAV apertura: $${args.openingNav.toFixed(2)}`,
+        `NAV actual: $${args.currentNav.toFixed(2)}`,
+        `Δ: $${(args.currentNav - args.openingNav).toFixed(2)}`,
+        `Solo este broker queda detenido hoy — el otro ciclo sigue activo.`,
+      ].join("\n")
+      await sendCriticalTelegramAlert(text)
+    } catch (err) {
+      console.warn(
+        "[Risk/DayStop] Telegram failed:",
+        err instanceof Error ? err.message : err,
+      )
+    }
   }
 
   /** Acquire cycle mutex — each CycleKind has an independent lock. */
@@ -497,41 +535,102 @@ export class TradingEngine {
     options?: RunCycleOptions,
   ): Promise<TradeCycleResult> {
     const orders: OrderResult[] = []
+    const kind = TradingEngine.resolveCycleKind(options)
 
     await expireStalePendingApprovals()
 
-    // Cancel stuck PreSubmitted/Submitted (>5 min) before analyzing
+    // Cancel stuck IBKR orders only for stocks / auto / explicit — never for crypto/forex
+    if (kind !== "crypto" && kind !== "forex") {
+      try {
+        const stale = await cancelStaleIbkrOrders(300)
+        if (stale.count > 0) {
+          console.log(`[Cycle] Cancelando ${stale.count} órdenes PreSubmitted/Submitted antiguas...`)
+          await new Promise((r) => setTimeout(r, 2000))
+        }
+      } catch (err) {
+        console.warn('[Cycle] cancel stale failed:', err instanceof Error ? err.message : err)
+      }
+    }
+
+    // 1. Account snapshot — source depends on cycle kind
+    let account: {
+      navUSD: number
+      cashUSD: number
+      dailyPnlUSD: number
+      openPositionsCount: number
+      primaryAccountId?: string | null
+    }
     try {
-      const stale = await cancelStaleIbkrOrders(300)
-      if (stale.count > 0) {
-        console.log(`[Cycle] Cancelando ${stale.count} órdenes PreSubmitted/Submitted antiguas...`)
-        await new Promise((r) => setTimeout(r, 2000))
-      }
+      account = await this.fetchAccountSnapshotForKind(kind)
     } catch (err) {
-      console.warn('[Cycle] cancel stale failed:', err instanceof Error ? err.message : err)
+      if (kind === "stocks" || kind === "auto") {
+        const msg = err instanceof Error ? err.message : "ibkr_unavailable"
+        console.warn(`[Cycle/${kind}] IBKR account unavailable: ${msg}`)
+        return {
+          cycleId,
+          startedAt,
+          completedAt: new Date().toISOString(),
+          accountSnapshot: { navUSD: 0, cashUSD: 0, dailyPnlUSD: 0 },
+          orders: [],
+          systemHalted: false,
+          reason: "ibkr_unavailable",
+        }
+      }
+      throw err
     }
 
-    // 1. Obtener snapshot de cuenta
-    const account = await this.fetchAccountSnapshot()
-
-    // 2. Verificar si ya estÃ¡ detenido
-    if (this.risk.isHalted()) {
-      return {
-        cycleId, startedAt, completedAt: new Date().toISOString(),
-        accountSnapshot: account, orders,
-        systemHalted: true, haltReason: this.risk.getHaltReason(),
+    // 2. Per-broker halt — IBKR STOP must not block crypto; Alpaca STOP must not block stocks
+    if (kind === "crypto") {
+      if (isBrokerDayStopped("alpaca")) {
+        return {
+          cycleId, startedAt, completedAt: new Date().toISOString(),
+          accountSnapshot: account, orders: [],
+          systemHalted: true, haltReason: getBrokerDayStopReason("alpaca"),
+        }
+      }
+      if (this.risk.isHalted() && !isIbkrDrawdownHaltReason(this.risk.getHaltReason())) {
+        return {
+          cycleId, startedAt, completedAt: new Date().toISOString(),
+          accountSnapshot: account, orders: [],
+          systemHalted: true, haltReason: this.risk.getHaltReason(),
+        }
+      }
+    } else if (kind !== "forex") {
+      // Clear stale false STOP from UnrealizedPnL-based dailyPnl (pre-fix)
+      if (this.risk.isHalted() && isIbkrDrawdownHaltReason(this.risk.getHaltReason())) {
+        const realDdPct =
+          account.navUSD > 0 && Number.isFinite(account.dailyPnlUSD)
+            ? (account.dailyPnlUSD / account.navUSD) * 100
+            : 0
+        if (realDdPct > -5) {
+          console.log(
+            `[Cycle/${kind}] clearing stale IBKR drawdown halt (real DD ${realDdPct.toFixed(1)}%)`,
+          )
+          this.risk.resume()
+        }
+      }
+      if (isBrokerDayStopped("ibkr")) {
+        return {
+          cycleId, startedAt, completedAt: new Date().toISOString(),
+          accountSnapshot: account, orders: [],
+          systemHalted: true, haltReason: getBrokerDayStopReason("ibkr"),
+        }
+      }
+      if (this.risk.isHalted()) {
+        return {
+          cycleId, startedAt, completedAt: new Date().toISOString(),
+          accountSnapshot: account, orders,
+          systemHalted: true, haltReason: this.risk.getHaltReason(),
+        }
       }
     }
 
-    const kind = TradingEngine.resolveCycleKind(options)
     const explicit = kind === "explicit"
     const seedTickers = explicit
       ? [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
       : [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))].slice(
           0,
-          kind === "stocks" || kind === "crypto" || kind === "forex"
-            ? MAX_AUTO_CYCLE_TICKERS
-            : MAX_AUTO_CYCLE_TICKERS,
+          MAX_AUTO_CYCLE_TICKERS,
         )
 
     const scoped =
@@ -561,14 +660,19 @@ export class TradingEngine {
     console.log(
       `[ProStrategy] Ciclo ${cycleId}: kind=${kind} session=${scoped.mode} ` +
         `evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
-        `(max=${maxCycleTickers(explicit)}, EODHD, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(kind) / 1000}s)`,
+        `(max=${maxCycleTickers(explicit)}, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(kind) / 1000}s)`,
     )
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
     let cursor = 0
     const worker = async (): Promise<void> => {
       while (cursor < cycleTickers.length) {
-        if (this.risk.isHalted()) return
+        if (kind === "crypto") {
+          if (isBrokerDayStopped("alpaca")) return
+          if (this.risk.isHalted() && !isIbkrDrawdownHaltReason(this.risk.getHaltReason())) return
+        } else if (kind !== "forex") {
+          if (isBrokerDayStopped("ibkr") || this.risk.isHalted()) return
+        }
         const i = cursor++
         const ticker = cycleTickers[i]!
         jobs[i] = (async () => {
@@ -1044,18 +1148,37 @@ export class TradingEngine {
   ): Promise<OrderResult> {
     const kind = cycleOpts?.cycleKind ?? (cycleOpts?.explicitTickers ? "explicit" : "auto");
 
-    // Risk Manager — drawdown diario
+    // Risk Manager — drawdown diario (per-broker; thresholds: -3% conservative, -5% STOP)
     const dailyPnlPct =
       account.navUSD > 0 && Number.isFinite(account.dailyPnlUSD)
         ? (account.dailyPnlUSD / account.navUSD) * 100
         : 0
-    if (dailyPnlPct <= -5) {
-      this.risk.halt(`Risk STOP: drawdown día ${dailyPnlPct.toFixed(1)}% > 5%`)
+    if (dailyPnlPct <= -5 && kind !== "forex") {
+      const broker: BrokerId = kind === "crypto" ? "alpaca" : "ibkr"
+      const openingNav =
+        getDayOpeningNav(broker) ??
+        (account.navUSD - (Number.isFinite(account.dailyPnlUSD) ? account.dailyPnlUSD : 0))
+      const reason = `Risk STOP: drawdown día ${dailyPnlPct.toFixed(1)}% > 5% (${broker.toUpperCase()})`
+      const newlyStopped = activateBrokerDayStop({
+        broker,
+        reason,
+        openingNav,
+        currentNav: account.navUSD,
+        dailyPnlPct,
+      })
+      if (newlyStopped) {
+        void TradingEngine.notifyBrokerDayStopTelegram({
+          broker,
+          openingNav,
+          currentNav: account.navUSD,
+          dailyPnlPct,
+        })
+      }
       return {
         status: 'SKIPPED',
         ticker,
         direction: 'HOLD',
-        reason: `Risk STOP drawdown ${dailyPnlPct.toFixed(1)}%`,
+        reason: `Risk STOP drawdown ${dailyPnlPct.toFixed(1)}% (${broker})`,
         signal: { confidence: 0, reasoning: 'Daily drawdown halt', urgency: 'HIGH' },
         timestamp: new Date().toISOString(),
       }
@@ -1809,6 +1932,84 @@ export class TradingEngine {
         stopLoss: effectiveStopLoss,
         takeProfit: effectiveTakeProfit,
       }
+    }
+  }
+
+  private emptyAccountSnapshot(): {
+    navUSD: number
+    cashUSD: number
+    dailyPnlUSD: number
+    openPositionsCount: number
+    primaryAccountId: string | null
+  } {
+    return {
+      navUSD: 0,
+      cashUSD: 0,
+      dailyPnlUSD: 0,
+      openPositionsCount: 0,
+      primaryAccountId: null,
+    }
+  }
+
+  /** Account snapshot by cycle kind — crypto=Alpaca, forex=soft fail, stocks=IBKR. */
+  private async fetchAccountSnapshotForKind(kind: CycleKind): Promise<{
+    navUSD: number
+    cashUSD: number
+    dailyPnlUSD: number
+    openPositionsCount: number
+    primaryAccountId?: string | null
+  }> {
+    if (kind === "crypto") {
+      if (!isAlpacaConfigured()) {
+        throw new Error("Alpaca paper no configurado (ALPACA_API_KEY / ALPACA_SECRET)")
+      }
+      const [acct, positions] = await Promise.all([
+        getAlpacaAccount(),
+        getAlpacaPositions().catch(() => []),
+      ])
+      const cash = Number(acct.cash ?? acct.buyingPower ?? 0)
+      const equity = Number(acct.equity ?? acct.portfolioValue ?? cash)
+      const lastEquity = Number(acct.lastEquity ?? 0)
+      // Alpaca daily P&L = equity − last_equity (never IBKR UnrealizedPnL)
+      const dailyPnlUSD =
+        lastEquity > 0 && Number.isFinite(equity) ? equity - lastEquity : 0
+      const openPositionsCount = Array.isArray(positions)
+        ? positions.filter((p) => Math.abs(Number(p.qty ?? 0)) > 0).length
+        : 0
+      console.log(
+        `[Cycle/crypto] account source=ALPACA cash=$${cash.toFixed(2)} equity=$${equity.toFixed(2)} ` +
+          `last_equity=$${lastEquity.toFixed(2)} dailyPnl=$${dailyPnlUSD.toFixed(2)} positions=${openPositionsCount}`,
+      )
+      return {
+        navUSD: equity,
+        cashUSD: cash,
+        dailyPnlUSD,
+        openPositionsCount,
+        primaryAccountId: acct.id || "ALPACA",
+      }
+    }
+
+    if (kind === "forex") {
+      // Analysis-only — never block on IBKR account snapshot
+      console.log(`[Cycle/forex] account source=NONE cash=$0 (analysis-only, no IBKR required)`)
+      return this.emptyAccountSnapshot()
+    }
+
+    // stocks / auto / explicit → IBKR
+    try {
+      const snap = await fetchTradingAccountSnapshot()
+      console.log(
+        `[Cycle/${kind}] account source=IBKR cash=$${snap.cashUSD.toFixed(2)} nav=$${snap.navUSD.toFixed(2)}`,
+      )
+      return {
+        navUSD: snap.navUSD,
+        cashUSD: snap.cashUSD,
+        dailyPnlUSD: snap.dailyPnlUSD,
+        openPositionsCount: snap.openPositionsCount,
+        primaryAccountId: snap.primaryAccountId,
+      }
+    } catch {
+      throw new Error("No se pudo obtener snapshot de cuenta")
     }
   }
 

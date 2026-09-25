@@ -17,6 +17,7 @@ import {
   ibkrCacheKey,
   IBKR_PRICE_CACHE_TTL_MS,
 } from "@/lib/trading/ibkr-cache";
+import { resolveDayOpenDailyPnl } from "@/lib/trading/nav-day-open";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -98,13 +99,8 @@ async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot
   const primary = primaryAccountId();
   const primaryRow = primary ? accounts.find((row) => row.accountId === primary) : undefined;
   const tradingCashUSD = primaryRow?.cash ?? combinedCash;
-  const dailyPnlUSD = ids.reduce((sum, id) => {
-    return (
-      sum +
-      parseTagNumber(account[id], "UnrealizedPnL") +
-      parseTagNumber(account[id], "RealizedPnL")
-    );
-  }, 0);
+  // Daily P&L = NAV − day-open NAV (Europe/Madrid). Never UnrealizedPnL/RealizedPnL.
+  const { dailyPnlUSD } = resolveDayOpenDailyPnl("ibkr", combinedNav);
 
   const ZERO_VALUE_SYMBOLS = new Set([
     "RWAX",

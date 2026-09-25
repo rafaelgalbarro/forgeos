@@ -180,9 +180,12 @@ export class RiskManager {
       return { allowed: false, reason }
     }
 
-    // 3. Ticker permitido: allowlist estática o candidatos del scanner del día
+    // 3. Ticker permitido: stocks universe / crypto-forex pairs / legacy allowlist / scanner
     if (!isTickerAllowedForTrading(price.ticker)) {
-      return { allowed: false, reason: `${price.ticker} no está en allowlist ni en el scanner del día` }
+      return {
+        allowed: false,
+        reason: `${price.ticker} no está en el universo de stocks ni en allowlist/scanner`,
+      }
     }
 
     // 4. Máximo de posiciones — dinámico floor(cash/15) min3 max20.

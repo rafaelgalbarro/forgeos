@@ -1,5 +1,7 @@
 /**
- * Trading-cycle universe — allowedTickers quality pool + IBKR/EODHD momentum ranking.
+ * Trading-cycle universe — momentum ranking + allow checks.
+ * Stock order eligibility uses `isUsStockTicker` (phase / USA equities), not
+ * `TRADING_CONFIG.allowedTickers`. Crypto/forex use dedicated pair allowlists.
  */
 
 import "server-only";
@@ -14,6 +16,11 @@ import {
   type DailyTicker,
 } from "@/lib/investment/market-daily-universe";
 import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
+import {
+  isAlpacaCryptoTicker,
+  isAlpacaForexTicker,
+} from "@/lib/brokers/alpaca-pairs";
+import { isUsStockTicker } from "@/lib/trading/stocks-universe";
 import { regionalFocusTickersMadrid } from "@/src/core/trading/strategies/pro-strategies";
 import {
   getTradingCycleIntervalMs,
@@ -66,12 +73,23 @@ export function getScannerCandidateTickers(): string[] {
   return filterAllowed([...new Set([...fromOpps, ...fromPhases].filter(Boolean))]);
 }
 
+/**
+ * True if ticker may be ordered.
+ * Stocks use the phase / USA executable universe (`isUsStockTicker`) — not
+ * `TRADING_CONFIG.allowedTickers`. Crypto/forex use dedicated pair allowlists.
+ * Legacy ETF / curated tickers still pass via allowedTickers or today's scanner.
+ */
 export function isTickerAllowedForTrading(ticker: string): boolean {
   const id = ticker.trim().toUpperCase();
   if (!id) return false;
+  // Crypto / forex: dedicated allowlists (not TRADING_CONFIG.allowedTickers)
   if (isIbkrCryptoTicker(id)) return true;
+  if (isAlpacaCryptoTicker(id) || isAlpacaForexTicker(id)) return true;
   const daily = getDailyUniverse();
   if ((daily?.excludedEarnings ?? []).includes(id)) return false;
+  // Stocks / ADRs: sector + phase universe (BAC, WFC, …) — not static allowedTickers
+  if (isUsStockTicker(id)) return true;
+  // Legacy ETFs / curated non-stock symbols + scanner candidates
   if (allowedSet().has(id)) return true;
   return getScannerCandidateTickers().includes(id);
 }

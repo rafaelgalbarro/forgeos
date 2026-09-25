@@ -29,6 +29,8 @@ import {
   recordFullClose,
   upsertTrailingState,
 } from "@/lib/trading/trailing-registry";
+import { filterForgeOsManagedSymbols, isLegacyOrphanTicker } from "@/lib/trading/forgeos-owned";
+import { appendJournalTrade } from "@/lib/trading/journal/trades";
 
 export const DEFAULT_EXIT_STOP_LOSS_PCT = EXIT_STOP_LOSS_PCT;
 export const DEFAULT_EXIT_TAKE_PROFIT_PCT = EXIT_TRAIL_ACTIVATE_PCT;
@@ -348,6 +350,22 @@ export class ExitManager {
         actions.push(executed);
         const line = telegramLine(channel, executed);
         console.log(`[Exit/${channel}] ${line}`);
+        appendJournalTrade({
+          at: new Date().toISOString(),
+          market: channel === "crypto" ? "crypto" : "stocks",
+          strategy: executed.reason,
+          ticker: executed.symbol,
+          side: "SELL",
+          entry: executed.entry,
+          exit: executed.price,
+          exitReason: executed.reason,
+          grossPnlUsd: executed.pnlUSD,
+          costsUsd: 0,
+          netPnlUsd: executed.pnlUSD,
+          rMultiple: null,
+          durationMs: null,
+          shadow: false,
+        });
         void sendTelegramMessage(line).catch((err) =>
           console.warn(
             `[Exit/${channel}] Telegram:`,
@@ -399,7 +417,8 @@ export class ExitManager {
       );
       return [] as AlpacaPosition[];
     });
-    return cryptoPositions(rows);
+    // Alpaca paper crypto account is ForgeOS-owned — exclude only legacy orphan symbols.
+    return cryptoPositions(rows).filter((p) => !isLegacyOrphanTicker(p.symbol));
   }
 
   private async loadStocks(): Promise<OpenPositionRow[]> {
@@ -410,7 +429,20 @@ export class ExitManager {
       );
       return [] as IbkrPositionRow[];
     });
-    return stockPositions(rows);
+    const all = stockPositions(rows);
+    const managed = filterForgeOsManagedSymbols(all);
+    const skipped = all.length - managed.length;
+    if (skipped > 0) {
+      console.log(
+        `[Exit/stocks] omitidas ${skipped} posiciones huérfanas (no ForgeOS): ` +
+          all
+            .filter((p) => !managed.some((m) => m.symbol === p.symbol))
+            .map((p) => p.symbol)
+            .slice(0, 12)
+            .join(","),
+      );
+    }
+    return managed;
   }
 
   async notifyExit(action: ExitAction, _phase?: unknown): Promise<void> {

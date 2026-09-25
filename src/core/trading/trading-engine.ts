@@ -109,6 +109,7 @@ import {
   hasAlpacaPosition,
   isAlpacaConfigured,
   placeOrder as placeAlpacaOrder,
+  getRecentBars,
 } from '@/lib/brokers/alpaca-client'
 import { evaluateAlpacaStrategy } from '@/lib/brokers/alpaca-strategies'
 import {
@@ -1266,11 +1267,66 @@ export class TradingEngine {
     if (execGate) execGate.enteredAutoExecute = true
     try {
       if (asset === 'forex') {
+        // SHADOW: evaluate London/NY strategies — never place orders
+        const { evaluateForexShadowStrategies, isForexShadowMode } = await import(
+          '@/lib/trading/forex/shadow-strategies'
+        )
+        const { appendJournalTrade } = await import('@/lib/trading/journal/trades')
+        const bars = await getRecentBars(ticker, 80).catch(() => [])
+        const ohlcv = bars.map((b) => ({
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+          date: b.time,
+        }))
+        const shadow = evaluateForexShadowStrategies(ticker, ohlcv, ohlcv)
+        if (shadow.direction !== 'HOLD' && shadow.strategyId) {
+          appendJournalTrade({
+            at: new Date().toISOString(),
+            market: 'forex',
+            strategy: shadow.strategyId,
+            ticker,
+            side: shadow.direction === 'SELL' ? 'SELL' : 'BUY',
+            entry: quote.price,
+            exit: null,
+            exitReason: null,
+            grossPnlUsd: null,
+            costsUsd: 0,
+            netPnlUsd: null,
+            rMultiple: null,
+            durationMs: null,
+            shadow: true,
+            open: true,
+          })
+          console.log(
+            `[Forex/SHADOW] ${ticker} ${shadow.direction} ${shadow.strategyId} ` +
+              `conf=${(shadow.confidence * 100).toFixed(0)}% @${quote.price} ` +
+              `(orders=${isForexShadowMode() ? 'DISABLED' : 'still-analysisOnly'})`,
+          )
+          return {
+            status: 'HOLD',
+            ticker,
+            direction: shadow.direction === 'SELL' ? 'HOLD' : 'BUY',
+            price: quote.price,
+            agents: shadow.strategyId,
+            reason: `[SHADOW] ${shadow.reasoning}`,
+            signal: {
+              confidence: shadow.confidence,
+              reasoning: shadow.reasoning,
+              urgency: 'MEDIUM',
+            },
+            timestamp: new Date().toISOString(),
+            stopLoss: shadow.stopLoss,
+            takeProfit: shadow.takeProfit,
+          }
+        }
         return {
           status: 'HOLD',
           ticker,
           direction: 'HOLD',
-          reason: `${ticker}: señal forex (EODHD) — ejecución Alpaca paper no soportada`,
+          reason: `${ticker}: forex SHADOW — ${shadow.reasoning}`,
           signal: {
             confidence: signal.confidence,
             reasoning: signal.reasoning,
@@ -1293,6 +1349,22 @@ export class TradingEngine {
         `[AutoExecute] ${ticker} → Alpaca PAPER ${submitted.side} ${submitted.symbol} id=${submitted.id} status=${submitted.status}`,
       )
 
+      const estShares =
+        quote.price > 0 ? ALPACA_CRYPTO_ORDER_NOTIONAL_USD / quote.price : 0
+      await registerExecutedPosition({
+        ticker,
+        shares: estShares,
+        entryPrice: quote.price,
+        stopLoss: signal.stopLoss,
+        takeProfit: signal.takeProfit,
+        orderId: submitted.id,
+      }).catch((err) =>
+        console.warn(
+          `[PositionMonitor] register Alpaca ${ticker}:`,
+          err instanceof Error ? err.message : err,
+        ),
+      )
+
       return {
         status: 'EXECUTED',
         orderId: submitted.id,
@@ -1300,6 +1372,7 @@ export class TradingEngine {
         direction: 'BUY',
         sharesOrValue: asset === 'crypto' ? ALPACA_CRYPTO_ORDER_NOTIONAL_USD : ALPACA_FOREX_ORDER_UNITS,
         price: quote.price,
+        agents: signal.primaryStrategy,
         reason: `Alpaca paper ${signal.primaryStrategy}: ${signal.reasoning}`,
         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
         timestamp: new Date().toISOString(),
@@ -2440,6 +2513,9 @@ export class TradingEngine {
         outsideRth: isIbkrCryptoTicker(params.ticker) ? true : params.outsideRth ?? true,
         rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
         account,
+        stopLoss: side === 'BUY' ? params.stopLoss : undefined,
+        takeProfit: side === 'BUY' ? params.takeProfit : undefined,
+        tif: side === 'BUY' && !isIbkrCryptoTicker(params.ticker) ? 'GTC' : 'DAY',
       })
       console.log(
         `[AutoExecute] ${params.ticker} → orden enviada ibkrId=${submitted.ibkrOrderId} proposal=${submitted.proposalId}`,

@@ -44,6 +44,7 @@ Thumbs.db
 .forgeos/investment/
 .forgeos/cache/crypto-trailing.json
 .forgeos/cache/position-sell-locks.json
+.forgeos/journal/
 .forgeos-trading-state.json
 .forgeos-trading-state.json.tmp
 

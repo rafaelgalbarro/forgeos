@@ -220,6 +220,10 @@ export async function submitSupervisedLiveLimitOrder(args: {
   readonly outsideRth?: boolean;
   readonly rationale: string;
   readonly account?: string;
+  /** Bracket children — IBKR attaches GTC stop + TP when provided. */
+  readonly stopLoss?: number;
+  readonly takeProfit?: number;
+  readonly tif?: "DAY" | "GTC";
 }): Promise<SupervisedSubmitResult> {
   const crypto = isIbkrCryptoTicker(args.symbol);
   const symbol = crypto
@@ -272,6 +276,17 @@ export async function submitSupervisedLiveLimitOrder(args: {
         rationale,
         strategy_id: "forgeos-trading-engine",
         account: args.account,
+        tif: args.tif ?? (args.side === "BUY" && !crypto ? "GTC" : "DAY"),
+        stop_loss: args.stopLoss && args.stopLoss > 0 ? args.stopLoss : undefined,
+        take_profit: args.takeProfit && args.takeProfit > 0 ? args.takeProfit : undefined,
+        bracket: Boolean(
+          args.side === "BUY" &&
+            !crypto &&
+            args.stopLoss &&
+            args.stopLoss > 0 &&
+            args.takeProfit &&
+            args.takeProfit > 0,
+        ),
       }),
     }),
   );

@@ -11,7 +11,6 @@ import { getHistory as getEodhdHistory, isEodhdConfigured } from "@/lib/market-d
 import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
 import { getOrSetIbkrCached, ibkrCacheKey } from "@/lib/trading/ibkr-cache";
 import { IBKR_CRYPTO_SEC_TYPE, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
-import { TRADING_CONFIG } from "@/src/core/trading/trading.config";
 
 export type IbkrBarSize = "1 min" | "5 mins" | "15 mins" | "1 hour" | "1 day";
 
@@ -105,7 +104,8 @@ export async function ibkrHistorical(
 /** Daily bars for swing indicators (EMA200 needs ~1Y / 252 sessions). */
 export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
   const ticker = symbol.trim().toUpperCase();
-  const allowed = (TRADING_CONFIG.allowedTickers as readonly string[]).includes(ticker);
+  const { isUsStockTicker } = await import("@/lib/trading/stocks-universe");
+  const preferEodhd = isUsStockTicker(ticker) || isIbkrCryptoTicker(ticker);
 
   async function loadEodhdBars(): Promise<OhlcvBar[]> {
     if (!isEodhdConfigured()) return [];
@@ -122,7 +122,7 @@ export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
       .filter((b) => b.date && b.close > 0);
   }
 
-  if (allowed) {
+  if (preferEodhd) {
     const eodhd = await loadEodhdBars();
     if (eodhd.length >= 20) {
       console.log(`[History] ${ticker}: EODHD directo (${eodhd.length} barras)`);
@@ -142,6 +142,16 @@ export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
   const sixty = await ibkrHistorical(symbol, "60 D", "1 day");
   if (sixty.length > year.length) return sixty;
   return year.length > 0 ? year : eodhd;
+}
+
+/** Intraday 1-hour bars for swing entry timing. */
+export async function ibkrBars1h(symbol: string): Promise<OhlcvBar[]> {
+  return ibkrHistorical(symbol, "10 D", "1 hour");
+}
+
+/** Intraday 15-min bars (crypto / forex). */
+export async function ibkrBars15m(symbol: string): Promise<OhlcvBar[]> {
+  return ibkrHistorical(symbol, "5 D", "15 mins");
 }
 
 /** Intraday 5-min bars for VWAP / momentum. */

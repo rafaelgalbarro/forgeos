@@ -276,6 +276,10 @@ class ProposalCreate(BaseModel):
     strategy_id: str = "manual-supervised"
     outside_rth: bool = False
     account: str | None = None
+    tif: Literal["DAY", "GTC"] | None = None
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    bracket: bool = False
 
 
 class DecisionRequest(BaseModel):
@@ -1455,19 +1459,31 @@ class IBKRClient(EWrapper, EClient):
         order.outsideRth = True if crypto else (bool(proposal.get("outside_rth")) and settings.allow_outside_rth)
         order.whatIf = what_if
         order.transmit = transmit
+        tif = str(proposal.get("tif") or "").upper()
+        if tif in {"DAY", "GTC"}:
+            order.tif = tif
+        elif str(contract.secType or "").upper() == "STK" and str(order.action).upper() == "BUY":
+            order.tif = "GTC"
         account = (proposal.get("account") or settings.default_account_id(self.accounts) or "").strip()
         if account:
             order.account = account
         apply_whatif_legacy_attr_compat(order)
+
+        stop_loss = proposal.get("stop_loss")
+        take_profit = proposal.get("take_profit")
+        use_bracket = bool(proposal.get("bracket")) and stop_loss and take_profit and str(order.action).upper() == "BUY"
+        # Parent must not transmit until children attached
+        if use_bracket and transmit and not what_if:
+            order.transmit = False
 
         notional = normalized_qty * normalized_price
         # Serialize allocate+placeOrder so two threads never share the same order id (IBKR 103).
         with self._order_id_lock:
             order_id = self._allocate_order_id()
             log.info(
-                "PLACING ORDER id=%s %s %s qty=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s",
+                "PLACING ORDER id=%s %s %s qty=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s bracket=%s",
                 order_id, order.action, contract.symbol, normalized_qty,
-                normalized_price, notional, transmit, what_if, account, order.outsideRth,
+                normalized_price, notional, order.transmit, what_if, account, order.outsideRth, use_bracket,
             )
             self._log_buying_power(account)
 
@@ -1484,6 +1500,38 @@ class IBKRClient(EWrapper, EClient):
             }
             try:
                 self.placeOrder(order_id, contract, order)
+                if use_bracket and not what_if:
+                    parent_id = order_id
+                    # Stop loss child (SELL STP)
+                    sl_id = self._allocate_order_id()
+                    sl = Order()
+                    sl.action = "SELL"
+                    sl.orderType = "STP"
+                    sl.totalQuantity = normalized_qty
+                    sl.auxPrice = float(stop_loss)
+                    sl.parentId = parent_id
+                    sl.tif = "GTC"
+                    sl.transmit = False
+                    if account:
+                        sl.account = account
+                    self.placeOrder(sl_id, contract, sl)
+                    # Take profit child (SELL LMT) — transmits bracket
+                    tp_id = self._allocate_order_id()
+                    tp = Order()
+                    tp.action = "SELL"
+                    tp.orderType = "LMT"
+                    tp.totalQuantity = normalized_qty
+                    tp.lmtPrice = float(take_profit)
+                    tp.parentId = parent_id
+                    tp.tif = "GTC"
+                    tp.transmit = bool(transmit)
+                    if account:
+                        tp.account = account
+                    self.placeOrder(tp_id, contract, tp)
+                    log.info(
+                        "BRACKET attached parent=%s SL=%s@%.4f TP=%s@%.4f",
+                        parent_id, sl_id, float(stop_loss), tp_id, float(take_profit),
+                    )
             except Exception as exc:
                 raise ConnectionError(f"placeOrder failed (socket): {exc}") from exc
         if not self.isConnected():

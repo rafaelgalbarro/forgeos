@@ -14,7 +14,16 @@ import {
   type FinnhubProSentiment,
 } from "@/lib/market-data/finnhub-pro";
 import { getIbkrPriceCached } from "@/lib/market-data/ibkr-prices";
-import { ibkrBars5m, ibkrDailyBars } from "@/lib/market-data/ibkr-history";
+import { ibkrBars5m, ibkrBars1h, ibkrDailyBars } from "@/lib/market-data/ibkr-history";
+import { evaluateSwingStrategies, passesCostFilter } from "@/lib/trading/swing/strategies";
+import { isStrategyDisabled } from "@/lib/trading/journal/trades";
+import { getCurrentTradingPhase } from "@/lib/trading/cycle-schedule";
+import {
+  evaluateCryptoIntradayStrategies,
+  getCryptoBroker,
+} from "@/lib/trading/crypto/intraday-strategies";
+import { isAlpacaCryptoTicker } from "@/lib/brokers/alpaca-pairs";
+import { getRecentBars } from "@/lib/brokers/alpaca-client";
 import { recognizePatterns } from "@/lib/market-data/pattern-recognition";
 import type { OhlcvBar } from "@/lib/market-data/types";
 import {
@@ -70,7 +79,12 @@ export type ProStrategyId =
   | "CRYPTO_GOLDEN_CROSS"
   | "CRYPTO_RSI_OVERSOLD"
   | "CRYPTO_MOMENTUM"
-  | "CRYPTO_SCALP";
+  | "CRYPTO_SCALP"
+  | "TREND_PULLBACK"
+  | "BREAKOUT_BASE"
+  | "OVERSOLD_REVERSAL"
+  | "RSI_MEAN_REVERSION"
+  | "TREND_PULLBACK_1H";
 
 
 export type ProStrategyHit = {
@@ -803,6 +817,82 @@ export async function evaluateProStrategies(
     return hold("Blacklist: 3 pérdidas consecutivas");
   }
 
+  // --- CRYPTO INTRADÍA (Alpaca default / IBKR PAXOS) ---
+  const alpacaCrypto = isAlpacaCryptoTicker(symbol);
+  if (crypto || alpacaCrypto) {
+    try {
+      const broker = getCryptoBroker();
+      let bars15: OhlcvBar[] = [];
+      let bars1h: OhlcvBar[] = [];
+      if (broker === "alpaca" || alpacaCrypto) {
+        const raw = await getRecentBars(symbol, 96).catch(() => []);
+        bars15 = raw.map((b) => ({
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+          date: b.time,
+        }));
+        // Approximate 1h from 5m aggregates (every 12 bars)
+        for (let i = 11; i < bars15.length; i += 12) {
+          const slice = bars15.slice(i - 11, i + 1);
+          bars1h.push({
+            open: slice[0]!.open,
+            high: Math.max(...slice.map((s) => s.high)),
+            low: Math.min(...slice.map((s) => s.low)),
+            close: slice[slice.length - 1]!.close,
+            volume: slice.reduce((a, s) => a + s.volume, 0),
+            date: slice[slice.length - 1]!.date,
+          });
+        }
+      } else {
+        const { ibkrBars15m } = await import("@/lib/market-data/ibkr-history");
+        bars15 = await ibkrBars15m(symbol).catch(() => []);
+        bars1h = await ibkrBars1h(symbol).catch(() => []);
+      }
+      const intra = evaluateCryptoIntradayStrategies(symbol, bars15, bars1h);
+      if (intra.strategyId && isStrategyDisabled("crypto", intra.strategyId)) {
+        return hold(`Estrategia crypto ${intra.strategyId} desactivada`);
+      }
+      if (intra.direction === "BUY" && intra.strategyId) {
+        console.log(
+          `[Signal] ${symbol} BUY crypto=${intra.strategyId} conf=${(intra.confidence * 100).toFixed(0)}% broker=${broker}`,
+        );
+        return {
+          direction: "BUY",
+          confidence: intra.confidence,
+          reasoning: intra.reasoning,
+          urgency: "HIGH",
+          strategyIds: [intra.strategyId as ProStrategyId],
+          primaryStrategy: intra.strategyId,
+          stopLossPct: intra.stopLossPct,
+          takeProfitPct: intra.takeProfitPct,
+          stopLoss: intra.stopLoss,
+          takeProfit: intra.takeProfit,
+          rsi: null,
+          positionSizeFactor: 1,
+          capitalPct: capitalPctFromConfidence(intra.confidence),
+          metrics: {
+            change1d,
+            relVolume: 0,
+            ema9: null,
+            ema21: null,
+            ema50: null,
+            vwapApprox: null,
+            dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
+          },
+        };
+      }
+      return hold(intra.reasoning);
+    } catch (err) {
+      console.warn(
+        `[ProStrategy] ${symbol} crypto intradía failed:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
   // Hard skip if already ran >5% unless reversal path allowed later
   if (change1d > 5) {
     console.log(`[ProStrategy] ${symbol}: skip (ya subió ${change1d.toFixed(1)}% > 5%)`);
@@ -824,6 +914,72 @@ export async function evaluateProStrategies(
       change1h,
       rsi: null,
     });
+  }
+
+  // --- SWING ACCIONES (preferido en USA_REGULAR / EUROPA) ---
+  if (!crypto && !alpacaCrypto) {
+    const phase = getCurrentTradingPhase();
+    if (phase === "USA_REGULAR" || phase === "EUROPA" || phase === "PRE_MARKET") {
+      // Avoid first 15 minutes of USA regular (14:30–14:45 Madrid)
+      if (phase === "USA_REGULAR" && isUsaFirstHour()) {
+        const madrid = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Madrid",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).formatToParts(new Date());
+        const hh = Number(madrid.find((p) => p.type === "hour")?.value ?? 0);
+        const mm = Number(madrid.find((p) => p.type === "minute")?.value ?? 0);
+        if (hh === 14 && mm < 45) {
+          return hold(`${symbol}: primeros 15 min USA — diferir entrada swing`);
+        }
+      }
+      const hourly = await ibkrBars1h(symbol).catch(() => [] as OhlcvBar[]);
+      const swing = evaluateSwingStrategies(symbol, bars, hourly);
+      if (swing.strategyId && isStrategyDisabled("stocks", swing.strategyId)) {
+        return hold(`Estrategia swing ${swing.strategyId} desactivada`);
+      }
+      if (swing.direction === "BUY" && swing.strategyId) {
+        const notional = price; // 1 share proxy for cost filter
+        const roundTrip = Math.max(2, notional * 0.001); // ~$2 min or 0.1%
+        if (
+          !passesCostFilter({
+            notional,
+            roundTripCostUsd: roundTrip,
+            targetMoveUsd: swing.takeProfit - price,
+          })
+        ) {
+          return hold(`${symbol}: filtro de costes swing (comis/recorrido)`);
+        }
+        console.log(
+          `[Signal] ${symbol} BUY swing=${swing.strategyId} conf=${(swing.confidence * 100).toFixed(0)}%`,
+        );
+        return {
+          direction: "BUY",
+          confidence: swing.confidence,
+          reasoning: swing.reasoning,
+          urgency: "MEDIUM",
+          strategyIds: [swing.strategyId as ProStrategyId],
+          primaryStrategy: swing.strategyId,
+          stopLossPct: swing.stopLossPct,
+          takeProfitPct: swing.takeProfitPct,
+          stopLoss: swing.stopLoss,
+          takeProfit: swing.takeProfit,
+          rsi: null,
+          positionSizeFactor: 1,
+          capitalPct: capitalPctFromConfidence(swing.confidence),
+          metrics: {
+            change1d,
+            relVolume: 0,
+            ema9: null,
+            ema21: null,
+            ema50: null,
+            vwapApprox: null,
+            dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
+          },
+        };
+      }
+    }
   }
 
   const vol20 = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;

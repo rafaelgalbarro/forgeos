@@ -1,0 +1,6 @@
+{
+  "id": "OP12",
+  "name": "Reconnect",
+  "status": "PASS",
+  "evidence": "POST /api/paper-trading/reconnect → connected=true + RECONNECTED journal"
+}

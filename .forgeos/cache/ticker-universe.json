@@ -1,0 +1,12 @@
+{
+  "updatedAt": "2026-08-13T08:26:24.759Z",
+  "nextRefreshAt": "2026-08-14T06:00:00.000Z",
+  "sources": {
+    "SP500": 501,
+    "NASDAQ": 0,
+    "NYSE": 0,
+    "MERGED": 501
+  },
+  "tickers": [],
+  "filteredCount": 0
+}

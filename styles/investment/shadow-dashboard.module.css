@@ -1,0 +1,79 @@
+.root {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  color: #d6e3ff;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.header p {
+  margin: 8px 0 0;
+  color: #a6b7d9;
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.badgeOk,
+.badgeDanger,
+.badgeNeutral {
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.badgeOk {
+  color: #7ff7be;
+  border-color: #2f8f62;
+}
+
+.badgeDanger {
+  color: #ff9da2;
+  border-color: #97404b;
+}
+
+.badgeNeutral {
+  color: #c6d3ef;
+  border-color: #55607b;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metrics article,
+.panel {
+  background: #0f1628;
+  border: 1px solid #2b3550;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.panel h2,
+.metrics h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.metrics p {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.panel ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}

@@ -1,0 +1,6 @@
+{
+  "id": "OP19",
+  "name": "Block new entries",
+  "status": "PASS",
+  "evidence": "Risk BLOCK on max_number_of_orders; safety surface blockNewEntries=true reduceOnly=true live=false"
+}

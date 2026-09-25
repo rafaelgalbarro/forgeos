@@ -198,3 +198,5 @@ export interface ApplicationPorts {
   deployment: DeploymentPort;
   uow: UnitOfWorkPort;
 }
+
+export * from "./broker-engine";

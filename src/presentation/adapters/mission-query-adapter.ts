@@ -85,7 +85,12 @@ function liveOverviewFromStore(missionId?: string | null): MissionOverviewSnapsh
           label: t.label,
           kind: t.type,
         })),
-        risks: missionRecord.risks || [],
+        risks: (missionRecord.risks || []).map((r) => ({
+          ...r,
+          severity: (["low", "medium", "high"].includes(r.severity)
+            ? r.severity
+            : "medium") as "low" | "medium" | "high",
+        })),
         approvals: (missionRecord.pendingDecisions || []).map((d) => ({
           id: d.id,
           label: d.title || d.prompt || d.id,

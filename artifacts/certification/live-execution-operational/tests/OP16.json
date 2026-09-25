@@ -1,0 +1,6 @@
+{
+  "id": "OP16",
+  "name": "Position reconciliation",
+  "status": "PASS",
+  "evidence": "API positions=1 match internal non-zero book; divergent=0"
+}

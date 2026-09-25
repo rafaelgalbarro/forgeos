@@ -1,0 +1,1 @@
+﻿{"allowed":false,"posture":"LOCKED","message":"LOCKED Â· CANCEL dry-run only â LIVE_TRADING_ENABLED=false, IBKR_READ_ONLY=true, ANALYSIS_ONLY Â· orderId=DRYRUN_TEST_001. No broker mutation.","wouldMutateBroker":false,"action":"cancel","recordedAt":"2026-08-04T11:58:40.494Z"}

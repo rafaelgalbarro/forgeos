@@ -26,6 +26,7 @@ export interface StoredAuthUser {
   passwordHash: string;
   avatarUrl?: string;
   emailVerified: "pending" | "verified";
+  role?: "FOUNDER" | "USER";
   createdAt: string;
   updatedAt: string;
 }

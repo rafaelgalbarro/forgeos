@@ -11,6 +11,9 @@ export function OsSidebar() {
 
   function isActive(href: string): boolean {
     if (href === "/os") return pathname === "/os";
+    if (href === "/investment") {
+      return pathname === "/investment" || pathname.startsWith("/investment/");
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -34,16 +37,28 @@ export function OsSidebar() {
           <span aria-hidden>⌂</span>
           Home
         </Link>
-        {OS_NAV_ITEMS.map((item) => (
-          <Link
-            key={item.id}
-            href={item.href}
-            className={cn("fhis-os-nav-link", isActive(item.href) && "fhis-os-nav-link-active")}
-          >
-            <span aria-hidden>{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+        {OS_NAV_ITEMS.map((item) => {
+          const isInvestment = item.id === "investment";
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={cn("fhis-os-nav-link", isActive(item.href) && "fhis-os-nav-link-active")}
+              style={
+                isInvestment
+                  ? {
+                      borderLeft: "2px solid #f8b84e",
+                      paddingLeft: 10,
+                      color: isActive(item.href) ? "#f8b84e" : undefined,
+                    }
+                  : undefined
+              }
+            >
+              <span aria-hidden>{item.icon}</span>
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="fhis-os-sidebar-footer">

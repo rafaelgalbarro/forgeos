@@ -1,0 +1,6 @@
+{
+  "id": "OP05",
+  "name": "Expire",
+  "status": "PASS",
+  "evidence": "Order porder-6 → EXPIRED reason=day_tif_expired"
+}

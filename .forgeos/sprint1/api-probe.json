@@ -1,0 +1,182 @@
+﻿[
+    {
+        "Api":  "/api/investment/dashboard",
+        "Status":  200,
+        "Ms":  43883,
+        "Len":  2190,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T13:44:15.191Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"brokerStatus\":{\"state\":\"STALE\",\"updatedAt\":null,\"stale\":true,\"source\":\"fallback\",\"dataSource\":\"DEMO\",\"error\":\"IBKR service is not running\",\"data\":{\"connected\":",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/monitor",
+        "Status":  200,
+        "Ms":  6699,
+        "Len":  396,
+        "Ok":  true,
+        "Snip":  "{\"monitorStartedAt\":\"2026-08-04T15:38:50.628Z\",\"monitorRunning\":true,\"evaluationCount\":0,\"lastEvaluatedAt\":null,\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"observation\":null,\"alerts\":[],\"alertsByCategory\":{\"PortfolioAlerts\":[],\"RiskAlerts\":[],\"OpportunityAlerts\":[],\"Alloc",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/opportunities",
+        "Status":  200,
+        "Ms":  2662,
+        "Len":  5942,
+        "Ok":  true,
+        "Snip":  "{\"scannedAt\":\"2026-08-04T15:38:59.428Z\",\"generatedAt\":\"2026-08-04T15:38:59.571Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"opportunities\":[],\"count\":0,\"candidates\":[{\"id\":\"bnd-tlt:decorrelation:1785857939428\",\"instrument\":{",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/portfolio",
+        "Status":  null,
+        "Ms":  45022,
+        "Len":  0,
+        "Ok":  false,
+        "Snip":  null,
+        "Error":  "La operación sobrepasó el tiempo de espera."
+    },
+    {
+        "Api":  "/api/investment/orders",
+        "Status":  200,
+        "Ms":  27545,
+        "Len":  2129,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:12.148Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"safety\":{\"mode\":\"ANALYSIS_ONLY\",\"liveTradingEnabled\":false,\"liveTradingEnabledValue\":\"false\",\"ibkrReadOnly\":true,\"killSwitchEnabled\":false,\"autonomousLock\":\"LOCKED\"},\"brokerConnected\":fa",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/risk",
+        "Status":  200,
+        "Ms":  7711,
+        "Len":  14824,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:19.873Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"monitorLabel\":\"DEMO\",\"monitorNote\":\"DEMO fallback â IBKR snapshot failed (\u0027NoneType\u0027 object has no attribute \u0027settimeout\u0027)\",\"monitorRunni",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/research",
+        "Status":  200,
+        "Ms":  2037,
+        "Len":  30583,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:21.856Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"symbols\":[\"AAPL\",\"MSFT\",\"SPY\"],\"engines\":[{\"id\":\"news\",\"title\":\"News Engine\",\"wiring\":\"CONFIG_REQUIRED\",\"description\":\"Configured news/RSS/",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/screener",
+        "Status":  200,
+        "Ms":  220,
+        "Len":  333,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:22.161Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"tradeGate\":\"NO_TRADE_ON_DELAYED_OR_STALE\",\"symbols\":[\"AAPL\",\"MSFT\",\"SPY\"],\"providersConfigured\":0,\"empty\":true,\"note\":\"No Market Intelligence providers configured â set env API keys/fl",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/audit",
+        "Status":  200,
+        "Ms":  2275,
+        "Len":  1911,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:24.405Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"count\":10,\"totalUnfiltered\":10,\"items\":[{\"id\":\"analysis-1785828099883-uojaz35f\",\"kind\":\"analysis\",\"occurredAt\":\"2026-08-04T07:21:39.881Z\",\"symbol\":\"SPY\",\"summary\":\"analysis\",\"provenance\"",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/live",
+        "Status":  200,
+        "Ms":  19542,
+        "Len":  8276,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:29.663Z\",\"safety\":{\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"tradingMode\":\"ANALYSIS_ONLY\",\"mode\":\"ANALYSIS_ONLY\",\"state\":\"LOCKED\",\"autonomousLock\":\"LOCKED\",\"emergencyStop\":false,\"blockNewEntries\":true,\"reduceOnly\":true,\"executionDisconnected",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/reports",
+        "Status":  200,
+        "Ms":  3230,
+        "Len":  11027,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:47.167Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"liveTradingEnabled\":false,\"autoGenerated\":[],\"total\":4,\"items\":[{\"id\":\"rpt_annual_2026_2026-08-04T11-52-13-517Z_960e688c\",\"generatedAt\":\"2026-08-04T11:52:13.517Z\",\"periodType\":\"annual\",\"",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/strategies",
+        "Status":  200,
+        "Ms":  2334,
+        "Len":  4154,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:49.538Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"strategyReadiness\":\"NOT_READY\",\"autonomousLive\":\"LOCKED\",\"strategies\":[{\"strategyId\":\"trend-following\",\"name\":\"Trend Following\",\"version\":\"1.0.0\",\"regimes\":\"bullish, bearish, risk-on, ri",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/strategy-lab",
+        "Status":  200,
+        "Ms":  3046,
+        "Len":  87084,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:52.226Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"strategyReadiness\":\"NOT_READY\",\"autonomousLive\":\"LOCKED\",\"goLive\":\"NOT_READY_FOR_LIVE\",\"liveTradingEnabled\":false,\"productionMutation\":\"forbidden\",\"tradeDataLabel\":\"PAPER\",\"distinctSessi",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/alpha-engine",
+        "Status":  200,
+        "Ms":  2267,
+        "Len":  49388,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:54.718Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"strategyReadiness\":\"NOT_READY\",\"autonomousLive\":\"LOCKED\",\"goLive\":\"NOT_READY_FOR_LIVE\",\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"ordersSubmitted\":0,\"topOpportunities\":[],\"rejectedO",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/investment/market-intelligence",
+        "Status":  200,
+        "Ms":  1811,
+        "Len":  3399,
+        "Ok":  true,
+        "Snip":  "{\"generatedAt\":\"2026-08-04T15:40:56.686Z\",\"mode\":\"ANALYSIS_ONLY\",\"orderExecution\":\"disabled\",\"marketProviders\":[],\"newsProviders\":[],\"economicProviders\":[],\"sentimentProviders\":[],\"providers\":[{\"id\":\"alpha-vantage\",\"provider\":\"Alpha Vantage\",\"kinds\":[\"market\",\"news\",\"economic\",\"s",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/broker/health",
+        "Status":  200,
+        "Ms":  5827,
+        "Len":  80,
+        "Ok":  true,
+        "Snip":  "{\"ok\":true,\"liveTradingEnabled\":false,\"ibkrReadOnly\":true,\"emergencyStop\":false}",
+        "Error":  null
+    },
+    {
+        "Api":  "/api/broker/account",
+        "Status":  503,
+        "Ms":  1942,
+        "Len":  0,
+        "Ok":  false,
+        "Snip":  null,
+        "Error":  "Error en el servidor remoto: (503) Servidor no disponible."
+    },
+    {
+        "Api":  "/api/broker/positions",
+        "Status":  503,
+        "Ms":  15374,
+        "Len":  0,
+        "Ok":  false,
+        "Snip":  null,
+        "Error":  "Error en el servidor remoto: (503) Servidor no disponible."
+    },
+    {
+        "Api":  "/api/broker/orders",
+        "Status":  503,
+        "Ms":  15342,
+        "Len":  0,
+        "Ok":  false,
+        "Snip":  null,
+        "Error":  "Error en el servidor remoto: (503) Servidor no disponible."
+    },
+    {
+        "Api":  "http://127.0.0.1:8000/health",
+        "Status":  null,
+        "Ms":  0,
+        "Len":  0,
+        "Ok":  false,
+        "Snip":  null,
+        "Error":  "Error en el servidor remoto: (401) No autorizado."
+    }
+]

@@ -6,6 +6,7 @@ import { Portfolio } from "../../domain/portfolio/aggregate";
 import type { PortfolioProps } from "../../domain/portfolio/aggregate";
 import { asPortfolioId, asSharedAssetId, asVentureId, asWorkspaceId } from "../../domain/shared/ids";
 import { DomainError } from "../../domain/shared/errors";
+import { asIsoTimestamp } from "../../domain/shared/value-objects";
 import { createVentureAggregate } from "../compat-domain";
 import type { ApplicationPorts } from "../ports";
 import { fail } from "../errors";
@@ -93,8 +94,9 @@ export class PortfolioService {
     this.projections.set(snap.id, state);
     await this.deps.ports.uow.events.append(
       events.map((e) => ({
+        eventId: e.eventId,
         id: e.eventId,
-        type: e.type,
+        type: e.type as never,
         aggregateId: e.aggregateId,
         aggregateType: "Portfolio",
         workspaceId: e.workspaceId,
@@ -117,10 +119,14 @@ export class PortfolioService {
       aggregateId: portfolio.id,
       workspaceId: portfolio.workspaceId,
       portfolioId: portfolio.id,
-      occurredAt: this.deps.ports.clock.now(),
+      occurredAt: this.nowIso(),
       correlationId: command.meta.correlationId,
       actorId: command.meta.actorId,
-    } as PortfolioDomainEvent;
+    } as unknown as PortfolioDomainEvent;
+  }
+
+  private nowIso() {
+    return asIsoTimestamp(this.deps.ports.clock.now());
   }
 
   private domainFail(error: DomainError): never {
@@ -150,7 +156,7 @@ export class PortfolioService {
     switch (command.type) {
       case "CreatePortfolio": {
         const id = ports.clock.createId("pf");
-        const now = ports.clock.now();
+        const now = this.nowIso();
         const created = Portfolio.create({
           id,
           workspaceId: asWorkspaceId(workspaceId),
@@ -190,7 +196,7 @@ export class PortfolioService {
           ventureId: asVentureId(command.payload.ventureId),
           priority: command.payload.priority,
           lifecycle: command.payload.lifecycle,
-          now: ports.clock.now(),
+          now: this.nowIso(),
         });
         if (!updated.ok) this.domainFail(updated.error);
         const pv = updated.value.getVenture(asVentureId(command.payload.ventureId))!;
@@ -210,7 +216,7 @@ export class PortfolioService {
         const updated = portfolio.setPriority(
           asVentureId(command.payload.ventureId),
           command.payload.priority,
-          ports.clock.now(),
+          this.nowIso(),
         );
         if (!updated.ok) this.domainFail(updated.error);
         const event = {
@@ -235,7 +241,7 @@ export class PortfolioService {
             evidence: command.payload.evidence,
             decisionId: command.payload.decisionId as never,
           },
-          ports.clock.now(),
+          this.nowIso(),
         );
         if (!updated.ok) this.domainFail(updated.error);
         const event = {
@@ -257,7 +263,7 @@ export class PortfolioService {
           asVentureId(command.payload.ventureId),
           actor,
           command.payload.reason,
-          ports.clock.now(),
+          this.nowIso(),
         );
         if (!updated.ok) this.domainFail(updated.error);
         this.executor.releaseByVenture(command.payload.ventureId);
@@ -275,7 +281,7 @@ export class PortfolioService {
         const updated = portfolio.resumeVenture(
           asVentureId(command.payload.ventureId),
           command.payload.priority,
-          ports.clock.now(),
+          this.nowIso(),
         );
         if (!updated.ok) this.domainFail(updated.error);
         const event = {
@@ -291,7 +297,7 @@ export class PortfolioService {
         const portfolio = await this.loadPortfolio(workspaceId, command.payload.portfolioId);
         const updated = portfolio.archiveVenture(
           asVentureId(command.payload.ventureId),
-          ports.clock.now(),
+          this.nowIso(),
         );
         if (!updated.ok) this.domainFail(updated.error);
         const event = {
@@ -306,7 +312,7 @@ export class PortfolioService {
         const portfolio = await this.loadPortfolio(workspaceId, command.payload.portfolioId);
         const updated = portfolio.closeVenture(
           asVentureId(command.payload.ventureId),
-          ports.clock.now(),
+          this.nowIso(),
         );
         if (!updated.ok) this.domainFail(updated.error);
         this.executor.releaseByVenture(command.payload.ventureId);
@@ -321,7 +327,7 @@ export class PortfolioService {
       case "AllocateBudget": {
         const portfolio = await this.loadPortfolio(workspaceId, command.payload.portfolioId);
         const allocId = ports.clock.createId("alloc");
-        const now = ports.clock.now();
+        const now = this.nowIso();
         const allocation = {
           id: allocId,
           portfolioId: asPortfolioId(command.payload.portfolioId),
@@ -350,7 +356,7 @@ export class PortfolioService {
 
       case "ReleaseAllocation": {
         const portfolio = await this.loadPortfolio(workspaceId, command.payload.portfolioId);
-        const updated = portfolio.releaseAllocation(command.payload.allocationId, ports.clock.now());
+        const updated = portfolio.releaseAllocation(command.payload.allocationId, this.nowIso());
         if (!updated.ok) this.domainFail(updated.error);
         const alloc = updated.value.toSnapshot().allocations[command.payload.allocationId];
         const event = {
@@ -374,7 +380,7 @@ export class PortfolioService {
           description: command.payload.description,
           versionConstraint: command.payload.versionConstraint,
           approved: false,
-          createdAt: ports.clock.now(),
+          createdAt: this.nowIso(),
         };
         const updated = portfolio.addDependency(dep);
         if (!updated.ok) this.domainFail(updated.error);
@@ -392,7 +398,7 @@ export class PortfolioService {
       case "RegisterSharedAsset": {
         const portfolio = await this.loadPortfolio(workspaceId, command.payload.portfolioId);
         const assetId = ports.clock.createId("asset");
-        const now = ports.clock.now();
+        const now = this.nowIso();
         const asset = {
           id: asSharedAssetId(assetId),
           portfolioId: asPortfolioId(command.payload.portfolioId),
@@ -425,7 +431,7 @@ export class PortfolioService {
         const updated = portfolio.approveSharedAssetUsage(
           asSharedAssetId(command.payload.assetId),
           asVentureId(command.payload.consumerVentureId),
-          ports.clock.now(),
+          this.nowIso(),
         );
         if (!updated.ok) this.domainFail(updated.error);
         const event = {
@@ -440,7 +446,7 @@ export class PortfolioService {
       case "CreatePortfolioPolicy": {
         const portfolio = await this.loadPortfolio(workspaceId, command.payload.portfolioId);
         const policyId = ports.clock.createId("pol");
-        const now = ports.clock.now();
+        const now = this.nowIso();
         const policy = {
           id: policyId,
           portfolioId: asPortfolioId(command.payload.portfolioId),
@@ -475,7 +481,7 @@ export class PortfolioService {
           actorId: actor,
           outcome: command.payload.outcome,
           evidence: command.payload.evidence,
-          recordedAt: ports.clock.now(),
+          recordedAt: this.nowIso(),
         };
         const updated = portfolio.recordDecision(decision);
         if (!updated.ok) this.domainFail(updated.error);
@@ -507,7 +513,7 @@ export class PortfolioService {
         for (const def of command.payload.ventures) {
           try {
             const ventureId = ports.clock.createId("ven");
-            const now = ports.clock.now();
+            const now = this.nowIso();
             const { venture, events } = createVentureAggregate(
               ventureId,
               {

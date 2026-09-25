@@ -5,7 +5,7 @@ import { ValueEngineService } from "./service";
  * Seed helper used by internal queries/certification.
  * Adds only declared evidence facts; never invents revenue/customers.
  */
-export async function seedRafaelVenturesLabValueEngine(service: ValueEngineService) {
+export async function seedRafaelVenturesLabViaService(service: ValueEngineService) {
   for (const venture of RAFAEL_VENTURES_LAB_VALUE_FIXTURE.ventures) {
     for (const evidenceType of venture.knownFacts.evidence) {
       await service.registerValueEvidence({

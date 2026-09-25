@@ -1,0 +1,6 @@
+{
+  "id": "OP09",
+  "name": "Take profit",
+  "status": "PASS",
+  "evidence": "TARGET order porder-12 filled @52.05 exitReason=take_profit_triggered"
+}

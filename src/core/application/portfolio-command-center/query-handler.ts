@@ -1,6 +1,12 @@
 import { getCompositionRoot } from "@/src/core/composition";
 import type { PortfolioReadModel, VenturePortfolioCard } from "@/src/core/application/portfolio";
 import type { ComparePortfolioVenturesResult } from "@/src/core/application/value-engine/portfolio";
+import {
+  buildPortfolioAnalyticsDashboardModel,
+  computePortfolioAnalytics,
+  type PortfolioAnalyticsInput,
+  type RiskBreakdownRow,
+} from "@/src/core/investment";
 import type {
   PortfolioAlert,
   PortfolioCommandCenterReadModel,
@@ -184,6 +190,27 @@ function mapValueRows(
   }));
 }
 
+function metricOrStatus(row: { value: number | null; status: string }, suffix = ""): string {
+  if (row.value === null) return row.status;
+  return `${row.value.toFixed(2)}${suffix}`;
+}
+
+function mapBreakdownRows(rows: readonly RiskBreakdownRow[]) {
+  return rows.map((row) => ({
+    key: row.key,
+    label: row.label,
+    weight: metricOrStatus({ value: row.weightPct.value, status: row.weightPct.status }, "%"),
+    risk: metricOrStatus({ value: row.riskPct.value, status: row.riskPct.status }, "%"),
+    exposure: metricOrStatus({ value: row.exposure.value, status: row.exposure.status }),
+  }));
+}
+
+function asAnalyticsInput(value: unknown): PortfolioAnalyticsInput | null {
+  if (!value || typeof value !== "object") return null;
+  const model = value as PortfolioAnalyticsInput;
+  return Array.isArray(model.positions) ? model : null;
+}
+
 export function buildPortfolioCommandCenterReadModel(
   query: PortfolioCommandCenterQuery,
 ): PortfolioCommandCenterReadModel | null {
@@ -203,8 +230,8 @@ export function buildPortfolioCommandCenterReadModel(
   const releaseByVenture = new Map<string, string>();
   for (const preview of root.store.previews.values()) {
     const ventureId = root.store.missions.get((preview as { missionId: string }).missionId)?.ventureId;
-    if (ventureId && (preview as { previewUrl?: string }).previewUrl) {
-      previewByVenture.set(ventureId, (preview as { previewUrl: string }).previewUrl);
+    if (ventureId && (preview as unknown as { previewUrl?: string }).previewUrl) {
+      previewByVenture.set(ventureId, (preview as unknown as { previewUrl: string }).previewUrl);
     }
   }
   for (const release of root.store.releases.values()) {
@@ -242,6 +269,46 @@ export function buildPortfolioCommandCenterReadModel(
   const resources = mapResources(source.capacity, source.allocations);
   const alerts = buildAlerts(source, ventureCards, source.risks.length);
 
+  const analyticsInput = asAnalyticsInput(
+    (root.store.meta as Record<string, unknown>).portfolioAnalyticsInput,
+  ) ?? {
+    asOf: source.activity[0]?.at ?? new Date().toISOString(),
+    baseCurrency: "UNKNOWN",
+    positions: [],
+    cash: null,
+    benchmarkReturns: [],
+    portfolioReturns: [],
+    riskFreeRate: null,
+  };
+  const dashboard = buildPortfolioAnalyticsDashboardModel(
+    computePortfolioAnalytics(analyticsInput),
+  );
+
+  const analytics = {
+    generatedAt: dashboard.generatedAt,
+    asOf: dashboard.asOf,
+    baseCurrency: dashboard.baseCurrency,
+    metrics: dashboard.metricCards.map((card) => ({
+      key: card.key,
+      label: card.label,
+      value: card.value,
+      status: card.status,
+      note: card.note,
+    })),
+    risks: dashboard.riskCards.map((card) => ({
+      key: card.key,
+      label: card.label,
+      value: card.value,
+      status: card.status,
+      note: card.note,
+    })),
+    byPosition: mapBreakdownRows(dashboard.byPosition),
+    bySector: mapBreakdownRows(dashboard.bySector),
+    byIndustry: mapBreakdownRows(dashboard.byIndustry),
+    byCountry: mapBreakdownRows(dashboard.byCountry),
+    byCurrency: mapBreakdownRows(dashboard.byCurrency),
+  };
+
   return {
     generatedAt: new Date().toISOString(),
     freshness: source.freshness,
@@ -266,6 +333,7 @@ export function buildPortfolioCommandCenterReadModel(
       "OVERVIEW",
       "VENTURES",
       "VALUE",
+      "ANALYTICS",
       "EXECUTIONS",
       "RESOURCES",
       "RISKS",
@@ -282,6 +350,7 @@ export function buildPortfolioCommandCenterReadModel(
     ventures: ventureCards,
     executions: executionRows,
     value: valueRows,
+    analytics,
     resources,
     alerts,
     approvals,

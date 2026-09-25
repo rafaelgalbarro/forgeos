@@ -1,0 +1,6 @@
+{
+  "id": "OP04",
+  "name": "Reject",
+  "status": "PASS",
+  "evidence": "Order porder-5 → REJECTED reason=risk_reject_simulated"
+}

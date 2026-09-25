@@ -47,7 +47,7 @@ export function InvitationRedeem({ onRedeemed }: InvitationRedeemProps) {
         <p className="fhis-beta-signup-hint">
           Código: <strong>{redemption?.code ?? code.toUpperCase()}</strong>
         </p>
-        <Link href="/register" className="fhis-btn fhis-btn-primary fhis-btn-sm">
+        <Link href="/login" className="fhis-btn fhis-btn-primary fhis-btn-sm">
           Crear cuenta →
         </Link>
       </Panel>

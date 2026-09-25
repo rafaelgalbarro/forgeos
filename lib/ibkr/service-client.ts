@@ -89,7 +89,11 @@ export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}):
         ? detailRaw
         : detailRaw && typeof detailRaw === "object" && detailRaw !== null && "error" in detailRaw
           ? String((detailRaw as { error: unknown }).error)
-          : `IBKR service error ${response.status}`;
+          : detailRaw && typeof detailRaw === "object" && detailRaw !== null && "reject_reason" in detailRaw
+            ? String((detailRaw as { reject_reason: unknown }).reject_reason)
+            : detailRaw && typeof detailRaw === "object" && detailRaw !== null && "ibkrError" in detailRaw
+              ? String((detailRaw as { ibkrError: unknown }).ibkrError)
+              : `IBKR service error ${response.status}`;
     // Preserve structured offline payloads from FastAPI (TWS_OFFLINE etc.).
     if (
       detailRaw &&
@@ -100,6 +104,19 @@ export async function ibkrServiceFetch<T>(path: string, init: RequestInit = {}):
       const structured = detailRaw as Record<string, unknown>;
       const err = new Error(String(structured.error ?? detail));
       (err as Error & { payload?: unknown }).payload = structured;
+      throw err;
+    }
+    // Order rejection (422) — structured proposal detail
+    if (
+      response.status === 422 &&
+      detailRaw &&
+      typeof detailRaw === "object" &&
+      detailRaw !== null
+    ) {
+      const structured = detailRaw as Record<string, unknown>;
+      const err = new Error(detail);
+      (err as Error & { payload?: unknown; status?: number }).payload = structured;
+      (err as Error & { status?: number }).status = 422;
       throw err;
     }
     if (response.status === 503 || response.status === 502 || response.status === 504) {

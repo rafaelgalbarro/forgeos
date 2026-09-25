@@ -378,6 +378,28 @@ export async function notifyOrderExecuted(params: {
   void params.takeProfit;
 }
 
+/** IBKR rejected the order — immediate Telegram alert. */
+export async function notifyOrderRejected(params: {
+  ticker: string;
+  code?: number | string | null;
+  message: string;
+}): Promise<void> {
+  const { enabled } = cfg();
+  if (!enabled) {
+    console.warn("[Telegram] notifyOrderRejected omitido — bot no configurado");
+    return;
+  }
+  const code =
+    params.code != null && String(params.code).trim() !== ""
+      ? String(params.code).trim()
+      : null;
+  const msg = params.message.replace(/^ORDER_REJECTED:\s*/i, "").trim() || "rechazada por IBKR";
+  const line = code
+    ? `❌ <b>RECHAZADA</b> ${params.ticker}: ${code} ${msg}`
+    : `❌ <b>RECHAZADA</b> ${params.ticker}: ${msg}`;
+  await sendTelegramMessage(line);
+}
+
 /** TP/SL filled — solo bucket horario (sin alerta inmediata). */
 export async function notifyPositionClosed(params: {
   kind: "TP" | "SL";

@@ -164,10 +164,82 @@ def init_db() -> None:
             );
             """
         )
+        cols = {row[1] for row in connection.execute("PRAGMA table_info(proposals)").fetchall()}
+        if "ibkr_status" not in cols:
+            connection.execute("ALTER TABLE proposals ADD COLUMN ibkr_status TEXT")
+        if "ibkr_perm_id" not in cols:
+            connection.execute("ALTER TABLE proposals ADD COLUMN ibkr_perm_id INTEGER")
+        if "reject_reason" not in cols:
+            connection.execute("ALTER TABLE proposals ADD COLUMN reject_reason TEXT")
         connection.execute(
             "INSERT OR IGNORE INTO control_state(key,value,updated_at) VALUES('emergency_stop','false',?)",
             (utcnow().isoformat(),),
         )
+
+
+# Hard IBKR reject / no-permission / cancel codes — never treat as EXECUTED.
+IBKR_ORDER_REJECT_CODES = {
+    103, 107, 109, 110, 201, 202, 203, 321, 322, 387, 388, 460,
+    10147, 10148, 10243, 10250, 10268, 10269, 10270,
+}
+IBKR_ACCEPTED_STATUSES = {"Submitted", "PreSubmitted", "Filled"}
+IBKR_REJECTED_STATUSES = {"NO_ACK", "Inactive", "Cancelled", "ApiCancelled", "PendingCancel"}
+
+
+class OrderRejectedError(RuntimeError):
+    """IBKR rejected or never acknowledged the order — must not mark EXECUTED."""
+
+    def __init__(self, code: int | None, message: str, *, ibkr_status: str, order_id: int | None = None, perm_id: int = 0):
+        self.code = code
+        self.ibkr_message = message
+        self.ibkr_status = ibkr_status
+        self.order_id = order_id
+        self.perm_id = perm_id
+        label = f"{code} {message}" if code is not None else message
+        super().__init__(f"ORDER_REJECTED: {label}")
+
+
+def assert_place_ack_accepted(ibkr_client: "IBKRClient", order_id: int) -> dict[str, Any]:
+    """Validate placeOrder ack — raises OrderRejectedError unless Submitted/PreSubmitted/Filled + permId>0."""
+    errors = ibkr_client.place_ack_errors.get(order_id, [])
+    status = ibkr_client.place_ack_status.get(order_id, "NO_ACK")
+    try:
+        perm_id = int(ibkr_client.place_ack_perm_id.get(order_id, 0) or 0)
+    except (TypeError, ValueError):
+        perm_id = 0
+
+    reject_err = next(
+        (err for err in errors if int(err.get("code", 0)) in IBKR_ORDER_REJECT_CODES),
+        None,
+    )
+    if reject_err is not None:
+        raise OrderRejectedError(
+            int(reject_err.get("code", 0)),
+            str(reject_err.get("message") or "rejected"),
+            ibkr_status=status,
+            order_id=order_id,
+            perm_id=perm_id,
+        )
+
+    if status in IBKR_REJECTED_STATUSES or status not in IBKR_ACCEPTED_STATUSES:
+        raise OrderRejectedError(
+            None,
+            f"IBKR status={status} (not Submitted/PreSubmitted/Filled)",
+            ibkr_status=status,
+            order_id=order_id,
+            perm_id=perm_id,
+        )
+
+    if perm_id <= 0:
+        raise OrderRejectedError(
+            None,
+            f"IBKR status={status} but permId missing/0 — order not accepted",
+            ibkr_status=status,
+            order_id=order_id,
+            perm_id=0,
+        )
+
+    return {"status": status, "permId": perm_id, "orderId": order_id, "errors": errors}
 
 
 def audit(event_type: str, entity_id: str | None, payload: dict[str, Any]) -> None:
@@ -238,6 +310,7 @@ class IBKRClient(EWrapper, EClient):
         self.place_ack_events: dict[int, threading.Event] = {}
         self.place_ack_status: dict[int, str] = {}
         self.place_ack_errors: dict[int, list[dict[str, Any]]] = {}
+        self.place_ack_perm_id: dict[int, int] = {}
         self.order_context: dict[int, dict[str, Any]] = {}
         self.tick_data: dict[int, dict[str, Any]] = {}
         self.tick_done: dict[int, threading.Event] = {}
@@ -402,6 +475,12 @@ class IBKRClient(EWrapper, EClient):
             )
         if orderId in self.place_ack_events:
             self.place_ack_status[orderId] = status
+            try:
+                pid = int(permId) if permId is not None else 0
+            except (TypeError, ValueError):
+                pid = 0
+            if pid > 0:
+                self.place_ack_perm_id[orderId] = pid
             self.place_ack_events[orderId].set()
         # Track PreSubmitted age for stale cancel
         try:
@@ -1406,6 +1485,7 @@ class IBKRClient(EWrapper, EClient):
             self.place_ack_events[order_id] = ack
             self.place_ack_status.pop(order_id, None)
             self.place_ack_errors.pop(order_id, None)
+            self.place_ack_perm_id.pop(order_id, None)
             self.order_context[order_id] = {
                 "kind": "ORDER",
                 "symbol": contract.symbol,
@@ -1431,17 +1511,8 @@ class IBKRClient(EWrapper, EClient):
                 f"IBKR disconnected during placeOrder: {errors[-1]['code']} {errors[-1]['message']}"
             )
 
-        reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
-        if any(int(err["code"]) in reject_codes for err in errors):
-            raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
-
-        if status == "Inactive":
-            log.error(
-                "ORDER %s went INACTIVE immediately — IBKR silently rejected. "
-                "symbol=%s qty=%s lmt=%s notional=%.2f acct=%s. "
-                "Check TWS Messages log for the reason (margin, permissions, hours, price).",
-                order_id, contract.symbol, normalized_qty, normalized_price, notional, account,
-            )
+        # Reject codes + NO_ACK / Inactive / Cancelled — never return as success
+        assert_place_ack_accepted(self, order_id)
 
         # Post-place verification
         try:
@@ -1550,6 +1621,7 @@ class IBKRClient(EWrapper, EClient):
             self.place_ack_events[order_id] = ack
             self.place_ack_status.pop(order_id, None)
             self.place_ack_errors.pop(order_id, None)
+            self.place_ack_perm_id.pop(order_id, None)
             self.order_context[order_id] = {
                 "kind": "FOREX",
                 "pair": f"{contract.symbol}/{contract.currency}",
@@ -1563,23 +1635,7 @@ class IBKRClient(EWrapper, EClient):
         for err in errors:
             log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
 
-        reject_codes = {103, 107, 109, 110, 321, 322, 387, 388, 10243, 10250, 10268, 10269, 10270, 201}
-        forex_201 = next((err for err in errors if int(err.get("code", 0)) == 201), None)
-        if forex_201 is not None:
-            raise RuntimeError(
-                "FOREX_ORDER_REJECTED_201: "
-                f"{forex_201.get('message')} — probable falta de permisos FX para la cuenta {account}"
-            )
-        if any(int(err["code"]) in reject_codes for err in errors):
-            raise RuntimeError(f"ORDER_REJECTED: {errors[-1]['code']} {errors[-1]['message']}")
-
-        if status == "Inactive":
-            log.error(
-                "FOREX ORDER %s went INACTIVE — IBKR silently rejected. "
-                "pair=%s/%s qty=%s lmt=%s notional=%.2f acct=%s. "
-                "Check TWS Messages log.",
-                order_id, contract.symbol, contract.currency, qty, price, notional, account,
-            )
+        assert_place_ack_accepted(self, order_id)
 
         # Post-place verification
         try:
@@ -1700,13 +1756,51 @@ def evaluate_risk(p: ProposalCreate) -> list[dict[str, Any]]:
 
 def proposal_from_row(row: sqlite3.Row) -> dict[str, Any]:
     payload = json.loads(row["payload"])
+    keys = row.keys()
     return {
         "id": row["id"], "status": row["status"], **payload,
         "risk_checks": json.loads(row["risk_checks"]),
         "created_at": row["created_at"], "expires_at": row["expires_at"],
         "approved_at": row["approved_at"], "executed_at": row["executed_at"],
         "ibkr_order_id": row["ibkr_order_id"], "approval_nonce": row["approval_nonce"],
+        "ibkr_status": row["ibkr_status"] if "ibkr_status" in keys else None,
+        "ibkr_perm_id": row["ibkr_perm_id"] if "ibkr_perm_id" in keys else None,
+        "reject_reason": row["reject_reason"] if "reject_reason" in keys else None,
     }
+
+
+def mark_proposal_rejected(
+    proposal_id: str,
+    *,
+    reason: str,
+    ibkr_status: str | None = None,
+    ibkr_order_id: int | None = None,
+    ibkr_perm_id: int | None = None,
+) -> dict[str, Any]:
+    with db() as connection:
+        connection.execute(
+            """
+            UPDATE proposals
+            SET status='REJECTED',
+                reject_reason=?,
+                ibkr_status=?,
+                ibkr_order_id=COALESCE(?, ibkr_order_id),
+                ibkr_perm_id=COALESCE(?, ibkr_perm_id)
+            WHERE id=?
+            """,
+            (reason, ibkr_status, ibkr_order_id, ibkr_perm_id, proposal_id),
+        )
+    audit(
+        "ORDER_REJECTED",
+        proposal_id,
+        {
+            "reason": reason,
+            "ibkrStatus": ibkr_status,
+            "ibkrOrderId": ibkr_order_id,
+            "ibkrPermId": ibkr_perm_id,
+        },
+    )
+    return get_proposal(proposal_id)
 
 
 def get_proposal(proposal_id: str) -> dict[str, Any]:
@@ -2175,23 +2269,61 @@ def execute(proposal_id: str, request: ExecuteRequest):
     try:
         skip_details = bool(getattr(request, "skip_contract_details", False))
         order_id = ibkr.place_limit_order(proposal, skip_contract_details=skip_details)
-        ack_status = ibkr.place_ack_status.get(order_id, "UNKNOWN")
+        ack = assert_place_ack_accepted(ibkr, order_id)
+        ack_status = str(ack["status"])
+        perm_id = int(ack["permId"])
         with db() as connection:
             current = connection.execute("SELECT status FROM proposals WHERE id=?", (proposal_id,)).fetchone()
             if not current or current["status"] != "APPROVED":
                 raise HTTPException(409, "La propuesta ya fue consumida")
-            connection.execute("UPDATE proposals SET status='EXECUTED',executed_at=?,ibkr_order_id=? WHERE id=?", (utcnow().isoformat(), order_id, proposal_id))
-        audit("ORDER_SUBMITTED", proposal_id, {"ibkrOrderId": order_id, "ibkrStatus": ack_status})
+            connection.execute(
+                """
+                UPDATE proposals
+                SET status='EXECUTED',
+                    executed_at=?,
+                    ibkr_order_id=?,
+                    ibkr_status=?,
+                    ibkr_perm_id=?
+                WHERE id=?
+                """,
+                (utcnow().isoformat(), order_id, ack_status, perm_id, proposal_id),
+            )
+        audit(
+            "ORDER_SUBMITTED",
+            proposal_id,
+            {"ibkrOrderId": order_id, "ibkrStatus": ack_status, "ibkrPermId": perm_id},
+        )
         result = get_proposal(proposal_id)
         result["ibkrStatus"] = ack_status
-        if ack_status == "Inactive":
-            result["ibkrWarning"] = "Order went Inactive — IBKR silently rejected. Check TWS Messages."
+        result["ibkrPermId"] = perm_id
         return result
     except HTTPException:
         raise
+    except OrderRejectedError as exc:
+        rejected = mark_proposal_rejected(
+            proposal_id,
+            reason=str(exc),
+            ibkr_status=exc.ibkr_status,
+            ibkr_order_id=exc.order_id,
+            ibkr_perm_id=exc.perm_id or None,
+        )
+        rejected["ibkrStatus"] = exc.ibkr_status
+        rejected["ibkrError"] = str(exc)
+        rejected["ibkrRejectCode"] = exc.code
+        rejected["ibkrRejectMessage"] = exc.ibkr_message
+        # 422 — client must NOT treat as EXECUTED
+        raise HTTPException(status_code=422, detail=rejected) from exc
     except Exception as exc:
-        audit("ORDER_SUBMIT_FAILED", proposal_id, {"error": str(exc)})
-        raise HTTPException(503, str(exc)) from exc
+        msg = str(exc)
+        if msg.startswith("ORDER_REJECTED") or "INACTIVE" in msg.upper() or "NO_ACK" in msg.upper():
+            rejected = mark_proposal_rejected(
+                proposal_id,
+                reason=msg,
+                ibkr_status="REJECTED",
+            )
+            raise HTTPException(status_code=422, detail=rejected) from exc
+        audit("ORDER_SUBMIT_FAILED", proposal_id, {"error": msg})
+        raise HTTPException(503, msg) from exc
 
 
 @app.delete("/api/orders/{order_id}", dependencies=auth)

@@ -6,7 +6,7 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { KRAKEN_EUR_PAIRS, type KrakenEurPair, normalizeKrakenPair } from "./pairs";
+import { normalizeKrakenPair } from "./pairs";
 
 const CACHE_DIR = path.join(process.cwd(), ".forgeos", "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "kraken-asset-pairs.json");
@@ -14,7 +14,7 @@ const TTL_MS = 24 * 60 * 60 * 1000;
 const PUBLIC_BASE = "https://api.kraken.com";
 
 export type KrakenPairMeta = {
-  pair: KrakenEurPair;
+  pair: string;
   /** Kraken internal pair key (e.g. XXBTZEUR). */
   wsname?: string;
   altname: string;
@@ -65,14 +65,16 @@ function isFresh(cache: CacheShape): boolean {
 }
 
 function parsePairRow(alt: string, raw: Record<string, unknown>): KrakenPairMeta | null {
-  const pair = normalizeKrakenPair(alt) ?? normalizeKrakenPair(String(raw.altname ?? ""));
-  if (!pair) return null;
+  const altname = String(raw.altname ?? alt).toUpperCase();
+  if (!altname.endsWith("EUR") && String(raw.quote ?? "").toUpperCase() !== "ZEUR") {
+    return null;
+  }
   const pairDecimals = Number(raw.pair_decimals ?? 2);
   const lotDecimals = Number(raw.lot_decimals ?? 8);
   const orderMin = Number(raw.ordermin ?? 0);
   return {
-    pair,
-    altname: String(raw.altname ?? alt),
+    pair: altname,
+    altname,
     wsname: typeof raw.wsname === "string" ? raw.wsname : undefined,
     base: String(raw.base ?? ""),
     quote: String(raw.quote ?? ""),
@@ -84,8 +86,7 @@ function parsePairRow(alt: string, raw: Record<string, unknown>): KrakenPairMeta
 }
 
 async function fetchAssetPairs(): Promise<CacheShape> {
-  const pairList = KRAKEN_EUR_PAIRS.join(",");
-  const url = `${PUBLIC_BASE}/0/public/AssetPairs?pair=${encodeURIComponent(pairList)}`;
+  const url = `${PUBLIC_BASE}/0/public/AssetPairs`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Kraken AssetPairs HTTP ${res.status}`);
   const body = (await res.json()) as {
@@ -121,10 +122,14 @@ export async function ensureKrakenAssetPairs(): Promise<CacheShape> {
 }
 
 export async function getKrakenPairMeta(pairOrSymbol: string): Promise<KrakenPairMeta | null> {
-  const pair = normalizeKrakenPair(pairOrSymbol);
-  if (!pair) return null;
+  const key = pairOrSymbol.trim().toUpperCase().replace("/", "");
+  if (!key) return null;
   const cache = await ensureKrakenAssetPairs();
-  return cache.byAltname[pair] ?? cache.byAltname[pair.toUpperCase()] ?? null;
+  return (
+    cache.byAltname[key] ??
+    cache.byAltname[normalizeKrakenPair(key) ?? ""] ??
+    null
+  );
 }
 
 /** Round volume down to lot decimals; enforce ordermin. */

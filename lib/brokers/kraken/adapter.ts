@@ -38,7 +38,7 @@ export type KrakenAccount = {
 };
 
 export type KrakenPosition = {
-  symbol: KrakenEurPair;
+  symbol: string;
   base: string;
   qty: number;
   avgEntryPrice: number;
@@ -49,7 +49,7 @@ export type KrakenPosition = {
 };
 
 export type KrakenQuote = {
-  symbol: KrakenEurPair;
+  symbol: string;
   bid: number;
   ask: number;
   last: number;
@@ -204,7 +204,8 @@ export class KrakenAdapter {
   }
 
   async getQuote(symbol: string): Promise<KrakenQuote> {
-    const pair = normalizeKrakenPair(symbol);
+    const pair =
+      normalizeKrakenPair(symbol) ?? symbol.trim().toUpperCase().replace("/", "");
     if (!pair) throw new Error(`Par Kraken desconocido: ${symbol}`);
     const result = await publicGet<Record<string, Record<string, unknown>>>(
       "/0/public/Ticker",
@@ -229,8 +230,9 @@ export class KrakenAdapter {
   /**
    * OHLC bars — interval minutes (15 or 60).
    */
-  async getBars(symbol: string, intervalMin: 15 | 60, count = 96): Promise<KrakenBar[]> {
-    const pair = normalizeKrakenPair(symbol);
+  async getBars(symbol: string, intervalMin: 15 | 60 | 1 | 5, count = 96): Promise<KrakenBar[]> {
+    const pair =
+      normalizeKrakenPair(symbol) ?? symbol.trim().toUpperCase().replace("/", "");
     if (!pair) throw new Error(`Par Kraken desconocido: ${symbol}`);
     const result = await publicGet<{
       [k: string]: unknown;
@@ -285,8 +287,8 @@ export class KrakenAdapter {
     const out: KrakenPosition[] = [];
     for (const [base, qty] of Object.entries(account.balances)) {
       if (base === "EUR" || !(qty > 1e-8)) continue;
-      const pair = pairFromBase(base);
-      if (!pair || !KRAKEN_EUR_PAIRS.includes(pair)) continue;
+      const pair = pairFromBase(base) ?? (`${base}EUR` as string);
+      if (!pair.endsWith("EUR")) continue;
       let quote: KrakenQuote;
       try {
         quote = await this.getQuote(pair);
@@ -318,16 +320,20 @@ export class KrakenAdapter {
     price: number;
     /** Client order userref (optional int). */
     userref?: number;
+    /** Kraken oflags e.g. "post" for post-only maker. */
+    oflags?: string;
   }): Promise<KrakenOrderResult> {
-    const pair = normalizeKrakenPair(args.symbol);
-    if (!pair) throw new Error(`Par Kraken desconocido: ${args.symbol}`);
-    const meta = (await getKrakenPairMeta(pair)) as KrakenPairMeta;
-    if (!meta) throw new Error(`Sin meta AssetPairs para ${pair}`);
-    const volume = quantizeKrakenVolume(args.volume, meta);
-    const price = quantizeKrakenPrice(args.price, meta);
+    const pair =
+      normalizeKrakenPair(args.symbol) ??
+      args.symbol.trim().toUpperCase().replace("/", "");
+    const meta = await getKrakenPairMeta(pair);
+    const volume =
+      meta != null ? quantizeKrakenVolume(args.volume, meta) : Number(args.volume);
+    const price =
+      meta != null ? quantizeKrakenPrice(args.price, meta) : Number(args.price.toFixed(8));
     if (!(volume > 0)) {
       throw new Error(
-        `Volumen ${args.volume} bajo mínimo/precisión Kraken (${meta.orderMin} lot=${meta.lotDecimals})`,
+        `Volumen ${args.volume} bajo mínimo/precisión Kraken (${meta?.orderMin ?? "?"} lot=${meta?.lotDecimals ?? "?"})`,
       );
     }
     if (!(price > 0)) throw new Error(`Precio inválido para ${pair}`);
@@ -336,12 +342,13 @@ export class KrakenAdapter {
       descr?: { order?: string };
       txid?: string[];
     }>("/0/private/AddOrder", {
-      pair,
+      pair: meta?.altname || pair,
       type: args.side,
       ordertype: "limit",
       price,
       volume,
       ...(args.userref != null ? { userref: args.userref } : {}),
+      ...(args.oflags ? { oflags: args.oflags } : {}),
     });
 
     const txids = Array.isArray(result.txid) ? result.txid : [];
@@ -363,6 +370,53 @@ export class KrakenAdapter {
       txid: id,
     });
     return { count: Number(result.count ?? 0) };
+  }
+
+  /** Open orders keyed by txid. */
+  async getOpenOrders(): Promise<
+    Record<string, { pair: string; vol: number; volExec: number; status: string }>
+  > {
+    const result = await privatePost<{
+      open?: Record<
+        string,
+        { descr?: { pair?: string }; vol?: string; vol_exec?: string; status?: string }
+      >;
+    }>("/0/private/OpenOrders", {});
+    const out: Record<
+      string,
+      { pair: string; vol: number; volExec: number; status: string }
+    > = {};
+    for (const [txid, o] of Object.entries(result.open ?? {})) {
+      out[txid] = {
+        pair: String(o.descr?.pair ?? "").toUpperCase(),
+        vol: Number(o.vol ?? 0),
+        volExec: Number(o.vol_exec ?? 0),
+        status: String(o.status ?? ""),
+      };
+    }
+    return out;
+  }
+
+  /** Closed/open order status by txid. */
+  async getOrderStatus(
+    txid: string,
+  ): Promise<{ status: string; volExec: number; vol: number; fee: number } | null> {
+    const result = await privatePost<{
+      [k: string]: {
+        status?: string;
+        vol?: string;
+        vol_exec?: string;
+        fee?: string;
+      };
+    }>("/0/private/QueryOrders", { txid });
+    const row = result[txid];
+    if (!row) return null;
+    return {
+      status: String(row.status ?? ""),
+      volExec: Number(row.vol_exec ?? 0),
+      vol: Number(row.vol ?? 0),
+      fee: Number(row.fee ?? 0),
+    };
   }
 
   /** Aggressive limit sell of full position qty (price × (1 − discount)). */

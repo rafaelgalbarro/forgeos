@@ -27,3 +27,14 @@ export {
   quantizeKrakenPrice,
   type KrakenPairMeta,
 } from "./asset-pairs";
+export {
+  refreshKrakenUniverse,
+  getKrakenUniversePairs,
+  peekKrakenUniverse,
+  type KrakenUniversePair,
+} from "./universe";
+export {
+  startKrakenMarketData,
+  getKrakenWsStatus,
+  updateKrakenMarketSubscriptions,
+} from "./ws-client";

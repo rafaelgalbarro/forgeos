@@ -1,21 +1,27 @@
 /**
- * Crypto broker routing + live IBKR safety caps.
- * CRYPTO_BROKER=alpaca (default) | ibkr
+ * Crypto broker routing + live safety caps.
+ * CRYPTO_BROKER=alpaca (default) | kraken | ibkr
  */
 
 import "server-only";
 
-export type CryptoBrokerId = "alpaca" | "ibkr";
+export type CryptoBrokerId = "alpaca" | "kraken" | "ibkr";
 
 /** Default IBKR crypto account (PAXOS) until permissions are approved. */
 export const CRYPTO_IBKR_ACCOUNT_DEFAULT = "U24225949";
 
 export function getCryptoBroker(): CryptoBrokerId {
   const v = (process.env.CRYPTO_BROKER ?? "alpaca").trim().toLowerCase();
-  return v === "ibkr" ? "ibkr" : "alpaca";
+  if (v === "kraken") return "kraken";
+  if (v === "ibkr") return "ibkr";
+  return "alpaca";
 }
 
-/** True when crypto cycle must use IBKR CRYPTO/PAXOS (not Alpaca paper). */
+export function isKrakenCryptoBroker(): boolean {
+  return getCryptoBroker() === "kraken";
+}
+
+/** True when crypto cycle must use IBKR CRYPTO/PAXOS (not Alpaca/Kraken). */
 export function isIbkrCryptoBroker(): boolean {
   if (getCryptoBroker() === "ibkr") return true;
   const legacy = (process.env.IBKR_CRYPTO_ENABLED ?? "").trim().toLowerCase();
@@ -36,12 +42,18 @@ export function cryptoLiveMaxNotionalUsd(): number {
   return Number.isFinite(n) && n > 0 ? n : 25;
 }
 
+/** Max notional per new Kraken crypto BUY (EUR). Default €25. */
+export function cryptoLiveMaxNotionalEur(): number {
+  const n = Number(process.env.CRYPTO_LIVE_MAX_NOTIONAL_EUR ?? 25);
+  return Number.isFinite(n) && n > 0 ? n : 25;
+}
+
 /**
  * Max open crypto positions.
- * IBKR live default 3; Alpaca paper keeps 5.
+ * Kraken/IBKR live default 3; Alpaca paper keeps 5.
  */
 export function cryptoLiveMaxPositions(): number {
-  if (isIbkrCryptoBroker()) {
+  if (isKrakenCryptoBroker() || isIbkrCryptoBroker()) {
     const n = Number(process.env.CRYPTO_LIVE_MAX_POSITIONS ?? 3);
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
   }
@@ -49,7 +61,7 @@ export function cryptoLiveMaxPositions(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 5;
 }
 
-/** Aggressive IBKR crypto sell limit = mid × (1 − pct). Default 0.5%. */
+/** Aggressive crypto sell limit = mid × (1 − pct). Default 0.5%. */
 export function cryptoSellAggressiveDiscountPct(): number {
   const n = Number(process.env.CRYPTO_SELL_AGGRESSIVE_DISCOUNT_PCT ?? 0.005);
   return Number.isFinite(n) && n > 0 && n < 0.05 ? n : 0.005;

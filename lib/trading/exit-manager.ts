@@ -13,6 +13,11 @@ import {
 } from "@/lib/brokers/alpaca-client";
 import { isAlpacaCryptoTicker, normalizeAlpacaTicker } from "@/lib/brokers/alpaca-pairs";
 import {
+  getKrakenAdapter,
+  isKrakenConfigured,
+  type KrakenPosition,
+} from "@/lib/brokers/kraken";
+import {
   fetchCachedIbkrPositions,
   type IbkrPositionRow,
 } from "@/lib/trading/ibkr-data";
@@ -29,14 +34,23 @@ import {
   recordFullClose,
   upsertTrailingState,
 } from "@/lib/trading/trailing-registry";
-import { filterForgeOsManagedSymbols, isLegacyOrphanTicker } from "@/lib/trading/forgeos-owned";
-import { appendJournalTrade } from "@/lib/trading/journal/trades";
+import {
+  filterForgeOsManagedSymbols,
+  filterJournalOpenCryptoSymbols,
+  isLegacyOrphanTicker,
+} from "@/lib/trading/forgeos-owned";
+import { appendJournalTrade, readJournalTrades } from "@/lib/trading/journal/trades";
+import {
+  CRYPTO_MAX_HOLD_MS,
+} from "@/lib/trading/crypto/intraday-strategies";
 import {
   cryptoIbkrAccountId,
   cryptoSellAggressiveDiscountPct,
   isIbkrCryptoBroker,
+  isKrakenCryptoBroker,
 } from "@/lib/trading/crypto/config";
 import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
+import { loadTradingState } from "@/src/core/trading/trading-state-store";
 
 export const DEFAULT_EXIT_STOP_LOSS_PCT = EXIT_STOP_LOSS_PCT;
 export const DEFAULT_EXIT_TAKE_PROFIT_PCT = EXIT_TRAIL_ACTIVATE_PCT;
@@ -51,6 +65,8 @@ export type OpenPositionRow = {
   currentPrice: number;
   unrealizedPlpc?: number;
   account?: string;
+  /** ISO open time — crypto force-close at 24h. */
+  openedAt?: string;
 };
 
 export type ExitAction = {
@@ -152,6 +168,23 @@ function decideExit(pos: OpenPositionRow): ExitAction | null {
       : (price - entry) / entry;
   const pnlUSD = (price - entry) * qty;
 
+  // Crypto: force close after 24h
+  if (pos.openedAt) {
+    const openedMs = Date.parse(pos.openedAt);
+    if (Number.isFinite(openedMs) && Date.now() - openedMs >= CRYPTO_MAX_HOLD_MS) {
+      return {
+        symbol: pos.symbol,
+        side: "SELL",
+        qty,
+        price,
+        entry,
+        pnlPct,
+        pnlUSD,
+        reason: "MAX_HOLD",
+      };
+    }
+  }
+
   // Hard stop −3%
   if (pnlPct <= -EXIT_STOP_LOSS_PCT) {
     return {
@@ -250,6 +283,34 @@ function ibkrCryptoPositions(rows: IbkrPositionRow[]): OpenPositionRow[] {
 }
 
 async function executeCryptoSell(action: ExitAction): Promise<ExitAction> {
+  if (isKrakenCryptoBroker()) {
+    if (!isKrakenConfigured()) {
+      console.log(
+        `[Exit/crypto] KRAKEN not configured — skip SELL ${action.symbol}`,
+      );
+      return { ...action, executed: false };
+    }
+    const qty = action.qty;
+    if (!(qty > 0)) throw new Error(`crypto sell qty inválida: ${qty}`);
+    const discount = cryptoSellAggressiveDiscountPct();
+    const adapter = getKrakenAdapter();
+    const quote = await adapter.getQuote(action.symbol);
+    const limitPrice = Number((quote.mid * (1 - discount)).toFixed(8));
+    const res = await adapter.placeOrder({
+      symbol: action.symbol,
+      side: "sell",
+      volume: qty,
+      price: limitPrice,
+    });
+    return {
+      ...action,
+      qty: res.volume,
+      price: res.price,
+      orderId: res.orderId,
+      executed: true,
+    };
+  }
+
   if (isIbkrCryptoBroker()) {
     const flags = getInvestmentRuntimeFlags();
     if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
@@ -308,17 +369,28 @@ async function executeStockSell(action: ExitAction, account?: string): Promise<E
 
 function telegramLine(channel: ExitChannel, action: ExitAction): string {
   const isSl = action.reason === "STOP_LOSS";
-  const emoji = isSl ? "🔴" : "🟢";
-  const title = isSl ? "STOP LOSS" : "TAKE PROFIT";
-  const asset = channel === "crypto" ? "₿" : "🇺🇸";
+  const isMax = action.reason === "MAX_HOLD";
+  const emoji = isSl ? "🔴" : isMax ? "⏰" : "🟢";
+  const title = isSl
+    ? "STOP LOSS"
+    : isMax
+      ? "MAX HOLD 24h"
+      : action.reason === "TRAILING_STOP"
+        ? "TRAILING STOP"
+        : action.reason === "PARTIAL_TP"
+          ? "PARTIAL TP"
+          : "TAKE PROFIT";
+  const kraken = channel === "crypto" && isKrakenCryptoBroker();
+  const asset = channel === "crypto" ? (kraken ? "₿ KRAKEN" : "₿") : "🇺🇸";
+  const ccy = kraken ? "€" : "$";
   const pnlSign = action.pnlUSD >= 0 ? "+" : "";
   const pct = `${pnlSign}${(action.pnlPct * 100).toFixed(1)}%`;
-  const usd = `${pnlSign}$${Math.abs(action.pnlUSD).toFixed(2)}`;
+  const usd = `${pnlSign}${ccy}${Math.abs(action.pnlUSD).toFixed(2)}`;
   let line =
     `${emoji} ${title} ${asset} SELL ${action.symbol} ${fmtQty(action.qty)} ` +
-    `@ $${fmtPrice(action.price)} | ${pct} (${usd})`;
+    `@ ${ccy}${fmtPrice(action.price)} | ${pct} (${usd})`;
   if (action.reason === "TRAILING_STOP" && action.peak && action.peak > 0) {
-    line += ` | trailing desde máx $${fmtPrice(action.peak)}`;
+    line += ` | trailing desde máx ${ccy}${fmtPrice(action.peak)}`;
   } else if (action.reason === "PARTIAL_TP") {
     line += ` | parcial 50% (≥+25%)`;
   }
@@ -458,6 +530,60 @@ export class ExitManager {
   }
 
   private async loadCrypto(): Promise<OpenPositionRow[]> {
+    const monitored = loadTradingState().monitoredPositions;
+    const journalBuys = readJournalTrades(8000).filter(
+      (t) => t.market === "crypto" && t.side === "BUY" && !t.shadow,
+    );
+    const openedAtOf = (symbol: string): string | undefined => {
+      const sym = symbol.toUpperCase().replace("/", "");
+      const hit = monitored.find(
+        (p) =>
+          p.ticker.toUpperCase().replace("/", "") === sym ||
+          p.ticker.toUpperCase().replace(/EUR$/, "") ===
+            sym.replace(/EUR$/, "").replace(/^XBT$/, "BTC"),
+      );
+      if (hit?.openedAt) return hit.openedAt;
+      // Latest matching journal BUY
+      for (let i = journalBuys.length - 1; i >= 0; i -= 1) {
+        const t = journalBuys[i]!;
+        const jt = t.ticker.toUpperCase().replace("/", "");
+        if (jt === sym || jt.replace(/EUR$/, "") === sym.replace(/EUR$/, "")) {
+          return t.at;
+        }
+      }
+      return undefined;
+    };
+
+    if (isKrakenCryptoBroker()) {
+      if (!isKrakenConfigured()) {
+        console.warn("[Exit/crypto] Kraken not configured — skip");
+        return [];
+      }
+      const rows = await getKrakenAdapter()
+        .getPositions()
+        .catch((err) => {
+          console.warn(
+            "[Exit/crypto] Kraken positions failed:",
+            err instanceof Error ? err.message : err,
+          );
+          return [] as KrakenPosition[];
+        });
+      const mapped: OpenPositionRow[] = rows.map((p) => ({
+        symbol: p.symbol,
+        qty: p.qty,
+        avgCost: p.avgEntryPrice,
+        currentPrice: p.currentPrice,
+        unrealizedPlpc: p.unrealizedPlpc,
+        openedAt: openedAtOf(p.symbol),
+      }));
+      // Only ForgeOS journal opens — never other Kraken balances
+      const managed = filterJournalOpenCryptoSymbols(mapped);
+      console.log(
+        `[Exit/crypto] Kraken positions=${mapped.length} forgeos=${managed.length}`,
+      );
+      return managed;
+    }
+
     if (isIbkrCryptoBroker()) {
       const rows = await fetchCachedIbkrPositions().catch((err) => {
         console.warn(
@@ -466,7 +592,9 @@ export class ExitManager {
         );
         return [] as IbkrPositionRow[];
       });
-      const all = ibkrCryptoPositions(rows).filter((p) => !isLegacyOrphanTicker(p.symbol));
+      const all = ibkrCryptoPositions(rows)
+        .filter((p) => !isLegacyOrphanTicker(p.symbol))
+        .map((p) => ({ ...p, openedAt: openedAtOf(p.symbol) }));
       console.log(`[Exit/crypto] IBKR/PAXOS positions=${all.length}`);
       return all;
     }
@@ -482,7 +610,9 @@ export class ExitManager {
       return [] as AlpacaPosition[];
     });
     // Alpaca paper crypto account is ForgeOS-owned — exclude only legacy orphan symbols.
-    return cryptoPositions(rows).filter((p) => !isLegacyOrphanTicker(p.symbol));
+    return cryptoPositions(rows)
+      .filter((p) => !isLegacyOrphanTicker(p.symbol))
+      .map((p) => ({ ...p, openedAt: openedAtOf(p.symbol) }));
   }
 
   private async loadStocks(): Promise<OpenPositionRow[]> {

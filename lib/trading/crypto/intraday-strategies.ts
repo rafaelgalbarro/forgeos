@@ -9,8 +9,10 @@ import type { OhlcvBar } from "@/lib/market-data/types";
 export {
   getCryptoBroker,
   isIbkrCryptoBroker,
+  isKrakenCryptoBroker,
   cryptoIbkrAccountId,
   cryptoLiveMaxNotionalUsd,
+  cryptoLiveMaxNotionalEur,
   cryptoLiveMaxPositions,
   cryptoSellAggressiveDiscountPct,
 } from "@/lib/trading/crypto/config";

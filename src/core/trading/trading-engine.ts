@@ -126,9 +126,21 @@ import {
 } from '@/lib/trading/trailing-registry'
 import {
   cryptoIbkrAccountId,
+  cryptoLiveMaxNotionalEur,
   cryptoLiveMaxNotionalUsd,
   cryptoLiveMaxPositions,
+  getCryptoBroker,
+  isKrakenCryptoBroker,
 } from '@/lib/trading/crypto/config'
+import {
+  getKrakenAdapter,
+  isKrakenConfigured,
+  isKrakenEurPair,
+  normalizeKrakenPair,
+  quantizeKrakenVolume,
+  getKrakenPairMeta,
+} from '@/lib/brokers/kraken'
+import { evaluateCryptoIntradayStrategies } from '@/lib/trading/crypto/intraday-strategies'
 
 /** Max tickers per automatic background cycle. */
 /** Analyze up to 50 tickers per automatic / typed cycle; explicit cycles are uncapped. */
@@ -479,7 +491,9 @@ export class TradingEngine {
           ? isIbkrCryptoEnabled()
             ? "IBKR (stocks/crypto)"
             : "IBKR (stocks)"
-          : "Alpaca (crypto)"
+          : args.broker === "kraken"
+            ? "Kraken (crypto EUR)"
+            : "Alpaca (crypto)"
       const text = [
         `🛑 RISK STOP ${label}`,
         `Drawdown día: ${args.dailyPnlPct.toFixed(1)}% (> 5%)`,
@@ -669,9 +683,15 @@ export class TradingEngine {
       throw err
     }
 
-    // 2. Per-broker halt — IBKR STOP must not block Alpaca crypto; Alpaca STOP must not block stocks
+    // 2. Per-broker halt — IBKR STOP must not block Alpaca/Kraken crypto; Alpaca STOP must not block stocks
     if (kind === "crypto") {
-      const cryptoBroker: BrokerId = isIbkrCryptoEnabled() ? "ibkr" : "alpaca"
+      const broker = getCryptoBroker()
+      const cryptoBroker: BrokerId =
+        broker === "kraken"
+          ? "kraken"
+          : broker === "ibkr" || isIbkrCryptoEnabled()
+            ? "ibkr"
+            : "alpaca"
       if (isBrokerDayStopped(cryptoBroker)) {
         return {
           cycleId, startedAt, completedAt: new Date().toISOString(),
@@ -779,8 +799,19 @@ export class TradingEngine {
     const worker = async (): Promise<void> => {
       while (cursor < cycleTickers.length) {
         if (kind === "crypto") {
-          if (isBrokerDayStopped("alpaca")) return
-          if (this.risk.isHalted() && !isIbkrDrawdownHaltReason(this.risk.getHaltReason())) return
+          const cryptoBroker: BrokerId = isKrakenCryptoBroker()
+            ? "kraken"
+            : isIbkrCryptoEnabled()
+              ? "ibkr"
+              : "alpaca"
+          if (isBrokerDayStopped(cryptoBroker)) return
+          if (
+            cryptoBroker === "alpaca" &&
+            this.risk.isHalted() &&
+            !isIbkrDrawdownHaltReason(this.risk.getHaltReason())
+          ) {
+            return
+          }
         } else if (kind !== "forex") {
           if (isBrokerDayStopped("ibkr") || this.risk.isHalted()) return
         }
@@ -1116,6 +1147,266 @@ export class TradingEngine {
     }
   }
 
+  private async processKrakenTicker(
+    ticker: string,
+    account: {
+      navUSD: number
+      cashUSD: number
+      dailyPnlUSD: number
+      openPositionsCount: number
+      primaryAccountId?: string | null
+    },
+    execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
+    cycleOpts?: RunCycleOptions,
+  ): Promise<OrderResult> {
+    const pair = normalizeKrakenPair(ticker)
+    if (!pair) {
+      return {
+        status: 'HOLD',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: no es par Kraken EUR`,
+        signal: { confidence: 0, reasoning: 'Unknown Kraken pair', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    if (!isKrakenConfigured()) {
+      return {
+        status: 'HOLD',
+        ticker: pair,
+        direction: 'HOLD',
+        reason: 'Kraken no configurado (KRAKEN_API_KEY / KRAKEN_API_SECRET)',
+        signal: { confidence: 0, reasoning: 'Kraken keys missing', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const adapter = getKrakenAdapter()
+    await adapter.warmPairMeta().catch(() => undefined)
+
+    console.log(`[AutoExecute] ${pair} → precio Kraken…`)
+    let quote: { mid: number; bid: number; ask: number }
+    try {
+      const q = await adapter.getQuote(pair)
+      quote = { mid: q.mid, bid: q.bid, ask: q.ask }
+      console.log(`[AutoExecute] ${pair} → Kraken €${quote.mid.toFixed(4)}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'precio no disponible'
+      return {
+        status: 'SKIPPED',
+        ticker: pair,
+        direction: 'HOLD',
+        reason: msg,
+        signal: { confidence: 0, reasoning: 'Sin precio Kraken', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const positions = await adapter.getPositions().catch(() => [])
+    if (positions.some((p) => p.symbol === pair && p.qty > 0)) {
+      return {
+        status: 'HOLD',
+        ticker: pair,
+        direction: 'HOLD',
+        reason: `${pair}: posición Kraken ya abierta`,
+        signal: { confidence: 0, reasoning: 'Kraken position exists', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const maxPos = cryptoLiveMaxPositions()
+    if (Math.max(positions.length, account.openPositionsCount) >= maxPos) {
+      return {
+        status: 'HOLD',
+        ticker: pair,
+        direction: 'HOLD',
+        reason: `límite ${maxPos} posiciones`,
+        signal: { confidence: 0, reasoning: `Max ${maxPos} crypto positions`, urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    if (isRebuyCooldownActive(pair)) {
+      return {
+        status: 'HOLD',
+        ticker: pair,
+        direction: 'HOLD',
+        reason: `${pair}: cooldown 6h post-venta`,
+        signal: { confidence: 0, reasoning: 'Rebuy cooldown 6h', urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const bars15 = await adapter.getBars(pair, 15, 96).catch(() => [])
+    const bars1h = await adapter.getBars(pair, 60, 80).catch(() => [])
+    const ohlcv15 = bars15.map((b) => ({
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+      date: b.time,
+    }))
+    const ohlcv1h = bars1h.map((b) => ({
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+      date: b.time,
+    }))
+    const intra = evaluateCryptoIntradayStrategies(pair, ohlcv15, ohlcv1h)
+
+    if (intra.direction === 'HOLD' || !intra.strategyId) {
+      return {
+        status: 'HOLD',
+        ticker: pair,
+        direction: 'HOLD',
+        reason: intra.reasoning,
+        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+        stopLoss: intra.stopLoss,
+        takeProfit: intra.takeProfit,
+      }
+    }
+
+    const minConf = cycleOpts?.minBuyConfidence ?? 0.5
+    if (intra.confidence < minConf) {
+      return {
+        status: 'REJECTED_CONFIDENCE',
+        ticker: pair,
+        direction: 'BUY',
+        reason: `Confianza ${(intra.confidence * 100).toFixed(0)}% < mínimo ${(minConf * 100).toFixed(0)}%`,
+        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'MEDIUM' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    if (execGate) execGate.buySignal = true
+    recordSignalForTelegram({
+      ticker: pair,
+      direction: 'BUY',
+      confidence: intra.confidence,
+      at: new Date().toISOString(),
+    })
+    if (execGate) execGate.enteredAutoExecute = true
+
+    const maxNotional = cryptoLiveMaxNotionalEur()
+    const cashEur = Math.max(0, account.cashUSD) // account.cashUSD holds EUR cash when Kraken
+    const notional = Math.min(maxNotional, cashEur > 0 ? cashEur : maxNotional)
+    if (!(notional > 0) || !(quote.mid > 0)) {
+      return {
+        status: 'HOLD',
+        ticker: pair,
+        direction: 'HOLD',
+        reason: `capital insuficiente (EUR €${cashEur.toFixed(2)})`,
+        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    let rawQty = notional / quote.mid
+    const meta = await getKrakenPairMeta(pair)
+    if (meta) {
+      rawQty = quantizeKrakenVolume(rawQty, meta)
+      if (!(rawQty > 0)) {
+        return {
+          status: 'HOLD',
+          ticker: pair,
+          direction: 'HOLD',
+          reason: `qty bajo mínimo Kraken (ordermin=${meta.orderMin})`,
+          signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        }
+      }
+    }
+
+    // Aggressive buy: ask or mid + 0.1% to fill
+    const limitPrice = quote.ask > 0 ? quote.ask : quote.mid * 1.001
+
+    try {
+      const submitted = await adapter.placeOrder({
+        symbol: pair,
+        side: 'buy',
+        volume: rawQty,
+        price: limitPrice,
+      })
+
+      console.log(
+        `[AutoExecute] ${pair} → ₿ KRAKEN BUY qty=${submitted.volume} @€${submitted.price} id=${submitted.orderId}`,
+      )
+
+      const { appendJournalTrade } = await import('@/lib/trading/journal/trades')
+      appendJournalTrade({
+        at: new Date().toISOString(),
+        market: 'crypto',
+        strategy: intra.strategyId,
+        ticker: pair,
+        side: 'BUY',
+        entry: submitted.price,
+        exit: null,
+        exitReason: null,
+        grossPnlUsd: null,
+        costsUsd: 0,
+        netPnlUsd: null,
+        rMultiple: null,
+        durationMs: null,
+        shadow: false,
+        open: true,
+      })
+
+      await registerExecutedPosition({
+        ticker: pair,
+        shares: submitted.volume,
+        entryPrice: submitted.price,
+        stopLoss: intra.stopLoss,
+        takeProfit: intra.takeProfit,
+        orderId: submitted.orderId,
+      }).catch((err) =>
+        console.warn(
+          `[PositionMonitor] register Kraken ${pair}:`,
+          err instanceof Error ? err.message : err,
+        ),
+      )
+
+      const buyLine =
+        `🟢 BUY ₿ KRAKEN ${pair} ${submitted.volume} @ €${submitted.price.toFixed(4)} | ` +
+        `${intra.strategyId} conf=${(intra.confidence * 100).toFixed(0)}%`
+      void sendTelegramMessage(buyLine).catch(() => undefined)
+
+      return {
+        status: 'EXECUTED',
+        orderId: submitted.orderId,
+        ticker: pair,
+        direction: 'BUY',
+        sharesOrValue: submitted.volume,
+        price: submitted.price,
+        agents: intra.strategyId,
+        reason: `₿ KRAKEN ${intra.strategyId}: ${intra.reasoning}`,
+        signal: {
+          confidence: intra.confidence,
+          reasoning: intra.reasoning,
+          urgency: 'HIGH',
+        },
+        timestamp: new Date().toISOString(),
+        stopLoss: intra.stopLoss,
+        takeProfit: intra.takeProfit,
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Kraken order failed'
+      console.error(`[AutoExecute] ${pair} → ERROR Kraken: ${msg}`)
+      return {
+        status: 'ERROR',
+        ticker: pair,
+        direction: 'BUY',
+        reason: msg,
+        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'HIGH' },
+        timestamp: new Date().toISOString(),
+      }
+    }
+  }
+
   private async processAlpacaTicker(
     ticker: string,
     account: {
@@ -1419,8 +1710,15 @@ export class TradingEngine {
         ? (account.dailyPnlUSD / account.navUSD) * 100
         : 0
     if (dailyPnlPct <= -5 && kind !== "forex") {
+      const brokerEnv = getCryptoBroker()
       const broker: BrokerId =
-        kind === "crypto" && !isIbkrCryptoEnabled() ? "alpaca" : "ibkr"
+        kind === "crypto"
+          ? brokerEnv === "kraken"
+            ? "kraken"
+            : brokerEnv === "ibkr" || isIbkrCryptoEnabled()
+              ? "ibkr"
+              : "alpaca"
+          : "ibkr"
       const openingNav =
         getDayOpeningNav(broker) ??
         (account.navUSD - (Number.isFinite(account.dailyPnlUSD) ? account.dailyPnlUSD : 0))
@@ -1489,6 +1787,19 @@ export class TradingEngine {
     }
 
     if (kind === "crypto") {
+      if (isKrakenCryptoBroker()) {
+        if (!isKrakenEurPair(ticker)) {
+          return {
+            status: "SKIPPED",
+            ticker,
+            direction: "HOLD",
+            reason: `${ticker}: fuera de ciclo crypto Kraken EUR`,
+            signal: { confidence: 0, reasoning: "Non-Kraken-EUR ticker", urgency: "LOW" },
+            timestamp: new Date().toISOString(),
+          };
+        }
+        return this.processKrakenTicker(ticker, account, execGate, cycleOpts)
+      }
       if (isIbkrCryptoEnabled()) {
         if (!isIbkrCryptoTicker(ticker)) {
           return {
@@ -1534,8 +1845,8 @@ export class TradingEngine {
       };
     }
 
-    // Alpaca paper path — skipped when crypto uses IBKR PAXOS
-    if (!(kind === "crypto" && isIbkrCryptoEnabled())) {
+    // Alpaca paper path — skipped when crypto uses IBKR PAXOS or Kraken
+    if (!(kind === "crypto" && (isIbkrCryptoEnabled() || isKrakenCryptoBroker()))) {
       const alpacaCryptoId = toAlpacaCryptoPairId(ticker)
       if (alpacaCryptoId) {
         return this.processAlpacaTicker(alpacaCryptoId, account, execGate, cycleOpts)
@@ -2353,6 +2664,32 @@ export class TradingEngine {
     primaryAccountId?: string | null
   }> {
     if (kind === "crypto") {
+      if (isKrakenCryptoBroker()) {
+        if (!isKrakenConfigured()) {
+          throw new Error("Kraken no configurado (KRAKEN_API_KEY / KRAKEN_API_SECRET)")
+        }
+        const adapter = getKrakenAdapter()
+        await adapter.warmPairMeta().catch(() => undefined)
+        const [acct, positions] = await Promise.all([
+          adapter.getAccount(),
+          adapter.getPositions().catch(() => []),
+        ])
+        const cash = acct.cashEur
+        const equity =
+          cash +
+          positions.reduce((s, p) => s + (Number.isFinite(p.marketValueEur) ? p.marketValueEur : 0), 0)
+        console.log(
+          `[Cycle/crypto] account source=KRAKEN cash=€${cash.toFixed(2)} equity≈€${equity.toFixed(2)} ` +
+            `positions=${positions.length}`,
+        )
+        return {
+          navUSD: equity,
+          cashUSD: cash, // EUR cash stored in cashUSD field for sizing
+          dailyPnlUSD: 0,
+          openPositionsCount: positions.length,
+          primaryAccountId: "KRAKEN",
+        }
+      }
       if (isIbkrCryptoEnabled()) {
         const [snap, richest] = await Promise.all([
           fetchTradingAccountSnapshot(),

@@ -34,6 +34,7 @@ export function getInvestmentRuntimeFlags(): InvestmentRuntimeFlags {
   const ibkrCryptoEnabled =
     parseBool(process.env.IBKR_CRYPTO_ENABLED, false) ||
     (process.env.CRYPTO_BROKER ?? "").trim().toLowerCase() === "ibkr";
+  // CRYPTO_BROKER=kraken is independent (EUR spot); does not flip ibkrCryptoEnabled.
   const tradingMode = (
     process.env.TRADING_MODE?.trim() ||
     (liveTradingEnabled ? "live" : "ANALYSIS_ONLY")

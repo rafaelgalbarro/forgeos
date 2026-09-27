@@ -18,7 +18,7 @@ const NAV_DAY_OPEN_FILE = path.resolve(
   "nav-day-open.json",
 );
 
-export type BrokerId = "ibkr" | "alpaca";
+export type BrokerId = "ibkr" | "alpaca" | "kraken";
 
 type DayOpenEntry = {
   dateKey: string;

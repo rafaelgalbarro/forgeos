@@ -817,14 +817,37 @@ export async function evaluateProStrategies(
     return hold("Blacklist: 3 pérdidas consecutivas");
   }
 
-  // --- CRYPTO INTRADÍA (Alpaca default / IBKR PAXOS) ---
+  // --- CRYPTO INTRADÍA (Alpaca default / Kraken EUR / IBKR PAXOS) ---
   const alpacaCrypto = isAlpacaCryptoTicker(symbol);
   if (crypto || alpacaCrypto) {
     try {
       const broker = getCryptoBroker();
       let bars15: OhlcvBar[] = [];
       let bars1h: OhlcvBar[] = [];
-      if (broker === "alpaca" || alpacaCrypto) {
+      if (broker === "kraken") {
+        const { getKrakenAdapter } = await import("@/lib/brokers/kraken");
+        const adapter = getKrakenAdapter();
+        const [b15, b1h] = await Promise.all([
+          adapter.getBars(symbol, 15, 96).catch(() => []),
+          adapter.getBars(symbol, 60, 80).catch(() => []),
+        ]);
+        bars15 = b15.map((b) => ({
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+          date: b.time,
+        }));
+        bars1h = b1h.map((b) => ({
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+          date: b.time,
+        }));
+      } else if (broker === "alpaca" || alpacaCrypto) {
         const raw = await getRecentBars(symbol, 96).catch(() => []);
         bars15 = raw.map((b) => ({
           open: b.open,

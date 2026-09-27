@@ -411,7 +411,7 @@ async function fetchIbkrLiveLimitQuote(ticker: string): Promise<LiveLimitQuote |
 export async function fetchLiveLimitPrice(args: {
   readonly symbol: string;
   readonly side: "BUY" | "SELL";
-  readonly asset: "STK" | "FOREX";
+  readonly asset: "STK" | "FOREX" | "CRYPTO";
   readonly suggested?: number | null;
 }): Promise<number> {
   const quote = await fetchIbkrLiveLimitQuote(args.symbol);

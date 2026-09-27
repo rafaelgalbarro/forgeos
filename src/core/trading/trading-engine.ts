@@ -124,6 +124,11 @@ import {
   isRebuyCooldownActive,
   MAX_CRYPTO_OPEN_POSITIONS,
 } from '@/lib/trading/trailing-registry'
+import {
+  cryptoIbkrAccountId,
+  cryptoLiveMaxNotionalUsd,
+  cryptoLiveMaxPositions,
+} from '@/lib/trading/crypto/config'
 
 /** Max tickers per automatic background cycle. */
 /** Analyze up to 50 tickers per automatic / typed cycle; explicit cycles are uncapped. */
@@ -1190,20 +1195,21 @@ export class TradingEngine {
       }
     }
 
-    // Crypto: max 5 open positions — HOLD only, never force-close for the limit
+    // Crypto: max open positions — HOLD only, never force-close for the limit
     if (asset === 'crypto') {
+      const maxPos = cryptoLiveMaxPositions()
       const cryptoOpen = positions.filter((p) => {
         const sym = String(p.symbol ?? "").replace("/", "").toUpperCase()
         return isAlpacaCryptoTicker(sym) && Math.abs(Number(p.qty ?? 0)) > 0
       }).length
       const openCount = Math.max(cryptoOpen, account.openPositionsCount)
-      if (openCount >= MAX_CRYPTO_OPEN_POSITIONS) {
+      if (openCount >= maxPos) {
         return {
           status: 'HOLD',
           ticker,
           direction: 'HOLD',
-          reason: 'límite 5 posiciones',
-          signal: { confidence: 0, reasoning: 'Max 5 crypto positions', urgency: 'LOW' },
+          reason: `límite ${maxPos} posiciones`,
+          signal: { confidence: 0, reasoning: `Max ${maxPos} crypto positions`, urgency: 'LOW' },
           timestamp: new Date().toISOString(),
         }
       }
@@ -1697,19 +1703,32 @@ export class TradingEngine {
 
     // Account-aware PRE_ORDER_RISK_CHECK + dynamic sizing (USD cash only).
     // Capital never filters the universe — unaffordable BUY → SIGNAL_NO_CAPITAL.
-    const richest = await pickIbkrAccountWithMostUsd().catch(() => ({
-      accountId: null as string | null,
-      cashUSD: 0,
-    }))
+    // Crypto IBKR always sizes against dedicated PAXOS account (default U24225949).
+    const cryptoIbkr = kind === 'crypto' && isIbkrCryptoEnabled()
+    const richest = cryptoIbkr
+      ? {
+          accountId: cryptoIbkrAccountId(),
+          cashUSD: 0,
+        }
+      : await pickIbkrAccountWithMostUsd().catch(() => ({
+          accountId: null as string | null,
+          cashUSD: 0,
+        }))
     const capitalSnap = await fetchCapitalSnapshot().catch(() => null)
-    const cashForSizing =
+    let cashForSizing =
       richest.cashUSD > 0
         ? richest.cashUSD
         : Math.max(0, capitalSnap?.cashUSD ?? account.cashUSD)
+    if (cryptoIbkr) {
+      // Prefer snapshot cash; hard notional cap applied later ($25 default)
+      cashForSizing = Math.max(cashForSizing, cryptoLiveMaxNotionalUsd())
+      account.primaryAccountId = cryptoIbkrAccountId()
+    }
 
     const agentsLabel = signal.primaryStrategy || 'PRO'
 
-    if (!(cashForSizing > 0) || priceData.currentPrice > cashForSizing) {
+    // Stocks: need cash ≥ 1 share. Crypto IBKR: fractional qty + CRYPTO_LIVE_MAX_NOTIONAL_USD.
+    if (!(cashForSizing > 0) || (!cryptoIbkr && priceData.currentPrice > cashForSizing)) {
       return emitSignalNoCapital({
         ticker,
         confidence: signal.confidence,
@@ -1724,7 +1743,7 @@ export class TradingEngine {
     // Prefer destination account with positive USD for all subsequent sizing / submit
     if (richest.accountId) {
       account.primaryAccountId = richest.accountId
-      account.cashUSD = richest.cashUSD
+      if (richest.cashUSD > 0) account.cashUSD = richest.cashUSD
     }
 
     const capital = resolveAccountCapitalPolicy(
@@ -1793,18 +1812,24 @@ export class TradingEngine {
       }
     }
 
-    // Hard cap: máx 5 posiciones abiertas
-    if (
-      signal.direction === 'BUY' &&
-      account.openPositionsCount >= TRADING_CONFIG.risk.maxOpenPositions
-    ) {
-      return {
-        status: 'REJECTED_RISK',
-        ticker,
-        direction: signal.direction,
-        reason: `Máximo ${TRADING_CONFIG.risk.maxOpenPositions} posiciones abiertas (${account.openPositionsCount})`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
-        timestamp: new Date().toISOString(),
+    // Hard cap: máx posiciones abiertas (crypto IBKR usa CRYPTO_LIVE_MAX_POSITIONS)
+    if (signal.direction === 'BUY') {
+      const maxPos =
+        kind === 'crypto' && isIbkrCryptoEnabled()
+          ? cryptoLiveMaxPositions()
+          : TRADING_CONFIG.risk.maxOpenPositions
+      if (account.openPositionsCount >= maxPos) {
+        return {
+          status: kind === 'crypto' ? 'HOLD' : 'REJECTED_RISK',
+          ticker,
+          direction: kind === 'crypto' ? 'HOLD' : signal.direction,
+          reason:
+            kind === 'crypto'
+              ? `límite ${maxPos} posiciones`
+              : `Máximo ${maxPos} posiciones abiertas (${account.openPositionsCount})`,
+          signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+          timestamp: new Date().toISOString(),
+        }
       }
     }
 
@@ -1956,7 +1981,18 @@ export class TradingEngine {
     while (resolvedShares > 1 && resolvedShares * priceData.currentPrice > cashForSizing) {
       resolvedShares -= 1
     }
-    if (resolvedShares <= 0 || priceData.currentPrice > cashForSizing) {
+    // IBKR crypto live: hard notional cap (CRYPTO_LIVE_MAX_NOTIONAL_USD, default $25)
+    if (kind === 'crypto' && isIbkrCryptoEnabled() && priceData.currentPrice > 0) {
+      const maxNotional = Math.min(cryptoLiveMaxNotionalUsd(), cashForSizing > 0 ? cashForSizing : cryptoLiveMaxNotionalUsd())
+      resolvedShares = maxNotional / priceData.currentPrice
+      console.log(
+        `[AutoExecute] ${ticker} crypto IBKR sizing notional≤$${maxNotional.toFixed(2)} qty=${resolvedShares}`,
+      )
+    }
+    if (
+      resolvedShares <= 0 ||
+      (!(kind === 'crypto' && isIbkrCryptoEnabled()) && priceData.currentPrice > cashForSizing)
+    ) {
       return emitSignalNoCapital({
         ticker,
         confidence: signal.confidence,
@@ -1972,7 +2008,10 @@ export class TradingEngine {
       `[AutoExecute] ${ticker} → account=${richest.accountId ?? 'default'} cashUSD $${cashForSizing.toFixed(2)} | ` +
         `deployable $${sized.deployable.toFixed(2)} | precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}`,
     )
-    resolvedShares = Math.max(1, resolvedShares)
+    // Stocks need integer shares; IBKR crypto allows fractional qty
+    if (!(kind === 'crypto' && isIbkrCryptoEnabled())) {
+      resolvedShares = Math.max(1, Math.floor(resolvedShares))
+    }
     console.log(
       `[AutoExecute] ${ticker} BUY qty=${resolvedShares} precio=$${priceData.currentPrice.toFixed(2)} ` +
         `SL=$${riskOk.stopLossPrice.toFixed(2)} TP=$${riskOk.takeProfitPrice.toFixed(2)}`,
@@ -2459,19 +2498,21 @@ export class TradingEngine {
 
     const side = params.direction === 'SELL' ? 'SELL' : 'BUY'
     let account = process.env.IBKR_ACCOUNT_ID?.trim() || undefined
-    // Always route to the account with most positive USD (never USD-negative)
-    const richest = await pickIbkrAccountWithMostUsd().catch(() => ({
-      accountId: null as string | null,
-      cashUSD: 0,
-    }))
-    if (richest.accountId && richest.cashUSD > 0) {
-      account = richest.accountId
-    } else if (isIbkrCryptoTicker(params.ticker) && isIbkrCryptoEnabled()) {
-      // crypto path still needs an account id if available
-      if (richest.accountId) account = richest.accountId
-    }
-    if (params.direction !== 'SELL' && !(richest.cashUSD > 0) && !isIbkrCryptoTicker(params.ticker)) {
-      throw new Error('capital insuficiente — ninguna cuenta con cashUSD > 0')
+    // Crypto IBKR always on dedicated PAXOS account (default U24225949)
+    if (isIbkrCryptoTicker(params.ticker) && isIbkrCryptoEnabled()) {
+      account = cryptoIbkrAccountId()
+    } else {
+      // Always route to the account with most positive USD (never USD-negative)
+      const richest = await pickIbkrAccountWithMostUsd().catch(() => ({
+        accountId: null as string | null,
+        cashUSD: 0,
+      }))
+      if (richest.accountId && richest.cashUSD > 0) {
+        account = richest.accountId
+      }
+      if (params.direction !== 'SELL' && !(richest.cashUSD > 0)) {
+        throw new Error('capital insuficiente — ninguna cuenta con cashUSD > 0')
+      }
     }
     console.log(
       `[AutoExecute] ${params.ticker} ${side} → llamando submitSupervisedLiveLimitOrder ` +
@@ -2483,9 +2524,14 @@ export class TradingEngine {
       limitPrice = await fetchLiveLimitPrice({
         symbol: params.ticker,
         side,
-        asset: 'STK',
+        asset: isIbkrCryptoTicker(params.ticker) ? 'CRYPTO' : 'STK',
         suggested: params.limitPrice,
       })
+      // Aggressive crypto sells: price − 0.5%
+      if (side === 'SELL' && isIbkrCryptoTicker(params.ticker) && isIbkrCryptoEnabled()) {
+        const { cryptoSellAggressiveDiscountPct } = await import('@/lib/trading/crypto/config')
+        limitPrice = Number((limitPrice * (1 - cryptoSellAggressiveDiscountPct())).toFixed(8))
+      }
       console.log(`[AutoExecute] ${params.ticker} → precio obtenido: $${limitPrice.toFixed(4)}`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

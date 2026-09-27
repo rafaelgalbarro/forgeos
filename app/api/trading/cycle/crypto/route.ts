@@ -8,7 +8,11 @@ import { isIbkrCryptoEnabled } from "@/lib/investment/runtime-flags";
 import { runTypedTradingCycle } from "@/lib/trading/cycle-route-handler";
 import { isCryptoCycleWindow } from "@/lib/trading/cycle-schedule";
 import { IBKR_CRYPTO_TICKERS } from "@/src/core/trading/crypto-ibkr";
-import { getCryptoBroker } from "@/lib/trading/crypto/intraday-strategies";
+import {
+  cryptoLiveMaxPositions,
+  getCryptoBroker,
+} from "@/lib/trading/crypto/intraday-strategies";
+import { startCryptoPermissionProbeScheduler } from "@/lib/trading/crypto/permission-probe";
 import { getExitManager } from "@/lib/trading/exit-manager";
 import { startDailyStrategyReportScheduler } from "@/lib/trading/journal/trades";
 
@@ -41,6 +45,7 @@ function startCryptoExitLoop(): void {
 
 export async function POST() {
   startDailyStrategyReportScheduler();
+  startCryptoPermissionProbeScheduler();
   startCryptoExitLoop();
   const broker = getCryptoBroker();
   const ibkrCrypto = broker === "ibkr" || isIbkrCryptoEnabled();
@@ -54,6 +59,7 @@ export async function POST() {
 }
 
 export async function GET() {
+  startCryptoPermissionProbeScheduler();
   const broker = getCryptoBroker();
   const ibkrCrypto = broker === "ibkr" || isIbkrCryptoEnabled();
   return NextResponse.json({
@@ -64,7 +70,7 @@ export async function GET() {
     windowOpen: isCryptoCycleWindow(),
     tickers: cryptoTickers(),
     maxHoldHours: 24,
-    maxPositions: 5,
+    maxPositions: cryptoLiveMaxPositions(),
     lastCycle: global.__lastCryptoCycle ?? null,
   });
 }

@@ -31,7 +31,9 @@ export function getInvestmentRuntimeFlags(): InvestmentRuntimeFlags {
     process.env.FOREX_ENABLED ?? process.env.ALLOW_FOREX,
     false,
   );
-  const ibkrCryptoEnabled = parseBool(process.env.IBKR_CRYPTO_ENABLED, false);
+  const ibkrCryptoEnabled =
+    parseBool(process.env.IBKR_CRYPTO_ENABLED, false) ||
+    (process.env.CRYPTO_BROKER ?? "").trim().toLowerCase() === "ibkr";
   const tradingMode = (
     process.env.TRADING_MODE?.trim() ||
     (liveTradingEnabled ? "live" : "ANALYSIS_ONLY")
@@ -62,7 +64,7 @@ export function isLiveTradingEnabled(): boolean {
   return getInvestmentRuntimeFlags().liveTradingEnabled;
 }
 
-/** Crypto on IBKR PAXOS instead of Alpaca — default off (permissions pending). */
+/** Crypto on IBKR PAXOS instead of Alpaca — CRYPTO_BROKER=ibkr or IBKR_CRYPTO_ENABLED=true. */
 export function isIbkrCryptoEnabled(): boolean {
   return getInvestmentRuntimeFlags().ibkrCryptoEnabled;
 }

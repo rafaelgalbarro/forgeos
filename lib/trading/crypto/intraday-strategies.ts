@@ -1,11 +1,19 @@
 /**
- * Crypto intraday strategies — Alpaca (default) or IBKR PAXOS via CRYPTO_BROKER.
+ * Crypto intradía strategies — Alpaca (default) or IBKR PAXOS via CRYPTO_BROKER.
  * Max hold 24h; SL 1.5×ATR(15m) capped 2%; TP 2R; BE after +1R; trail 1×ATR.
  */
 
 import "server-only";
 
 import type { OhlcvBar } from "@/lib/market-data/types";
+export {
+  getCryptoBroker,
+  isIbkrCryptoBroker,
+  cryptoIbkrAccountId,
+  cryptoLiveMaxNotionalUsd,
+  cryptoLiveMaxPositions,
+  cryptoSellAggressiveDiscountPct,
+} from "@/lib/trading/crypto/config";
 
 export type CryptoStrategyId = "RSI_MEAN_REVERSION" | "TREND_PULLBACK_1H";
 
@@ -21,11 +29,6 @@ export type CryptoIntradaySignal = {
   takeProfitPct: number;
   riskR: number;
 };
-
-export function getCryptoBroker(): "alpaca" | "ibkr" {
-  const v = (process.env.CRYPTO_BROKER ?? "alpaca").trim().toLowerCase();
-  return v === "ibkr" ? "ibkr" : "alpaca";
-}
 
 function closes(bars: readonly OhlcvBar[]): number[] {
   return bars.map((b) => b.close);

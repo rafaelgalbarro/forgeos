@@ -11,7 +11,7 @@ export type LiveLimitQuote = {
   readonly mid: number | null;
 };
 
-export type LiveLimitAsset = "STK" | "FOREX";
+export type LiveLimitAsset = "STK" | "FOREX" | "CRYPTO";
 
 function positive(n: number | null | undefined): number | null {
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;

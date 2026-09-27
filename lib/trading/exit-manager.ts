@@ -31,6 +31,12 @@ import {
 } from "@/lib/trading/trailing-registry";
 import { filterForgeOsManagedSymbols, isLegacyOrphanTicker } from "@/lib/trading/forgeos-owned";
 import { appendJournalTrade } from "@/lib/trading/journal/trades";
+import {
+  cryptoIbkrAccountId,
+  cryptoSellAggressiveDiscountPct,
+  isIbkrCryptoBroker,
+} from "@/lib/trading/crypto/config";
+import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 
 export const DEFAULT_EXIT_STOP_LOSS_PCT = EXIT_STOP_LOSS_PCT;
 export const DEFAULT_EXIT_TAKE_PROFIT_PCT = EXIT_TRAIL_ACTIVATE_PCT;
@@ -223,7 +229,53 @@ function decideExit(pos: OpenPositionRow): ExitAction | null {
   return null;
 }
 
+function ibkrCryptoPositions(rows: IbkrPositionRow[]): OpenPositionRow[] {
+  const out: OpenPositionRow[] = [];
+  for (const p of rows) {
+    const sec = String(p.secType ?? "").toUpperCase();
+    const sym = String(p.symbol ?? "").trim().toUpperCase();
+    if (sec !== "CRYPTO" && !isIbkrCryptoTicker(sym)) continue;
+    const qty = Math.abs(Number(p.qty ?? 0));
+    if (!(qty > 0)) continue;
+    if (!(p.avgCost > 0) || !(p.currentPrice > 0)) continue;
+    out.push({
+      symbol: sym,
+      qty,
+      avgCost: p.avgCost,
+      currentPrice: p.currentPrice,
+      account: p.account ?? cryptoIbkrAccountId(),
+    });
+  }
+  return out;
+}
+
 async function executeCryptoSell(action: ExitAction): Promise<ExitAction> {
+  if (isIbkrCryptoBroker()) {
+    const flags = getInvestmentRuntimeFlags();
+    if (!flags.liveTradingEnabled || flags.ibkrReadOnly) {
+      console.log(
+        `[Exit/crypto] PAPER IBKR SELL ${action.symbol} qty=${action.qty} @$${fmtPrice(action.price)} (${action.reason})`,
+      );
+      return { ...action, executed: false };
+    }
+    // Exact position qty + aggressive limit (price − 0.5%)
+    const qty = action.qty;
+    if (!(qty > 0)) throw new Error(`crypto sell qty inválida: ${qty}`);
+    const discount = cryptoSellAggressiveDiscountPct();
+    const limitPrice = Number((action.price * (1 - discount)).toFixed(8));
+    const res = await submitSupervisedLiveLimitOrder({
+      symbol: action.symbol,
+      side: "SELL",
+      quantity: qty,
+      limitPrice,
+      rationale: `ExitManager crypto ${action.reason} aggressive LMT -${(discount * 100).toFixed(1)}%`,
+      outsideRth: true,
+      account: cryptoIbkrAccountId(),
+      tif: "DAY",
+    });
+    return { ...action, qty, price: limitPrice, orderId: res.ibkrOrderId, executed: true };
+  }
+
   const order = await placeAlpacaOrder({
     symbol: action.symbol,
     side: "sell",
@@ -325,11 +377,11 @@ export class ExitManager {
             ? await executeCryptoSell(decision)
             : await executeStockSell(decision, pos.account);
 
-        // Stocks paper/read-only: evaluate + log only (no registry close / Telegram)
-        if (channel === "stocks" && executed.executed === false) {
+        // Paper/read-only: evaluate + log only (no registry close / Telegram)
+        if (executed.executed === false) {
           actions.push(executed);
           console.log(
-            `[Exit/stocks] candidato ${executed.symbol}:${executed.reason} ` +
+            `[Exit/${channel}] candidato ${executed.symbol}:${executed.reason} ` +
               `pnl=${(executed.pnlPct * 100).toFixed(1)}% (no live submit)`,
           );
           continue;
@@ -406,6 +458,18 @@ export class ExitManager {
   }
 
   private async loadCrypto(): Promise<OpenPositionRow[]> {
+    if (isIbkrCryptoBroker()) {
+      const rows = await fetchCachedIbkrPositions().catch((err) => {
+        console.warn(
+          "[Exit/crypto] IBKR positions failed:",
+          err instanceof Error ? err.message : err,
+        );
+        return [] as IbkrPositionRow[];
+      });
+      const all = ibkrCryptoPositions(rows).filter((p) => !isLegacyOrphanTicker(p.symbol));
+      console.log(`[Exit/crypto] IBKR/PAXOS positions=${all.length}`);
+      return all;
+    }
     if (!isAlpacaConfigured()) {
       console.warn("[Exit/crypto] Alpaca not configured — skip");
       return [];

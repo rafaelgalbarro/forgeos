@@ -204,6 +204,24 @@ class OrderRejectedError(RuntimeError):
         label = f"{code} {message}" if code is not None else message
         super().__init__(f"ORDER_REJECTED: {label}")
 
+    @property
+    def reject_reason(self) -> str:
+        """Persistable IBKR code + message (e.g. '460 No trading permissions'), never bare NO_ACK."""
+        msg = (self.ibkr_message or "").strip() or self.ibkr_status or "rejected"
+        if self.code is not None:
+            code_prefix = f"{self.code} "
+            if msg.startswith(code_prefix):
+                return msg
+            # Avoid "460 IBKR status=NO_ACK" — prefer real error text when present
+            if msg.upper().startswith("IBKR STATUS=") and self.ibkr_status:
+                return f"{self.code} {msg}"
+            return f"{self.code} {msg}"
+        if self.ibkr_status and self.ibkr_status.upper() not in {"", "NO_ACK"}:
+            if msg.upper().startswith("IBKR STATUS="):
+                return msg
+            return f"{self.ibkr_status}: {msg}" if msg else self.ibkr_status
+        return msg
+
 
 def assert_place_ack_accepted(ibkr_client: "IBKRClient", order_id: int) -> dict[str, Any]:
     """Validate placeOrder ack — raises OrderRejectedError unless Submitted/PreSubmitted/Filled + permId>0."""
@@ -228,6 +246,20 @@ def assert_place_ack_accepted(ibkr_client: "IBKRClient", order_id: int) -> dict[
         )
 
     if status in IBKR_REJECTED_STATUSES or status not in IBKR_ACCEPTED_STATUSES:
+        # Prefer real IBKR error code/message over generic "NO_ACK"
+        fallback = errors[-1] if errors else None
+        if fallback is not None:
+            try:
+                code_int = int(fallback.get("code", 0))
+            except (TypeError, ValueError):
+                code_int = 0
+            raise OrderRejectedError(
+                code_int if code_int > 0 else None,
+                str(fallback.get("message") or f"IBKR status={status}"),
+                ibkr_status=status,
+                order_id=order_id,
+                perm_id=perm_id,
+            )
         raise OrderRejectedError(
             None,
             f"IBKR status={status} (not Submitted/PreSubmitted/Filled)",
@@ -1575,6 +1607,125 @@ class IBKRClient(EWrapper, EClient):
 
         return order_id
 
+    def probe_crypto_permission(
+        self,
+        *,
+        account: str,
+        symbol: str = "BTC",
+        quantity: float = 0.001,
+        limit_price: float = 1.0,
+    ) -> dict[str, Any]:
+        """whatIf CRYPTO/PAXOS order (no transmit) — detect error 460 trading permissions."""
+        self.ensure_connected()
+        proposal = {
+            "symbol": (symbol or "BTC").upper().strip(),
+            "side": "BUY",
+            "quantity": float(quantity),
+            "limit_price": float(limit_price),
+            "sec_type": "CRYPTO",
+            "exchange": "PAXOS",
+            "currency": "USD",
+            "account": (account or "").strip(),
+            "outside_rth": True,
+            "tif": "DAY",
+        }
+        contract = self._basic_contract_from_proposal(proposal)
+        order = Order()
+        order.action = "BUY"
+        order.orderType = "LMT"
+        order.totalQuantity = float(quantity)
+        order.lmtPrice = float(limit_price)
+        order.tif = "DAY"
+        order.outsideRth = True
+        order.whatIf = True
+        order.transmit = False
+        if proposal["account"]:
+            order.account = proposal["account"]
+        apply_whatif_legacy_attr_compat(order)
+
+        with self._order_id_lock:
+            order_id = self._allocate_order_id()
+            ack = threading.Event()
+            self.place_ack_events[order_id] = ack
+            self.place_ack_status.pop(order_id, None)
+            self.place_ack_errors.pop(order_id, None)
+            self.place_ack_perm_id.pop(order_id, None)
+            self.order_context[order_id] = {
+                "kind": "WHATIF_CRYPTO",
+                "symbol": contract.symbol,
+                "currency": contract.currency,
+                "account": proposal["account"],
+            }
+            log.info(
+                "CRYPTO PERMISSION PROBE whatIf id=%s %s CRYPTO/PAXOS acct=%s qty=%s lmt=%s",
+                order_id,
+                contract.symbol,
+                proposal["account"],
+                quantity,
+                limit_price,
+            )
+            try:
+                self.placeOrder(order_id, contract, order)
+            except Exception as exc:
+                self.order_context.pop(order_id, None)
+                raise ConnectionError(f"placeOrder whatIf failed: {exc}") from exc
+
+        ack.wait(IBKR_WAIT_TIMEOUT_SEC)
+        errors = list(self.place_ack_errors.get(order_id, []))
+        status = self.place_ack_status.get(order_id, "NO_ACK")
+        self.order_context.pop(order_id, None)
+
+        err_460 = next((e for e in errors if int(e.get("code", 0)) == 460), None)
+        other_reject = next(
+            (e for e in errors if int(e.get("code", 0)) in IBKR_ORDER_REJECT_CODES),
+            None,
+        )
+        if err_460 is not None:
+            msg = str(err_460.get("message") or "No trading permissions")
+            return {
+                "allowed": False,
+                "permissionGranted": False,
+                "code": 460,
+                "message": msg,
+                "reject_reason": f"460 {msg}",
+                "ibkrStatus": status,
+                "account": proposal["account"],
+                "orderId": order_id,
+                "whatIf": True,
+                "errors": errors,
+            }
+        if other_reject is not None:
+            code = int(other_reject.get("code", 0))
+            msg = str(other_reject.get("message") or "rejected")
+            # Non-460 reject — permission may still be missing vs other issue
+            granted = code != 460 and "no trading permissions" not in msg.lower()
+            return {
+                "allowed": False,
+                "permissionGranted": granted,
+                "code": code,
+                "message": msg,
+                "reject_reason": f"{code} {msg}",
+                "ibkrStatus": status,
+                "account": proposal["account"],
+                "orderId": order_id,
+                "whatIf": True,
+                "errors": errors,
+            }
+
+        # No 460 → crypto trading permission is present (whatIf may still be NO_ACK)
+        return {
+            "allowed": True,
+            "permissionGranted": True,
+            "code": None,
+            "message": status if status != "NO_ACK" else "ok",
+            "reject_reason": None,
+            "ibkrStatus": status,
+            "account": proposal["account"],
+            "orderId": order_id,
+            "whatIf": True,
+            "errors": errors,
+        }
+
     def place_forex_limit_order(
         self,
         pair: dict[str, Any],
@@ -2043,6 +2194,38 @@ def status():
     return ibkr.status()
 
 
+class CryptoPermissionProbeRequest(BaseModel):
+    account: str = Field(min_length=1, max_length=32)
+    symbol: str = Field(default="BTC", min_length=2, max_length=12)
+    quantity: float = Field(default=0.001, gt=0)
+    limit_price: float = Field(default=1.0, gt=0)
+
+
+@app.post("/api/ibkr/crypto/permission-probe", dependencies=auth)
+def crypto_permission_probe(body: CryptoPermissionProbeRequest):
+    """Daily whatIf BTC CRYPTO/PAXOS — detect whether error 460 (no trading permissions) is gone."""
+    try:
+        result = ibkr.probe_crypto_permission(
+            account=body.account.strip().upper(),
+            symbol=(body.symbol or "BTC").strip().upper(),
+            quantity=float(body.quantity),
+            limit_price=float(body.limit_price),
+        )
+        audit(
+            "CRYPTO_PERMISSION_PROBE",
+            body.account.strip().upper(),
+            {
+                "permissionGranted": result.get("permissionGranted"),
+                "code": result.get("code"),
+                "message": result.get("message"),
+            },
+        )
+        return result
+    except Exception as exc:
+        audit("CRYPTO_PERMISSION_PROBE_FAILED", body.account, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
 def _offline_read_error(exc: Exception) -> dict[str, Any]:
     """Structured offline-safe payload when TWS is down — never invents account data."""
     message = str(exc)
@@ -2338,9 +2521,10 @@ def execute(proposal_id: str, request: ExecuteRequest):
     except HTTPException:
         raise
     except OrderRejectedError as exc:
+        reason = exc.reject_reason
         rejected = mark_proposal_rejected(
             proposal_id,
-            reason=str(exc),
+            reason=reason,
             ibkr_status=exc.ibkr_status,
             ibkr_order_id=exc.order_id,
             ibkr_perm_id=exc.perm_id or None,
@@ -2349,14 +2533,19 @@ def execute(proposal_id: str, request: ExecuteRequest):
         rejected["ibkrError"] = str(exc)
         rejected["ibkrRejectCode"] = exc.code
         rejected["ibkrRejectMessage"] = exc.ibkr_message
+        rejected["reject_reason"] = reason
         # 422 — client must NOT treat as EXECUTED
         raise HTTPException(status_code=422, detail=rejected) from exc
     except Exception as exc:
         msg = str(exc)
         if msg.startswith("ORDER_REJECTED") or "INACTIVE" in msg.upper() or "NO_ACK" in msg.upper():
+            # Prefer "460 No trading permissions" over bare NO_ACK when parseable
+            reason = msg
+            if msg.startswith("ORDER_REJECTED:"):
+                reason = msg.split(":", 1)[1].strip() or msg
             rejected = mark_proposal_rejected(
                 proposal_id,
-                reason=msg,
+                reason=reason,
                 ibkr_status="REJECTED",
             )
             raise HTTPException(status_code=422, detail=rejected) from exc

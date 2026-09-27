@@ -133,6 +133,10 @@ import {
   isKrakenCryptoBroker,
 } from '@/lib/trading/crypto/config'
 import {
+  beginCryptoCycleReservation,
+  getCryptoSlotReservation,
+} from '@/lib/trading/crypto/slot-reservation'
+import {
   getKrakenAdapter,
   isKrakenConfigured,
   isKrakenEurPair,
@@ -795,6 +799,121 @@ export class TradingEngine {
     const tickerDurationsMs: Array<{ ticker: string; ms: number }> = []
     const jobs: Array<Promise<OrderResult | null>> = []
     const buySignalTickers = new Set<string>()
+
+    // Kraken: analyze all in parallel, then execute buys by confidence with atomic slot/cash reserve
+    if (kind === "crypto" && isKrakenCryptoBroker()) {
+      beginCryptoCycleReservation(account.cashUSD)
+      console.log(
+        `[Cycle/crypto] Kraken two-phase: analyze ${cycleTickers.length} pairs → ` +
+          `execute by confidence (maxPos=${cryptoLiveMaxPositions()} cash=€${account.cashUSD.toFixed(2)})`,
+      )
+
+      type BuyCand = {
+        pair: string
+        confidence: number
+        strategyId: string
+        reasoning: string
+        stopLoss: number
+        takeProfit: number
+        quote: { mid: number; bid: number; ask: number }
+        volume: number
+        limitPrice: number
+        notionalEur: number
+      }
+      const buyCandidates: BuyCand[] = []
+
+      let aCursor = 0
+      const analyzeWorker = async (): Promise<void> => {
+        while (aCursor < cycleTickers.length) {
+          const i = aCursor++
+          const ticker = cycleTickers[i]!
+          const tickerStartedMs = Date.now()
+          try {
+            const analyzed = await TradingEngine.withTickerTimeout(
+              this.analyzeKrakenTicker(ticker, account, cycleOpts),
+              ticker,
+            )
+            if (analyzed.kind === "order") {
+              orders.push(analyzed.order)
+              if (analyzed.order.direction === "BUY") buySignalTickers.add(ticker)
+            } else {
+              buyCandidates.push(analyzed.buy)
+              buySignalTickers.add(analyzed.buy.pair)
+            }
+          } catch (err) {
+            if (isTimeoutFailure(err)) {
+              orders.push(timeoutSkipResult(ticker, err instanceof Error ? err.message : undefined))
+            } else {
+              const msg = err instanceof Error ? err.message : "Error desconocido"
+              console.warn(`[ProStrategy] ${ticker}: error analyze — ${msg}`)
+              orders.push({
+                status: "ERROR",
+                ticker,
+                direction: "BUY",
+                reason: msg,
+                signal: { confidence: 0, reasoning: "Error en ciclo", urgency: "LOW" },
+                timestamp: new Date().toISOString(),
+              })
+            }
+          } finally {
+            tickerDurationsMs.push({ ticker, ms: Date.now() - tickerStartedMs })
+          }
+        }
+      }
+      await Promise.all(
+        Array.from(
+          { length: Math.min(TradingEngine.CYCLE_CONCURRENCY, Math.max(1, cycleTickers.length)) },
+          () => analyzeWorker(),
+        ),
+      )
+
+      buyCandidates.sort((a, b) => b.confidence - a.confidence)
+      if (buyCandidates.length) {
+        console.log(
+          `[Cycle/crypto] Kraken BUY candidatos por confianza: ` +
+            buyCandidates
+              .map((c) => `${c.pair}=${(c.confidence * 100).toFixed(0)}%`)
+              .join(", "),
+        )
+      }
+
+      for (const buy of buyCandidates) {
+        const execStarted = Date.now()
+        try {
+          const order = await TradingEngine.withTickerTimeout(
+            this.executeKrakenBuy(buy),
+            buy.pair,
+            TradingEngine.AUTO_EXECUTE_TIMEOUT_MS,
+          )
+          orders.push(order)
+          if (order.status === "EXECUTED") {
+            console.log(
+              `[Signal] ${buy.pair}: EXECUTED conf=${(buy.confidence * 100).toFixed(0)}%`,
+            )
+            // Keep account.cashUSD in sync for logging
+            account.cashUSD = Math.max(0, account.cashUSD - buy.notionalEur)
+          } else if (order.direction === "BUY" || order.reason === "límite de posiciones" || order.reason === "sin saldo EUR") {
+            console.log(
+              `[Signal] ${buy.pair}: status=${order.status} conf=${(buy.confidence * 100).toFixed(0)}% reason=${order.reason}`,
+            )
+          }
+        } catch (err) {
+          await getCryptoSlotReservation().release(buy.pair).catch(() => undefined)
+          const msg = err instanceof Error ? err.message : "Kraken execute failed"
+          console.error(`[AutoExecute] ${buy.pair} → ERROR: ${msg}`)
+          orders.push({
+            status: "ERROR",
+            ticker: buy.pair,
+            direction: "BUY",
+            reason: msg,
+            signal: { confidence: buy.confidence, reasoning: buy.reasoning, urgency: "HIGH" },
+            timestamp: new Date().toISOString(),
+          })
+        } finally {
+          tickerDurationsMs.push({ ticker: buy.pair, ms: Date.now() - execStarted })
+        }
+      }
+    } else {
     let cursor = 0
     const worker = async (): Promise<void> => {
       while (cursor < cycleTickers.length) {
@@ -908,6 +1027,7 @@ export class TradingEngine {
       const item = await job
       if (item) orders.push(item)
     }
+    } // end non-Kraken path
 
     const señalesBuy = Math.max(
       buySignalTickers.size,
@@ -1147,7 +1267,7 @@ export class TradingEngine {
     }
   }
 
-  private async processKrakenTicker(
+  private async analyzeKrakenTicker(
     ticker: string,
     account: {
       navUSD: number
@@ -1156,29 +1276,51 @@ export class TradingEngine {
       openPositionsCount: number
       primaryAccountId?: string | null
     },
-    execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
     cycleOpts?: RunCycleOptions,
-  ): Promise<OrderResult> {
+  ): Promise<
+    | { kind: "order"; order: OrderResult }
+    | {
+        kind: "buy"
+        buy: {
+          pair: string
+          confidence: number
+          strategyId: string
+          reasoning: string
+          stopLoss: number
+          takeProfit: number
+          quote: { mid: number; bid: number; ask: number }
+          volume: number
+          limitPrice: number
+          notionalEur: number
+        }
+      }
+  > {
     const pair = normalizeKrakenPair(ticker)
     if (!pair) {
       return {
-        status: 'HOLD',
-        ticker,
-        direction: 'HOLD',
-        reason: `${ticker}: no es par Kraken EUR`,
-        signal: { confidence: 0, reasoning: 'Unknown Kraken pair', urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
+        kind: "order",
+        order: {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `${ticker}: no es par Kraken EUR`,
+          signal: { confidence: 0, reasoning: 'Unknown Kraken pair', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        },
       }
     }
 
     if (!isKrakenConfigured()) {
       return {
-        status: 'HOLD',
-        ticker: pair,
-        direction: 'HOLD',
-        reason: 'Kraken no configurado (KRAKEN_API_KEY / KRAKEN_API_SECRET)',
-        signal: { confidence: 0, reasoning: 'Kraken keys missing', urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
+        kind: "order",
+        order: {
+          status: 'HOLD',
+          ticker: pair,
+          direction: 'HOLD',
+          reason: 'Kraken no configurado (KRAKEN_API_KEY / KRAKEN_API_SECRET)',
+          signal: { confidence: 0, reasoning: 'Kraken keys missing', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        },
       }
     }
 
@@ -1194,47 +1336,44 @@ export class TradingEngine {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'precio no disponible'
       return {
-        status: 'SKIPPED',
-        ticker: pair,
-        direction: 'HOLD',
-        reason: msg,
-        signal: { confidence: 0, reasoning: 'Sin precio Kraken', urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
+        kind: "order",
+        order: {
+          status: 'SKIPPED',
+          ticker: pair,
+          direction: 'HOLD',
+          reason: msg,
+          signal: { confidence: 0, reasoning: 'Sin precio Kraken', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        },
       }
     }
 
     const positions = await adapter.getPositions().catch(() => [])
     if (positions.some((p) => p.symbol === pair && p.qty > 0)) {
       return {
-        status: 'HOLD',
-        ticker: pair,
-        direction: 'HOLD',
-        reason: `${pair}: posición Kraken ya abierta`,
-        signal: { confidence: 0, reasoning: 'Kraken position exists', urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
-      }
-    }
-
-    const maxPos = cryptoLiveMaxPositions()
-    if (Math.max(positions.length, account.openPositionsCount) >= maxPos) {
-      return {
-        status: 'HOLD',
-        ticker: pair,
-        direction: 'HOLD',
-        reason: `límite ${maxPos} posiciones`,
-        signal: { confidence: 0, reasoning: `Max ${maxPos} crypto positions`, urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
+        kind: "order",
+        order: {
+          status: 'HOLD',
+          ticker: pair,
+          direction: 'HOLD',
+          reason: `${pair}: posición Kraken ya abierta`,
+          signal: { confidence: 0, reasoning: 'Kraken position exists', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        },
       }
     }
 
     if (isRebuyCooldownActive(pair)) {
       return {
-        status: 'HOLD',
-        ticker: pair,
-        direction: 'HOLD',
-        reason: `${pair}: cooldown 6h post-venta`,
-        signal: { confidence: 0, reasoning: 'Rebuy cooldown 6h', urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
+        kind: "order",
+        order: {
+          status: 'HOLD',
+          ticker: pair,
+          direction: 'HOLD',
+          reason: `${pair}: cooldown 6h post-venta`,
+          signal: { confidence: 0, reasoning: 'Rebuy cooldown 6h', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        },
       }
     }
 
@@ -1260,49 +1399,49 @@ export class TradingEngine {
 
     if (intra.direction === 'HOLD' || !intra.strategyId) {
       return {
-        status: 'HOLD',
-        ticker: pair,
-        direction: 'HOLD',
-        reason: intra.reasoning,
-        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
-        stopLoss: intra.stopLoss,
-        takeProfit: intra.takeProfit,
+        kind: "order",
+        order: {
+          status: 'HOLD',
+          ticker: pair,
+          direction: 'HOLD',
+          reason: intra.reasoning,
+          signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+          stopLoss: intra.stopLoss,
+          takeProfit: intra.takeProfit,
+        },
       }
     }
 
     const minConf = cycleOpts?.minBuyConfidence ?? 0.5
     if (intra.confidence < minConf) {
       return {
-        status: 'REJECTED_CONFIDENCE',
-        ticker: pair,
-        direction: 'BUY',
-        reason: `Confianza ${(intra.confidence * 100).toFixed(0)}% < mínimo ${(minConf * 100).toFixed(0)}%`,
-        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'MEDIUM' },
-        timestamp: new Date().toISOString(),
+        kind: "order",
+        order: {
+          status: 'REJECTED_CONFIDENCE',
+          ticker: pair,
+          direction: 'BUY',
+          reason: `Confianza ${(intra.confidence * 100).toFixed(0)}% < mínimo ${(minConf * 100).toFixed(0)}%`,
+          signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'MEDIUM' },
+          timestamp: new Date().toISOString(),
+        },
       }
     }
 
-    if (execGate) execGate.buySignal = true
-    recordSignalForTelegram({
-      ticker: pair,
-      direction: 'BUY',
-      confidence: intra.confidence,
-      at: new Date().toISOString(),
-    })
-    if (execGate) execGate.enteredAutoExecute = true
-
     const maxNotional = cryptoLiveMaxNotionalEur()
-    const cashEur = Math.max(0, account.cashUSD) // account.cashUSD holds EUR cash when Kraken
+    const cashEur = Math.max(0, account.cashUSD)
     const notional = Math.min(maxNotional, cashEur > 0 ? cashEur : maxNotional)
     if (!(notional > 0) || !(quote.mid > 0)) {
       return {
-        status: 'HOLD',
-        ticker: pair,
-        direction: 'HOLD',
-        reason: `capital insuficiente (EUR €${cashEur.toFixed(2)})`,
-        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
-        timestamp: new Date().toISOString(),
+        kind: "order",
+        order: {
+          status: 'HOLD',
+          ticker: pair,
+          direction: 'HOLD',
+          reason: 'sin saldo EUR',
+          signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        },
       }
     }
 
@@ -1312,26 +1451,95 @@ export class TradingEngine {
       rawQty = quantizeKrakenVolume(rawQty, meta)
       if (!(rawQty > 0)) {
         return {
-          status: 'HOLD',
-          ticker: pair,
-          direction: 'HOLD',
-          reason: `qty bajo mínimo Kraken (ordermin=${meta.orderMin})`,
-          signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
-          timestamp: new Date().toISOString(),
+          kind: "order",
+          order: {
+            status: 'HOLD',
+            ticker: pair,
+            direction: 'HOLD',
+            reason: `qty bajo mínimo Kraken (ordermin=${meta.orderMin})`,
+            signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'LOW' },
+            timestamp: new Date().toISOString(),
+          },
         }
       }
     }
 
-    // Aggressive buy: ask or mid + 0.1% to fill
     const limitPrice = quote.ask > 0 ? quote.ask : quote.mid * 1.001
+    const notionalEur = rawQty * limitPrice
+
+    return {
+      kind: "buy",
+      buy: {
+        pair,
+        confidence: intra.confidence,
+        strategyId: intra.strategyId,
+        reasoning: intra.reasoning,
+        stopLoss: intra.stopLoss,
+        takeProfit: intra.takeProfit,
+        quote,
+        volume: rawQty,
+        limitPrice,
+        notionalEur,
+      },
+    }
+  }
+
+  /** Atomic slot+cash reserve then place Kraken limit buy. */
+  private async executeKrakenBuy(buy: {
+    pair: string
+    confidence: number
+    strategyId: string
+    reasoning: string
+    stopLoss: number
+    takeProfit: number
+    quote: { mid: number; bid: number; ask: number }
+    volume: number
+    limitPrice: number
+    notionalEur: number
+  }): Promise<OrderResult> {
+    const { pair } = buy
+    const reservation = getCryptoSlotReservation()
+    const reserved = await reservation.tryReserve({
+      symbol: pair,
+      notionalEur: buy.notionalEur,
+      maxPositions: cryptoLiveMaxPositions(),
+    })
+
+    if (!reserved.ok) {
+      const reason =
+        reserved.reason === "positions" ? "límite de posiciones" : "sin saldo EUR"
+      console.log(
+        `[AutoExecute] ${pair} → HOLD ${reason} (${reserved.message})`,
+      )
+      return {
+        status: 'HOLD',
+        ticker: pair,
+        direction: 'HOLD',
+        reason,
+        signal: { confidence: buy.confidence, reasoning: buy.reasoning, urgency: 'LOW' },
+        timestamp: new Date().toISOString(),
+        stopLoss: buy.stopLoss,
+        takeProfit: buy.takeProfit,
+      }
+    }
+
+    recordSignalForTelegram({
+      ticker: pair,
+      direction: 'BUY',
+      confidence: buy.confidence,
+      at: new Date().toISOString(),
+    })
 
     try {
+      const adapter = getKrakenAdapter()
       const submitted = await adapter.placeOrder({
         symbol: pair,
         side: 'buy',
-        volume: rawQty,
-        price: limitPrice,
+        volume: buy.volume,
+        price: buy.limitPrice,
       })
+
+      await reservation.commit(pair)
 
       console.log(
         `[AutoExecute] ${pair} → ₿ KRAKEN BUY qty=${submitted.volume} @€${submitted.price} id=${submitted.orderId}`,
@@ -1341,7 +1549,7 @@ export class TradingEngine {
       appendJournalTrade({
         at: new Date().toISOString(),
         market: 'crypto',
-        strategy: intra.strategyId,
+        strategy: buy.strategyId,
         ticker: pair,
         side: 'BUY',
         entry: submitted.price,
@@ -1360,8 +1568,8 @@ export class TradingEngine {
         ticker: pair,
         shares: submitted.volume,
         entryPrice: submitted.price,
-        stopLoss: intra.stopLoss,
-        takeProfit: intra.takeProfit,
+        stopLoss: buy.stopLoss,
+        takeProfit: buy.takeProfit,
         orderId: submitted.orderId,
       }).catch((err) =>
         console.warn(
@@ -1372,7 +1580,7 @@ export class TradingEngine {
 
       const buyLine =
         `🟢 BUY ₿ KRAKEN ${pair} ${submitted.volume} @ €${submitted.price.toFixed(4)} | ` +
-        `${intra.strategyId} conf=${(intra.confidence * 100).toFixed(0)}%`
+        `${buy.strategyId} conf=${(buy.confidence * 100).toFixed(0)}%`
       void sendTelegramMessage(buyLine).catch(() => undefined)
 
       return {
@@ -1382,29 +1590,53 @@ export class TradingEngine {
         direction: 'BUY',
         sharesOrValue: submitted.volume,
         price: submitted.price,
-        agents: intra.strategyId,
-        reason: `₿ KRAKEN ${intra.strategyId}: ${intra.reasoning}`,
+        agents: buy.strategyId,
+        reason: `₿ KRAKEN ${buy.strategyId}: ${buy.reasoning}`,
         signal: {
-          confidence: intra.confidence,
-          reasoning: intra.reasoning,
+          confidence: buy.confidence,
+          reasoning: buy.reasoning,
           urgency: 'HIGH',
         },
         timestamp: new Date().toISOString(),
-        stopLoss: intra.stopLoss,
-        takeProfit: intra.takeProfit,
+        stopLoss: buy.stopLoss,
+        takeProfit: buy.takeProfit,
       }
     } catch (err) {
+      await reservation.release(pair)
       const msg = err instanceof Error ? err.message : 'Kraken order failed'
-      console.error(`[AutoExecute] ${pair} → ERROR Kraken: ${msg}`)
+      const insufficient =
+        /insufficient funds|EOrder:Insufficient|insufficient/i.test(msg)
+      console.error(`[AutoExecute] ${pair} → ${insufficient ? 'HOLD' : 'ERROR'} Kraken: ${msg}`)
       return {
-        status: 'ERROR',
+        status: insufficient ? 'HOLD' : 'ERROR',
         ticker: pair,
-        direction: 'BUY',
-        reason: msg,
-        signal: { confidence: intra.confidence, reasoning: intra.reasoning, urgency: 'HIGH' },
+        direction: insufficient ? 'HOLD' : 'BUY',
+        reason: insufficient ? 'sin saldo EUR' : msg,
+        signal: { confidence: buy.confidence, reasoning: buy.reasoning, urgency: 'HIGH' },
         timestamp: new Date().toISOString(),
       }
     }
+  }
+
+  private async processKrakenTicker(
+    ticker: string,
+    account: {
+      navUSD: number
+      cashUSD: number
+      dailyPnlUSD: number
+      openPositionsCount: number
+      primaryAccountId?: string | null
+    },
+    execGate?: { enteredAutoExecute: boolean; buySignal: boolean },
+    cycleOpts?: RunCycleOptions,
+  ): Promise<OrderResult> {
+    const analyzed = await this.analyzeKrakenTicker(ticker, account, cycleOpts)
+    if (analyzed.kind === "order") return analyzed.order
+    if (execGate) {
+      execGate.buySignal = true
+      execGate.enteredAutoExecute = true
+    }
+    return this.executeKrakenBuy(analyzed.buy)
   }
 
   private async processAlpacaTicker(

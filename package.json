@@ -30,6 +30,7 @@
     "certify:pre-go-live": "npm run certify:live-execution-operational && npm run certify:strategy-readiness",
     "investment:morning-briefing": "npx --yes tsx scripts/generate-morning-briefing.ts",
     "report:investment-daily": "npx --yes tsx scripts/generate-daily-investment-report.ts",
+    "crypto:engine": "node scripts/crypto-engine.cjs",
     "architecture:check": "node scripts/architecture-check-6000.js && node scripts/architecture-check-6020.js && node scripts/architecture-check-6040.js && node scripts/architecture-check-6050.js && node scripts/architecture-check-6060.js && node scripts/architecture-check-6070.js",
     "architecture:check:6000": "node scripts/architecture-check-6000.js",
     "architecture:check:6020": "node scripts/architecture-check-6020.js",
@@ -82,6 +83,7 @@
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.17.0",
     "eslint-config-next": "15.5.19",
+    "tsx": "^4.19.3",
     "typescript": "^5.7.2",
     "vitest": "^3.2.4"
   },

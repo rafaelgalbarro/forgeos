@@ -44,6 +44,9 @@ Thumbs.db
 .forgeos/investment/
 .forgeos/cache/crypto-trailing.json
 .forgeos/cache/position-sell-locks.json
+.forgeos/cache/crypto-engine-heartbeat.json
+.forgeos/cache/kraken-universe.json
+.forgeos/cache/kraken-pair-first-seen.json
 .forgeos/journal/
 .forgeos-trading-state.json
 .forgeos-trading-state.json.tmp

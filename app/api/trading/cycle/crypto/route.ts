@@ -21,6 +21,10 @@ import {
   runKrakenAnalysisCycle,
   startKrakenEngine,
 } from "@/lib/trading/crypto/engine";
+import {
+  isCryptoEngineExternal,
+  readCryptoEngineHeartbeat,
+} from "@/lib/trading/crypto/engine-heartbeat";
 import { startCryptoPermissionProbeScheduler } from "@/lib/trading/crypto/permission-probe";
 import { getExitManager } from "@/lib/trading/exit-manager";
 import { startDailyStrategyReportScheduler } from "@/lib/trading/journal/trades";
@@ -73,6 +77,24 @@ export async function POST() {
   startCryptoExitLoop();
 
   if (isKrakenCryptoBroker()) {
+    // WS + exits 5s + analysis 60s live in PM2 forgeos-crypto-engine
+    if (isCryptoEngineExternal()) {
+      const hb = readCryptoEngineHeartbeat();
+      const status = getKrakenEngineStatus();
+      return NextResponse.json({
+        ok: true,
+        broker: "kraken-eur",
+        windowLabel: windowLabel(),
+        ownedBy: "forgeos-crypto-engine",
+        heartbeat: hb,
+        universe: status.universe,
+        regime: status.regime,
+        ws: status.ws,
+        exitLoopRunning: status.exitLoopRunning,
+        lastSignals: status.lastSignals,
+        at: new Date().toISOString(),
+      });
+    }
     await startKrakenEngine();
     const result = await runKrakenAnalysisCycle();
     const status = getKrakenEngineStatus();
@@ -115,11 +137,14 @@ export async function GET() {
   const broker = getCryptoBroker();
   if (broker === "kraken" || isKrakenCryptoBroker()) {
     const status = getKrakenEngineStatus();
+    const hb = readCryptoEngineHeartbeat();
     return NextResponse.json({
       cycleKind: "crypto",
       broker: "kraken-eur",
       cryptoBrokerEnv: broker,
+      ownedBy: isCryptoEngineExternal() ? "forgeos-crypto-engine" : "nextjs",
       engine: status,
+      heartbeat: hb,
       maxPositions: cryptoLiveMaxPositions(),
       windowOpen: isCryptoCycleWindow(),
     });

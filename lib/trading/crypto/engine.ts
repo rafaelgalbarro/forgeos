@@ -65,6 +65,11 @@ import {
 import { SHADOW_BOOTSTRAP_STRATEGIES } from "@/lib/trading/crypto/strategies/types";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { registerExecutedPosition } from "@/src/core/trading/position-monitor";
+import {
+  isCryptoEngineExternal,
+  isCryptoEngineStandalone,
+  readCryptoEngineHeartbeat,
+} from "@/lib/trading/crypto/engine-heartbeat";
 
 export type EngineStatus = {
   started: boolean;
@@ -179,6 +184,15 @@ function passesCorrelationFilter(candidate: string, openPairs: string[]): boolea
 
 export async function startKrakenEngine(): Promise<void> {
   if (!isKrakenCryptoBroker() || !isKrakenConfigured()) return;
+
+  // Next.js must not own WS/exits when PM2 forgeos-crypto-engine is the owner
+  if (isCryptoEngineExternal() && !isCryptoEngineStandalone()) {
+    console.log(
+      "[Kraken/Engine] loops omitidos — CRYPTO_ENGINE_EXTERNAL (PM2 forgeos-crypto-engine)",
+    );
+    return;
+  }
+
   if (started) return;
   started = true;
 
@@ -203,7 +217,9 @@ export async function startKrakenEngine(): Promise<void> {
 
   startKrakenExitLoop();
   startDailyReportScheduler();
-  console.log("[Kraken/Engine] started");
+  console.log(
+    `[Kraken/Engine] started role=${isCryptoEngineStandalone() ? "standalone" : "next"}`,
+  );
 }
 
 function startKrakenExitLoop(): void {
@@ -340,6 +356,14 @@ export async function runKrakenAnalysisCycle(): Promise<{
   shadow: string[];
   held: string[];
 }> {
+  // Under external ownership, Next.js HTTP must not place orders / start loops
+  if (isCryptoEngineExternal() && !isCryptoEngineStandalone()) {
+    console.log(
+      "[Kraken/Cycle] omitido en Next.js — owned by forgeos-crypto-engine",
+    );
+    return { signals: [], executed: [], shadow: [], held: ["external_engine"] };
+  }
+
   await startKrakenEngine();
   const pairs = await getKrakenUniversePairs();
   // Ensure bars for top pairs
@@ -620,7 +644,7 @@ async function sendWeeklyCryptoReport(): Promise<void> {
 }
 
 export function getKrakenEngineStatus(): EngineStatus {
-  return {
+  const local: EngineStatus = {
     started,
     universe: peekKrakenUniverse(),
     regime: getMarketRegime(),
@@ -630,5 +654,31 @@ export function getKrakenEngineStatus(): EngineStatus {
     lastSignals,
     exitLoopRunning: Boolean(exitTimer),
     openForgeOs: [...journalOpenCryptoPairs()],
+  };
+
+  if (started || isCryptoEngineStandalone()) {
+    return local;
+  }
+
+  const hb = readCryptoEngineHeartbeat();
+  if (!hb) return local;
+
+  const ageMs = Date.now() - Date.parse(hb.updatedAt);
+  return {
+    started: Number.isFinite(ageMs) && ageMs < 5 * 60_000,
+    universe: peekKrakenUniverse(),
+    regime: getMarketRegime(),
+    ws: {
+      connected: hb.wsConnected,
+      symbols: hb.wsSymbols,
+      lastMsgAgeMs: Number.isFinite(ageMs) ? ageMs : -1,
+    },
+    dailyRisk: getKrakenDailyRisk(),
+    lastCycleAt: hb.lastCycleAt,
+    lastSignals: hb.lastSignals,
+    exitLoopRunning: hb.exitLoopRunning,
+    openForgeOs: hb.openForgeOs.length
+      ? hb.openForgeOs
+      : [...journalOpenCryptoPairs()],
   };
 }

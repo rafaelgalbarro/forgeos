@@ -632,7 +632,12 @@ class IBKRClient(EWrapper, EClient):
                 bucket["volume"] = size
 
     def contractDetails(self, reqId: int, contractDetails) -> None:
-        self.contract_details_data[reqId] = contractDetails
+        bucket = self.contract_details_data.setdefault(reqId, [])
+        if isinstance(bucket, list):
+            bucket.append(contractDetails)
+        else:
+            # Migrate legacy single-value storage
+            self.contract_details_data[reqId] = [bucket, contractDetails]
 
     def contractDetailsEnd(self, reqId: int) -> None:
         event = self.contract_details_done.get(reqId)
@@ -1200,26 +1205,27 @@ class IBKRClient(EWrapper, EClient):
         self.ensure_connected()
 
     def _resolve_contract_details(self, contract: Contract, timeout: float = IBKR_WAIT_TIMEOUT_SEC):
+        """Returns list[ContractDetails] (may be empty)."""
         self._ensure_connected_for_contract_details()
         req_id = (self.next_order_id or 1000) + 100_000
         done = threading.Event()
         self.contract_details_done[req_id] = done
-        self.contract_details_data.pop(req_id, None)
+        self.contract_details_data[req_id] = []
         self.reqContractDetails(req_id, contract)
         if not done.wait(timeout):
             self.contract_details_done.pop(req_id, None)
             log.warning(
-                "Timeout %.0fs en reqContractDetails symbol=%s — usando contrato básico",
+                "Timeout %.0fs en reqContractDetails symbol=%s",
                 timeout,
                 getattr(contract, "symbol", "?"),
             )
-            return None
-        details = self.contract_details_data.get(req_id)
+            return []
+        details = self.contract_details_data.get(req_id) or []
         self.contract_details_done.pop(req_id, None)
         self.contract_details_data.pop(req_id, None)
-        if details is None:
-            log.warning("ContractDetails vacío symbol=%s — usando contrato básico", getattr(contract, "symbol", "?"))
-        return details
+        if isinstance(details, list):
+            return details
+        return [details] if details is not None else []
 
     def _resolve_market_rules(self, market_rule_ids: str) -> dict[int, list[dict[str, float]]]:
         rules: dict[int, list[dict[str, float]]] = {}
@@ -1306,6 +1312,22 @@ class IBKRClient(EWrapper, EClient):
         "MC": "SBF", "OR": "SBF", "TTE": "SBF", "BNP": "SBF", "AIR": "SBF",
         "ENEL": "BVME", "ISP": "BVME", "UCG": "BVME", "ENI": "BVME",
     }
+    # longName must match; reject wrong issuers (DTE Energy vs Deutsche Telekom)
+    _EU_NAME_HINTS = {
+        "DTE": ("TELEKOM", "DEUTSCHE TELEKOM", "DT.TELEKOM"),
+        "TEF": ("TELEFONICA", "TELEFÓNICA"),
+        "SAN": ("SANTANDER",),
+        "ITX": ("INDITEX",),
+        "IBE": ("IBERDROLA",),
+        "AENA": ("AENA",),
+        "BBVA": ("BBVA", "BILBAO"),
+        "SAP": ("SAP",),
+        "ASML": ("ASML",),
+    }
+    _EU_NAME_REJECT = {
+        "DTE": ("DTE ENERGY", "ENERGY CO", "DETROIT"),
+        "TEF": ("TELEFONICA SA ADR",),
+    }
 
     def _contract_cache_path(self) -> Path:
         root = Path(os.environ.get("FORGEOS_ROOT") or Path(__file__).resolve().parents[3])
@@ -1330,37 +1352,96 @@ class IBKRClient(EWrapper, EClient):
         except Exception as exc:
             log.warning("contract cache write failed: %s", exc)
 
+    def _eu_contract_name_ok(self, symbol: str, long_name: str) -> bool:
+        name = (long_name or "").upper()
+        for bad in self._EU_NAME_REJECT.get(symbol, ()):
+            if bad.upper() in name:
+                return False
+        hints = self._EU_NAME_HINTS.get(symbol)
+        if not hints:
+            return True
+        return any(h.upper() in name for h in hints)
+
+    def _pick_eu_contract_details(
+        self, details_list: list[Any], symbol: str, currency: str, primary: str
+    ):
+        """Exactly one matching EUR + primary (+ name) contract, else None."""
+        matches: list[Any] = []
+        for details in details_list:
+            qualified = getattr(details, "contract", None)
+            if qualified is None:
+                continue
+            q_ccy = str(getattr(qualified, "currency", "") or "").upper()
+            q_prim = str(getattr(qualified, "primaryExchange", "") or "").upper()
+            q_exch = str(getattr(qualified, "exchange", "") or "").upper()
+            long_name = str(
+                getattr(details, "longName", None)
+                or getattr(details, "long_name", None)
+                or getattr(qualified, "localSymbol", "")
+                or ""
+            )
+            if q_ccy != currency:
+                continue
+            if primary and q_prim and q_prim != primary and q_exch != primary:
+                # Allow SMART routing if primaryExchange matches
+                if q_prim != primary:
+                    continue
+            if not self._eu_contract_name_ok(symbol, long_name):
+                log.warning(
+                    "Reject contract %s ccy=%s primary=%s name=%r (name mismatch)",
+                    symbol, q_ccy, q_prim, long_name[:80],
+                )
+                continue
+            matches.append(details)
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            log.warning(
+                "Ambiguous ContractDetails for %s EUR/%s: %d matches — refuse",
+                symbol, primary, len(matches),
+            )
+            return None
+        return None
+
     def _qualify_stock_contract(self, proposal: dict[str, Any]) -> Contract:
         """
         Resolve STK via reqContractDetails.
-        For EUR local names try SMART+primaryExchange then venue exchange.
+        EUR local: must match currency + primaryExchange + company name.
+        Never falls back to bare SMART/USD for EU symbols (avoids DTE→DTE Energy).
         """
         symbol = str(proposal.get("symbol") or "").upper().strip()
         currency = str(proposal.get("currency") or "USD").upper().strip() or "USD"
         primary = str(proposal.get("primary_exchange") or "").upper().strip()
         if not primary and currency == "EUR":
             primary = self._EU_LOCAL_PRIMARY.get(symbol, "")
+        is_eu = currency == "EUR" and (primary or symbol in self._EU_LOCAL_PRIMARY)
+        if is_eu and not primary:
+            primary = self._EU_LOCAL_PRIMARY.get(symbol, "")
 
         cache_key = f"{symbol}|{currency}|{primary or 'SMART'}"
         cache = self._load_contract_cache()
         cached = cache.get(cache_key)
         if cached and cached.get("conId"):
-            c = Contract()
-            c.conId = int(cached["conId"])
-            c.symbol = cached.get("symbol") or symbol
-            c.secType = "STK"
-            c.currency = cached.get("currency") or currency
-            c.exchange = cached.get("exchange") or "SMART"
-            if cached.get("primaryExchange"):
-                c.primaryExchange = cached["primaryExchange"]
-            log.info(
-                "Contract cache hit %s conId=%s exchange=%s primary=%s ccy=%s",
-                symbol, c.conId, c.exchange, getattr(c, "primaryExchange", ""), c.currency,
-            )
-            return c
+            cached_ccy = str(cached.get("currency") or "").upper()
+            cached_prim = str(cached.get("primaryExchange") or "").upper()
+            if is_eu and (cached_ccy != "EUR" or (primary and cached_prim and cached_prim != primary)):
+                log.warning("Drop stale cache %s (ccy=%s primary=%s)", cache_key, cached_ccy, cached_prim)
+            else:
+                c = Contract()
+                c.conId = int(cached["conId"])
+                c.symbol = cached.get("symbol") or symbol
+                c.secType = "STK"
+                c.currency = cached.get("currency") or currency
+                c.exchange = cached.get("exchange") or "SMART"
+                if cached.get("primaryExchange"):
+                    c.primaryExchange = cached["primaryExchange"]
+                log.info(
+                    "Contract cache hit %s conId=%s exchange=%s primary=%s ccy=%s",
+                    symbol, c.conId, c.exchange, getattr(c, "primaryExchange", ""), c.currency,
+                )
+                return c
 
         candidates: list[Contract] = []
-        # 1) SMART + primary + currency
         c1 = Contract()
         c1.symbol = symbol
         c1.secType = "STK"
@@ -1369,7 +1450,6 @@ class IBKRClient(EWrapper, EClient):
         if primary:
             c1.primaryExchange = primary
         candidates.append(c1)
-        # 2) Direct venue exchange
         if primary:
             c2 = Contract()
             c2.symbol = symbol
@@ -1377,8 +1457,7 @@ class IBKRClient(EWrapper, EClient):
             c2.currency = currency
             c2.exchange = primary
             candidates.append(c2)
-        # 3) Fallback SMART without primary (US)
-        if currency == "USD":
+        if currency == "USD" and not is_eu:
             c3 = Contract()
             c3.symbol = symbol
             c3.secType = "STK"
@@ -1389,30 +1468,41 @@ class IBKRClient(EWrapper, EClient):
         last_err: Exception | None = None
         for cand in candidates:
             try:
-                details = self._resolve_contract_details(cand)
-                if details is None:
+                details_list = self._resolve_contract_details(cand)
+                if not details_list:
                     continue
+                if is_eu:
+                    picked = self._pick_eu_contract_details(
+                        details_list, symbol, currency, primary
+                    )
+                    if picked is None:
+                        continue
+                    details = picked
+                else:
+                    details = details_list[0]
                 qualified = getattr(details, "contract", None)
                 if qualified is None:
                     continue
-                # Cache
+                long_name = str(getattr(details, "longName", "") or "")
                 cache[cache_key] = {
                     "conId": int(getattr(qualified, "conId", 0) or 0),
                     "symbol": getattr(qualified, "symbol", symbol),
                     "currency": getattr(qualified, "currency", currency),
                     "exchange": getattr(qualified, "exchange", "SMART") or "SMART",
                     "primaryExchange": getattr(qualified, "primaryExchange", primary) or primary,
+                    "longName": long_name[:120],
                     "cachedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 }
                 if cache[cache_key]["conId"]:
                     self._save_contract_cache(cache)
                 log.info(
-                    "Contract qualified %s conId=%s exch=%s primary=%s ccy=%s",
+                    "Contract qualified %s conId=%s exch=%s primary=%s ccy=%s name=%r",
                     symbol,
                     cache[cache_key]["conId"],
                     cache[cache_key]["exchange"],
                     cache[cache_key]["primaryExchange"],
                     cache[cache_key]["currency"],
+                    long_name[:60],
                 )
                 return qualified
             except Exception as exc:
@@ -1424,6 +1514,13 @@ class IBKRClient(EWrapper, EClient):
                     getattr(cand, "primaryExchange", ""),
                     exc,
                 )
+        if is_eu:
+            msg = (
+                f"EU contract verify failed for {symbol} EUR/{primary or '?'} "
+                f"— refuse SMART/USD fallback"
+            )
+            log.error(msg)
+            raise RuntimeError(msg)
         if last_err:
             log.warning("All ContractDetails attempts failed for %s: %s", symbol, last_err)
         return self._basic_contract_from_proposal(proposal)
@@ -1593,6 +1690,16 @@ class IBKRClient(EWrapper, EClient):
         self._ensure_connected_for_contract_details()
         proposal = self._resolve_order_currency(proposal)
         sec_type = str(proposal.get("sec_type") or "STK").upper().strip() or "STK"
+        req_ccy = str(proposal.get("currency") or "").upper()
+        is_eu = req_ccy == "EUR" and (
+            proposal.get("primary_exchange")
+            or str(proposal.get("symbol") or "").upper() in self._EU_LOCAL_PRIMARY
+        )
+        if is_eu and skip_contract_details:
+            raise RuntimeError(
+                f"EU {proposal.get('symbol')}: skip_contract_details forbidden — "
+                "must verify local EUR contract"
+            )
         if sec_type == "STK" and not skip_contract_details:
             contract = self._qualify_stock_contract(proposal)
         else:
@@ -1610,8 +1717,11 @@ class IBKRClient(EWrapper, EClient):
         details = None
         if not skip_contract_details and getattr(contract, "conId", 0) in (0, None):
             try:
-                details = self._resolve_contract_details(contract)
+                details_list = self._resolve_contract_details(contract)
+                details = details_list[0] if details_list else None
             except Exception as exc:
+                if is_eu:
+                    raise
                 log.warning("reqContractDetails failed (%s) — contrato básico %s", exc, contract.symbol)
                 details = None
                 contract = self._basic_contract_from_proposal(proposal)
@@ -1628,6 +1738,10 @@ class IBKRClient(EWrapper, EClient):
         else:
             # Already qualified via cache/conId or basic contract
             if getattr(contract, "conId", 0) in (0, None):
+                if is_eu:
+                    raise RuntimeError(
+                        f"EU {contract.symbol}: no verified conId — refuse basic SMART/USD"
+                    )
                 contract = self._basic_contract_from_proposal(proposal)
             qty = float(proposal["quantity"])
             price = float(proposal["limit_price"])
@@ -1903,8 +2017,9 @@ class IBKRClient(EWrapper, EClient):
         contract = build_cash_contract(pair)
         details = None
         try:
-            details = self._resolve_contract_details(contract)
-            qualified = getattr(details, "contract", None)
+            details_list = self._resolve_contract_details(contract)
+            details = details_list[0] if details_list else None
+            qualified = getattr(details, "contract", None) if details else None
             if qualified is not None:
                 contract = qualified
         except Exception:
@@ -2567,6 +2682,54 @@ def list_proposals():
     with db() as connection:
         rows = connection.execute("SELECT * FROM proposals ORDER BY created_at DESC LIMIT 200").fetchall()
     return [proposal_from_row(row) for row in rows]
+
+
+@app.post("/api/proposals/expire-stale-approved", dependencies=auth)
+def expire_stale_approved(maxAgeMin: int = 10):
+    """
+    APPROVED without ibkr_order_id after maxAgeMin → ERROR (GSK 11:30/11:54 case).
+    """
+    age = max(1, min(int(maxAgeMin or 10), 120))
+    cutoff = (utcnow() - timedelta(minutes=age)).isoformat()
+    expired: list[dict[str, Any]] = []
+    with db() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, payload, approved_at, created_at, ibkr_order_id, status
+            FROM proposals
+            WHERE status='APPROVED'
+              AND (ibkr_order_id IS NULL OR ibkr_order_id = '')
+            """
+        ).fetchall()
+        for row in rows:
+            approved_at = row["approved_at"] or row["created_at"]
+            if not approved_at or str(approved_at) > cutoff:
+                continue
+            reason = (
+                f"APPROVED sin estado IBKR tras {age} min "
+                f"(approved_at={approved_at})"
+            )
+            connection.execute(
+                """
+                UPDATE proposals
+                SET status='ERROR', reject_reason=?, ibkr_status='STALE_APPROVED'
+                WHERE id=?
+                """,
+                (reason, row["id"]),
+            )
+            try:
+                payload = json.loads(row["payload"] or "{}")
+            except Exception:
+                payload = {}
+            expired.append(
+                {
+                    "id": row["id"],
+                    "symbol": payload.get("symbol"),
+                    "reason": reason,
+                }
+            )
+            audit("PROPOSAL_STALE_APPROVED", row["id"], {"reason": reason})
+    return {"count": len(expired), "expired": expired}
 
 
 @app.post("/api/proposals", dependencies=auth)

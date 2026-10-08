@@ -34,5 +34,6 @@ export function evaluateTrendPullback1h(
     atr: a,
     stopLossPct: stopDist / price,
     riskR: stopDist,
+    candleTime: bars1h[bars1h.length - 1]!.time,
   };
 }

@@ -13,8 +13,28 @@ export type IbkrReconnectResult = {
   attempt?: number;
 };
 
+/** No new orders for 2 minutes after a successful reconnect. */
+const RECONNECT_COOLDOWN_MS = 2 * 60_000;
+let lastSuccessfulReconnectAt = 0;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+export function markIbkrReconnected(): void {
+  lastSuccessfulReconnectAt = Date.now();
+}
+
+/** Throws if still inside the post-reconnect cool-down window. */
+export function assertOrdersAllowedAfterReconnect(): void {
+  if (!(lastSuccessfulReconnectAt > 0)) return;
+  const elapsed = Date.now() - lastSuccessfulReconnectAt;
+  if (elapsed < RECONNECT_COOLDOWN_MS) {
+    const left = Math.ceil((RECONNECT_COOLDOWN_MS - elapsed) / 1000);
+    throw new Error(
+      `IBKR cool-down tras reconectar — espera ${left}s antes de enviar órdenes`,
+    );
+  }
 }
 
 /**
@@ -32,6 +52,7 @@ export async function reconnectIbkrBroker(): Promise<IbkrReconnectResult> {
     });
     invalidateIbkrReadCache();
     invalidateIbkrAccountPositionsCache();
+    if (result.connected) markIbkrReconnected();
     return {
       connected: Boolean(result.connected),
       state: result.state,

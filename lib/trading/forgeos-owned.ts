@@ -16,6 +16,7 @@ export const LEGACY_ORPHAN_TICKERS: ReadonlySet<string> = new Set([
   "NCNA",
   "GNLN",
   "CGBSF",
+  "HYDC",
   "BURU",
   "FLYX",
   "GPUS",

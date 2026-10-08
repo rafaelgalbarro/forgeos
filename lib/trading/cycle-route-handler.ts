@@ -18,8 +18,15 @@ import {
   nextOpenLabel,
 } from "@/lib/trading/cycle-schedule";
 import { getExitManager } from "@/lib/trading/exit-manager";
+import { pruneExpiredIbkrNonTradable } from "@/lib/trading/ibkr-non-tradable";
+import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
+import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
 
 const engine = new TradingEngine();
+
+/** Max 1 forex zero-bars alert per 2h. */
+let lastForexZeroBarsAlertAt = 0;
 
 export type TypedCycleKind = "stocks" | "crypto" | "forex";
 
@@ -84,6 +91,18 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
 
   try {
     await expireStalePendingApprovals();
+    await pruneExpiredIbkrNonTradable().catch(() => undefined);
+    if (config.kind === "stocks") {
+      await ibkrServiceFetch("/api/proposals/expire-stale-approved?maxAgeMin=10", {
+        method: "POST",
+        body: "{}",
+      }).catch((err) =>
+        console.warn(
+          "[Cycle/stocks] expire-stale-approved:",
+          err instanceof Error ? err.message : err,
+        ),
+      );
+    }
 
     // Exit manager — SL / trailing TP at start of stocks + crypto cycles
     if (config.kind === "stocks" || config.kind === "crypto") {
@@ -123,6 +142,34 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
 
     storeLastCycle(config.kind, result);
 
+    let accountSnapshot = result.accountSnapshot ?? null;
+    if (config.kind === "forex") {
+      try {
+        accountSnapshot = await fetchTradingAccountSnapshot();
+      } catch {
+        /* keep cycle result snapshot */
+      }
+      const total = result.orders.length;
+      const zeroBars = result.orders.filter((o) => {
+        const r = `${o.reason ?? ""} ${o.signal?.reasoning ?? ""}`;
+        return (
+          /0 barras|sin hist[oó]rico|no analizado|histórico.*insuficiente|EODHD insuficiente/i.test(
+            r,
+          ) || (o.signal?.analyzed === false && /barras|precio|hist/i.test(r))
+        );
+      }).length;
+      if (total > 0 && zeroBars / total > 0.5) {
+        const now = Date.now();
+        if (now - lastForexZeroBarsAlertAt >= 2 * 60 * 60_000) {
+          lastForexZeroBarsAlertAt = now;
+          void sendTelegramMessage(
+            `⚠️ <b>FOREX</b>: ${zeroBars}/${total} tickers sin barras / no analizado ` +
+              `(usar EURUSD.FOREX etc.)`,
+          ).catch(() => undefined);
+        }
+      }
+    }
+
     publishInvestmentEvent({
       type: "cycle_complete",
       at: new Date().toISOString(),
@@ -142,7 +189,12 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
       `[Cycle/${config.kind}] ✅ ${result.orders.length} results, pending=${pending} phase=${phase}`,
     );
 
-    return NextResponse.json({ ...result, cycleKind: config.kind, phase });
+    return NextResponse.json({
+      ...result,
+      cycleKind: config.kind,
+      phase,
+      accountSnapshot: accountSnapshot ?? result.accountSnapshot,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "cycle failed";
     if (msg.includes("cycle already running")) {

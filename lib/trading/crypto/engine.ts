@@ -32,10 +32,13 @@ import {
 } from "@/lib/trading/crypto/config";
 import {
   appendCryptoJournal,
-  autoTuneCryptoStrategies,
+  closeCryptoJournalOpen,
   computeCryptoStrategyPerf,
-  isCryptoStrategyLiveDisabled,
+  countOpenByStrategy,
+  countOpenGridLevels,
+  hasSignalKey,
   journalOpenCryptoPairs,
+  listOpenCryptoJournal,
   readCryptoJournal,
   strategyReliabilityMap,
 } from "@/lib/trading/crypto/journal-crypto";
@@ -60,9 +63,19 @@ import {
 import {
   evaluateAllStrategiesForPair,
   rankSignals,
+  rsi2TrendShouldExit,
+  topRsPairsVsBtc,
   type RankedSignal,
 } from "@/lib/trading/crypto/strategies";
-import { SHADOW_BOOTSTRAP_STRATEGIES } from "@/lib/trading/crypto/strategies/types";
+import {
+  NEW_CRYPTO_STRATEGIES,
+  type CryptoStrategyId,
+} from "@/lib/trading/crypto/strategies/types";
+import {
+  isCryptoStrategyLive,
+  isWithinNewStrategyWarmup,
+} from "@/lib/trading/crypto/live-strategies";
+import { autoDegradePromoteStrategies } from "@/lib/trading/crypto/strategy-status";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { registerExecutedPosition } from "@/src/core/trading/position-monitor";
 import {
@@ -253,9 +266,49 @@ function startKrakenExitLoop(): void {
   exitTimer.unref?.();
 }
 
+/** Close shadow journal opens with the same SL/TP/maxHold rules (no broker). */
+async function runShadowExits(): Promise<void> {
+  const opens = listOpenCryptoJournal({ shadow: true });
+  for (const open of opens) {
+    const mid = midPrice(open.pair);
+    if (!(mid != null && mid > 0)) continue;
+    const entry = open.entry;
+    const openedAt = Date.parse(open.at);
+    const holdMs = Number.isFinite(openedAt) ? Date.now() - openedAt : 0;
+    const strategy = String(open.strategy);
+    const maxHold = maxHoldMsForStrategy(strategy);
+    const stop =
+      open.stopLoss != null && open.stopLoss > 0 ? open.stopLoss : entry * 0.97;
+    const tp =
+      open.takeProfit != null && open.takeProfit > 0
+        ? open.takeProfit
+        : entry * 1.04;
+    let reason: string | null = null;
+    if (strategy === "RSI2_TREND_5M") {
+      reason = rsi2TrendShouldExit(getBars(open.pair, "5"), entry, openedAt);
+    }
+    if (!reason && holdMs >= maxHold) reason = "MAX_HOLD";
+    if (!reason && mid <= stop) reason = "STOP_LOSS";
+    if (!reason && mid >= tp) reason = "TAKE_PROFIT";
+    if (!reason) continue;
+    const peak = Math.max(mid, entry);
+    closeCryptoJournalOpen({
+      open,
+      exit: mid,
+      exitReason: reason,
+      feesEur: entry * 0.0025 + mid * 0.004, // maker in + taker out estimate
+      mfePct: (peak - entry) / entry,
+      maePct: null,
+    });
+  }
+}
+
 /** Professional exit management using WS prices. */
 async function runKrakenExits(): Promise<void> {
   if (!isKrakenConfigured()) return;
+  // Shadow positions: same exit logic, journal-only (no broker order)
+  await runShadowExits().catch(() => undefined);
+
   const adapter = getKrakenAdapter();
   const openPairs = journalOpenCryptoPairs();
   if (!openPairs.size) return;
@@ -282,20 +335,28 @@ async function runKrakenExits(): Promise<void> {
     const holdMs = Number.isFinite(openedAt) ? Date.now() - openedAt : 0;
     const strategy = String(openBuy.strategy);
     const maxHold = maxHoldMsForStrategy(strategy);
+    const stop =
+      openBuy.stopLoss != null && openBuy.stopLoss > 0
+        ? openBuy.stopLoss
+        : entry * 0.97;
+    const tp =
+      openBuy.takeProfit != null && openBuy.takeProfit > 0
+        ? openBuy.takeProfit
+        : entry * 1.04;
 
     const pnlPct = (mid - entry) / entry;
-    const riskPct = Math.min(0.03, Math.abs(entry - (openBuy as { stopHint?: number }).stopHint!) || 0.02);
-    // Use 2% default R if unknown
-    const rDist = entry * Math.max(0.01, Math.min(0.03, openBuy.entry > 0 ? 0.02 : 0.02));
+    const rDist = Math.max(entry * 0.005, entry - stop);
     const rMultiple = (mid - entry) / rDist;
 
     let reason: string | null = null;
-    if (holdMs >= maxHold) reason = "MAX_HOLD";
-    else if (pnlPct <= -0.03) reason = "STOP_LOSS";
-    else if (rMultiple >= 2) {
-      // partial handled simply as full exit for v1 when half already sold — trail rest
-      reason = null;
+    if (strategy === "RSI2_TREND_5M") {
+      const bars5 = getBars(pos.symbol, "5");
+      reason = rsi2TrendShouldExit(bars5, entry, openedAt);
     }
+    if (!reason && holdMs >= maxHold) reason = "MAX_HOLD";
+    else if (!reason && mid <= stop) reason = "STOP_LOSS";
+    else if (!reason && mid >= tp) reason = "TAKE_PROFIT";
+    else if (!reason && pnlPct <= -0.03) reason = "STOP_LOSS";
 
     // Trailing from peak via ATR
     const bars = getBars(pos.symbol, "15");
@@ -353,7 +414,8 @@ async function runKrakenExits(): Promise<void> {
 
       const line =
         `🔴 SELL ₿ KRAKEN ${pos.symbol} ${order.volume} @ €${order.price.toFixed(4)} | ` +
-        `${reason} ${strategy} P&L €${pnl.toFixed(2)}`;
+        `${reason} ${strategy} neto €${(pnl - fees).toFixed(2)} ` +
+        `(entry €${entry.toFixed(4)} SL €${stop.toFixed(4)} TP €${tp.toFixed(4)})`;
       void sendTelegramMessage(line).catch(() => undefined);
     } catch (err) {
       console.warn(
@@ -395,12 +457,19 @@ export async function runKrakenAnalysisCycle(): Promise<{
   const regimePause = isBuyPausedByRegime();
   const reliability = strategyReliabilityMap();
 
+  const topRs = new Set(
+    topRsPairsVsBtc(pairs, (p) => getBars(p, "60"), getBars("XBTEUR", "60"), 3),
+  );
+
   const collected: Array<RankedSignal> = [];
   for (const pair of pairs) {
-    const sigs = evaluateAllStrategiesForPair(pair).map((s) => ({ ...s, pair }));
+    const sigs = evaluateAllStrategiesForPair(pair, {
+      openGridLevels: countOpenGridLevels(pair),
+      isTop3Rs: topRs.has(pair),
+    }).map((s) => ({ ...s, pair }));
     collected.push(...rankSignals(sigs, reliability));
   }
-  // Deduplicate by pair — keep best score
+  // One live position per pair — keep best score; still allow distinct signalKeys for shadow log
   const bestByPair = new Map<string, RankedSignal>();
   for (const s of collected.sort((a, b) => b.score - a.score)) {
     if (!bestByPair.has(s.pair)) bestByPair.set(s.pair, s);
@@ -412,10 +481,7 @@ export async function runKrakenAnalysisCycle(): Promise<{
     strategy: s.strategyId,
     confidence: s.confidence,
     score: s.score,
-    shadow:
-      s.shadow ||
-      SHADOW_BOOTSTRAP_STRATEGIES.has(s.strategyId) ||
-      isCryptoStrategyLiveDisabled(s.strategyId),
+    shadow: s.shadow || !isCryptoStrategyLive(s.strategyId),
     action: "SIGNAL",
   }));
   lastCycleAt = new Date().toISOString();
@@ -423,6 +489,14 @@ export async function runKrakenAnalysisCycle(): Promise<{
   const executed: string[] = [];
   const shadow: string[] = [];
   const held: string[] = [];
+
+  // RANGE_GRID: leave LATERAL → cancel open orders + close positions
+  await handleRangeGridRegimeExit().catch((err) =>
+    console.warn(
+      "[Kraken/GridExit]",
+      err instanceof Error ? err.message : err,
+    ),
+  );
 
   if (!daily.ok || regimePause.paused) {
     console.log(
@@ -439,15 +513,30 @@ export async function runKrakenAnalysisCycle(): Promise<{
 
   const adapter = getKrakenAdapter();
   const acct = await adapter.getAccount();
+  const krakenPositions = await adapter.getPositions().catch(() => []);
+  const krakenOpenOrders = await adapter.getOpenOrders().catch(
+    () => ({} as Record<string, { pair: string }>),
+  );
+  const krakenBusyPairs = new Set<string>();
+  for (const p of krakenPositions) krakenBusyPairs.add(p.symbol.toUpperCase());
+  for (const o of Object.values(krakenOpenOrders)) {
+    const sym = String(o.pair ?? "").toUpperCase().replace("/", "");
+    if (sym) krakenBusyPairs.add(sym);
+  }
+
   beginCryptoCycleReservation(acct.cashEur);
   const maxPos = cryptoLiveMaxPositions();
   const sizeRegime = sizeMultiplierForRegime() * daily.sizeMult;
+  const warmup = isWithinNewStrategyWarmup();
 
   for (const sig of ranked) {
-    const isShadow =
-      sig.shadow ||
-      SHADOW_BOOTSTRAP_STRATEGIES.has(sig.strategyId) ||
-      isCryptoStrategyLiveDisabled(sig.strategyId);
+    const isShadow = sig.shadow || !isCryptoStrategyLive(sig.strategyId);
+
+    // Idempotency: one order per strategy+pair+candle
+    if (hasSignalKey(sig.signalKey)) {
+      held.push(`${sig.pair}:dup_signal`);
+      continue;
+    }
 
     if (isShadow) {
       appendCryptoJournal({
@@ -467,6 +556,9 @@ export async function runKrakenAnalysisCycle(): Promise<{
         maePct: null,
         shadow: true,
         open: true,
+        signalKey: sig.signalKey,
+        stopLoss: sig.stopLoss,
+        takeProfit: sig.takeProfit,
       });
       shadow.push(`${sig.pair}:${sig.strategyId}`);
       console.log(
@@ -475,14 +567,37 @@ export async function runKrakenAnalysisCycle(): Promise<{
       continue;
     }
 
+    // One live position per pair (all strategies)
     const openForge = [...journalOpenCryptoPairs()];
+    if (
+      openForge.includes(sig.pair.toUpperCase()) ||
+      krakenBusyPairs.has(sig.pair.toUpperCase())
+    ) {
+      held.push(`${sig.pair}:pair_busy`);
+      console.log(
+        `[Kraken/Cycle] HOLD ${sig.pair} ya hay posición/orden abierta (journal o Kraken)`,
+      );
+      continue;
+    }
+
+    if (
+      warmup &&
+      NEW_CRYPTO_STRATEGIES.has(sig.strategyId as CryptoStrategyId) &&
+      countOpenByStrategy(sig.strategyId) >= 1
+    ) {
+      held.push(`${sig.pair}:warmup_cap`);
+      console.log(
+        `[Kraken/Cycle] HOLD ${sig.strategyId} — máx 1 pos en primeras 48h`,
+      );
+      continue;
+    }
+
     if (!passesCorrelationFilter(sig.pair, openForge)) {
       held.push(`${sig.pair}:corr`);
       console.log(`[Kraken/Cycle] HOLD ${sig.pair} correlación >0.8 (máx 2)`);
       continue;
     }
 
-    // Risk-based size: 1% equity / stop distance
     const stopDist = Math.abs(sig.entry - sig.stopLoss);
     if (!(stopDist > 0)) {
       held.push(`${sig.pair}:bad_stop`);
@@ -518,7 +633,6 @@ export async function runKrakenAnalysisCycle(): Promise<{
     }
 
     try {
-      // Post-only at bid; wait 20s; cancel+retry once; else discard
       const attemptBuy = async (limitPx: number) => {
         const order = await adapter.placeOrder({
           symbol: sig.pair,
@@ -536,7 +650,14 @@ export async function runKrakenAnalysisCycle(): Promise<{
           (st.status === "closed" || st.volExec >= st.vol * 0.99) &&
           st.volExec > 0;
         if (filled) {
-          return { order: { ...order, volume: st!.volExec || order.volume, price: order.price }, fee: st!.fee };
+          return {
+            order: {
+              ...order,
+              volume: st!.volExec || order.volume,
+              price: order.price,
+            },
+            fee: st!.fee,
+          };
         }
         if (order.orderId) {
           await adapter.cancelOrder(order.orderId).catch(() => undefined);
@@ -554,12 +675,15 @@ export async function runKrakenAnalysisCycle(): Promise<{
       if (!filled) {
         await reservation.release(sig.pair);
         held.push(`${sig.pair}:unfilled`);
-        console.log(`[Kraken/Cycle] HOLD ${sig.pair} post-only no fill tras 2 intentos`);
+        console.log(
+          `[Kraken/Cycle] HOLD ${sig.pair} post-only no fill tras 2 intentos`,
+        );
         continue;
       }
 
       const order = filled.order;
       await reservation.commit(sig.pair);
+      krakenBusyPairs.add(sig.pair.toUpperCase());
 
       appendCryptoJournal({
         at: new Date().toISOString(),
@@ -578,6 +702,11 @@ export async function runKrakenAnalysisCycle(): Promise<{
         maePct: null,
         shadow: false,
         open: true,
+        signalKey: sig.signalKey,
+        stopLoss: sig.stopLoss,
+        takeProfit: sig.takeProfit,
+        qty: order.volume,
+        orderId: order.orderId,
       });
       await registerExecutedPosition({
         ticker: sig.pair,
@@ -590,7 +719,8 @@ export async function runKrakenAnalysisCycle(): Promise<{
 
       const line =
         `🟢 BUY ₿ KRAKEN ${sig.pair} ${order.volume} @ €${order.price.toFixed(4)} | ` +
-        `${sig.strategyId} SL €${sig.stopLoss.toFixed(4)} TP €${sig.takeProfit.toFixed(4)}`;
+        `${sig.strategyId} SL €${sig.stopLoss.toFixed(4)} TP €${sig.takeProfit.toFixed(4)} ` +
+        `notional≈€${(order.volume * order.price).toFixed(2)}`;
       void sendTelegramMessage(line).catch(() => undefined);
       executed.push(`${sig.pair}:${sig.strategyId}`);
     } catch (err) {
@@ -606,10 +736,80 @@ export async function runKrakenAnalysisCycle(): Promise<{
     }
   }
 
-  const tuneMsgs = autoTuneCryptoStrategies();
+  const tuneMsgs = await autoDegradePromoteStrategies({
+    trades: readCryptoJournal(),
+    capitalEur: eq,
+  });
   for (const m of tuneMsgs) void sendTelegramMessage(m).catch(() => undefined);
 
   return { signals: ranked, executed, shadow, held };
+}
+
+async function handleRangeGridRegimeExit(): Promise<void> {
+  if (getMarketRegime().regime === "LATERAL") return;
+  const adapter = getKrakenAdapter();
+  const opens = listOpenCryptoJournal({
+    shadow: false,
+    strategy: "RANGE_GRID_15M",
+  });
+  if (!opens.length) return;
+
+  const orders = await adapter.getOpenOrders().catch(
+    () => ({} as Record<string, { pair: string }>),
+  );
+  for (const [txid, o] of Object.entries(orders)) {
+    const pair = String(o.pair ?? "").toUpperCase().replace("/", "");
+    if (
+      opens.some((x) => x.pair.toUpperCase() === pair || pair.includes(x.pair.replace("EUR", "")))
+    ) {
+      await adapter.cancelOrder(txid).catch(() => undefined);
+    }
+  }
+
+  const positions = await adapter.getPositions().catch(() => []);
+  for (const open of opens) {
+    const pos = positions.find(
+      (p) => p.symbol.toUpperCase() === open.pair.toUpperCase(),
+    );
+    if (!pos) {
+      closeCryptoJournalOpen({
+        open,
+        exit: open.entry,
+        exitReason: "REGIME_EXIT_LATERAL",
+      });
+      continue;
+    }
+    const mid = midPrice(pos.symbol) ?? pos.currentPrice;
+    const order = await adapter.placeOrder({
+      symbol: pos.symbol,
+      side: "sell",
+      volume: pos.qty,
+      price: mid * (1 - cryptoSellAggressiveDiscountPct()),
+    });
+    const pnl = (order.price - open.entry) * order.volume;
+    appendCryptoJournal({
+      at: new Date().toISOString(),
+      strategy: "RANGE_GRID_15M",
+      pair: pos.symbol,
+      regime: getMarketRegime().regime,
+      side: "SELL",
+      entry: open.entry,
+      exit: order.price,
+      exitReason: "REGIME_EXIT_LATERAL",
+      grossPnlEur: pnl,
+      feesEur: 0,
+      netPnlEur: pnl,
+      netPct: open.entry > 0 ? (pnl / (open.entry * order.volume)) * 100 : null,
+      durationMs: Date.now() - Date.parse(open.at),
+      mfePct: null,
+      maePct: null,
+      shadow: false,
+      signalKey: open.signalKey,
+    });
+    void sendTelegramMessage(
+      `🔴 SELL ₿ KRAKEN ${pos.symbol} GRID | REGIME_EXIT_LATERAL P&L €${pnl.toFixed(2)}`,
+    ).catch(() => undefined);
+  }
 }
 
 function startDailyReportScheduler(): void {
@@ -625,7 +825,8 @@ function startDailyReportScheduler(): void {
     const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
     const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
     const wd = parts.find((p) => p.type === "weekday")?.value ?? "";
-    if (h === 23 && m >= 55 && m <= 59) {
+    // Daily summary 22:00 Europe/Madrid
+    if (h === 22 && m < 5) {
       void sendDailyCryptoReport().catch(() => undefined);
     }
     if (wd === "Sun" && h === 20 && m < 5) {
@@ -639,12 +840,12 @@ async function sendDailyCryptoReport(): Promise<void> {
   const risk = getKrakenDailyRisk();
   const perfs = computeCryptoStrategyPerf();
   const lines = [
-    "📊 <b>Kraken diario</b>",
+    "📊 <b>Kraken diario 22:00 Madrid</b>",
     `P&L día: €${risk.dayPnlEur.toFixed(2)} | sem: €${risk.weekPnlEur.toFixed(2)}`,
     `Régimen: ${getMarketRegime().regime}`,
-    ...perfs.slice(0, 8).map(
+    ...perfs.slice(0, 12).map(
       (p) =>
-        `${p.strategy}: n=${p.trades} WR=${(p.winRate * 100).toFixed(0)}% net=€${p.netPnlEur.toFixed(2)} live=${p.live}`,
+        `${p.strategy}: live n=${p.trades} WR=${(p.winRate * 100).toFixed(0)}% net=€${p.netPnlEur.toFixed(2)} | shadow n=${p.shadowTrades} | <b>${p.mode}</b>`,
     ),
   ];
   await sendTelegramMessage(lines.join("\n"));

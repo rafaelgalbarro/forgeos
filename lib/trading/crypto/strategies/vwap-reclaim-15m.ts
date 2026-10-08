@@ -34,5 +34,6 @@ export function evaluateVwapReclaim15m(bars15: readonly Bar[]): CryptoStrategySi
     atr: a,
     stopLossPct: stopDist / price,
     riskR: stopDist,
+    candleTime: last.time,
   };
 }

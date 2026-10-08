@@ -132,7 +132,16 @@ export function sizeMultiplierForRegime(): number {
 
 export function allowedStrategiesForRegime(): Set<string> | "all" {
   if (state.regime === "ALCISTA") return "all";
-  if (state.regime === "LATERAL") return new Set(["RSI_MEAN_REVERSION_15M"]);
+  if (state.regime === "LATERAL") {
+    return new Set([
+      "RSI_MEAN_REVERSION_15M",
+      "RANGE_GRID_15M",
+      "VWAP_RECLAIM_15M",
+      "LIQUIDITY_SWEEP_15M",
+      "EMA_CROSS_15M",
+      "SESSION_OPEN_BREAKOUT",
+    ]);
+  }
   return new Set(); // BAJISTA — no new buys
 }
 

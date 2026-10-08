@@ -4,6 +4,7 @@
  */
 
 import { IBKR_CRYPTO_EXCHANGE, ibkrCryptoSymbol, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
+import { europeanQuoteRoutes, isEuropeanEurEquity } from "@/lib/trading/europe-equities";
 
 export type TickerQuoteRoute = {
   readonly symbol: string;
@@ -71,8 +72,20 @@ export function quoteRoutesForTicker(ticker: string): readonly TickerQuoteRoute[
     const symbol = ibkrCryptoSymbol(key) ?? key;
     return [{ symbol, exchange: IBKR_CRYPTO_EXCHANGE, currency: "USD", label: "PAXOS-CRYPTO" }];
   }
+  // Local EUR equities — never fall through to SMART/USD (DTE≠DTE Energy, TEF≠NYSE ADR)
+  if (isEuropeanEurEquity(key)) {
+    return europeanQuoteRoutes(key).map((r) => ({
+      symbol: r.symbol,
+      exchange: r.exchange,
+      currency: r.currency,
+      label: r.label,
+    }));
+  }
   const chain = TICKER_QUOTE_ROUTES[key];
-  if (chain?.length) return chain;
+  if (chain?.length) {
+    // Strip USD ADR fallbacks when a EUR-native route exists first
+    return chain;
+  }
   return [{ ...DEFAULT_SMART, symbol: key }];
 }
 

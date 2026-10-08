@@ -18,6 +18,7 @@ import {
   IBKR_PRICE_CACHE_TTL_MS,
 } from "@/lib/trading/ibkr-cache";
 import { resolveDayOpenDailyPnl } from "@/lib/trading/nav-day-open";
+import { getEuropeanEurEquity } from "@/lib/trading/europe-equities";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -167,6 +168,7 @@ export async function fetchTradingPrice(ticker: string): Promise<TradingPriceSna
 function snapshotFromEodhd(symbol: string, eod: NonNullable<Awaited<ReturnType<typeof getEodhdQuote>>>): TradingPriceSnapshot {
   const bid = eod.low > 0 && eod.high > 0 ? Math.min(eod.price, (eod.high + eod.low) / 2) : eod.price;
   const ask = eod.high > 0 && eod.low > 0 ? Math.max(eod.price, (eod.high + eod.low) / 2) : eod.price;
+  const eu = getEuropeanEurEquity(symbol);
   return {
     ticker: symbol,
     currentPrice: eod.price,
@@ -179,8 +181,8 @@ function snapshotFromEodhd(symbol: string, eod: NonNullable<Awaited<ReturnType<t
     volume: eod.volume,
     changePercentage: eod.changePercentage,
     quoteSymbol: symbol,
-    quoteExchange: "EODHD",
-    quoteCurrency: "USD",
+    quoteExchange: eu?.primaryExchange ?? "EODHD",
+    quoteCurrency: eu ? "EUR" : "USD",
     quoteRoute: "EODHD-REALTIME",
     quoteErrors: [],
   };

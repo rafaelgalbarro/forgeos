@@ -8,7 +8,14 @@ import "server-only";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { cancelOpenIbkrSellsForSymbol } from "@/lib/investment/ibkr-cancel-open-sells";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
-import { ensureIbkrBrokerConnected } from "@/lib/trading/ibkr-reconnect";
+import {
+  assertOrdersAllowedAfterReconnect,
+  ensureIbkrBrokerConnected,
+} from "@/lib/trading/ibkr-reconnect";
+import {
+  findExistingIbkrFillOrOrder,
+  gateNoAckRetry,
+} from "@/lib/trading/ibkr-no-ack-guard";
 import { notifyOrderRejected } from "@/lib/notifications/telegram-bot";
 import {
   isEuropeanEquityOrderWindow,
@@ -27,9 +34,16 @@ import {
   isIbkrCryptoTicker,
 } from "@/src/core/trading/crypto-ibkr";
 import {
+  assertIbkrTradable,
   recordIbkrNonTradable,
+  recordManualBlock,
   shouldPersistIbkrNonTradable,
 } from "@/lib/trading/ibkr-non-tradable";
+import {
+  assertStocksExecutionAllowed,
+  recordStocksRejectOrNoAck,
+} from "@/lib/trading/stocks-execution-gate";
+import { isOtcPinkNonExecutable } from "@/lib/trading/otc-pink";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
 type RiskCheck = {
@@ -288,6 +302,17 @@ export async function submitSupervisedLiveLimitOrder(args: {
 
   const eu = !crypto ? getEuropeanEurEquity(symbol) : null;
 
+  // Fresh disk read of ibkr-non-tradable.json — every path (cycle / ExitManager / retry)
+  if (!crypto) {
+    assertIbkrTradable(symbol);
+    if (isOtcPinkNonExecutable(symbol)) {
+      throw new Error(
+        `${symbol}: OTC/PINK — excluido del universo ejecutable (no enviar orden)`,
+      );
+    }
+    assertStocksExecutionAllowed({ side: args.side });
+  }
+
   // Session gates for new BUYs (SELL exits always allowed)
   if (!crypto && args.side === "BUY") {
     if (eu) {
@@ -312,6 +337,8 @@ export async function submitSupervisedLiveLimitOrder(args: {
       ),
     );
   }
+
+  assertOrdersAllowedAfterReconnect();
 
   const connected = await ensureIbkrBrokerConnected();
   if (!connected) {
@@ -447,6 +474,12 @@ export async function submitSupervisedLiveLimitOrder(args: {
         : new IbkrSubmitTimeoutError(symbol, err instanceof Error ? err.message : String(err));
     }
     if (!isDisconnectError(err)) throw err;
+    // Never skip contract details for EU — SMART/USD can resolve wrong issuer (DTE Energy)
+    if (eu) {
+      throw new Error(
+        `${symbol}: reqContractDetails falló — no hay fallback SMART/USD para acción europea EUR/${eu.primaryExchange}`,
+      );
+    }
     console.warn(
       `[AutoExecute] ${symbol} → reqContractDetails falló, reintento con contrato básico STK/SMART/USD`,
     );
@@ -488,6 +521,9 @@ export async function submitSupervisedLiveLimitOrder(args: {
       executed.ibkrError ||
       executed.ibkrRejectMessage ||
       "IBKR rejected";
+    if (!crypto) {
+      await recordStocksRejectOrNoAck({ symbol, kind: "REJECT" });
+    }
     await notifyRejection(symbol, { payload: executed }, {
       code: executed.ibkrRejectCode ?? null,
       message: reason,
@@ -500,9 +536,64 @@ export async function submitSupervisedLiveLimitOrder(args: {
     );
   }
 
-  const ibkrOrderId = executed.ibkr_order_id ?? executed.ibkrOrderId;
-  if (ibkrOrderId == null || String(ibkrOrderId).trim() === "") {
-    throw new Error("IBKR execute returned without ibkr_order_id");
+  let ibkrOrderId = executed.ibkr_order_id ?? executed.ibkrOrderId;
+  const statusStr = String(executed.ibkrStatus ?? executed.ibkr_status ?? executed.status ?? "");
+  if (
+    (ibkrOrderId == null || String(ibkrOrderId).trim() === "") ||
+    /NO_ACK/i.test(statusStr)
+  ) {
+    if (!crypto) {
+      await recordStocksRejectOrNoAck({ symbol, kind: "NO_ACK" });
+    }
+    // Re-read blocklist + brakes before any retry
+    if (!crypto) {
+      assertIbkrTradable(symbol);
+      assertStocksExecutionAllowed({ side: args.side });
+    }
+    const gate = await gateNoAckRetry(symbol, { side: args.side });
+    if (gate.action === "abort_existing") {
+      console.warn(`[AutoExecute] ${symbol}: ${gate.reason} — no reintento`);
+      // Treat as soft success path upstream when order already live
+      throw new Error(`NO_ACK resolved: ${gate.reason}`);
+    }
+    if (gate.action === "blocked") {
+      throw new IbkrOrderRejectedError(symbol, gate.reason, null, "NO_ACK");
+    }
+    console.warn(`[AutoExecute] ${symbol}: NO_ACK — reintento único (${gate.reason})`);
+    if (!crypto) {
+      assertIbkrTradable(symbol);
+      assertStocksExecutionAllowed({ side: args.side });
+    }
+    await ensureConnectedBeforeContractDetails(symbol);
+    executed = await withBrokerRetry(symbol, "reintento post-NO_ACK", () =>
+      executeBody(false),
+    );
+    ibkrOrderId = executed.ibkr_order_id ?? executed.ibkrOrderId;
+    if (ibkrOrderId == null || String(ibkrOrderId).trim() === "") {
+      const existing = await findExistingIbkrFillOrOrder(symbol).catch(() => ({
+        found: false,
+        detail: "none",
+      }));
+      if (existing.found) {
+        throw new Error(`NO_ACK retry: orden ya en IBKR (${existing.detail})`);
+      }
+      if (!crypto) {
+        await recordStocksRejectOrNoAck({ symbol, kind: "NO_ACK" });
+      }
+      await recordManualBlock({
+        symbol,
+        message: "NO_ACK — reintento fallido sin order id",
+      });
+      await sendTelegramMessage(
+        `⛔ <b>BLOQUEO</b> ${symbol}: NO_ACK tras reintento — ManualBlock`,
+      ).catch(() => undefined);
+      throw new IbkrOrderRejectedError(
+        symbol,
+        "IBKR execute without ibkr_order_id after NO_ACK retry",
+        null,
+        "NO_ACK",
+      );
+    }
   }
 
   const ibkrStatus = executed.ibkrStatus ?? executed.ibkr_status ?? undefined;

@@ -93,6 +93,55 @@ export function lowestLow(bars: readonly Bar[], n: number): number | null {
   return Math.min(...bars.slice(-n).map((b) => b.low));
 }
 
+/** Wilder RSI series (last value). period=2 for RSI2_TREND. */
+export function rsiLast(values: readonly number[], period: number): number | null {
+  return rsi(values, period);
+}
+
+export type Bollinger = {
+  mid: number;
+  upper: number;
+  lower: number;
+  width: number;
+};
+
+export function bollinger(
+  values: readonly number[],
+  period = 20,
+  mult = 2,
+): Bollinger | null {
+  if (values.length < period) return null;
+  const slice = values.slice(-period);
+  const mid = slice.reduce((s, v) => s + v, 0) / period;
+  const variance =
+    slice.reduce((s, v) => s + (v - mid) ** 2, 0) / period;
+  const std = Math.sqrt(variance);
+  const upper = mid + mult * std;
+  const lower = mid - mult * std;
+  const width = mid > 0 ? (upper - lower) / mid : 0;
+  return { mid, upper, lower, width };
+}
+
+/** Bollinger width series for squeeze detection (last N widths). */
+export function bollingerWidthSeries(
+  values: readonly number[],
+  period = 20,
+  mult = 2,
+): number[] {
+  const out: number[] = [];
+  for (let i = period; i <= values.length; i++) {
+    const bb = bollinger(values.slice(0, i), period, mult);
+    if (bb) out.push(bb.width);
+  }
+  return out;
+}
+
+export function sma(values: readonly number[], period: number): number | null {
+  if (values.length < period) return null;
+  const slice = values.slice(-period);
+  return slice.reduce((s, v) => s + v, 0) / period;
+}
+
 export type PairIndicators = {
   price: number;
   ema9: number | null;

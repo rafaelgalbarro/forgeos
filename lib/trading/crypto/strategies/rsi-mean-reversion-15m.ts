@@ -44,5 +44,6 @@ export function evaluateRsiMeanReversion15m(
     atr: a,
     stopLossPct: stopDist / price,
     riskR: stopDist,
+    candleTime: bars15[bars15.length - 1]!.time,
   };
 }

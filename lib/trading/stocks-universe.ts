@@ -20,6 +20,7 @@ import {
   isIbkrNonExecutableUsEtf,
 } from "@/lib/trading/usa-sectors";
 import { isIbkrNonTradable } from "@/lib/trading/ibkr-non-tradable";
+import { isOtcPinkNonExecutable } from "@/lib/trading/otc-pink";
 import {
   getCurrentTradingPhase,
   isEuropeanEquityOrderWindow,
@@ -72,6 +73,7 @@ export function isUsStockTicker(ticker: string): boolean {
   if (isAlpacaForexTicker(t)) return false;
   if (toAlpacaCryptoPairId(t)) return false;
   if (isIbkrNonExecutableUsEtf(t)) return false;
+  if (isOtcPinkNonExecutable(t)) return false;
   if (isEuropeanEurEquity(t)) return true;
   if (!isIbkrExecutableEquity(t)) return false;
   if (isIbkrNonTradable(t)) return false;

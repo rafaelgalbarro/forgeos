@@ -40,9 +40,24 @@ function pairFromTicker(ticker: string): string | null {
 
 /** Max hold by strategy (ms) — mirrors engine exits. */
 export function maxHoldMsForStrategy(strategy: string): number {
-  if (strategy === "TOP_GAINER_PULLBACK") return 12 * 3600_000;
-  if (strategy === "MOMENTUM_BREAKOUT_5M") return 4 * 3600_000;
-  return 24 * 3600_000;
+  switch (strategy) {
+    case "MOMENTUM_BREAKOUT_5M":
+    case "RSI2_TREND_5M":
+      return 4 * 3600_000;
+    case "SESSION_OPEN_BREAKOUT":
+      return 6 * 3600_000;
+    case "TOP_GAINER_PULLBACK":
+    case "LIQUIDITY_SWEEP_15M":
+      return 12 * 3600_000;
+    case "EMA_CROSS_15M":
+      return 16 * 3600_000;
+    case "BB_SQUEEZE_BREAKOUT_15M":
+      return 18 * 3600_000;
+    case "RANGE_GRID_15M":
+      return 36 * 3600_000;
+    default:
+      return 24 * 3600_000;
+  }
 }
 
 type LegacyOpen = {

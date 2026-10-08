@@ -40,5 +40,6 @@ export function evaluateMomentumBreakout5m(
     atr: a,
     stopLossPct: stopDist / price,
     riskR: stopDist,
+    candleTime: bars5[bars5.length - 1]!.time,
   };
 }

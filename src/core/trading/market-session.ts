@@ -283,7 +283,7 @@ export const EUROPE_DIRECT_TICKERS = [
   "ADDYY",
   "DANOY",
   "SIEGY",
-  "VWAGY",
+  // VWAGY removed — OTC/PINK, caused NO_ACK storms 08/10
 ] as const
 
 /** Alias — full Europe ADR focus set. */

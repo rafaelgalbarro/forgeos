@@ -93,5 +93,21 @@ module.exports = {
         PM2_APP_NAME: "forgeos",
       },
     },
+    {
+      // Daily 03:00 Europe/Madrid — crypto strategy backtest + auto-degrade
+      name: "forgeos-crypto-backtest",
+      script: "./scripts/crypto-backtest-cron.cjs",
+      cwd: ROOT,
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_restarts: 20,
+      env: {
+        NODE_ENV: "production",
+        FORGEOS_ROOT: ROOT,
+        CRYPTO_BACKTEST_TZ: "Europe/Madrid",
+        CRYPTO_BACKTEST_HOUR: "3",
+      },
+    },
   ],
 };

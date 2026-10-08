@@ -42,6 +42,7 @@ function loadEnvFile(filePath) {
 }
 
 const root = path.resolve(__dirname, "..");
+process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || root;
 const envCandidates = [
   process.env.FORGEOS_ENV_FILE,
   "/var/www/forgeos/.env.local",
@@ -54,7 +55,9 @@ for (const candidate of envCandidates) {
 
 process.env.CRYPTO_ENGINE_ROLE = "standalone";
 process.env.CRYPTO_BROKER = (process.env.CRYPTO_BROKER || "kraken").trim() || "kraken";
+process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || root;
 process.chdir(root);
+console.log(`[CryptoEngine] FORGEOS_ROOT=${process.env.FORGEOS_ROOT}`);
 
 const stub = path.join(__dirname, "stub-server-only.cjs");
 const mainTs = path.join(__dirname, "crypto-engine-main.ts");

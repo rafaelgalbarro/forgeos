@@ -34,6 +34,12 @@ import {
   shouldPersistIbkrNonTradable,
 } from '@/lib/trading/ibkr-non-tradable'
 import {
+  getStocksExecutionPauseReason,
+  isStocksExecutionEnabled,
+  stocksExecutionPausedUntil,
+} from '@/lib/trading/stocks-execution-gate'
+import { isOtcPinkNonExecutable } from '@/lib/trading/otc-pink'
+import {
   getCurrentTradingPhase,
   isEuropeanEquityOrderWindow,
   isUsListedEquityOrderWindow,
@@ -877,15 +883,36 @@ export class TradingEngine {
             scoped.tickers.length > 0 ? scoped.tickers : seedTickers,
             explicit,
           )
+    // STOCKS_EXECUTION_ENABLED / global pause — analyze but do not send orders
+    let stocksAnalysisOnly = Boolean(options?.analysisOnly)
+    if (kind === "stocks") {
+      const enabled = isStocksExecutionEnabled()
+      const pausedUntil = stocksExecutionPausedUntil()
+      if (!enabled) {
+        stocksAnalysisOnly = true
+        console.warn(
+          "[Cycle/stocks] STOCKS_EXECUTION_ENABLED=false — análisis sin órdenes",
+        )
+      }
+      if (pausedUntil) {
+        stocksAnalysisOnly = true
+        console.warn(
+          `[Cycle/stocks] ejecución pausada hasta ${pausedUntil.toISOString()}: ` +
+            `${getStocksExecutionPauseReason() ?? "freno global"}`,
+        )
+      }
+    }
     const cycleOpts: RunCycleOptions = {
       ...options,
       cycleKind: kind,
       explicitTickers: explicit,
+      analysisOnly: stocksAnalysisOnly,
     }
     console.log(
       `[ProStrategy] Ciclo ${cycleId}: kind=${kind} session=${scoped.mode} ` +
         `evaluando ${cycleTickers.length}/${scoped.tickers.length} tickers ` +
-        `(max=${maxCycleTickers(explicit)}, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(kind) / 1000}s)`,
+        `(max=${maxCycleTickers(explicit)}, concurrency=${TradingEngine.CYCLE_CONCURRENCY}, timeout=${TradingEngine.timeoutFor(kind) / 1000}s)` +
+        `${stocksAnalysisOnly && kind === "stocks" ? " analysisOnly=true" : ""}`,
     )
     const cycleBodyStartedMs = Date.now()
     const tickerDurationsMs: Array<{ ticker: string; ms: number }> = []
@@ -2119,6 +2146,16 @@ export class TradingEngine {
           timestamp: new Date().toISOString(),
         };
       }
+      if (isOtcPinkNonExecutable(ticker)) {
+        return {
+          status: "SKIPPED",
+          ticker,
+          direction: "HOLD",
+          reason: `${ticker}: OTC/PINK — excluido del universo ejecutable`,
+          signal: notAnalyzedSignal("OTC/PINK no ejecutable"),
+          timestamp: new Date().toISOString(),
+        };
+      }
       if (
         isIbkrNonExecutableUsEtf(ticker) ||
         (!isEuropeanEurEquity(ticker) && !isIbkrExecutableEquity(ticker))
@@ -2825,11 +2862,15 @@ export class TradingEngine {
     }
 
     if (cycleOpts?.analysisOnly && signal.direction === 'BUY') {
+      const tag =
+        cycleOpts.cycleKind === 'stocks'
+          ? 'Análisis stocks (ejecución deshabilitada/pausada)'
+          : 'Análisis forex'
       return {
         status: 'HOLD',
         ticker,
         direction: 'HOLD',
-        reason: `[Análisis forex] ${signal.reasoning}`,
+        reason: `[${tag}] ${signal.reasoning}`,
         signal: analysisSnap,
         timestamp: new Date().toISOString(),
         stopLoss: effectiveStopLoss,
@@ -3129,14 +3170,29 @@ export class TradingEngine {
     // stocks / auto / explicit → IBKR
     try {
       const snap = await fetchTradingAccountSnapshot()
+      // Risk limits: only ForgeOS-owned positions (never PTPI/HYDC/… orphans)
+      let forgeosCount = snap.openPositionsCount
+      try {
+        const { fetchCachedIbkrPositions } = await import("@/lib/trading/ibkr-data")
+        const { isForgeOsOpenedPosition, isLegacyOrphanTicker } = await import(
+          "@/lib/trading/forgeos-owned"
+        )
+        const rows = await fetchCachedIbkrPositions()
+        forgeosCount = rows.filter(
+          (p) =>
+            !isLegacyOrphanTicker(p.symbol) && isForgeOsOpenedPosition(p.symbol),
+        ).length
+      } catch {
+        /* keep broker count */
+      }
       console.log(
-        `[Cycle/${kind}] account source=IBKR cash=$${snap.cashUSD.toFixed(2)} nav=$${snap.navUSD.toFixed(2)}`,
+        `[Cycle/${kind}] account source=IBKR cash=$${snap.cashUSD.toFixed(2)} nav=$${snap.navUSD.toFixed(2)} forgeosPositions=${forgeosCount}`,
       )
       return {
         navUSD: snap.navUSD,
         cashUSD: snap.cashUSD,
         dailyPnlUSD: snap.dailyPnlUSD,
-        openPositionsCount: snap.openPositionsCount,
+        openPositionsCount: forgeosCount,
         primaryAccountId: snap.primaryAccountId,
       }
     } catch {

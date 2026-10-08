@@ -15,6 +15,7 @@ import {
   IBKR_PRICE_CACHE_TTL_MS,
 } from "@/lib/trading/ibkr-cache";
 import { IBKR_CRYPTO_SEC_TYPE } from "@/src/core/trading/crypto-ibkr";
+import { getEuropeanEurEquity } from "@/lib/trading/europe-equities";
 
 /** Hard cap — skip ticker if IBKR price not back within 3s. */
 const FETCH_TIMEOUT_MS = 3_000;
@@ -40,12 +41,16 @@ async function fetchRouteQuote(
   exchange: string,
   currency: string,
   secType: string = "STK",
+  primaryExchange?: string,
 ): Promise<{ price: number; bid?: number; ask?: number; volume?: number } | null> {
   const qs =
     `symbol=${encodeURIComponent(symbol)}` +
     `&exchange=${encodeURIComponent(exchange)}` +
     `&currency=${encodeURIComponent(currency)}` +
-    `&secType=${secType}`;
+    `&secType=${secType}` +
+    (primaryExchange
+      ? `&primaryExchange=${encodeURIComponent(primaryExchange)}`
+      : "");
 
   const paths = [
     `/api/ibkr/market-data?${qs}`,
@@ -89,9 +94,20 @@ export async function getIbkrPrice(ticker: string): Promise<IbkrLivePrice | null
   if (!symbol) return null;
 
   const routes = quoteRoutesForTicker(symbol);
+  const eu = getEuropeanEurEquity(symbol);
   for (const route of routes) {
     const secType = route.exchange === "PAXOS" ? IBKR_CRYPTO_SEC_TYPE : "STK";
-    const quote = await fetchRouteQuote(route.symbol, route.exchange, route.currency, secType);
+    const primary =
+      eu && route.currency === "EUR"
+        ? eu.primaryExchange
+        : undefined;
+    const quote = await fetchRouteQuote(
+      route.symbol,
+      route.exchange,
+      route.currency,
+      secType,
+      primary,
+    );
     if (!quote || !(quote.price > 0)) continue;
     return {
       symbol,

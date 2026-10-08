@@ -63,5 +63,6 @@ export function evaluateTopGainerPullback(
     atr: a,
     stopLossPct: stopDist / price,
     riskR: stopDist,
+    candleTime: bars15[bars15.length - 1]!.time,
   };
 }

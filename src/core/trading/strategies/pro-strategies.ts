@@ -17,8 +17,10 @@ import { getIbkrPriceCached } from "@/lib/market-data/ibkr-prices";
 import { ibkrBars5m, ibkrBars1h, ibkrDailyBars } from "@/lib/market-data/ibkr-history";
 import { evaluateSwingStrategies, passesCostFilter } from "@/lib/trading/swing/strategies";
 import { isStrategyDisabled } from "@/lib/trading/journal/trades";
-import { getCurrentTradingPhase } from "@/lib/trading/cycle-schedule";
+import { getCurrentTradingPhase, isEuropeanEquityOrderWindow } from "@/lib/trading/cycle-schedule";
 import { isUsRegularFirstQuarterHour } from "@/lib/trading/exchange-hours";
+import { getEuropeanEurEquity, isEuropeanEurEquity } from "@/lib/trading/europe-equities";
+import { getHistory as getEodhdHistory, isEodhdConfigured } from "@/lib/market-data/eodhd";
 import {
   evaluateCryptoIntradayStrategies,
   getCryptoBroker,
@@ -64,6 +66,7 @@ export type ProStrategyId =
   | "ASIA_GOLDEN_CROSS"
   | "EU_APERTURA_BREAKOUT"
   | "EU_EMA21_PULLBACK"
+  | "EU_TREND_CONTINUATION"
   | "USA_GAP_AND_GO"
   | "USA_MOMENTUM_PRIMERA_HORA"
   | "USA_VWAP_BOUNCE"
@@ -211,6 +214,14 @@ const BASE: Record<
     base: 0.7,
     sl: 0.02,
     tp: 0.05,
+    style: "swing",
+    days: 2,
+  },
+  EU_TREND_CONTINUATION: {
+    name: "EU-3 Trend Continuation",
+    base: 0.68,
+    sl: 0.02,
+    tp: 0.04,
     style: "swing",
     days: 2,
   },
@@ -398,6 +409,25 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
 
 async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
   const timeoutMs = 8_000
+  // EU locals: prefer EODHD venue symbol (DTE.XETRA / TEF.MC) — never US ADR history
+  const eu = getEuropeanEurEquity(symbol)
+  if (eu && isEodhdConfigured()) {
+    try {
+      const eod = await getEodhdHistory(eu.eodhd, 275)
+      if (eod.length >= 20) {
+        return eod.map((b) => ({
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+          date: b.date,
+        }))
+      }
+    } catch {
+      /* fall through */
+    }
+  }
   try {
     const bars = await Promise.race([
       ibkrDailyBars(symbol),
@@ -1155,12 +1185,18 @@ export async function evaluateProStrategies(
     }
   }
 
-  // ─── EUROPE ───────────────────────────────────────────────────
-  if (phase === "EUROPE_OPEN" || phase === "EUROPE" || (isEuropeOpen() && isEuropeFocusTicker(symbol))) {
+  // ─── EUROPE (local EUR equities use exchange window, not US phase) ───
+  const euLocal = isEuropeanEurEquity(symbol) && isEuropeanEquityOrderWindow();
+  const europeSession =
+    phase === "EUROPE_OPEN" ||
+    phase === "EUROPE" ||
+    euLocal ||
+    (isEuropeOpen() && (isEuropeFocusTicker(symbol) || isEuropeanEurEquity(symbol)));
+  if (europeSession) {
     if (
-      phase === "EUROPE_OPEN" &&
+      (phase === "EUROPE_OPEN" || euLocal) &&
       change1d >= 0.5 &&
-      relVol >= 1.5 &&
+      relVol >= 1.3 &&
       ema9 != null &&
       ema21 != null &&
       ema9 > ema21 &&
@@ -1168,29 +1204,51 @@ export async function evaluateProStrategies(
       price > resistance
     ) {
       hits.push(
-        hit("EU_APERTURA_BREAKOUT", `Gap/breakout EU +${change1d.toFixed(1)}% vs USA`, {
+        hit("EU_APERTURA_BREAKOUT", `Gap/breakout EU +${change1d.toFixed(1)}%`, {
           stopLossPrice: dayLow > 0 ? dayLow : price * 0.985,
           takeProfitPrice: price * 1.04,
         }),
       );
     }
     if (
-      (phase === "EUROPE" || phase === "EUROPE_OPEN") &&
       ema9 != null &&
       ema21 != null &&
       ema50 != null &&
       ema9 > ema21 &&
       ema21 > ema50 &&
-      nearLevel(price, ema21, 0.01) &&
+      nearLevel(price, ema21, 0.015) &&
       rsiVal != null &&
-      rsiVal >= 40 &&
-      rsiVal <= 55 &&
-      hasBullishReversalCandle(reversalCandles)
+      rsiVal >= 38 &&
+      rsiVal <= 60
     ) {
       hits.push(
-        hit("EU_EMA21_PULLBACK", `Pullback EMA21 + vela reversión RSI=${rsiVal.toFixed(0)}`, {
-          stopLossPrice: ema50,
-          takeProfitPrice: price * 1.05,
+        hit(
+          "EU_EMA21_PULLBACK",
+          `Pullback EMA21 EU RSI=${rsiVal.toFixed(0)}${hasBullishReversalCandle(reversalCandles) ? " + vela" : ""}`,
+          {
+            stopLossPrice: ema50 ?? price * 0.97,
+            takeProfitPrice: resistance ?? price * 1.05,
+          },
+        ),
+      );
+    }
+    // Trend continuation for Spanish/German locals during their session
+    if (
+      euLocal &&
+      ema20 != null &&
+      ema50 != null &&
+      ema20 > ema50 &&
+      rsiVal != null &&
+      rsiVal >= 45 &&
+      rsiVal <= 68 &&
+      change1d > -1 &&
+      change1d < 4 &&
+      relVol >= 1.0
+    ) {
+      hits.push(
+        hit("EU_TREND_CONTINUATION", `Tendencia EU EMA20>50 RSI=${rsiVal.toFixed(0)}`, {
+          stopLossPrice: (support != null ? support : price) * 0.985,
+          takeProfitPrice: resistance ?? price * 1.04,
         }),
       );
     }

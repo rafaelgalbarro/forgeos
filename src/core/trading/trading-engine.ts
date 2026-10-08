@@ -2645,7 +2645,7 @@ export class TradingEngine {
       return {
         status: 'REJECTED_RISK', ticker, direction: signal.direction,
         reason: riskCheck.reason,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
       }
     }
@@ -2729,7 +2729,7 @@ export class TradingEngine {
       return {
         status: 'HOLD', ticker, direction: 'BUY',
         reason: `Sin limitPrice para ${ticker}`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
       }
     }

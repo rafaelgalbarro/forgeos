@@ -50,7 +50,27 @@ export type PendingOrderRecord = {
   stopLoss?: number
   takeProfit?: number
   reason: string
-  signal: { confidence: number; reasoning: string; urgency: string }
+  signal: {
+    confidence: number
+    reasoning: string
+    urgency: string
+    analyzed?: boolean
+    price?: number | null
+    ema20?: number | null
+    ema50?: number | null
+    ema200?: number | null
+    rsi14?: number | null
+    macd?: { line: number; signal: number; histogram: number } | null
+    atr14?: number | null
+    relativeVolume?: number | null
+    support?: number | null
+    resistance?: number | null
+    componentScores?: Record<string, number> | null
+    scoreTotal?: number | null
+    entry?: number | null
+    stop?: number | null
+    target?: number | null
+  }
   createdAt: string
   updatedAt: string
   orderId?: string

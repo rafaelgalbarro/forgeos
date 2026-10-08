@@ -283,7 +283,7 @@ export async function screenerUsGainers(options?: {
 }): Promise<EodhdScreenerRow[]> {
   const minVolume = options?.minVolume ?? 500_000;
   const minPrice = options?.minPrice ?? 5;
-  const maxPrice = options?.maxPrice ?? 500;
+  const maxPrice = options?.maxPrice ?? 50_000;
   const limit = options?.limit ?? 100;
   const sort = options?.sort ?? "refund_1d_p-desc";
   if (!isEodhdConfigured()) return [];

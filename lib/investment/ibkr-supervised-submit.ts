@@ -293,12 +293,12 @@ export async function submitSupervisedLiveLimitOrder(args: {
     if (eu) {
       if (!isEuropeanEquityOrderWindow()) {
         throw new Error(
-          `${symbol}: fuera de ventana EU 09:00–17:30 Madrid — no enviar BUY europea`,
+          `${symbol}: fuera de sesión EU (Madrid 09:00–17:30 / London 08:00–16:30) — no enviar BUY europea`,
         );
       }
     } else if (!isUsListedEquityOrderWindow()) {
       throw new Error(
-        `${symbol}: fuera de ventana USA 15:30–22:00 Madrid — no enviar BUY ADR/acción EE.UU.`,
+        `${symbol}: fuera de sesión regular NYSE (09:30–16:00 America/New_York) — no enviar BUY ADR/acción EE.UU.`,
       );
     }
   }

@@ -1,8 +1,20 @@
 /**
- * Madrid-time gates + trading phases for 24/7 typed cycles.
+ * Trading phase + order windows from exchange-local IANA clocks
+ * (not fixed Madrid offsets — correct across US/EU DST mismatches).
  */
 
 import "server-only";
+
+import {
+  isContinentalEuropeEquitySession,
+  isEuropeanEquityOrderWindow as euWindow,
+  isLondonEquitySession,
+  isUsListedEquityOrderWindow as usWindow,
+  isUsPremarketSession,
+  isUsRegularSession,
+  zonedClock,
+  type ZonedClock,
+} from "@/lib/trading/exchange-hours";
 
 export type MadridClock = {
   hour: number;
@@ -18,73 +30,70 @@ export type ForgeTradingPhase =
   | "USA_REGULAR"
   | "CLOSED";
 
-export function madridClock(): MadridClock {
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Madrid",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(new Date());
-  const weekday = (parts.find((p) => p.type === "weekday")?.value ?? "Mon").toLowerCase();
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+/** @deprecated Prefer zonedClock / exchange-hours; kept for Madrid-display helpers. */
+export function madridClock(at: Date = new Date()): MadridClock {
+  const c = zonedClock("Europe/Madrid", at);
   return {
-    hour,
-    minute,
-    nowMinutes: hour * 60 + minute,
-    weekend: weekday.startsWith("sat") || weekday.startsWith("sun"),
+    hour: c.hour,
+    minute: c.minute,
+    nowMinutes: c.nowMinutes,
+    weekend: c.weekend,
   };
 }
 
-/**
- * getCurrentTradingPhase — Madrid clock:
- * 01:00–08:00 ASIA · 08:00–14:00 EUROPA · 14:00–14:30 PRE_MARKET ·
- * 14:30–22:00 USA_REGULAR · 22:00–01:00 CLOSED
- */
-export function getCurrentTradingPhase(now = madridClock()): ForgeTradingPhase {
-  const m = now.nowMinutes;
-  if (m >= 22 * 60 || m < 1 * 60) return "CLOSED";
-  if (m < 8 * 60) return "ASIA";
-  if (m < 14 * 60) return "EUROPA";
-  if (m < 14 * 60 + 30) return "PRE_MARKET";
-  return "USA_REGULAR";
+export function getCurrentTradingPhase(at: Date = new Date()): ForgeTradingPhase {
+  if (isUsRegularSession(at)) return "USA_REGULAR";
+  if (isUsPremarketSession(at)) return "PRE_MARKET";
+  if (isContinentalEuropeEquitySession(at) || isLondonEquitySession(at)) return "EUROPA";
+
+  const ny = zonedClock("America/New_York", at);
+  const madrid = zonedClock("Europe/Madrid", at);
+  // Overnight / Asia: Madrid 01:00–08:00 or NY evening after EU close
+  if (!madrid.weekend && madrid.nowMinutes >= 60 && madrid.nowMinutes < 8 * 60) {
+    return "ASIA";
+  }
+  if (!ny.weekend && ny.nowMinutes >= 18 * 60) {
+    // After US close — treat remaining evening as CLOSED for equity entries
+    return "CLOSED";
+  }
+  if (!ny.weekend && ny.nowMinutes < 4 * 60) {
+    return "ASIA";
+  }
+  return "CLOSED";
 }
 
 export function nextOpenLabel(phase: ForgeTradingPhase = getCurrentTradingPhase()): string {
-  if (phase === "CLOSED") return "01:00 ASIA";
-  if (phase === "ASIA") return "08:00 EUROPA";
-  if (phase === "EUROPA") return "14:00 PRE_MARKET";
-  if (phase === "PRE_MARKET") return "14:30 USA_REGULAR";
-  return "22:00 CLOSED";
+  if (phase === "CLOSED") return "ASIA / EU open (exchange-local)";
+  if (phase === "ASIA") return "EU 09:00 Madrid / 08:00 London";
+  if (phase === "EUROPA") return "US premarket 04:00 ET";
+  if (phase === "PRE_MARKET") return "US regular 09:30 ET";
+  return "US close 16:00 ET";
 }
 
-/** Stocks cycle runs in all phases except CLOSED. */
-export function isUsStocksCycleWindow(now = madridClock()): boolean {
-  return getCurrentTradingPhase(now) !== "CLOSED";
+/** Stocks cycle runs when any equity venue is in session (or Asia seed phase). */
+export function isUsStocksCycleWindow(at: Date = new Date()): boolean {
+  return getCurrentTradingPhase(at) !== "CLOSED";
 }
 
-/** Forex cycle: 07:00–22:00 Madrid. */
-export function isForexCycleWindow(now = madridClock()): boolean {
-  return now.hour >= 7 && now.hour < 22;
+/** Forex cycle: 07:00–22:00 Madrid (FX desks). */
+export function isForexCycleWindow(at: Date = new Date()): boolean {
+  const m = zonedClock("Europe/Madrid", at);
+  return m.hour >= 7 && m.hour < 22;
 }
 
 /**
- * US-listed equities / ADRs — orders only 15:30–22:00 Madrid (not weekends).
+ * US-listed equities / ADRs — BUY only during NYSE regular (09:30–16:00 America/New_York).
  * Exits (SELL) may still run outside this window.
  */
-export function isUsListedEquityOrderWindow(now = madridClock()): boolean {
-  if (now.weekend) return false;
-  return now.nowMinutes >= 15 * 60 + 30 && now.nowMinutes < 22 * 60;
+export function isUsListedEquityOrderWindow(at: Date = new Date()): boolean {
+  return usWindow(at);
 }
 
 /**
- * European local equities (EUR) — orders only 09:00–17:30 Madrid (not weekends).
+ * European local equities — BUY when Madrid 09:00–17:30 or London 08:00–16:30.
  */
-export function isEuropeanEquityOrderWindow(now = madridClock()): boolean {
-  if (now.weekend) return false;
-  return now.nowMinutes >= 9 * 60 && now.nowMinutes < 17 * 60 + 30;
+export function isEuropeanEquityOrderWindow(at: Date = new Date()): boolean {
+  return euWindow(at);
 }
 
 /** Crypto cycle: 24/7. */
@@ -108,3 +117,5 @@ export function minConfidenceForForgePhase(phase: ForgeTradingPhase, crypto = fa
       return 0.6;
   }
 }
+
+export type { ZonedClock };

@@ -13,6 +13,7 @@ export default defineConfig({
       "components/experience/**/*.test.ts",
       "app/investment/**/*.test.ts",
       "lib/investment/**/*.test.ts",
+      "lib/trading/**/*.test.ts",
       "lib/backtesting/**/*.test.ts",
     ],
     exclude: ["src/core/delivery/**", "node_modules/**"],

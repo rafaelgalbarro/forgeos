@@ -113,13 +113,34 @@ async function resolveIntervalMs() {
   return localIntervalMs();
 }
 
-/** Madrid equity windows: EU 09:00–17:30, US 15:30–22:00 */
+/** Equity windows via IANA zones (approx in scheduler — API enforces exact). */
+function zonedMinutes(timeZone) {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = fmt.formatToParts(new Date());
+  const weekday = (parts.find((p) => p.type === "weekday")?.value ?? "").toLowerCase();
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return {
+    weekend: weekday.startsWith("sat") || weekday.startsWith("sun"),
+    nowMinutes: hour * 60 + minute,
+  };
+}
+
 function equityScanWindowOpen() {
-  const { nowMinutes, weekend } = madridParts();
-  if (weekend) return false;
-  const eu = nowMinutes >= 9 * 60 && nowMinutes < 17 * 60 + 30;
-  const us = nowMinutes >= 15 * 60 + 30 && nowMinutes < 22 * 60;
-  return eu || us;
+  const ny = zonedMinutes("America/New_York");
+  const mad = zonedMinutes("Europe/Madrid");
+  const lon = zonedMinutes("Europe/London");
+  if (ny.weekend && mad.weekend && lon.weekend) return false;
+  const usRegular = !ny.weekend && ny.nowMinutes >= 9 * 60 + 30 && ny.nowMinutes < 16 * 60;
+  const euMad = !mad.weekend && mad.nowMinutes >= 9 * 60 && mad.nowMinutes < 17 * 60 + 30;
+  const euLon = !lon.weekend && lon.nowMinutes >= 8 * 60 && lon.nowMinutes < 16 * 60 + 30;
+  return usRegular || euMad || euLon;
 }
 
 let lastStocksScanAt = 0;

@@ -18,6 +18,7 @@ import { ibkrBars5m, ibkrBars1h, ibkrDailyBars } from "@/lib/market-data/ibkr-hi
 import { evaluateSwingStrategies, passesCostFilter } from "@/lib/trading/swing/strategies";
 import { isStrategyDisabled } from "@/lib/trading/journal/trades";
 import { getCurrentTradingPhase } from "@/lib/trading/cycle-schedule";
+import { isUsRegularFirstQuarterHour } from "@/lib/trading/exchange-hours";
 import {
   evaluateCryptoIntradayStrategies,
   getCryptoBroker,
@@ -27,6 +28,7 @@ import { getRecentBars } from "@/lib/brokers/alpaca-client";
 import { recognizePatterns } from "@/lib/market-data/pattern-recognition";
 import type { OhlcvBar } from "@/lib/market-data/types";
 import {
+  atr,
   closes,
   computeTechnicalIndicators,
   ema,
@@ -49,7 +51,6 @@ import {
   isAsiaOpen,
   isEuropeFocusTicker,
   isEuropeOpen,
-  isUsaFirstHour,
   isUSAExtendedOpen,
   isUSAOpen,
   type ActiveTradingPhase,
@@ -120,12 +121,42 @@ export type ProStrategySignal = {
     change1d: number;
     relVolume: number;
     ema9: number | null;
+    ema20: number | null;
     ema21: number | null;
     ema50: number | null;
+    ema200: number | null;
+    macdLine: number | null;
+    macdSignal: number | null;
+    macdHist: number | null;
+    atr14: number | null;
+    support: number | null;
+    resistance: number | null;
     vwapApprox: number | null;
     dist52wHigh: number | null;
+    componentScores: Record<string, number> | null;
+    scoreTotal: number | null;
   };
 };
+
+const EMPTY_METRICS = {
+  change1d: 0,
+  relVolume: 0,
+  ema9: null,
+  ema20: null,
+  ema21: null,
+  ema50: null,
+  ema200: null,
+  macdLine: null,
+  macdSignal: null,
+  macdHist: null,
+  atr14: null,
+  support: null,
+  resistance: null,
+  vwapApprox: null,
+  dist52wHigh: null,
+  componentScores: null,
+  scoreTotal: null,
+} as const satisfies ProStrategySignal["metrics"];
 
 export type ScreenerInputs = {
   price: number;
@@ -415,15 +446,7 @@ async function evaluateSimpleStrategies(
     rsi: null,
     positionSizeFactor: 1,
     capitalPct: 0.15,
-    metrics: {
-      change1d,
-      relVolume: 0,
-      ema9: null,
-      ema21: null,
-      ema50: null,
-      vwapApprox: null,
-      dist52wHigh: null,
-    },
+    metrics: { ...EMPTY_METRICS, change1d },
   })
 
   const [newsCtx, sentiment] = await Promise.all([
@@ -528,15 +551,7 @@ async function evaluateSimpleStrategies(
     rsi: null,
     positionSizeFactor: 1,
     capitalPct: capitalPctFromConfidence(scored.confidence),
-    metrics: {
-      change1d,
-      relVolume: 0,
-      ema9: null,
-      ema21: null,
-      ema50: null,
-      vwapApprox: null,
-      dist52wHigh: null,
-    },
+    metrics: { ...EMPTY_METRICS, change1d },
   }
 }
 
@@ -784,7 +799,11 @@ export async function evaluateProStrategies(
   const ask = inputs?.ask;
   const crypto = isIbkrCryptoTicker(symbol);
 
-  const hold = (reason: string, rsiVal: number | null = null): ProStrategySignal => ({
+  const hold = (
+    reason: string,
+    rsiVal: number | null = null,
+    extra?: Partial<ProStrategySignal["metrics"]>,
+  ): ProStrategySignal => ({
     direction: "HOLD",
     confidence: 0,
     reasoning: reason,
@@ -799,18 +818,14 @@ export async function evaluateProStrategies(
     positionSizeFactor: 1,
     capitalPct: 0.15,
     metrics: {
+      ...EMPTY_METRICS,
       change1d,
-      relVolume: 0,
-      ema9: null,
-      ema21: null,
-      ema50: null,
-      vwapApprox: null,
       dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
+      ...extra,
     },
   });
 
   if (!(price > 0.75)) return hold("Precio bajo mínimo $0.75");
-  if (price > 500 && !crypto) return hold("Precio sobre máximo $500");
 
   if (isLossStreakBlacklisted(symbol)) {
     console.log(`[ProStrategy] ${symbol}: skip (blacklist —50%)`);
@@ -897,12 +912,8 @@ export async function evaluateProStrategies(
           positionSizeFactor: 1,
           capitalPct: capitalPctFromConfidence(intra.confidence),
           metrics: {
+            ...EMPTY_METRICS,
             change1d,
-            relVolume: 0,
-            ema9: null,
-            ema21: null,
-            ema50: null,
-            vwapApprox: null,
             dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
           },
         };
@@ -942,20 +953,10 @@ export async function evaluateProStrategies(
   // --- SWING ACCIONES (preferido en USA_REGULAR / EUROPA) ---
   if (!crypto && !alpacaCrypto) {
     const phase = getCurrentTradingPhase();
-    if (phase === "USA_REGULAR" || phase === "EUROPA" || phase === "PRE_MARKET") {
-      // Avoid first 15 minutes of USA regular (14:30–14:45 Madrid)
-      if (phase === "USA_REGULAR" && isUsaFirstHour()) {
-        const madrid = new Intl.DateTimeFormat("en-GB", {
-          timeZone: "Europe/Madrid",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }).formatToParts(new Date());
-        const hh = Number(madrid.find((p) => p.type === "hour")?.value ?? 0);
-        const mm = Number(madrid.find((p) => p.type === "minute")?.value ?? 0);
-        if (hh === 14 && mm < 45) {
-          return hold(`${symbol}: primeros 15 min USA — diferir entrada swing`);
-        }
+      if (phase === "USA_REGULAR" || phase === "EUROPA" || phase === "PRE_MARKET") {
+      // Avoid first 15 minutes of USA regular (09:30–09:45 ET)
+      if (phase === "USA_REGULAR" && isUsRegularFirstQuarterHour()) {
+        return hold(`${symbol}: primeros 15 min USA (09:30–09:45 ET) — diferir entrada swing`);
       }
       const hourly = await ibkrBars1h(symbol).catch(() => [] as OhlcvBar[]);
       const swing = evaluateSwingStrategies(symbol, bars, hourly);
@@ -991,15 +992,31 @@ export async function evaluateProStrategies(
           rsi: null,
           positionSizeFactor: 1,
           capitalPct: capitalPctFromConfidence(swing.confidence),
-          metrics: {
-            change1d,
-            relVolume: 0,
-            ema9: null,
-            ema21: null,
-            ema50: null,
-            vwapApprox: null,
-            dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
-          },
+          metrics: (() => {
+            const cSwing = closes(bars);
+            const macdS = macd(cSwing);
+            const techS = computeTechnicalIndicators(bars);
+            const sup = nearestSupport(price, techS.levels.support);
+            const res = nearestResistance(price, techS.levels.resistance);
+            return {
+              ...EMPTY_METRICS,
+              change1d,
+              relVolume: relativeVolume(bars) ?? 0,
+              ema9: ema(cSwing, 9),
+              ema20: ema(cSwing, 20),
+              ema21: ema(cSwing, 21),
+              ema50: ema(cSwing, 50),
+              ema200: ema(cSwing, 200),
+              macdLine: macdS?.line ?? null,
+              macdSignal: macdS?.signal ?? null,
+              macdHist: macdS?.histogram ?? null,
+              atr14: atr(bars, 14),
+              support: sup,
+              resistance: res,
+              dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
+              scoreTotal: Math.round(swing.confidence * 100),
+            };
+          })(),
         };
       }
     }
@@ -1022,15 +1039,39 @@ export async function evaluateProStrategies(
   const rsiVal = rsi(c);
   const relVol = relativeVolume(bars) ?? (vol20 > 0 ? volume / vol20 : 0);
   const ema9 = ema(c, 9);
+  const ema20 = ema(c, 20);
   const ema21 = ema(c, 21);
   const ema50 = ema(c, 50);
   const ema200 = ema(c, 200);
   const macdCur = macd(c);
+  const atr14 = atr(bars, 14);
   const ich = technicals.trend.ichimoku;
   const bb = technicals.volatility.bollingerBands;
   const support = nearestSupport(price, technicals.levels.support);
   const resistance = nearestResistance(price, technicals.levels.resistance);
   const v10 = vol10(bars);
+  const fullMetrics = (opts?: {
+    componentScores?: Record<string, number> | null;
+    scoreTotal?: number | null;
+  }): ProStrategySignal["metrics"] => ({
+    change1d,
+    relVolume: relVol,
+    ema9,
+    ema20,
+    ema21,
+    ema50,
+    ema200,
+    macdLine: macdCur?.line ?? null,
+    macdSignal: macdCur?.signal ?? null,
+    macdHist: macdCur?.histogram ?? null,
+    atr14,
+    support,
+    resistance,
+    vwapApprox: null,
+    dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
+    componentScores: opts?.componentScores ?? null,
+    scoreTotal: opts?.scoreTotal ?? null,
+  });
 
   // 5-min IBKR bars for VWAP / intraday momentum (USA sessions)
   const phaseEarly = getActiveTradingPhase();
@@ -1472,18 +1513,13 @@ export async function evaluateProStrategies(
         positionSizeFactor: 1,
         capitalPct: capitalPctFromConfidence(agentCombo.confidence),
         metrics: {
-          change1d,
-          relVolume: relVol,
-          ema9,
-          ema21,
-          ema50,
+          ...fullMetrics({ scoreTotal: Math.round(agentCombo.confidence * 100) }),
           vwapApprox: vwap5m,
-          dist52wHigh: yearHigh > 0 && price > 0 ? price / yearHigh : null,
         },
       };
     }
     console.log(`[ProStrategy] ${symbol}: ninguna señal (${phase})`);
-    return hold("Ninguna estrategia activa en sesión", rsiVal);
+    return hold("Ninguna estrategia activa en sesión", rsiVal, fullMetrics());
   }
 
   const minTradeConfidence = minTradeConfidenceForPhase(phase, crypto);
@@ -1514,6 +1550,7 @@ export async function evaluateProStrategies(
     return hold(
       `Confianza ${(scored.confidence * 100).toFixed(0)}% < mínimo ${(minTradeConfidence * 100).toFixed(0)}%`,
       rsiVal,
+      fullMetrics({ scoreTotal: Math.round(scored.confidence * 100) }),
     );
   }
 
@@ -1582,13 +1619,15 @@ export async function evaluateProStrategies(
     positionSizeFactor,
     capitalPct: Number(capitalPct.toFixed(3)),
     metrics: {
-      change1d,
-      relVolume: relVol,
-      ema9,
-      ema21,
-      ema50,
+      ...fullMetrics({
+        componentScores: {
+          base: Math.round(primary.baseConfidence * 100),
+          multi: hits.length,
+          relVol: Math.round(relVol * 10) / 10,
+        },
+        scoreTotal: Math.round(scored.confidence * 100),
+      }),
       vwapApprox: vwap5m ?? technicals.volume.vwap,
-      dist52wHigh: yearHigh > 0 ? price / yearHigh : null,
     },
   };
 }

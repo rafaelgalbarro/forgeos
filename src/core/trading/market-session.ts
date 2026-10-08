@@ -2,6 +2,11 @@ import {
   ALPACA_CRYPTO_PAIRS,
   ALPACA_FOREX_PAIRS,
 } from "@/lib/brokers/alpaca-pairs";
+import {
+  getUsExchangeSession,
+  isUsPremarketSession,
+  zonedClock,
+} from "@/lib/trading/exchange-hours";
 
 export type ExchangeCode =
   | "SMART"
@@ -154,78 +159,61 @@ function inMinuteRange(nowMinutes: number, startH: number, startM: number, endH:
 }
 
 /**
- * Sesión USA en hora española:
- * PRE_MARKET 14:00-14:29 | REGULAR 14:30-22:00 | AFTER_MARKET 22:00-02:00 | CLOSED 02:00-14:00
+ * Sesión USA en America/New_York (IANA) — correcto con DST vs Europa.
+ * Premarket 04:00–09:30 | Regular 09:30–16:00 | resto CLOSED (entries: solo regular).
  */
 export function getUsMarketSession(): UsMarketSession {
-  const local = toMadridParts()
-  const weekday = local.weekday.toLowerCase()
-  const isWeekend = weekday.startsWith("sat") || weekday.startsWith("sun")
-  const { nowMinutes, localTime } = local
-  const tz = US_SESSION_SPAIN.timeZone
+  const us = getUsExchangeSession()
+  const clock = us.clock
+  const localTime = `${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}`
+  const tz = "America/New_York"
 
-  if (isWeekend) {
-    return {
-      phase: "CLOSED",
-      timeZone: tz,
-      localTime,
-      sessionLabel: "Fin de semana",
-      isTradeable: false,
-      isExtendedHours: false,
-    }
-  }
-
-  const { preMarket, regular, afterMarket, closed } = US_SESSION_SPAIN
-
-  if (inMinuteRange(nowMinutes, preMarket.startH, preMarket.startM, preMarket.endH, preMarket.endM + 1)) {
+  if (us.phase === "PRE_MARKET") {
     return {
       phase: "PRE_MARKET",
       timeZone: tz,
       localTime,
-      sessionLabel: "14:00-14:30 (premarket USA, outside_rth)",
+      sessionLabel: "04:00-09:30 ET (premarket USA, outside_rth)",
       isTradeable: true,
       isExtendedHours: true,
     }
   }
-  if (inMinuteRange(nowMinutes, regular.startH, regular.startM, regular.endH, regular.endM)) {
+  if (us.phase === "REGULAR") {
     return {
       phase: "REGULAR",
       timeZone: tz,
       localTime,
-      sessionLabel: "14:30-22:00 (mercado regular USA)",
+      sessionLabel: "09:30-16:00 ET (mercado regular USA)",
       isTradeable: true,
       isExtendedHours: false,
     }
   }
-  if (inMinuteRange(nowMinutes, afterMarket.startH, afterMarket.startM, afterMarket.endH, afterMarket.endM)) {
+
+  const after =
+    !clock.weekend &&
+    clock.nowMinutes >= 16 * 60 &&
+    clock.nowMinutes < 20 * 60
+  if (after) {
     return {
       phase: "AFTER_MARKET",
       timeZone: tz,
       localTime,
-      sessionLabel: "22:00-02:00 (aftermarket USA, outside_rth)",
-      isTradeable: true,
-      isExtendedHours: true,
-    }
-  }
-  if (inMinuteRange(nowMinutes, closed.startH, closed.startM, closed.endH, closed.endM)) {
-    return {
-      phase: "CLOSED",
-      timeZone: tz,
-      localTime,
-      sessionLabel: "02:00-14:00 (USA cerrado — ETFs regionales / outside_rth)",
-      // Keep tradeable so Asia/Europe ETF proxies can still fire with outside_rth
-      isTradeable: true,
+      sessionLabel: "16:00-20:00 ET (aftermarket USA, outside_rth)",
+      isTradeable: false,
       isExtendedHours: true,
     }
   }
 
+  const madrid = zonedClock("Europe/Madrid")
   return {
     phase: "CLOSED",
     timeZone: tz,
     localTime,
-    sessionLabel: "Extended 24h (outside RTH)",
-    isTradeable: true,
-    isExtendedHours: true,
+    sessionLabel: clock.weekend
+      ? "Fin de semana (NYSE cerrado)"
+      : `NYSE cerrado (${localTime} ET / ${String(madrid.hour).padStart(2, "0")}:${String(madrid.minute).padStart(2, "0")} Madrid)`,
+    isTradeable: false,
+    isExtendedHours: false,
   }
 }
 
@@ -335,7 +323,7 @@ export function getActiveTradingPhase(): ActiveTradingPhase {
 }
 
 export function isUsaPremarketPrepareOnly(): boolean {
-  return getActiveTradingPhase() === "USA_PREMARKET"
+  return isUsPremarketSession()
 }
 
 export function isUsaFirstHour(): boolean {

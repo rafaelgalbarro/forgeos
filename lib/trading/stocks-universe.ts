@@ -35,8 +35,9 @@ import { loadStocksOpportunityScan } from "@/lib/trading/stocks/scan-store";
 /** Final tickers analyzed per stocks cycle. */
 export const MAX_STOCKS_CYCLE_TICKERS = 50;
 const MIN_VOLUME = 500_000;
-const MIN_PRICE = 5;
-const MAX_PRICE = 500;
+const MIN_PRICE = 2;
+/** No hard $500 cap — cash + risk sizing bound max price. */
+const SCREEN_MAX_PRICE = 50_000;
 
 /** @deprecated European ADRs — prefer local EUR listings in europe-equities. */
 export const EUROPE_ADR_CYCLE = [
@@ -157,7 +158,7 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
       screener = await screenerUsGainers({
         minVolume: MIN_VOLUME,
         minPrice: MIN_PRICE,
-        maxPrice: MAX_PRICE,
+        maxPrice: SCREEN_MAX_PRICE,
         limit: 50,
       });
     } catch (err) {

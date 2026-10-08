@@ -33,7 +33,12 @@ import {
   recordIbkrNonTradable,
   shouldPersistIbkrNonTradable,
 } from '@/lib/trading/ibkr-non-tradable'
-import { getCurrentTradingPhase, isUsListedEquityOrderWindow } from '@/lib/trading/cycle-schedule'
+import {
+  getCurrentTradingPhase,
+  isEuropeanEquityOrderWindow,
+  isUsListedEquityOrderWindow,
+} from '@/lib/trading/cycle-schedule'
+import { isEuropeanEurEquity } from '@/lib/trading/europe-equities'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -279,7 +284,7 @@ function timeoutSkipResult(ticker: string, detail?: string): OrderResult {
     ticker,
     direction: 'HOLD',
     reason: detail?.trim() || `${ticker}: skip (timeout IBKR)`,
-    signal: { confidence: 0, reasoning: 'Timeout IBKR — skip temporal 30m', urgency: 'LOW' },
+    signal: notAnalyzedSignal('timeout IBKR'),
     timestamp: new Date().toISOString(),
   }
 }
@@ -295,7 +300,8 @@ function resolveAccountCapitalPolicy(
   const cash = Math.max(0, cashUSD)
   const capitalPct = capitalPctFromConfidence(confidence) * Math.max(0.1, Math.min(1, sizeFactor))
   const deployableUSD = cash * capitalPct
-  return { accountId: id, minPrice: 0.75, maxPrice: 500, deployableUSD, capitalPct }
+  // No fixed $500 ceiling — cash + risk sizing decides affordability
+  return { accountId: id, minPrice: 0.75, maxPrice: Number.POSITIVE_INFINITY, deployableUSD, capitalPct }
 }
 
 /**
@@ -329,6 +335,29 @@ export function resolvePositionSize(
   return { qty, deployable }
 }
 
+export type OrderSignalSnapshot = {
+  confidence: number
+  reasoning: string
+  urgency: string
+  /** false = descartado antes del análisis técnico */
+  analyzed?: boolean
+  price?: number | null
+  ema20?: number | null
+  ema50?: number | null
+  ema200?: number | null
+  rsi14?: number | null
+  macd?: { line: number; signal: number; histogram: number } | null
+  atr14?: number | null
+  relativeVolume?: number | null
+  support?: number | null
+  resistance?: number | null
+  componentScores?: Record<string, number> | null
+  scoreTotal?: number | null
+  entry?: number | null
+  stop?: number | null
+  target?: number | null
+}
+
 export type OrderResult = {
   orderId?: string
   approvalId?: string
@@ -348,10 +377,73 @@ export type OrderResult = {
   /** Strategy / agent combo that produced the signal (e.g. "momentum+news"). */
   agents?: string
   reason: string
-  signal: { confidence: number; reasoning: string; urgency: string }
+  signal: OrderSignalSnapshot
   timestamp: string
   stopLoss?: number
   takeProfit?: number
+}
+
+/** Pre-analysis discard — never show as bare "0% confidence". */
+function notAnalyzedSignal(motivo: string): OrderSignalSnapshot {
+  return {
+    confidence: 0,
+    reasoning: `no analizado: ${motivo}`,
+    urgency: 'LOW',
+    analyzed: false,
+  }
+}
+
+function analyzedSignalFromStrategy(
+  strategy: {
+    confidence: number
+    reasoning: string
+    urgency: string
+    stopLoss: number
+    takeProfit: number
+    rsi: number | null
+    metrics: {
+      ema20?: number | null
+      ema50?: number | null
+      ema200?: number | null
+      macdLine?: number | null
+      macdSignal?: number | null
+      macdHist?: number | null
+      atr14?: number | null
+      relVolume?: number
+      support?: number | null
+      resistance?: number | null
+      componentScores?: Record<string, number> | null
+      scoreTotal?: number | null
+    }
+  },
+  price: number,
+): OrderSignalSnapshot {
+  const m = strategy.metrics
+  const macd =
+    m.macdLine != null && m.macdSignal != null && m.macdHist != null
+      ? { line: m.macdLine, signal: m.macdSignal, histogram: m.macdHist }
+      : null
+  return {
+    confidence: strategy.confidence,
+    reasoning: strategy.reasoning,
+    urgency: strategy.urgency,
+    analyzed: true,
+    price,
+    ema20: m.ema20 ?? null,
+    ema50: m.ema50 ?? null,
+    ema200: m.ema200 ?? null,
+    rsi14: strategy.rsi,
+    macd,
+    atr14: m.atr14 ?? null,
+    relativeVolume: m.relVolume ?? null,
+    support: m.support ?? null,
+    resistance: m.resistance ?? null,
+    componentScores: m.componentScores ?? null,
+    scoreTotal: m.scoreTotal ?? (strategy.confidence > 0 ? Math.round(strategy.confidence * 100) : null),
+    entry: price,
+    stop: strategy.stopLoss > 0 ? strategy.stopLoss : null,
+    target: strategy.takeProfit > 0 ? strategy.takeProfit : null,
+  }
 }
 
 const NO_CAPITAL_TELEGRAM_TTL_MS = 4 * 60 * 60 * 1000
@@ -2023,17 +2115,20 @@ export class TradingEngine {
           ticker,
           direction: "HOLD",
           reason: `${ticker}: fuera de ciclo stocks`,
-          signal: { confidence: 0, reasoning: "Non-stock ticker", urgency: "LOW" },
+          signal: notAnalyzedSignal("fuera de ciclo stocks"),
           timestamp: new Date().toISOString(),
         };
       }
-      if (isIbkrNonExecutableUsEtf(ticker) || !isIbkrExecutableEquity(ticker)) {
+      if (
+        isIbkrNonExecutableUsEtf(ticker) ||
+        (!isEuropeanEurEquity(ticker) && !isIbkrExecutableEquity(ticker))
+      ) {
         return {
           status: "SKIPPED",
           ticker,
           direction: "HOLD",
           reason: `${ticker}: ETF indicador (PRIIPs / no ejecutable IBKR UE)`,
-          signal: { confidence: 0, reasoning: "US ETF indicator-only", urgency: "LOW" },
+          signal: notAnalyzedSignal("ETF indicador / no ejecutable"),
           timestamp: new Date().toISOString(),
         };
       }
@@ -2043,7 +2138,29 @@ export class TradingEngine {
           ticker,
           direction: "HOLD",
           reason: `${ticker}: en lista IBKR non-tradable (INACTIVE/201/10147)`,
-          signal: { confidence: 0, reasoning: "IBKR non-tradable cache", urgency: "LOW" },
+          signal: notAnalyzedSignal("IBKR non-tradable"),
+          timestamp: new Date().toISOString(),
+        };
+      }
+      // Session gates before analysis: EU local vs US/ADR
+      if (isEuropeanEurEquity(ticker)) {
+        if (!isEuropeanEquityOrderWindow()) {
+          return {
+            status: "HOLD",
+            ticker,
+            direction: "HOLD",
+            reason: `${ticker}: fuera de sesión EU (Madrid 09:00–17:30 / London 08:00–16:30)`,
+            signal: notAnalyzedSignal("fuera de sesión regular EU"),
+            timestamp: new Date().toISOString(),
+          };
+        }
+      } else if (!isUsListedEquityOrderWindow()) {
+        return {
+          status: "HOLD",
+          ticker,
+          direction: "HOLD",
+          reason: `${ticker}: fuera de sesión regular NYSE (09:30–16:00 ET) — ADR/US solo con NY abierto`,
+          signal: notAnalyzedSignal("fuera de sesión regular NYSE"),
           timestamp: new Date().toISOString(),
         };
       }
@@ -2131,7 +2248,7 @@ export class TradingEngine {
         ticker,
         direction: 'HOLD',
         reason: `${ticker}: skip temporal post-timeout IBKR`,
-        signal: { confidence: 0, reasoning: 'Timeout skip list 30m', urgency: 'LOW' },
+        signal: notAnalyzedSignal('timeout IBKR 30m'),
         timestamp: new Date().toISOString(),
       }
     }
@@ -2143,7 +2260,7 @@ export class TradingEngine {
         ticker,
         direction: 'HOLD',
         reason: `${ticker}: ticker excluido (sin precio FMP / heredado)`,
-        signal: { confidence: 0, reasoning: 'Untradeable inherited ticker', urgency: 'LOW' },
+        signal: notAnalyzedSignal('ticker excluido / heredado'),
         timestamp: new Date().toISOString(),
       }
     }
@@ -2162,7 +2279,7 @@ export class TradingEngine {
         ticker,
         direction: 'HOLD',
         reason: `${ticker}: sin precio (EODHD/IBKR)`,
-        signal: { confidence: 0, reasoning: 'Sin precio — skip silencioso', urgency: 'LOW' },
+        signal: notAnalyzedSignal('sin precio'),
         timestamp: new Date().toISOString(),
       }
     }
@@ -2174,7 +2291,7 @@ export class TradingEngine {
         ticker,
         direction: 'HOLD',
         reason: `${ticker}: precio $0.00 o ticker excluido`,
-        signal: { confidence: 0, reasoning: 'Zero price / untradeable', urgency: 'LOW' },
+        signal: notAnalyzedSignal('precio 0 / no operable'),
         timestamp: new Date().toISOString(),
       }
     }
@@ -2184,20 +2301,12 @@ export class TradingEngine {
       ? getUsMarketSession()
       : null
 
-    if (usSession) {
-      if (!usSession.isTradeable) {
+    if (usSession && kind === 'stocks' && !isEuropeanEurEquity(ticker)) {
+      if (!usSession.isTradeable || !isUsListedEquityOrderWindow()) {
         return {
           status: 'HOLD', ticker, direction: 'HOLD',
-          reason: `${ticker}: fin de semana / no operable (${usSession.sessionLabel})`,
-          signal: { confidence: 0, reasoning: 'Fuera de horario USA', urgency: 'LOW' },
-          timestamp: new Date().toISOString(),
-        }
-      }
-      if (!isUsListedEquityOrderWindow()) {
-        return {
-          status: 'HOLD', ticker, direction: 'HOLD',
-          reason: `${ticker}: fuera de ventana 15:30–22:00 Madrid (ADR/acción EE.UU.)`,
-          signal: { confidence: 0, reasoning: 'Fuera de 15:30-22:00 Madrid', urgency: 'LOW' },
+          reason: `${ticker}: fuera de sesión regular NYSE (${usSession.sessionLabel})`,
+          signal: notAnalyzedSignal('fuera de sesión regular NYSE'),
           timestamp: new Date().toISOString(),
         }
       }
@@ -2214,7 +2323,7 @@ export class TradingEngine {
         ticker,
         direction: 'HOLD',
         reason: `${ticker}: ya existe posición abierta (diversificación 1 posición por ticker)`,
-        signal: { confidence: 0, reasoning: 'Ticker already open', urgency: 'LOW' },
+        signal: notAnalyzedSignal('posición ya abierta'),
         timestamp: new Date().toISOString(),
       }
     }
@@ -2251,25 +2360,29 @@ export class TradingEngine {
       primaryStrategy: strategy.primaryStrategy,
     }
 
+    const analysisSnap = analyzedSignalFromStrategy(strategy, priceData.currentPrice)
+
     if (signal.direction === 'HOLD') {
       // evaluateProStrategies already logged "[ProStrategy] TICKER: ninguna..."
       return {
         status: 'HOLD', ticker, direction: 'HOLD',
         reason: signal.reasoning,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
+        stopLoss: strategy.stopLoss > 0 ? strategy.stopLoss : undefined,
+        takeProfit: strategy.takeProfit > 0 ? strategy.takeProfit : undefined,
       }
     }
 
-    // USA premarket 14:00–14:30: prepare only — no execute
+    // USA premarket: prepare only — no execute (entries need regular session)
     if (isUsaPremarketPrepareOnly() && !isIbkrCryptoTicker(ticker)) {
       console.log(`[AutoExecute] ${ticker} → Premarket prepare-only (no ejecutar aún)`)
       return {
         status: 'HOLD',
         ticker,
         direction: 'HOLD',
-        reason: `${ticker}: premarket — candidato preparado, ejecución en apertura`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        reason: `${ticker}: premarket ET — candidato preparado, ejecución en regular 09:30 ET`,
+        signal: { ...analysisSnap, reasoning: `${analysisSnap.reasoning} [premarket prepare-only]` },
         timestamp: new Date().toISOString(),
       }
     }
@@ -2334,10 +2447,13 @@ export class TradingEngine {
       signal.confidence,
       strategy.positionSizeFactor ?? 1,
     )
-    if (priceData.currentPrice < capital.minPrice || priceData.currentPrice > capital.maxPrice) {
+    if (
+      priceData.currentPrice < capital.minPrice ||
+      (Number.isFinite(capital.maxPrice) && priceData.currentPrice > capital.maxPrice)
+    ) {
       console.warn(
-        `[AutoExecute] ${ticker} BLOCKED: precio $${priceData.currentPrice.toFixed(2)} fuera de rango ` +
-          `$${capital.minPrice}-$${capital.maxPrice} (cuenta ${capital.accountId || 'default'})`,
+        `[AutoExecute] ${ticker} BLOCKED: precio $${priceData.currentPrice.toFixed(2)} bajo mínimo ` +
+          `$${capital.minPrice} (cuenta ${capital.accountId || 'default'})`,
       )
       return {
         status: 'REJECTED_RISK',
@@ -2345,8 +2461,8 @@ export class TradingEngine {
         direction: signal.direction,
         price: priceData.currentPrice,
         agents: agentsLabel,
-        reason: `Precio $${priceData.currentPrice.toFixed(2)} fuera de rango cuenta $${capital.minPrice}-$${capital.maxPrice}`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        reason: `Precio $${priceData.currentPrice.toFixed(2)} < mínimo $${capital.minPrice}`,
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
       }
     }
@@ -2389,7 +2505,7 @@ export class TradingEngine {
         price: priceData.currentPrice,
         agents: agentsLabel,
         reason: preRisk.reason,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
       }
     }
@@ -2409,7 +2525,7 @@ export class TradingEngine {
             kind === 'crypto'
               ? `límite ${maxPos} posiciones`
               : `Máximo ${maxPos} posiciones abiertas (${account.openPositionsCount})`,
-          signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+          signal: analysisSnap,
           timestamp: new Date().toISOString(),
         }
       }
@@ -2422,7 +2538,7 @@ export class TradingEngine {
       return {
         status: 'REJECTED_CONFIDENCE', ticker, direction: signal.direction,
         reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < mínimo ${(minConfidence * 100).toFixed(0)}% (${phase})`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
       }
     }
@@ -2450,7 +2566,7 @@ export class TradingEngine {
         ticker,
         direction: 'HOLD',
         reason: `Confianza ${(signal.confidence * 100).toFixed(0)}% < umbral ${(minBuyThreshold * 100).toFixed(0)}% (${cycleKind}${conservativeMode ? ", conservador" : ""})`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
       }
     }
@@ -2703,7 +2819,7 @@ export class TradingEngine {
       return {
         status: 'HOLD', ticker, direction: 'HOLD',
         reason: 'Confianza < 60% (descartada)',
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
       }
     }
@@ -2714,7 +2830,7 @@ export class TradingEngine {
         ticker,
         direction: 'HOLD',
         reason: `[Análisis forex] ${signal.reasoning}`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
         stopLoss: effectiveStopLoss,
         takeProfit: effectiveTakeProfit,
@@ -2732,7 +2848,7 @@ export class TradingEngine {
       stopLoss: effectiveStopLoss,
       takeProfit: effectiveTakeProfit,
       reason: signal.reasoning,
-      signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+      signal: analysisSnap,
       outsideRth: isIbkrCryptoTicker(ticker) ? true : usExtendedHours,
       preTradeChecklist: checklistSnapshot,
       smartPlan: smartPlan
@@ -2833,11 +2949,7 @@ export class TradingEngine {
         price: priceData.currentPrice,
         agents: agentsLabel,
         reason: signal.reasoning,
-        signal: {
-          confidence: signal.confidence,
-          reasoning: signal.reasoning,
-          urgency: signal.urgency,
-        },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
         stopLoss: effectiveStopLoss,
         takeProfit: effectiveTakeProfit,
@@ -2902,7 +3014,7 @@ export class TradingEngine {
         sharesOrValue: orderValueUSD,
         price: priceData.currentPrice,
         reason: `AutoExecute failed: ${msg}`,
-        signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+        signal: analysisSnap,
         timestamp: new Date().toISOString(),
         stopLoss: effectiveStopLoss,
         takeProfit: effectiveTakeProfit,

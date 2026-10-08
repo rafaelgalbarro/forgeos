@@ -24,6 +24,7 @@ import {
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { submitSupervisedLiveLimitOrder } from "@/lib/investment/ibkr-supervised-submit";
+import { cancelOpenIbkrSellsForSymbol } from "@/lib/investment/ibkr-cancel-open-sells";
 import {
   EXIT_PARTIAL_PCT,
   EXIT_STOP_LOSS_PCT,
@@ -355,6 +356,7 @@ async function executeStockSell(action: ExitAction, account?: string): Promise<E
     return { ...action, executed: false };
   }
   const qty = Math.max(1, Math.floor(action.qty));
+  await cancelOpenIbkrSellsForSymbol(action.symbol).catch(() => undefined);
   const res = await submitSupervisedLiveLimitOrder({
     symbol: action.symbol,
     side: "SELL",

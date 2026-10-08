@@ -38,3 +38,7 @@ export {
   getKrakenWsStatus,
   updateKrakenMarketSubscriptions,
 } from "./ws-client";
+export {
+  forgeosKrakenUserref,
+  FORGEOS_KRAKEN_USERREF,
+} from "./userref";

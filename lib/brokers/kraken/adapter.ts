@@ -26,6 +26,7 @@ import {
   nextKrakenNonce,
   redactKrakenSecrets,
 } from "./sign";
+import { forgeosKrakenUserref } from "./userref";
 
 const PUBLIC_BASE = "https://api.kraken.com";
 const PRIVATE_BASE = "https://api.kraken.com";
@@ -347,7 +348,7 @@ export class KrakenAdapter {
       ordertype: "limit",
       price,
       volume,
-      ...(args.userref != null ? { userref: args.userref } : {}),
+      userref: args.userref ?? forgeosKrakenUserref(),
       ...(args.oflags ? { oflags: args.oflags } : {}),
     });
 
@@ -417,6 +418,70 @@ export class KrakenAdapter {
       vol: Number(row.vol ?? 0),
       fee: Number(row.fee ?? 0),
     };
+  }
+
+  /**
+   * Closed orders with ForgeOS userref (for orphan reconcile).
+   * Kraken ClosedOrders — recent closed book.
+   */
+  async getClosedOrdersByUserref(userref: number): Promise<
+    Array<{
+      txid: string;
+      pair: string;
+      side: "buy" | "sell";
+      price: number;
+      avgPrice: number;
+      vol: number;
+      volExec: number;
+      opentm: number;
+      status: string;
+    }>
+  > {
+    const result = await privatePost<{
+      closed?: Record<
+        string,
+        {
+          descr?: { pair?: string; type?: string; price?: string };
+          userref?: number | string;
+          status?: string;
+          vol?: string;
+          vol_exec?: string;
+          price?: string;
+          avg_price?: string;
+          opentm?: number;
+        }
+      >;
+    }>("/0/private/ClosedOrders", {});
+    const out: Array<{
+      txid: string;
+      pair: string;
+      side: "buy" | "sell";
+      price: number;
+      avgPrice: number;
+      vol: number;
+      volExec: number;
+      opentm: number;
+      status: string;
+    }> = [];
+    const want = Number(userref);
+    for (const [txid, o] of Object.entries(result.closed ?? {})) {
+      const ur = Number(o.userref ?? 0);
+      if (!(ur === want)) continue;
+      const sideRaw = String(o.descr?.type ?? "").toLowerCase();
+      const side = sideRaw === "sell" ? "sell" : "buy";
+      out.push({
+        txid,
+        pair: String(o.descr?.pair ?? "").toUpperCase(),
+        side,
+        price: Number(o.descr?.price ?? o.price ?? 0),
+        avgPrice: Number(o.avg_price ?? o.price ?? 0),
+        vol: Number(o.vol ?? 0),
+        volExec: Number(o.vol_exec ?? 0),
+        opentm: Number(o.opentm ?? 0),
+        status: String(o.status ?? ""),
+      });
+    }
+    return out;
   }
 
   /** Aggressive limit sell of full position qty (price × (1 − discount)). */

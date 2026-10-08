@@ -70,6 +70,11 @@ import {
   isCryptoEngineStandalone,
   readCryptoEngineHeartbeat,
 } from "@/lib/trading/crypto/engine-heartbeat";
+import { reconcileKrakenForgeOsPositions, maxHoldMsForStrategy } from "@/lib/trading/crypto/reconcile";
+import {
+  recordCryptoEngineRestart,
+  runCryptoEngineAlarms,
+} from "@/lib/trading/crypto/alarms";
 
 export type EngineStatus = {
   started: boolean;
@@ -196,11 +201,24 @@ export async function startKrakenEngine(): Promise<void> {
   if (started) return;
   started = true;
 
+  if (isCryptoEngineStandalone()) {
+    recordCryptoEngineRestart();
+  }
+
   const uni = await refreshKrakenUniverse(true);
   const wsNames = uni.selected.map((p) => p.wsname);
   await startKrakenMarketData(wsNames);
   startRegimeScheduler();
   await updateMarketRegime().catch(() => undefined);
+
+  try {
+    await reconcileKrakenForgeOsPositions();
+  } catch (err) {
+    console.warn(
+      "[Kraken/Reconcile]",
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   if (!universeTimer) {
     universeTimer = setInterval(() => {
@@ -228,6 +246,7 @@ function startKrakenExitLoop(): void {
     void runKrakenExits().catch((err) =>
       console.warn("[Kraken/Exit]", err instanceof Error ? err.message : err),
     );
+    void runCryptoEngineAlarms().catch(() => undefined);
   };
   tick();
   exitTimer = setInterval(tick, 5_000);
@@ -262,12 +281,7 @@ async function runKrakenExits(): Promise<void> {
     const openedAt = Date.parse(openBuy.at);
     const holdMs = Number.isFinite(openedAt) ? Date.now() - openedAt : 0;
     const strategy = String(openBuy.strategy);
-    const maxHold =
-      strategy === "TOP_GAINER_PULLBACK"
-        ? 12 * 3600_000
-        : strategy === "MOMENTUM_BREAKOUT_5M"
-          ? 4 * 3600_000
-          : 24 * 3600_000;
+    const maxHold = maxHoldMsForStrategy(strategy);
 
     const pnlPct = (mid - entry) / entry;
     const riskPct = Math.min(0.03, Math.abs(entry - (openBuy as { stopHint?: number }).stopHint!) || 0.02);

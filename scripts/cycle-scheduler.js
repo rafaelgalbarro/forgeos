@@ -113,6 +113,75 @@ async function resolveIntervalMs() {
   return localIntervalMs();
 }
 
+/** Madrid equity windows: EU 09:00–17:30, US 15:30–22:00 */
+function equityScanWindowOpen() {
+  const { nowMinutes, weekend } = madridParts();
+  if (weekend) return false;
+  const eu = nowMinutes >= 9 * 60 && nowMinutes < 17 * 60 + 30;
+  const us = nowMinutes >= 15 * 60 + 30 && nowMinutes < 22 * 60;
+  return eu || us;
+}
+
+let lastStocksScanAt = 0;
+const STOCKS_SCAN_INTERVAL_MS = 15 * 60 * 1000;
+
+async function maybeRunStocksOpportunityScan() {
+  if (!API_KEY || !equityScanWindowOpen()) return;
+  const now = Date.now();
+  if (now - lastStocksScanAt < STOCKS_SCAN_INTERVAL_MS - 5_000) return;
+  lastStocksScanAt = now;
+  try {
+    const res = await fetch(`${BASE_URL}/api/trading/stocks/scan`, {
+      method: "POST",
+      headers: {
+        "x-internal-api-key": API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ notifyTelegram: true }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const body = await res.text().catch(() => "");
+    console.log(
+      `[Scheduler] stocks/scan HTTP ${res.status}:`,
+      body.slice(0, 180) || "ok",
+    );
+  } catch (err) {
+    console.warn(
+      "[Scheduler] stocks/scan error:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/** Daily top-10 digest ~17:35 Madrid on weekdays */
+let lastDigestDay = "";
+async function maybeSendStocksDigest() {
+  if (!API_KEY) return;
+  const { weekday, hour, minute, weekend } = madridParts();
+  if (weekend) return;
+  if (!(hour === 17 && minute >= 35 && minute < 40)) return;
+  const dayKey = `${weekday}-${new Date().toISOString().slice(0, 10)}`;
+  if (lastDigestDay === dayKey) return;
+  lastDigestDay = dayKey;
+  try {
+    const res = await fetch(`${BASE_URL}/api/trading/stocks/scan`, {
+      method: "POST",
+      headers: {
+        "x-internal-api-key": API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ digest: true }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    console.log(`[Scheduler] stocks digest HTTP ${res.status}`);
+  } catch (err) {
+    console.warn(
+      "[Scheduler] stocks digest error:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
 async function runCycle() {
   if (!API_KEY) {
     console.error(
@@ -121,6 +190,9 @@ async function runCycle() {
     return;
   }
   try {
+    await maybeRunStocksOpportunityScan();
+    await maybeSendStocksDigest();
+
     await fetch(`${BASE_URL}/api/investment/daily-pipeline?session=auto`, {
       method: "GET",
       headers: { "x-internal-api-key": API_KEY },
@@ -179,6 +251,6 @@ async function loop() {
 }
 
 console.log(
-  `[Scheduler] Iniciando 3 ciclos typed cada 3min (stocks/crypto/forex)… key=${API_KEY ? `set(len=${API_KEY.length})` : "MISSING"}`,
+  `[Scheduler] Iniciando ciclos typed cada 3min + stocks scan 15min en ventana… key=${API_KEY ? `set(len=${API_KEY.length})` : "MISSING"}`,
 );
 void loop();

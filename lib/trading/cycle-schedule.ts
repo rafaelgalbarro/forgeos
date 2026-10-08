@@ -70,6 +70,23 @@ export function isForexCycleWindow(now = madridClock()): boolean {
   return now.hour >= 7 && now.hour < 22;
 }
 
+/**
+ * US-listed equities / ADRs — orders only 15:30–22:00 Madrid (not weekends).
+ * Exits (SELL) may still run outside this window.
+ */
+export function isUsListedEquityOrderWindow(now = madridClock()): boolean {
+  if (now.weekend) return false;
+  return now.nowMinutes >= 15 * 60 + 30 && now.nowMinutes < 22 * 60;
+}
+
+/**
+ * European local equities (EUR) — orders only 09:00–17:30 Madrid (not weekends).
+ */
+export function isEuropeanEquityOrderWindow(now = madridClock()): boolean {
+  if (now.weekend) return false;
+  return now.nowMinutes >= 9 * 60 && now.nowMinutes < 17 * 60 + 30;
+}
+
 /** Crypto cycle: 24/7. */
 export function isCryptoCycleWindow(): boolean {
   return true;

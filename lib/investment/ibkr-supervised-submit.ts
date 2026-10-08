@@ -6,9 +6,20 @@
 import "server-only";
 
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+import { cancelOpenIbkrSellsForSymbol } from "@/lib/investment/ibkr-cancel-open-sells";
 import { getInvestmentRuntimeFlags } from "@/lib/investment/runtime-flags";
 import { ensureIbkrBrokerConnected } from "@/lib/trading/ibkr-reconnect";
 import { notifyOrderRejected } from "@/lib/notifications/telegram-bot";
+import {
+  isEuropeanEquityOrderWindow,
+  isUsListedEquityOrderWindow,
+} from "@/lib/trading/cycle-schedule";
+import {
+  getEuropeanEurEquity,
+  ibkrEurStocksAccountId,
+  ibkrUsdStocksAccountId,
+  isEuropeanEurEquity,
+} from "@/lib/trading/europe-equities";
 import {
   IBKR_CRYPTO_EXCHANGE,
   IBKR_CRYPTO_SEC_TYPE,
@@ -19,6 +30,7 @@ import {
   recordIbkrNonTradable,
   shouldPersistIbkrNonTradable,
 } from "@/lib/trading/ibkr-non-tradable";
+import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
 type RiskCheck = {
   readonly name?: string;
@@ -212,6 +224,34 @@ async function withBrokerRetry<T>(
   }
 }
 
+function isServiceDownError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /IBKR service is not running|ECONNREFUSED|fetch failed|SERVICE_UNAVAILABLE|unreachable/i.test(
+    msg,
+  );
+}
+
+async function withServiceDownRetry<T>(symbol: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isServiceDownError(err)) throw err;
+    console.warn(
+      `[AutoExecute] ${symbol} → IBKR service down, reintento en 10s…`,
+    );
+    await sleep(10_000);
+    try {
+      return await fn();
+    } catch (retryErr) {
+      const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+      void sendTelegramMessage(
+        `🚨 <b>IBKR service</b>: no disponible tras reintento 10s — ${symbol}: ${msg.slice(0, 180)}`,
+      ).catch(() => undefined);
+      throw retryErr;
+    }
+  }
+}
+
 export async function submitSupervisedLiveLimitOrder(args: {
   readonly symbol: string;
   readonly side: "BUY" | "SELL";
@@ -224,6 +264,9 @@ export async function submitSupervisedLiveLimitOrder(args: {
   readonly stopLoss?: number;
   readonly takeProfit?: number;
   readonly tif?: "DAY" | "GTC";
+  readonly currency?: "USD" | "EUR";
+  readonly exchange?: string;
+  readonly primaryExchange?: string;
 }): Promise<SupervisedSubmitResult> {
   const crypto = isIbkrCryptoTicker(args.symbol);
   const symbol = crypto
@@ -243,6 +286,33 @@ export async function submitSupervisedLiveLimitOrder(args: {
     throw new Error(`precio inválido — limitPrice=${args.limitPrice}`);
   }
 
+  const eu = !crypto ? getEuropeanEurEquity(symbol) : null;
+
+  // Session gates for new BUYs (SELL exits always allowed)
+  if (!crypto && args.side === "BUY") {
+    if (eu) {
+      if (!isEuropeanEquityOrderWindow()) {
+        throw new Error(
+          `${symbol}: fuera de ventana EU 09:00–17:30 Madrid — no enviar BUY europea`,
+        );
+      }
+    } else if (!isUsListedEquityOrderWindow()) {
+      throw new Error(
+        `${symbol}: fuera de ventana USA 15:30–22:00 Madrid — no enviar BUY ADR/acción EE.UU.`,
+      );
+    }
+  }
+
+  // One active SELL per position — cancel prior open sells first
+  if (!crypto && args.side === "SELL") {
+    await cancelOpenIbkrSellsForSymbol(symbol).catch((err) =>
+      console.warn(
+        `[AutoExecute] ${symbol} cancel open sells:`,
+        err instanceof Error ? err.message : err,
+      ),
+    );
+  }
+
   const connected = await ensureIbkrBrokerConnected();
   if (!connected) {
     throw new Error(
@@ -250,17 +320,30 @@ export async function submitSupervisedLiveLimitOrder(args: {
     );
   }
 
+  const currency = args.currency ?? (eu ? "EUR" : "USD");
+  const primaryExchange = args.primaryExchange ?? eu?.primaryExchange;
+  const exchange = args.exchange ?? (crypto ? IBKR_CRYPTO_EXCHANGE : "SMART");
+  const account =
+    args.account ??
+    (crypto
+      ? undefined
+      : eu
+        ? ibkrEurStocksAccountId()
+        : ibkrUsdStocksAccountId());
+
   const rationale = (args.rationale.trim().length >= 10
     ? args.rationale
     : `${args.rationale} supervised live`
   ).slice(0, 4000);
 
-  // Paso 3 — Crear propuesta
+  const ccyMark = currency === "EUR" ? "€" : "$";
   console.log(
     `[AutoExecute] ${symbol} → creando propuesta ibkr-broker ` +
-      `(${args.side} qty=${args.quantity} LMT=$${args.limitPrice} account=${args.account ?? "default"})…`,
+      `(${args.side} qty=${args.quantity} LMT=${ccyMark}${args.limitPrice} ` +
+      `ccy=${currency} primary=${primaryExchange ?? "—"} account=${account ?? "default"})…`,
   );
-  const proposal = await withBrokerRetry(symbol, "crear propuesta", () =>
+
+  const createProposal = () =>
     ibkrServiceFetch<ProposalResponse>("/api/proposals", {
       method: "POST",
       body: JSON.stringify({
@@ -270,12 +353,13 @@ export async function submitSupervisedLiveLimitOrder(args: {
         order_type: "LMT",
         limit_price: args.limitPrice,
         sec_type: crypto ? IBKR_CRYPTO_SEC_TYPE : "STK",
-        currency: "USD",
-        exchange: crypto ? IBKR_CRYPTO_EXCHANGE : "SMART",
+        currency,
+        exchange,
+        primary_exchange: primaryExchange,
         outside_rth: crypto ? true : args.outsideRth ?? false,
         rationale,
         strategy_id: "forgeos-trading-engine",
-        account: args.account,
+        account,
         tif: args.tif ?? (args.side === "BUY" && !crypto ? "GTC" : "DAY"),
         stop_loss: args.stopLoss && args.stopLoss > 0 ? args.stopLoss : undefined,
         take_profit: args.takeProfit && args.takeProfit > 0 ? args.takeProfit : undefined,
@@ -288,7 +372,10 @@ export async function submitSupervisedLiveLimitOrder(args: {
             args.takeProfit > 0,
         ),
       }),
-    }),
+    });
+
+  const proposal = await withServiceDownRetry(symbol, () =>
+    withBrokerRetry(symbol, "crear propuesta", createProposal),
   );
 
   const proposalId = proposal.id?.trim();

@@ -1,11 +1,7 @@
 /**
- * Stocks cycle universe — phase-aware ADRs / USA equities only (IBKR EU retail).
- *
- * Capital does NOT filter the universe: all phase tickers are analyzed.
- * Affordability is checked only at execution (SIGNAL_NO_CAPITAL).
- *
- * US ETFs stay in usa-sectors as indicators (sector rotation / regime) — never ordered.
- * Crypto / forex never enter this universe.
+ * Stocks cycle universe — phase/window-aware:
+ * - European local EUR equities 09:00–17:30 Madrid → account U15513057
+ * - US equities / ADRs 15:30–22:00 Madrid → account U24225949
  */
 
 import "server-only";
@@ -26,8 +22,15 @@ import {
 import { isIbkrNonTradable } from "@/lib/trading/ibkr-non-tradable";
 import {
   getCurrentTradingPhase,
+  isEuropeanEquityOrderWindow,
+  isUsListedEquityOrderWindow,
   type ForgeTradingPhase,
 } from "@/lib/trading/cycle-schedule";
+import {
+  europeEurSeedSymbols,
+  isEuropeanEurEquity,
+} from "@/lib/trading/europe-equities";
+import { loadStocksOpportunityScan } from "@/lib/trading/stocks/scan-store";
 
 /** Final tickers analyzed per stocks cycle. */
 export const MAX_STOCKS_CYCLE_TICKERS = 50;
@@ -35,15 +38,13 @@ const MIN_VOLUME = 500_000;
 const MIN_PRICE = 5;
 const MAX_PRICE = 500;
 
-/** European ADRs / dual-listed — EUROPA phase (08:00–14:00 Madrid). */
+/** @deprecated European ADRs — prefer local EUR listings in europe-equities. */
 export const EUROPE_ADR_CYCLE = [
   "ASML", "SAP", "SHEL", "BP", "GSK", "AZN", "NVO", "UL", "SNY", "NGG",
   "BBVA", "SAN", "TEF", "ING", "DB", "ERIC", "NOK", "STM", "PHG", "DEO",
-  "BUD", "CRH", "SPOT", "ARM", "LVMUY", "NESN", "RHHBY", "ADDYY", "DANOY",
-  "SIEGY", "VWAGY",
 ] as const;
 
-/** Asian / EM ADRs — ASIA phase (01:00–08:00 Madrid). */
+/** Asian / EM ADRs — ASIA phase (US-listed; only 15:30–22:00). */
 export const ASIA_ADR_CYCLE = [
   "TSM", "SONY", "BABA", "JD", "BIDU", "NIO", "SE", "GRAB", "MELI",
   "IBN", "HDB", "WIT", "TCEHY",
@@ -61,7 +62,7 @@ export type StocksUniverseResult = {
   indicatorEtfsExcluded?: string[];
 };
 
-/** Equity/ADR eligible for stocks-cycle IBKR orders (not ETF, not crypto/FX). */
+/** Equity eligible for stocks-cycle IBKR orders (US or EU local, not ETF/crypto/FX). */
 export function isUsStockTicker(ticker: string): boolean {
   const t = ticker.trim().toUpperCase();
   if (!t) return false;
@@ -70,24 +71,10 @@ export function isUsStockTicker(ticker: string): boolean {
   if (isAlpacaForexTicker(t)) return false;
   if (toAlpacaCryptoPairId(t)) return false;
   if (isIbkrNonExecutableUsEtf(t)) return false;
+  if (isEuropeanEurEquity(t)) return true;
   if (!isIbkrExecutableEquity(t)) return false;
   if (isIbkrNonTradable(t)) return false;
   return true;
-}
-
-function phaseSeedTickers(phase: ForgeTradingPhase): string[] {
-  switch (phase) {
-    case "EUROPA":
-      return [...EUROPE_ADR_CYCLE];
-    case "ASIA":
-      return [...ASIA_ADR_CYCLE];
-    case "PRE_MARKET":
-    case "USA_REGULAR":
-      return [...USA_EXECUTABLE_EQUITIES];
-    case "CLOSED":
-    default:
-      return [];
-  }
 }
 
 function finalize(
@@ -96,7 +83,6 @@ function finalize(
   source: string,
   scanned: number,
   changeBySymbol: Map<string, number>,
-  /** Prefer these symbols so mega-caps are never displaced by flat-day movers. */
   preferFirst?: string[],
 ): StocksUniverseResult {
   const clean = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(isUsStockTicker))];
@@ -119,8 +105,8 @@ function finalize(
   const out = limited.map((r) => r.symbol);
 
   console.log(
-    `[StocksUniverse] phase=${phase} source=${source} → ${out.length} equities/ADRs ` +
-      `(ETFs/crypto/forex excluded; capital not filtered)`,
+    `[StocksUniverse] phase=${phase} source=${source} → ${out.length} equities ` +
+      `(EU EUR + US; ETFs/crypto/forex excluded)`,
   );
 
   return {
@@ -134,44 +120,66 @@ function finalize(
 }
 
 /**
- * Resolve up to 50 phase equities/ADRs for analysis.
- * Never filters by available cash — capital gates execution only.
+ * Resolve up to 50 equities for analysis based on Madrid order windows.
+ * Prefers last opportunity-scan selected/top when fresh (<20 min).
  */
 export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult> {
   const phase = getCurrentTradingPhase();
-  const seed = phaseSeedTickers(phase).filter(isUsStockTicker);
+  const euOpen = isEuropeanEquityOrderWindow();
+  const usOpen = isUsListedEquityOrderWindow();
   const changeBySymbol = new Map<string, number>();
 
-  if (phase === "CLOSED" || seed.length === 0) {
-    return finalize([], phase, "closed", 0, changeBySymbol);
+  if (!euOpen && !usOpen) {
+    return finalize([], phase, "outside-equity-windows", 0, changeBySymbol);
   }
 
+  const scan = loadStocksOpportunityScan();
+  const scanAgeMs = scan ? Date.now() - Date.parse(scan.at) : Number.POSITIVE_INFINITY;
+  const scanFresh = Number.isFinite(scanAgeMs) && scanAgeMs >= 0 && scanAgeMs < 20 * 60 * 1000;
+  const scanPrefer: string[] = [];
+  if (scanFresh && scan) {
+    for (const o of [...scan.selected, ...scan.top10]) {
+      if (o.market === "US" && !usOpen) continue;
+      if (o.market === "EU" && !euOpen) continue;
+      if (!isUsStockTicker(o.symbol)) continue;
+      scanPrefer.push(o.symbol);
+      changeBySymbol.set(o.symbol, o.expectedMovePct);
+    }
+  }
+
+  const seed: string[] = [...scanPrefer];
+  if (euOpen) seed.push(...europeEurSeedSymbols());
+  if (usOpen) seed.push(...USA_EXECUTABLE_EQUITIES);
+
   let screener: Awaited<ReturnType<typeof screenerUsGainers>> = [];
-  try {
-    screener = await screenerUsGainers({
-      minVolume: MIN_VOLUME,
-      minPrice: MIN_PRICE,
-      maxPrice: MAX_PRICE,
-      limit: 50,
-    });
-  } catch (err) {
-    console.warn(
-      "[StocksUniverse] EODHD screener error:",
-      err instanceof Error ? err.message : err,
-    );
+  if (usOpen) {
+    try {
+      screener = await screenerUsGainers({
+        minVolume: MIN_VOLUME,
+        minPrice: MIN_PRICE,
+        maxPrice: MAX_PRICE,
+        limit: 50,
+      });
+    } catch (err) {
+      console.warn(
+        "[StocksUniverse] EODHD screener error:",
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   for (const row of screener) {
-    if (!isUsStockTicker(row.symbol)) continue;
-    changeBySymbol.set(row.symbol, row.changePct);
+    if (isUsStockTicker(row.symbol) && !isEuropeanEurEquity(row.symbol)) {
+      changeBySymbol.set(row.symbol, row.changePct);
+    }
   }
 
-  const union = new Set<string>(seed);
-
-  // PRE_MARKET / USA_REGULAR: merge top movers (stocks only)
-  if (phase === "PRE_MARKET" || phase === "USA_REGULAR") {
+  const union = new Set<string>(seed.filter(isUsStockTicker));
+  if (usOpen) {
     for (const row of screener) {
-      if (isUsStockTicker(row.symbol)) union.add(row.symbol);
+      if (isUsStockTicker(row.symbol) && !isEuropeanEurEquity(row.symbol)) {
+        union.add(row.symbol);
+      }
     }
   }
 
@@ -179,14 +187,18 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
     if (!changeBySymbol.has(t)) changeBySymbol.set(t, 0);
   }
 
+  const sourceParts = [
+    scanFresh ? "opp-scan" : null,
+    euOpen ? "eu-eur" : null,
+    usOpen ? "us-adr" : null,
+  ].filter(Boolean);
+
   return finalize(
     [...union],
     phase,
-    phase === "PRE_MARKET" || phase === "USA_REGULAR"
-      ? "phase+eodhd-movers"
-      : `phase-${phase.toLowerCase()}`,
-    screener.length,
+    sourceParts.join("+") || `phase-${phase.toLowerCase()}`,
+    screener.length + (scanFresh ? scan?.analyzed ?? 0 : 0),
     changeBySymbol,
-    seed,
+    scanPrefer.length ? scanPrefer : seed,
   );
 }

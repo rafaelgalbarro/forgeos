@@ -7,6 +7,7 @@
 import "server-only";
 
 import { readJournalTrades } from "@/lib/trading/journal/trades";
+import { journalOpenCryptoPairs } from "@/lib/trading/crypto/journal-crypto";
 import { loadTradingState } from "@/src/core/trading/trading-state-store";
 
 /** Known legacy / non-ForgeOS holdings permanently excluded from ExitManager. */
@@ -50,6 +51,7 @@ export function journalOpenCryptoSymbols(): Set<string> {
     if (t.side === "BUY") open.add(sym);
     if (t.side === "SELL") open.delete(sym);
   }
+  for (const p of journalOpenCryptoPairs()) open.add(normSym(p));
   return open;
 }
 

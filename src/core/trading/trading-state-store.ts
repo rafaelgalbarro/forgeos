@@ -8,7 +8,13 @@ import path from "node:path"
 
 export const TRADING_STATE_FILE = path.resolve(process.cwd(), ".forgeos-trading-state.json")
 
-export type PendingOrderStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "EXECUTED" | "EXPIRED"
+export type PendingOrderStatus =
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "REJECTED"
+  | "EXECUTED"
+  | "EXPIRED"
+  | "ERROR"
 
 /** Compact Phase F smart-execution snapshot persisted with pending approvals. */
 export type PendingSmartPlanSnapshot = {

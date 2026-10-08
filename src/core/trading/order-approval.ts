@@ -75,6 +75,32 @@ export class OrderApprovalGate {
     return updated
   }
 
+  /** Mark APPROVED (or PENDING) → ERROR when live submit fails. */
+  markError(approvalId: string, reason?: string): PendingOrderRecord {
+    const now = new Date().toISOString()
+    let updated: PendingOrderRecord | undefined
+    updateTradingState((state) => ({
+      ...state,
+      pendingOrders: state.pendingOrders.map((o) => {
+        if (o.approvalId !== approvalId) return o
+        if (o.status !== "APPROVED" && o.status !== "PENDING_APPROVAL") {
+          return o
+        }
+        updated = {
+          ...o,
+          status: "ERROR",
+          updatedAt: now,
+          reason: reason
+            ? `${o.reason} | ERROR: ${reason.slice(0, 400)}`
+            : o.reason,
+        }
+        return updated
+      }),
+    }))
+    if (!updated) throw new Error(`Approval not found: ${approvalId}`)
+    return updated
+  }
+
   assertApproved(approvalId: string): PendingOrderRecord {
     const record = this.get(approvalId)
     if (!record) throw new Error(`Approval not found: ${approvalId}`)

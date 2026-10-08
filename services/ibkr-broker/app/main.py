@@ -1294,17 +1294,167 @@ class IBKRClient(EWrapper, EClient):
         "VXX", "UVXY", "SVXY", "TQQQ", "SQQQ", "SPXU", "UPRO", "SOXL", "SOXS",
         "IBIT", "FETH", "BITO", "ARKB", "GBTC", "ETHA", "BITB", "SPY", "QQQ", "IWM",
     }
-    _EU_ADR_USD = {"GSK", "SHEL", "BP", "AZN", "UL", "NVS", "ASML", "NVO"}
+    _EU_ADR_USD = {"GSK", "SHEL", "BP", "AZN", "UL", "NVS", "NVO"}
+
+    # Local EUR listings — never rewrite to USD/SMART ADR rules
+    _EU_LOCAL_PRIMARY = {
+        "SAN": "BM", "BBVA": "BM", "ITX": "BM", "IBE": "BM", "TEF": "BM",
+        "REP": "BM", "AENA": "BM", "AMS": "BM", "IAG": "BM", "FER": "BM",
+        "SAP": "IBIS", "SIE": "IBIS", "ALV": "IBIS", "DTE": "IBIS",
+        "BAS": "IBIS", "BMW": "IBIS", "MBG": "IBIS",
+        "ASML": "AEB", "INGA": "AEB", "ADYEN": "AEB", "PHIA": "AEB",
+        "MC": "SBF", "OR": "SBF", "TTE": "SBF", "BNP": "SBF", "AIR": "SBF",
+        "ENEL": "BVME", "ISP": "BVME", "UCG": "BVME", "ENI": "BVME",
+    }
+
+    def _contract_cache_path(self) -> Path:
+        root = Path(os.environ.get("FORGEOS_ROOT") or Path(__file__).resolve().parents[3])
+        d = root / ".forgeos" / "cache"
+        d.mkdir(parents=True, exist_ok=True)
+        return d / "ibkr-eu-contracts.json"
+
+    def _load_contract_cache(self) -> dict[str, Any]:
+        path = self._contract_cache_path()
+        try:
+            if path.exists():
+                return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+        return {}
+
+    def _save_contract_cache(self, cache: dict[str, Any]) -> None:
+        try:
+            self._contract_cache_path().write_text(
+                json.dumps(cache, indent=2), encoding="utf-8"
+            )
+        except Exception as exc:
+            log.warning("contract cache write failed: %s", exc)
+
+    def _qualify_stock_contract(self, proposal: dict[str, Any]) -> Contract:
+        """
+        Resolve STK via reqContractDetails.
+        For EUR local names try SMART+primaryExchange then venue exchange.
+        """
+        symbol = str(proposal.get("symbol") or "").upper().strip()
+        currency = str(proposal.get("currency") or "USD").upper().strip() or "USD"
+        primary = str(proposal.get("primary_exchange") or "").upper().strip()
+        if not primary and currency == "EUR":
+            primary = self._EU_LOCAL_PRIMARY.get(symbol, "")
+
+        cache_key = f"{symbol}|{currency}|{primary or 'SMART'}"
+        cache = self._load_contract_cache()
+        cached = cache.get(cache_key)
+        if cached and cached.get("conId"):
+            c = Contract()
+            c.conId = int(cached["conId"])
+            c.symbol = cached.get("symbol") or symbol
+            c.secType = "STK"
+            c.currency = cached.get("currency") or currency
+            c.exchange = cached.get("exchange") or "SMART"
+            if cached.get("primaryExchange"):
+                c.primaryExchange = cached["primaryExchange"]
+            log.info(
+                "Contract cache hit %s conId=%s exchange=%s primary=%s ccy=%s",
+                symbol, c.conId, c.exchange, getattr(c, "primaryExchange", ""), c.currency,
+            )
+            return c
+
+        candidates: list[Contract] = []
+        # 1) SMART + primary + currency
+        c1 = Contract()
+        c1.symbol = symbol
+        c1.secType = "STK"
+        c1.currency = currency
+        c1.exchange = "SMART"
+        if primary:
+            c1.primaryExchange = primary
+        candidates.append(c1)
+        # 2) Direct venue exchange
+        if primary:
+            c2 = Contract()
+            c2.symbol = symbol
+            c2.secType = "STK"
+            c2.currency = currency
+            c2.exchange = primary
+            candidates.append(c2)
+        # 3) Fallback SMART without primary (US)
+        if currency == "USD":
+            c3 = Contract()
+            c3.symbol = symbol
+            c3.secType = "STK"
+            c3.currency = "USD"
+            c3.exchange = "SMART"
+            candidates.append(c3)
+
+        last_err: Exception | None = None
+        for cand in candidates:
+            try:
+                details = self._resolve_contract_details(cand)
+                if details is None:
+                    continue
+                qualified = getattr(details, "contract", None)
+                if qualified is None:
+                    continue
+                # Cache
+                cache[cache_key] = {
+                    "conId": int(getattr(qualified, "conId", 0) or 0),
+                    "symbol": getattr(qualified, "symbol", symbol),
+                    "currency": getattr(qualified, "currency", currency),
+                    "exchange": getattr(qualified, "exchange", "SMART") or "SMART",
+                    "primaryExchange": getattr(qualified, "primaryExchange", primary) or primary,
+                    "cachedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                }
+                if cache[cache_key]["conId"]:
+                    self._save_contract_cache(cache)
+                log.info(
+                    "Contract qualified %s conId=%s exch=%s primary=%s ccy=%s",
+                    symbol,
+                    cache[cache_key]["conId"],
+                    cache[cache_key]["exchange"],
+                    cache[cache_key]["primaryExchange"],
+                    cache[cache_key]["currency"],
+                )
+                return qualified
+            except Exception as exc:
+                last_err = exc
+                log.warning(
+                    "ContractDetails try failed %s exch=%s primary=%s: %s",
+                    symbol,
+                    getattr(cand, "exchange", ""),
+                    getattr(cand, "primaryExchange", ""),
+                    exc,
+                )
+        if last_err:
+            log.warning("All ContractDetails attempts failed for %s: %s", symbol, last_err)
+        return self._basic_contract_from_proposal(proposal)
 
     def _resolve_order_currency(self, proposal: dict[str, Any]) -> dict[str, Any]:
         """
-        Adjust proposal currency/exchange before placeOrder to avoid Inactive
-        when the account is EUR-funded and the contract is USD.
+        Adjust proposal currency/exchange before placeOrder.
+        Explicit EUR + primary_exchange (local EU listing) is never rewritten to USD ADR rules.
         """
         p = dict(proposal)
         symbol = str(p.get("symbol") or "").upper().strip()
         sec = str(p.get("sec_type") or "STK").upper()
         if sec != "STK":
+            return p
+
+        requested_ccy = str(p.get("currency") or "").upper().strip()
+        primary = str(p.get("primary_exchange") or "").upper().strip()
+        if not primary and symbol in self._EU_LOCAL_PRIMARY and requested_ccy == "EUR":
+            primary = self._EU_LOCAL_PRIMARY[symbol]
+            p["primary_exchange"] = primary
+
+        # Local European listing — keep EUR, never apply ADR→USD
+        if requested_ccy == "EUR" and (primary or symbol in self._EU_LOCAL_PRIMARY):
+            p["currency"] = "EUR"
+            p["exchange"] = p.get("exchange") or "SMART"
+            if not p.get("primary_exchange") and symbol in self._EU_LOCAL_PRIMARY:
+                p["primary_exchange"] = self._EU_LOCAL_PRIMARY[symbol]
+            log.info(
+                "Currency keep %s: EUR local primary=%s (skip ADR→USD)",
+                symbol, p.get("primary_exchange"),
+            )
             return p
 
         cash = self._cash_by_currency()
@@ -1442,26 +1592,30 @@ class IBKRClient(EWrapper, EClient):
     ) -> int:
         self._ensure_connected_for_contract_details()
         proposal = self._resolve_order_currency(proposal)
-        contract = self._basic_contract_from_proposal(proposal)
-        sec_type = str(contract.secType or "STK").upper()
+        sec_type = str(proposal.get("sec_type") or "STK").upper().strip() or "STK"
+        if sec_type == "STK" and not skip_contract_details:
+            contract = self._qualify_stock_contract(proposal)
+        else:
+            contract = self._basic_contract_from_proposal(proposal)
         log.info(
-            "placeOrder contract %s sec=%s exchange=%s currency=%s qty=%s lmt=%s",
+            "placeOrder contract %s sec=%s exchange=%s primary=%s currency=%s qty=%s lmt=%s",
             contract.symbol,
             contract.secType,
             contract.exchange,
+            getattr(contract, "primaryExchange", ""),
             contract.currency,
             proposal.get("quantity"),
             proposal.get("limit_price"),
         )
         details = None
-        if not skip_contract_details:
+        if not skip_contract_details and getattr(contract, "conId", 0) in (0, None):
             try:
                 details = self._resolve_contract_details(contract)
             except Exception as exc:
-                log.warning("reqContractDetails failed (%s) — contrato básico %s SMART/USD", exc, contract.symbol)
+                log.warning("reqContractDetails failed (%s) — contrato básico %s", exc, contract.symbol)
                 details = None
                 contract = self._basic_contract_from_proposal(proposal)
-        else:
+        elif skip_contract_details:
             log.warning("skip reqContractDetails — contrato básico %s %s %s", contract.symbol, contract.secType, contract.exchange)
 
         if details is not None:
@@ -1472,7 +1626,9 @@ class IBKRClient(EWrapper, EClient):
             normalized_qty = self._normalize_quantity(float(proposal["quantity"]), details)
             normalized_price = self._normalize_price(float(proposal["limit_price"]), details, market_rules)
         else:
-            contract = self._basic_contract_from_proposal(proposal)
+            # Already qualified via cache/conId or basic contract
+            if getattr(contract, "conId", 0) in (0, None):
+                contract = self._basic_contract_from_proposal(proposal)
             qty = float(proposal["quantity"])
             price = float(proposal["limit_price"])
             if sec_type == "CRYPTO":

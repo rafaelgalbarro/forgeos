@@ -33,7 +33,7 @@ import {
   recordIbkrNonTradable,
   shouldPersistIbkrNonTradable,
 } from '@/lib/trading/ibkr-non-tradable'
-import { getCurrentTradingPhase } from '@/lib/trading/cycle-schedule'
+import { getCurrentTradingPhase, isUsListedEquityOrderWindow } from '@/lib/trading/cycle-schedule'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -1154,103 +1154,134 @@ export class TradingEngine {
     const approved = this.approvals.approve(approvalId)
     this.approvals.assertApproved(approvalId)
 
-    const orderId = await this.executeOrder({
-      approvalId,
-      ticker: approved.ticker,
-      direction: approved.direction,
-      shares: approved.shares,
-      orderType: approved.orderType,
-      limitPrice: approved.limitPrice,
-      outsideRth: approved.outsideRth,
-      smartPlan: approved.smartPlan,
-      stopLoss: approved.stopLoss,
-      takeProfit: approved.takeProfit,
-    })
+    try {
+      const orderId = await this.executeOrder({
+        approvalId,
+        ticker: approved.ticker,
+        direction: approved.direction,
+        shares: approved.shares,
+        orderType: approved.orderType,
+        limitPrice: approved.limitPrice,
+        outsideRth: approved.outsideRth,
+        smartPlan: approved.smartPlan,
+        stopLoss: approved.stopLoss,
+        takeProfit: approved.takeProfit,
+      })
 
-    this.approvals.markExecuted(approvalId, orderId)
-    this.risk.recordTrade()
+      this.approvals.markExecuted(approvalId, orderId)
+      this.risk.recordTrade()
 
-    if (approved.direction === 'BUY') {
-      const entry = approved.price > 0 ? approved.price : approved.limitPrice ?? 0
-      const stopLoss =
-        approved.stopLoss && approved.stopLoss > 0
-          ? approved.stopLoss
-          : entry > 0
-            ? entry * 0.97
-            : 0
-      const takeProfit =
-        approved.takeProfit && approved.takeProfit > 0
-          ? approved.takeProfit
-          : entry > 0
-            ? entry * 1.05
-            : 0
+      if (approved.direction === 'BUY') {
+        const entry = approved.price > 0 ? approved.price : approved.limitPrice ?? 0
+        const stopLoss =
+          approved.stopLoss && approved.stopLoss > 0
+            ? approved.stopLoss
+            : entry > 0
+              ? entry * 0.97
+              : 0
+        const takeProfit =
+          approved.takeProfit && approved.takeProfit > 0
+            ? approved.takeProfit
+            : entry > 0
+              ? entry * 1.05
+              : 0
 
-      // Solo registrar tras Filled IBKR (sin Telegram inmediato)
-      const oid = String(orderId ?? '')
-      const isPaper = oid.toUpperCase().startsWith('PAPER_') || !oid || oid.toLowerCase() === 'n/a'
-      if (isPaper) {
-        console.log(`[AutoExecute] ${approved.ticker} PAPER — sin registro SQLite/Telegram`)
-      } else {
-        const { waitForIbkrFill } = await import('@/lib/investment/ibkr-fill-confirm')
-        const fill = await waitForIbkrFill({
-          ibkrOrderId: oid,
-          symbol: approved.ticker,
-          side: 'BUY',
-        })
-        if (fill.outcome === 'filled') {
-          const fillPx = fill.avgFillPrice && fill.avgFillPrice > 0 ? fill.avgFillPrice : entry
-          await registerExecutedPosition({
-            ticker: approved.ticker,
-            shares: approved.shares,
-            entryPrice: fillPx,
-            stopLoss,
-            takeProfit,
-            orderId: oid,
-            trailingStopPct: approved.smartPlan?.trailingStopPct,
-            account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
-          })
-          console.log(`[AutoExecute] ${approved.ticker} → Filled ibkrId=${oid} registrado`)
+        // Solo registrar tras Filled IBKR (sin Telegram inmediato)
+        const oid = String(orderId ?? '')
+        const isPaper = oid.toUpperCase().startsWith('PAPER_') || !oid || oid.toLowerCase() === 'n/a'
+        if (isPaper) {
+          console.log(`[AutoExecute] ${approved.ticker} PAPER — sin registro SQLite/Telegram`)
         } else {
-          console.warn(
-            `[AutoExecute] ${approved.ticker} → NO registrar (fill=${fill.outcome} status=${fill.status})`,
-          )
-          return {
-            orderId: oid,
-            approvalId,
-            status: 'ERROR',
-            ticker: approved.ticker,
-            direction: approved.direction,
-            sharesOrValue: approved.orderValueUSD,
-            price: approved.price,
-            reason: `IBKR no Filled: ${fill.outcome}/${fill.status}`,
-            signal: approved.signal,
-            timestamp: new Date().toISOString(),
-            stopLoss: approved.stopLoss,
-            takeProfit: approved.takeProfit,
+          const { waitForIbkrFill } = await import('@/lib/investment/ibkr-fill-confirm')
+          const fill = await waitForIbkrFill({
+            ibkrOrderId: oid,
+            symbol: approved.ticker,
+            side: 'BUY',
+          })
+          if (fill.outcome === 'filled') {
+            const fillPx = fill.avgFillPrice && fill.avgFillPrice > 0 ? fill.avgFillPrice : entry
+            await registerExecutedPosition({
+              ticker: approved.ticker,
+              shares: approved.shares,
+              entryPrice: fillPx,
+              stopLoss,
+              takeProfit,
+              orderId: oid,
+              trailingStopPct: approved.smartPlan?.trailingStopPct,
+              account: process.env.IBKR_ACCOUNT_ID?.trim() || undefined,
+            })
+            console.log(`[AutoExecute] ${approved.ticker} → Filled ibkrId=${oid} registrado`)
+          } else {
+            console.warn(
+              `[AutoExecute] ${approved.ticker} → NO registrar (fill=${fill.outcome} status=${fill.status})`,
+            )
+            try {
+              this.approvals.markError(
+                approvalId,
+                `IBKR no Filled: ${fill.outcome}/${fill.status}`,
+              )
+            } catch {
+              /* ignore */
+            }
+            return {
+              orderId: oid,
+              approvalId,
+              status: 'ERROR',
+              ticker: approved.ticker,
+              direction: approved.direction,
+              sharesOrValue: approved.orderValueUSD,
+              price: approved.price,
+              reason: `IBKR no Filled: ${fill.outcome}/${fill.status}`,
+              signal: approved.signal,
+              timestamp: new Date().toISOString(),
+              stopLoss: approved.stopLoss,
+              takeProfit: approved.takeProfit,
+            }
           }
         }
       }
-    }
 
-    publishInvestmentEvent({
-      type: 'order_executed',
-      at: new Date().toISOString(),
-      payload: { ticker: approved.ticker, direction: approved.direction, orderId },
-    })
+      publishInvestmentEvent({
+        type: 'order_executed',
+        at: new Date().toISOString(),
+        payload: { ticker: approved.ticker, direction: approved.direction, orderId },
+      })
 
-    return {
-      orderId,
-      approvalId,
-      status: 'EXECUTED',
-      ticker: approved.ticker,
-      direction: approved.direction,
-      sharesOrValue: approved.orderValueUSD,
-      price: approved.price,
-      reason: approved.reason,
-      signal: approved.signal,
-      timestamp: new Date().toISOString(),
-      stopLoss: approved.stopLoss,
-      takeProfit: approved.takeProfit,
+      return {
+        orderId,
+        approvalId,
+        status: 'EXECUTED',
+        ticker: approved.ticker,
+        direction: approved.direction,
+        sharesOrValue: approved.orderValueUSD,
+        price: approved.price,
+        reason: approved.reason,
+        signal: approved.signal,
+        timestamp: new Date().toISOString(),
+        stopLoss: approved.stopLoss,
+        takeProfit: approved.takeProfit,
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      try {
+        this.approvals.markError(approvalId, msg)
+      } catch {
+        /* ignore */
+      }
+      console.error(`[AutoExecute] ${approved.ticker} → ERROR tras APPROVED: ${msg} ❌`)
+      return {
+        approvalId,
+        status: 'ERROR',
+        ticker: approved.ticker,
+        direction: approved.direction,
+        sharesOrValue: approved.orderValueUSD,
+        price: approved.price,
+        reason: `Execute failed after APPROVED: ${msg}`,
+        signal: approved.signal,
+        timestamp: new Date().toISOString(),
+        stopLoss: approved.stopLoss,
+        takeProfit: approved.takeProfit,
+      }
     }
   }
 
@@ -2159,6 +2190,14 @@ export class TradingEngine {
           status: 'HOLD', ticker, direction: 'HOLD',
           reason: `${ticker}: fin de semana / no operable (${usSession.sessionLabel})`,
           signal: { confidence: 0, reasoning: 'Fuera de horario USA', urgency: 'LOW' },
+          timestamp: new Date().toISOString(),
+        }
+      }
+      if (!isUsListedEquityOrderWindow()) {
+        return {
+          status: 'HOLD', ticker, direction: 'HOLD',
+          reason: `${ticker}: fuera de ventana 15:30–22:00 Madrid (ADR/acción EE.UU.)`,
+          signal: { confidence: 0, reasoning: 'Fuera de 15:30-22:00 Madrid', urgency: 'LOW' },
           timestamp: new Date().toISOString(),
         }
       }

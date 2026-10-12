@@ -314,31 +314,119 @@ function resolveAccountCapitalPolicy(
  * Dynamic position sizing — never use >80% cash; max 20% per position
  * (80% allowed on micro accounts < $500 so 1 share remains feasible).
  */
+/** Estimated IBKR USD stock commission for affordability checks. */
+export function estimateIbkrStockCommissionUsd(qty: number, price: number): number {
+  // ~$0.005/share, min $1 — used only for cash-fit checks
+  const perShare = Math.max(1, qty) * 0.005
+  return Math.max(1, Math.min(perShare, Math.max(0, qty) * price * 0.01))
+}
+
+function parseFractionalEnabled(): boolean {
+  const v = (process.env.IBKR_FRACTIONAL_ENABLED ?? "false").trim().toLowerCase()
+  return v === "1" || v === "true" || v === "yes" || v === "on"
+}
+
+export type PositionSizeResult = {
+  qty: number
+  deployable: number
+  /** Cash after 20% reserve (80% of cash). */
+  usableCash: number
+  limitingRule?: "reserve" | "risk_cap" | "order_cap" | "price" | "stop_nav" | "none"
+  reason?: string
+  fractional?: boolean
+}
+
+/**
+ * Size stocks BUY. With low cash: allow 1 share if it fits in 95% of cash
+ * (incl. commission) and technical stop loss ≤ 3% of NAV.
+ */
 export function resolvePositionSize(
-  account: { cashUSD: number; availableFunds?: number },
+  account: { cashUSD: number; availableFunds?: number; navUSD?: number },
   price: number,
   confidence: number,
-): { qty: number; deployable: number; reason?: string } {
+  opts?: { stopLossPrice?: number | null },
+): PositionSizeResult {
   const cash = Math.max(0, account.availableFunds ?? account.cashUSD)
+  const nav = Math.max(cash, account.navUSD ?? cash)
   if (!(price > 0) || !(cash > 0)) {
-    return { qty: 0, deployable: 0, reason: 'sin capital o precio' }
+    return {
+      qty: 0,
+      deployable: 0,
+      usableCash: 0,
+      limitingRule: "price",
+      reason: "sin capital o precio",
+    }
   }
-  const availableUSD = cash * 0.8
-  const maxByRisk = cash < 500 ? availableUSD : cash * 0.2
-  const deployable = Math.min(availableUSD, maxByRisk)
-  let qty = Math.floor(deployable / price)
+  const usableCash = cash * 0.8
+  const maxByRisk = cash < 500 ? usableCash : cash * 0.2
+  const deployable = Math.min(usableCash, maxByRisk)
+  const limitingRule: PositionSizeResult["limitingRule"] =
+    deployable === usableCash ? "reserve" : "risk_cap"
+
+  const confidenceMultiplier =
+    confidence >= 0.8 ? 1.0 : confidence >= 0.7 ? 0.75 : 0.5
+  let qty = Math.floor((deployable * confidenceMultiplier) / price)
+
+  const stop = opts?.stopLossPrice
+  const stopOkForOneShare = (): boolean => {
+    if (!(stop != null && stop > 0 && stop < price && nav > 0)) return true
+    // loss on 1 share as fraction of NAV
+    const lossUsd = price - stop
+    return lossUsd / nav <= 0.03
+  }
+
   if (qty === 0) {
+    const commission = estimateIbkrStockCommissionUsd(1, price)
+    const cash95 = cash * 0.95
+    if (1 * price + commission <= cash95 && stopOkForOneShare()) {
+      return {
+        qty: 1,
+        deployable: price + commission,
+        usableCash,
+        limitingRule: "none",
+        reason: "1 acción (fallback cash≥95% y stop≤3% NAV)",
+      }
+    }
+    if (parseFractionalEnabled() && cash95 >= 25) {
+      const fracNotional = Math.min(cash95 - 1, deployable > 0 ? deployable : cash95)
+      if (fracNotional >= 25) {
+        const fracQty = fracNotional / price
+        if (fracQty > 0 && stopOkForOneShare()) {
+          return {
+            qty: Math.round(fracQty * 1e6) / 1e6,
+            deployable: fracNotional,
+            usableCash,
+            limitingRule: "none",
+            reason: `fracción IBKR ~$${fracNotional.toFixed(0)} (IBKR_FRACTIONAL_ENABLED)`,
+            fractional: true,
+          }
+        }
+      }
+    }
+    const need = price + estimateIbkrStockCommissionUsd(1, price)
+    let rule = limitingRule
+    let detail = `utilizable $${usableCash.toFixed(2)} (reserva 20%); deployable $${deployable.toFixed(2)}`
+    if (!stopOkForOneShare()) {
+      rule = "stop_nav"
+      detail += `; stop 1 acción > 3% NAV`
+    } else if (need > cash * 0.95) {
+      rule = "price"
+      detail += `; 1 acción+fee $${need.toFixed(2)} > 95% cash $${(cash * 0.95).toFixed(2)}`
+    } else {
+      detail += `; precio $${price.toFixed(2)} > deployable`
+    }
     return {
       qty: 0,
       deployable,
-      reason: `precio $${price.toFixed(2)} > capital $${deployable.toFixed(2)}`,
+      usableCash,
+      limitingRule: rule,
+      reason: detail,
     }
   }
-  const confidenceMultiplier =
-    confidence >= 0.8 ? 1.0 : confidence >= 0.7 ? 0.75 : 0.5
-  qty = Math.max(1, Math.floor(qty * confidenceMultiplier))
-  while (qty > 1 && qty * price > availableUSD) qty -= 1
-  return { qty, deployable }
+
+  qty = Math.max(1, qty)
+  while (qty > 1 && qty * price > usableCash) qty -= 1
+  return { qty, deployable, usableCash, limitingRule: "none" }
 }
 
 export type OrderSignalSnapshot = {
@@ -461,11 +549,19 @@ async function emitSignalNoCapital(params: {
   confidence: number
   price: number
   available: number
+  usableCash?: number
+  limitingRule?: string
+  detail?: string
   agents?: string
   reasoning: string
   urgency: string
 }): Promise<OrderResult> {
   const ticker = params.ticker.toUpperCase()
+  const usable = params.usableCash ?? params.available * 0.8
+  const rule = params.limitingRule ?? "reserve"
+  const detail =
+    params.detail ??
+    `utilizable $${usable.toFixed(2)}; regla=${rule}`
   const now = Date.now()
   const last = noCapitalTelegramAt.get(ticker) ?? 0
   if (now - last >= NO_CAPITAL_TELEGRAM_TTL_MS) {
@@ -473,7 +569,7 @@ async function emitSignalNoCapital(params: {
     const conf = Math.round(params.confidence * 100)
     const line =
       `💡 OPORTUNIDAD 🇺🇸 ${ticker} BUY ${conf}% @ $${params.price.toFixed(2)} ` +
-      `— sin capital (disponible $${Math.max(0, params.available).toFixed(0)})`
+      `— sin capital (${detail})`
     void sendTelegramMessage(line).catch((err) => {
       console.warn(
         `[Telegram] SIGNAL_NO_CAPITAL ${ticker}:`,
@@ -483,7 +579,7 @@ async function emitSignalNoCapital(params: {
   }
   console.log(
     `[Signal] ${ticker}: SIGNAL_NO_CAPITAL conf=${(params.confidence * 100).toFixed(0)}% ` +
-      `price=$${params.price.toFixed(2)} cash≈$${params.available.toFixed(0)}`,
+      `price=$${params.price.toFixed(2)} ${detail}`,
   )
   return {
     status: 'SIGNAL_NO_CAPITAL',
@@ -491,7 +587,7 @@ async function emitSignalNoCapital(params: {
     direction: 'BUY',
     price: params.price,
     agents: params.agents,
-    reason: `sin capital — precio $${params.price.toFixed(2)} > disponible $${params.available.toFixed(2)}`,
+    reason: `sin capital — cash $${params.available.toFixed(2)}; ${detail}`,
     signal: {
       confidence: params.confidence,
       reasoning: params.reasoning,
@@ -921,10 +1017,28 @@ export class TradingEngine {
 
     // Kraken: analyze all in parallel, then execute buys by confidence with atomic slot/cash reserve
     if (kind === "crypto" && isKrakenCryptoBroker()) {
-      beginCryptoCycleReservation(account.cashUSD)
+      let confirmedLive: string[] = []
+      try {
+        const { getKrakenAdapter } = await import("@/lib/brokers/kraken/adapter")
+        const { confirmedLiveOpenPairs } = await import(
+          "@/lib/trading/crypto/position-filters"
+        )
+        const { journalOpenCryptoPairs } = await import(
+          "@/lib/trading/crypto/journal-crypto"
+        )
+        const positions = await getKrakenAdapter()
+          .getPositions()
+          .catch(() => [])
+        confirmedLive = [
+          ...confirmedLiveOpenPairs(positions, journalOpenCryptoPairs()),
+        ]
+      } catch {
+        confirmedLive = []
+      }
+      beginCryptoCycleReservation(account.cashUSD, confirmedLive)
       console.log(
         `[Cycle/crypto] Kraken two-phase: analyze ${cycleTickers.length} pairs → ` +
-          `execute by confidence (maxPos=${cryptoLiveMaxPositions()} cash=€${account.cashUSD.toFixed(2)})`,
+          `execute by confidence (maxPos=${cryptoLiveMaxPositions()} confirmedLive=${confirmedLive.length} cash=€${account.cashUSD.toFixed(2)})`,
       )
 
       type BuyCand = {
@@ -2707,9 +2821,14 @@ export class TradingEngine {
     }
 
     const sized = resolvePositionSize(
-      { cashUSD: cashForSizing, availableFunds: cashForSizing },
+      {
+        cashUSD: cashForSizing,
+        availableFunds: cashForSizing,
+        navUSD: account.navUSD > 0 ? account.navUSD : cashForSizing,
+      },
       priceData.currentPrice,
       signal.confidence,
+      { stopLossPrice: riskOk.stopLossPrice },
     )
     let resolvedShares = sized.qty > 0 ? sized.qty : preRisk.qty
     // Cap notional to available USD cash; if < 1 share → skip this cycle
@@ -2724,15 +2843,35 @@ export class TradingEngine {
         `[AutoExecute] ${ticker} crypto IBKR sizing notional≤$${maxNotional.toFixed(2)} qty=${resolvedShares}`,
       )
     }
+    if (resolvedShares <= 0) {
+      return emitSignalNoCapital({
+        ticker,
+        confidence: signal.confidence,
+        price: priceData.currentPrice,
+        available: cashForSizing,
+        usableCash: sized.usableCash,
+        limitingRule: sized.limitingRule,
+        detail: sized.reason,
+        agents: agentsLabel,
+        reasoning: signal.reasoning,
+        urgency: signal.urgency,
+      })
+    }
+    // 1-share fallback may exceed 80% deployable but still fit in 95% cash — allow it
     if (
-      resolvedShares <= 0 ||
-      (!(kind === 'crypto' && isIbkrCryptoEnabled()) && priceData.currentPrice > cashForSizing)
+      !(kind === 'crypto' && isIbkrCryptoEnabled()) &&
+      !sized.fractional &&
+      resolvedShares >= 1 &&
+      resolvedShares * priceData.currentPrice > cashForSizing * 0.95 + 1
     ) {
       return emitSignalNoCapital({
         ticker,
         confidence: signal.confidence,
         price: priceData.currentPrice,
         available: cashForSizing,
+        usableCash: sized.usableCash,
+        limitingRule: "price",
+        detail: sized.reason,
         agents: agentsLabel,
         reasoning: signal.reasoning,
         urgency: signal.urgency,
@@ -2741,10 +2880,12 @@ export class TradingEngine {
     const orderValueUSD = resolvedShares * priceData.currentPrice
     console.log(
       `[AutoExecute] ${ticker} → account=${richest.accountId ?? 'default'} cashUSD $${cashForSizing.toFixed(2)} | ` +
-        `deployable $${sized.deployable.toFixed(2)} | precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}`,
+        `deployable $${sized.deployable.toFixed(2)} usable $${sized.usableCash.toFixed(2)} | ` +
+        `precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}` +
+        (sized.fractional ? " (fractional)" : ""),
     )
-    // Stocks need integer shares; IBKR crypto allows fractional qty
-    if (!(kind === 'crypto' && isIbkrCryptoEnabled())) {
+    // Stocks: integer unless IBKR_FRACTIONAL_ENABLED; IBKR crypto always fractional OK
+    if (!(kind === 'crypto' && isIbkrCryptoEnabled()) && !sized.fractional) {
       resolvedShares = Math.max(1, Math.floor(resolvedShares))
     }
     console.log(
@@ -3102,15 +3243,25 @@ export class TradingEngine {
         const equity =
           cash +
           positions.reduce((s, p) => s + (Number.isFinite(p.marketValueEur) ? p.marketValueEur : 0), 0)
+        const { countConfirmedLivePositions } = await import(
+          "@/lib/trading/crypto/position-filters"
+        )
+        const { journalOpenCryptoPairs } = await import(
+          "@/lib/trading/crypto/journal-crypto"
+        )
+        const openPositionsCount = countConfirmedLivePositions(
+          positions,
+          journalOpenCryptoPairs(),
+        )
         console.log(
           `[Cycle/crypto] account source=KRAKEN cash=€${cash.toFixed(2)} equity≈€${equity.toFixed(2)} ` +
-            `positions=${positions.length}`,
+            `positions=${openPositionsCount} (raw=${positions.length})`,
         )
         return {
           navUSD: equity,
           cashUSD: cash, // EUR cash stored in cashUSD field for sizing
           dailyPnlUSD: 0,
-          openPositionsCount: positions.length,
+          openPositionsCount,
           primaryAccountId: "KRAKEN",
         }
       }

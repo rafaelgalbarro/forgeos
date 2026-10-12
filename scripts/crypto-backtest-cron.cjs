@@ -1,11 +1,51 @@
 /**
- * Runs crypto-backtest.ts once per day at 03:00 Europe/Madrid.
+ * Runs crypto-backtest.ts once per day at 03:00 Europe/Madrid with --apply.
+ * Loads .env.local like crypto-engine.cjs so Telegram keys work.
  */
-const { spawn } = require("node:child_process");
+const fs = require("node:fs");
 const path = require("node:path");
+const { spawn } = require("node:child_process");
+
+function loadEnvFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return;
+    const text = fs.readFileSync(filePath, "utf8");
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eq = line.indexOf("=");
+      if (eq <= 0) continue;
+      const key = line.slice(0, eq).trim();
+      let val = line.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      if (key && !(process.env[key] ?? "").trim()) {
+        process.env[key] = val;
+      }
+    }
+  } catch (err) {
+    console.warn(
+      "[CryptoBacktestCron] env:",
+      filePath,
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
 
 const ROOT = path.resolve(__dirname, "..");
 process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || ROOT;
+const envCandidates = [
+  process.env.FORGEOS_ENV_FILE,
+  "/var/www/forgeos/.env.local",
+  path.join(ROOT, ".env.local"),
+].filter(Boolean);
+for (const candidate of envCandidates) {
+  loadEnvFile(candidate);
+}
 
 let lastRunDay = "";
 
@@ -30,10 +70,10 @@ function madridParts(d = new Date()) {
 function runBacktest() {
   const stub = path.join(__dirname, "stub-server-only.cjs");
   const script = path.join(__dirname, "crypto-backtest.ts");
-  console.log(`[CryptoBacktestCron] launching ${script}`);
+  console.log(`[CryptoBacktestCron] launching ${script} --apply`);
   const child = spawn(
     process.execPath,
-    ["--require", stub, "--import", "tsx", script],
+    ["--require", stub, "--import", "tsx", script, "--apply"],
     { cwd: ROOT, env: process.env, stdio: "inherit" },
   );
   child.on("exit", (code) => {

@@ -8,9 +8,12 @@ import { getKrakenAdapter, isKrakenConfigured } from "@/lib/brokers/kraken";
 import { getKrakenPairMeta, quantizeKrakenVolume } from "@/lib/brokers/kraken/asset-pairs";
 import { atr } from "@/lib/trading/crypto/indicators";
 import {
+  formatDataAgeLog,
   getBars,
   getBook,
+  getMarketDataAges,
   getTicker,
+  isFastCandleFresh,
   midPrice,
   restBackfill,
 } from "@/lib/brokers/kraken/market-store";
@@ -20,6 +23,7 @@ import {
   refreshKrakenUniverse,
 } from "@/lib/brokers/kraken/universe";
 import {
+  checkAndRecoverStaleMarketData,
   getKrakenWsStatus,
   startKrakenMarketData,
   updateKrakenMarketSubscriptions,
@@ -61,16 +65,34 @@ import {
   getCryptoSlotReservation,
 } from "@/lib/trading/crypto/slot-reservation";
 import {
+  confirmedLiveOpenPairs,
+  filterMeaningfulKrakenBalances,
+} from "@/lib/trading/crypto/position-filters";
+import { isForeignOrphanPair } from "@/lib/trading/crypto/foreign-orphans";
+import {
   evaluateAllStrategiesForPair,
+  evaluateFastStrategiesForPair,
   rankSignals,
   rsi2TrendShouldExit,
+  topGainerPairs1h,
   topRsPairsVsBtc,
   type RankedSignal,
 } from "@/lib/trading/crypto/strategies";
 import {
+  isFastCryptoStrategy,
   NEW_CRYPTO_STRATEGIES,
   type CryptoStrategyId,
 } from "@/lib/trading/crypto/strategies/types";
+import {
+  canOpenFastTrade,
+  recordFastStop,
+  recordFastTradeOpened,
+  recordFastWin,
+} from "@/lib/trading/crypto/fast-controls";
+import {
+  formatFastMetricsTelegramLines,
+  recordFastPostOnlyAttempt,
+} from "@/lib/trading/crypto/fast-metrics";
 import {
   isCryptoStrategyLive,
   isWithinNewStrategyWarmup,
@@ -112,8 +134,10 @@ let started = false;
 let lastCycleAt: string | null = null;
 let lastSignals: EngineStatus["lastSignals"] = [];
 let exitTimer: ReturnType<typeof setInterval> | null = null;
+let fastTimer: ReturnType<typeof setInterval> | null = null;
 let universeTimer: ReturnType<typeof setInterval> | null = null;
 let reportTimer: ReturnType<typeof setInterval> | null = null;
+let fastCycleBusy = false;
 
 async function equityEur(): Promise<number> {
   const adapter = getKrakenAdapter();
@@ -247,10 +271,249 @@ export async function startKrakenEngine(): Promise<void> {
   }
 
   startKrakenExitLoop();
+  startKrakenFastLoop();
   startDailyReportScheduler();
   console.log(
-    `[Kraken/Engine] started role=${isCryptoEngineStandalone() ? "standalone" : "next"}`,
+    `[Kraken/Engine] started role=${isCryptoEngineStandalone() ? "standalone" : "next"} fast=5s`,
   );
+}
+
+function startKrakenFastLoop(): void {
+  if (fastTimer) return;
+  const tick = () => {
+    void runKrakenFastAnalysisCycle().catch((err) =>
+      console.warn("[Kraken/Fast]", err instanceof Error ? err.message : err),
+    );
+  };
+  tick();
+  fastTimer = setInterval(tick, 5_000);
+  fastTimer.unref?.();
+}
+
+/**
+ * 5s loop for fast 1–5m strategies. Stale 1m candles (>90s) skip that pair.
+ * Post-only entry at best bid (cancel 10s); TP post-only on fill; stop/time at market.
+ */
+export async function runKrakenFastAnalysisCycle(): Promise<{
+  executed: string[];
+  held: string[];
+}> {
+  const executed: string[] = [];
+  const held: string[] = [];
+  if (fastCycleBusy) return { executed, held };
+  if (!isKrakenConfigured() || !isKrakenCryptoBroker()) return { executed, held };
+  if (isCryptoEngineExternal() && !isCryptoEngineStandalone()) {
+    return { executed, held };
+  }
+
+  fastCycleBusy = true;
+  try {
+    await checkAndRecoverStaleMarketData().catch(() => undefined);
+    const gate = canOpenFastTrade();
+    if (!gate.ok) {
+      held.push(`fast:${gate.reason}`);
+      return { executed, held };
+    }
+    const daily = canOpenKrakenBuy();
+    const regimePause = isBuyPausedByRegime();
+    if (!daily.ok || regimePause.paused) {
+      held.push(`fast:${daily.reason ?? regimePause.reason}`);
+      return { executed, held };
+    }
+
+    const pairs = getKrakenUniversePairs();
+    const top5 = new Set(
+      topGainerPairs1h(pairs, (p) => getBars(p, "60"), 5),
+    );
+    const reliability = strategyReliabilityMap();
+    const collected: RankedSignal[] = [];
+    for (const pair of pairs) {
+      if (!isFastCandleFresh(pair)) {
+        held.push(`${pair}:stale_1m`);
+        continue;
+      }
+      const sigs = evaluateFastStrategiesForPair(pair, {
+        isTop5Gainer1h: top5.has(pair),
+      }).map((s) => ({ ...s, pair }));
+      collected.push(...rankSignals(sigs, reliability));
+    }
+    const ranked = collected.sort((a, b) => b.score - a.score);
+    if (!ranked.length) return { executed, held };
+
+    const adapter = getKrakenAdapter();
+    const acct = await adapter.getAccount();
+    const krakenPositions = await adapter.getPositions().catch(() => []);
+    const confirmedLive = confirmedLiveOpenPairs(
+      filterMeaningfulKrakenBalances(
+        krakenPositions.filter((p) => !isForeignOrphanPair(p.symbol)),
+      ),
+      journalOpenCryptoPairs(),
+    );
+    beginCryptoCycleReservation(acct.cashEur, confirmedLive);
+
+    const eq =
+      acct.cashEur +
+      krakenPositions.reduce(
+        (s, p) => s + (Number.isFinite(p.marketValueEur) ? p.marketValueEur : 0),
+        0,
+      );
+    const sizeRegime = sizeMultiplierForRegime() * daily.sizeMult;
+
+    for (const sig of ranked.slice(0, 3)) {
+      if (!canOpenFastTrade().ok) break;
+      if (!isCryptoStrategyLive(sig.strategyId) || sig.shadow) {
+        appendCryptoJournal({
+          at: new Date().toISOString(),
+          strategy: sig.strategyId,
+          pair: sig.pair,
+          regime: getMarketRegime().regime,
+          side: "BUY",
+          entry: sig.entry,
+          exit: null,
+          exitReason: null,
+          grossPnlEur: null,
+          feesEur: 0,
+          netPnlEur: null,
+          durationMs: null,
+          mfePct: null,
+          maePct: null,
+          shadow: true,
+          open: true,
+          signalKey: sig.signalKey,
+          stopLoss: sig.stopLoss,
+          takeProfit: sig.takeProfit,
+        });
+        held.push(`${sig.pair}:shadow`);
+        continue;
+      }
+      if (hasSignalKey(sig.signalKey)) {
+        held.push(`${sig.pair}:dup`);
+        continue;
+      }
+      if ([...confirmedLive].some((s) => s === sig.pair.toUpperCase())) {
+        held.push(`${sig.pair}:busy`);
+        continue;
+      }
+
+      const stopDist = Math.abs(sig.entry - sig.stopLoss);
+      if (!(stopDist > 0)) continue;
+      let qty = (eq * 0.01 * sizeRegime) / stopDist;
+      const notionalCap = cryptoLiveMaxNotionalEur();
+      if (qty * sig.entry > notionalCap) qty = notionalCap / sig.entry;
+      const meta = await getKrakenPairMeta(sig.pair);
+      if (meta) {
+        qty = quantizeKrakenVolume(qty, meta);
+        if (!(qty > 0)) continue;
+      }
+      const bid =
+        getBook(sig.pair)?.bids[0]?.price ??
+        getTicker(sig.pair)?.bid ??
+        sig.entry;
+      const notionalEur = qty * bid;
+      const reservation = getCryptoSlotReservation();
+      const reserved = await reservation.tryReserve({
+        symbol: sig.pair,
+        notionalEur,
+        maxPositions: cryptoLiveMaxPositions(),
+      });
+      if (!reserved.ok) {
+        held.push(`${sig.pair}:${reserved.reason}`);
+        continue;
+      }
+
+      try {
+        const order = await adapter.placeOrder({
+          symbol: sig.pair,
+          side: "buy",
+          volume: qty,
+          price: bid,
+          oflags: "post",
+        });
+        await new Promise((r) => setTimeout(r, 10_000));
+        const st = order.orderId
+          ? await adapter.getOrderStatus(order.orderId).catch(() => null)
+          : null;
+        const filled =
+          st != null &&
+          (st.status === "closed" || st.volExec >= st.vol * 0.99) &&
+          st.volExec > 0;
+        recordFastPostOnlyAttempt(sig.strategyId, Boolean(filled));
+        if (!filled) {
+          if (order.orderId) {
+            await adapter.cancelOrder(order.orderId).catch(() => undefined);
+          }
+          await reservation.release(sig.pair);
+          held.push(`${sig.pair}:unfilled`);
+          continue;
+        }
+
+        await reservation.commit(sig.pair);
+        recordFastTradeOpened();
+        appendCryptoJournal({
+          at: new Date().toISOString(),
+          strategy: sig.strategyId,
+          pair: sig.pair,
+          regime: getMarketRegime().regime,
+          side: "BUY",
+          entry: order.price,
+          exit: null,
+          exitReason: null,
+          grossPnlEur: null,
+          feesEur: st!.fee,
+          netPnlEur: null,
+          durationMs: null,
+          mfePct: null,
+          maePct: null,
+          shadow: false,
+          open: true,
+          signalKey: sig.signalKey,
+          stopLoss: sig.stopLoss,
+          takeProfit: sig.takeProfit,
+          qty: st!.volExec || order.volume,
+          orderId: order.orderId,
+        });
+
+        // Post-only limit TP immediately on fill (never chase).
+        await adapter
+          .placeOrder({
+            symbol: sig.pair,
+            side: "sell",
+            volume: st!.volExec || order.volume,
+            price: sig.takeProfit,
+            oflags: "post",
+          })
+          .catch((err) =>
+            console.warn(
+              "[Kraken/Fast] TP post-only:",
+              err instanceof Error ? err.message : err,
+            ),
+          );
+
+        await registerExecutedPosition({
+          ticker: sig.pair,
+          shares: st!.volExec || order.volume,
+          entryPrice: order.price,
+          stopLoss: sig.stopLoss,
+          takeProfit: sig.takeProfit,
+          orderId: order.orderId,
+        }).catch(() => undefined);
+
+        executed.push(`${sig.pair}:${sig.strategyId}`);
+        void sendTelegramMessage(
+          `⚡ BUY FAST ${sig.pair} ${st!.volExec || order.volume} @ €${order.price.toFixed(4)} | ${sig.strategyId}`,
+        ).catch(() => undefined);
+        break; // max 1 fast position
+      } catch (err) {
+        await reservation.release(sig.pair);
+        held.push(
+          `${sig.pair}:err:${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    return { executed, held };
+  } finally {
+    fastCycleBusy = false;
+  }
 }
 
 function startKrakenExitLoop(): void {
@@ -270,8 +533,6 @@ function startKrakenExitLoop(): void {
 async function runShadowExits(): Promise<void> {
   const opens = listOpenCryptoJournal({ shadow: true });
   for (const open of opens) {
-    const mid = midPrice(open.pair);
-    if (!(mid != null && mid > 0)) continue;
     const entry = open.entry;
     const openedAt = Date.parse(open.at);
     const holdMs = Number.isFinite(openedAt) ? Date.now() - openedAt : 0;
@@ -283,20 +544,27 @@ async function runShadowExits(): Promise<void> {
       open.takeProfit != null && open.takeProfit > 0
         ? open.takeProfit
         : entry * 1.04;
+    const midRaw = midPrice(open.pair);
+    const mid = midRaw != null && midRaw > 0 ? midRaw : null;
     let reason: string | null = null;
-    if (strategy === "RSI2_TREND_5M") {
+    if (strategy === "RSI2_TREND_5M" && mid != null) {
       reason = rsi2TrendShouldExit(getBars(open.pair, "5"), entry, openedAt);
     }
     if (!reason && holdMs >= maxHold) reason = "MAX_HOLD";
-    if (!reason && mid <= stop) reason = "STOP_LOSS";
-    if (!reason && mid >= tp) reason = "TAKE_PROFIT";
+    if (!reason && mid != null && mid <= stop) reason = "STOP_LOSS";
+    if (!reason && mid != null && mid >= tp) reason = "TAKE_PROFIT";
+    // Never leave shadow opens forever — force close if no price after maxHold.
+    if (!reason && mid == null && holdMs >= Math.min(maxHold, 60 * 60_000)) {
+      reason = "MAX_HOLD";
+    }
     if (!reason) continue;
-    const peak = Math.max(mid, entry);
+    const exitPx = mid ?? entry;
+    const peak = Math.max(exitPx, entry);
     closeCryptoJournalOpen({
       open,
-      exit: mid,
+      exit: exitPx,
       exitReason: reason,
-      feesEur: entry * 0.0025 + mid * 0.004, // maker in + taker out estimate
+      feesEur: entry * 0.0025 + exitPx * 0.004, // maker in + taker out estimate
       mfePct: (peak - entry) / entry,
       maePct: null,
     });
@@ -409,8 +677,13 @@ async function runKrakenExits(): Promise<void> {
         shadow: false,
         rMultiple,
       });
-      if (reason === "STOP_LOSS") recordKrakenStopHit();
-      else recordKrakenWinResetStops();
+      if (reason === "STOP_LOSS") {
+        recordKrakenStopHit();
+        if (isFastCryptoStrategy(strategy)) recordFastStop();
+      } else {
+        recordKrakenWinResetStops();
+        if (isFastCryptoStrategy(strategy)) recordFastWin();
+      }
 
       const line =
         `🔴 SELL ₿ KRAKEN ${pos.symbol} ${order.volume} @ €${order.price.toFixed(4)} | ` +
@@ -441,6 +714,7 @@ export async function runKrakenAnalysisCycle(): Promise<{
   }
 
   await startKrakenEngine();
+  await checkAndRecoverStaleMarketData().catch(() => undefined);
   const pairs = await getKrakenUniversePairs();
   // Ensure bars for top pairs
   for (const p of pairs.slice(0, 15)) {
@@ -448,6 +722,7 @@ export async function runKrakenAnalysisCycle(): Promise<{
       await restBackfill(p, 15).catch(() => undefined);
       await restBackfill(p, 60).catch(() => undefined);
       await restBackfill(p, 5).catch(() => undefined);
+      await restBackfill(p, 1).catch(() => undefined);
     }
   }
 
@@ -468,6 +743,24 @@ export async function runKrakenAnalysisCycle(): Promise<{
       isTop3Rs: topRs.has(pair),
     }).map((s) => ({ ...s, pair }));
     collected.push(...rankSignals(sigs, reliability));
+  }
+  try {
+    const { recordCycleMeta } = await import("@/lib/trading/crypto/diagnostics");
+    const dayAgo = Date.now() - 24 * 3600_000;
+    const trades24 = readCryptoJournal().filter(
+      (t) =>
+        !t.shadow &&
+        t.side === "SELL" &&
+        Number.isFinite(Date.parse(t.at)) &&
+        Date.parse(t.at) >= dayAgo,
+    ).length;
+    recordCycleMeta({
+      universePairs: pairs,
+      signals: collected.length,
+      tradesLast24h: trades24,
+    });
+  } catch {
+    /* diagnostics optional */
   }
   // One live position per pair — keep best score; still allow distinct signalKeys for shadow log
   const bestByPair = new Map<string, RankedSignal>();
@@ -517,15 +810,26 @@ export async function runKrakenAnalysisCycle(): Promise<{
   const krakenOpenOrders = await adapter.getOpenOrders().catch(
     () => ({} as Record<string, { pair: string }>),
   );
-  const krakenBusyPairs = new Set<string>();
-  for (const p of krakenPositions) krakenBusyPairs.add(p.symbol.toUpperCase());
+  // Only meaningful (non-dust, non-foreign) balances block a pair — never shadow journal.
+  const meaningfulBalances = filterMeaningfulKrakenBalances(
+    krakenPositions.filter((p) => !isForeignOrphanPair(p.symbol)),
+  );
+  const confirmedLive = confirmedLiveOpenPairs(
+    meaningfulBalances,
+    journalOpenCryptoPairs(),
+  );
+  const krakenBusyPairs = new Set<string>([...confirmedLive]);
   for (const o of Object.values(krakenOpenOrders)) {
     const sym = String(o.pair ?? "").toUpperCase().replace("/", "");
     if (sym) krakenBusyPairs.add(sym);
   }
 
-  beginCryptoCycleReservation(acct.cashEur);
+  beginCryptoCycleReservation(acct.cashEur, confirmedLive);
   const maxPos = cryptoLiveMaxPositions();
+  console.log(
+    `[Kraken/Cycle] analysis ${formatDataAgeLog(getMarketDataAges(["XBTEUR", ...pairs.slice(0, 5)]))} ` +
+      `confirmedLive=${confirmedLive.size}/${maxPos} shadowOpen=${listOpenCryptoJournal({ shadow: true }).length}`,
+  );
   const sizeRegime = sizeMultiplierForRegime() * daily.sizeMult;
   const warmup = isWithinNewStrategyWarmup();
 
@@ -839,16 +1143,38 @@ function startDailyReportScheduler(): void {
 async function sendDailyCryptoReport(): Promise<void> {
   const risk = getKrakenDailyRisk();
   const perfs = computeCryptoStrategyPerf();
+  const dayAgo = Date.now() - 24 * 3600_000;
+  const trades24 = readCryptoJournal().filter(
+    (t) =>
+      !t.shadow &&
+      (t.side === "BUY" || t.side === "SELL") &&
+      Number.isFinite(Date.parse(t.at)) &&
+      Date.parse(t.at) >= dayAgo,
+  ).length;
   const lines = [
     "📊 <b>Kraken diario 22:00 Madrid</b>",
     `P&L día: €${risk.dayPnlEur.toFixed(2)} | sem: €${risk.weekPnlEur.toFixed(2)}`,
-    `Régimen: ${getMarketRegime().regime}`,
-    ...perfs.slice(0, 12).map(
+    `Régimen: ${getMarketRegime().regime} | ops 24h: ${trades24}`,
+    ...perfs.slice(0, 16).map(
       (p) =>
         `${p.strategy}: live n=${p.trades} WR=${(p.winRate * 100).toFixed(0)}% net=€${p.netPnlEur.toFixed(2)} | shadow n=${p.shadowTrades} | <b>${p.mode}</b>`,
     ),
+    ...formatFastMetricsTelegramLines(),
   ];
   await sendTelegramMessage(lines.join("\n"));
+  if (trades24 === 0) {
+    try {
+      const { formatDiagnosticsTelegram } = await import(
+        "@/lib/trading/crypto/diagnostics"
+      );
+      await sendTelegramMessage(formatDiagnosticsTelegram());
+    } catch (err) {
+      console.warn(
+        "[Kraken/Diag] telegram:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
 }
 
 async function sendWeeklyCryptoReport(): Promise<void> {

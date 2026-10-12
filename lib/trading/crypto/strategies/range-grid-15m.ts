@@ -12,6 +12,11 @@ export function evaluateRangeGrid15m(
   bars15: readonly Bar[],
   regime: MarketRegime,
   openGridLevels = 0,
+  opts?: {
+    /** When true, 24h range uses bars before the last (signal) candle — no lookahead. */
+    excludeSignalBarFromRange?: boolean;
+    signalBarIndex?: number;
+  },
 ): CryptoStrategySignal {
   const id = "RANGE_GRID_15M" as const;
   if (regime !== "LATERAL") {
@@ -26,11 +31,15 @@ export function evaluateRangeGrid15m(
   if (bars15.length < 96) return holdSignal(id, "insuficientes barras 15m (24h)");
   if (openGridLevels >= 3) return holdSignal(id, "máx 3 niveles grid");
 
-  const day = bars15.slice(-96);
+  const sigIdx = opts?.signalBarIndex ?? bars15.length - 1;
+  const day = opts?.excludeSignalBarFromRange
+    ? bars15.slice(Math.max(0, sigIdx - 96), sigIdx)
+    : bars15.slice(-96);
+  if (day.length < 48) return holdSignal(id, "rango 24h insuficiente (excl. señal)");
   const hi = highestHigh(day, day.length);
   const lo = lowestLow(day, day.length);
-  const a = atr(bars15, 14);
-  const price = bars15[bars15.length - 1]!.close;
+  const a = atr(bars15.slice(0, sigIdx + 1), 14);
+  const price = bars15[sigIdx]!.close;
   if (hi == null || lo == null || a == null || !(hi > lo)) {
     return holdSignal(id, "rango inválido");
   }
@@ -39,13 +48,14 @@ export function evaluateRangeGrid15m(
   if (a > range * 0.35) return holdSignal(id, "ATR alto vs rango");
 
   const lowerThird = lo + range / 3;
+  // Signal: price in lower third → place limit at lowerThird (fill later in backtest)
   if (price > lowerThird) return holdSignal(id, "precio no en tercio inferior");
 
-  const entry = Math.min(price, lowerThird);
+  const entry = lowerThird; // limit price — not market at close
   const stopLoss = lo - a;
   const takeProfit = hi - range / 3; // upper third
   const expectedMovePct = (takeProfit - entry) / entry;
-  const candleTime = bars15[bars15.length - 1]!.time;
+  const candleTime = bars15[sigIdx]!.time;
 
   return {
     strategyId: id,

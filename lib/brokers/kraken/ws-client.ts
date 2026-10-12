@@ -5,10 +5,12 @@
 
 import "server-only";
 
-import { restBackfill } from "@/lib/brokers/kraken/market-store";
-
 import {
+  applyTradeTick,
   getBars,
+  getMarketDataAges,
+  isMarketDataStale,
+  restBackfill,
   setBook,
   setTicker,
   upsertBar,
@@ -17,6 +19,7 @@ import {
 
 const WS_URL = "wss://ws.kraken.com/v2";
 const SILENCE_MS = 30_000;
+const STALE_COOLDOWN_MS = 5 * 60_000;
 
 type WsLike = {
   readyState: number;
@@ -35,6 +38,8 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let watchdogTimer: ReturnType<typeof setInterval> | null = null;
 let restFallbackBusy = false;
 let started = false;
+let lastStaleRecoverAt = 0;
+let staleRecoverBusy = false;
 
 function toWsSymbol(altOrWs: string): string {
   const s = altOrWs.trim();
@@ -86,6 +91,12 @@ function subscribeAll(socket: WsLike): void {
         }),
       );
     }
+    socket.send(
+      JSON.stringify({
+        method: "subscribe",
+        params: { channel: "trade", symbol: group },
+      }),
+    );
   }
 }
 
@@ -170,6 +181,23 @@ function handleMessage(raw: string): void {
         volume: Number(r.volume ?? 0),
       });
     }
+  } else if (channel === "trade") {
+    for (const row of data) {
+      if (!row || typeof row !== "object") continue;
+      const r = row as Record<string, unknown>;
+      const sym = String(r.symbol ?? "");
+      const alt = altFromWs(sym);
+      const price = Number(r.price ?? 0);
+      const qty = Number(r.qty ?? r.volume ?? 0);
+      const tsRaw = r.timestamp ?? r.time;
+      const timeSec =
+        typeof tsRaw === "string"
+          ? Math.floor(Date.parse(tsRaw) / 1000)
+          : Number(tsRaw) > 1e12
+            ? Math.floor(Number(tsRaw) / 1000)
+            : Number(tsRaw);
+      applyTradeTick(alt, price, qty, timeSec);
+    }
   }
 }
 
@@ -206,7 +234,64 @@ function connect(): void {
   };
 }
 
+async function restReloadCandles(alts: string[]): Promise<void> {
+  for (const alt of alts) {
+    for (const iv of [1, 5, 15, 60]) {
+      await restBackfill(alt, iv).catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  }
+}
+
+/**
+ * Candle/price age watchdog: ws=true can still serve frozen OHLC.
+ * If 5m bars >3m or BTC >15m stale → reconnect WS, REST reload, Telegram.
+ */
+export async function checkAndRecoverStaleMarketData(): Promise<{
+  recovered: boolean;
+  reason?: string;
+}> {
+  if (staleRecoverBusy) return { recovered: false };
+  if (Date.now() - lastStaleRecoverAt < STALE_COOLDOWN_MS) {
+    return { recovered: false };
+  }
+  const alts = symbols.length
+    ? symbols.map(altFromWs)
+    : ["XBTEUR", "ETHEUR"];
+  const watch = [
+    "XBTEUR",
+    ...alts.filter((a) => a !== "XBTEUR" && a !== "XXBTZEUR").slice(0, 8),
+  ];
+  const ages = getMarketDataAges(watch);
+  const check = isMarketDataStale(ages);
+  if (!check.stale) return { recovered: false };
+
+  staleRecoverBusy = true;
+  lastStaleRecoverAt = Date.now();
+  console.warn(`[Kraken/WS] datos congelados: ${check.reason} — reconectando + REST`);
+  try {
+    try {
+      const { sendTelegramMessage } = await import(
+        "@/lib/notifications/telegram-bot"
+      );
+      await sendTelegramMessage(
+        `⚠️ Kraken datos congelados: ${check.reason}\nReconectando WS + REST reload`,
+      ).catch(() => undefined);
+    } catch {
+      /* telegram optional */
+    }
+    connect();
+    await restReloadCandles(["XBTEUR", "ETHEUR", ...alts.slice(0, 6)]);
+    return { recovered: true, reason: check.reason };
+  } finally {
+    staleRecoverBusy = false;
+  }
+}
+
 async function restFallbackTick(): Promise<void> {
+  // Always check candle/price age even when WS reports messages (frozen OHLC bug).
+  await checkAndRecoverStaleMarketData().catch(() => undefined);
+
   if (restFallbackBusy) return;
   if (Date.now() - lastMsgAt < SILENCE_MS && ws && ws.readyState === 1) return;
   restFallbackBusy = true;

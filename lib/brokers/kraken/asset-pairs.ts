@@ -132,6 +132,18 @@ export async function getKrakenPairMeta(pairOrSymbol: string): Promise<KrakenPai
   );
 }
 
+/** Sync lookup from in-memory / disk cache (no network). */
+export function peekKrakenPairMeta(pairOrSymbol: string): KrakenPairMeta | null {
+  const key = pairOrSymbol.trim().toUpperCase().replace("/", "");
+  if (!key) return null;
+  if (!memory) memory = readDisk();
+  return (
+    memory.byAltname[key] ??
+    memory.byAltname[normalizeKrakenPair(key) ?? ""] ??
+    null
+  );
+}
+
 /** Round volume down to lot decimals; enforce ordermin. */
 export function quantizeKrakenVolume(qty: number, meta: KrakenPairMeta): number {
   if (!(qty > 0)) return 0;

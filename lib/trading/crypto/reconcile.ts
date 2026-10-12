@@ -15,7 +15,13 @@ import {
   journalOpenCryptoPairs,
   readCryptoJournal,
 } from "@/lib/trading/crypto/journal-crypto";
+import { markForeignOrphanPair } from "@/lib/trading/crypto/foreign-orphans";
+import {
+  isDustKrakenBalance,
+  orderMinForPair,
+} from "@/lib/trading/crypto/position-filters";
 import { readJournalTrades } from "@/lib/trading/journal/trades";
+import { ensureKrakenAssetPairs } from "@/lib/brokers/kraken/asset-pairs";
 
 export type ReconcileResult = {
   adopted: number;
@@ -41,6 +47,13 @@ function pairFromTicker(ticker: string): string | null {
 /** Max hold by strategy (ms) — mirrors engine exits. */
 export function maxHoldMsForStrategy(strategy: string): number {
   switch (strategy) {
+    case "MOMENTUM_IGNITION_1M":
+      return 20 * 60_000;
+    case "MICRO_BREAKOUT_1M":
+    case "CAPITULATION_REVERSAL_1M":
+      return 30 * 60_000;
+    case "VWAP_BOUNCE_5M":
+      return 60 * 60_000;
     case "MOMENTUM_BREAKOUT_5M":
     case "RSI2_TREND_5M":
       return 4 * 3600_000;
@@ -123,6 +136,7 @@ export async function reconcileKrakenForgeOsPositions(): Promise<ReconcileResult
   const already = journalOpenCryptoPairs();
   const cryptoOpen = openFromCryptoJournal();
   const legacyOpen = openFromLegacyTradesJsonl();
+  await ensureKrakenAssetPairs().catch(() => undefined);
 
   // ClosedOrders with ForgeOS userref → forgeos-owned pairs
   const closed = await adapter.getClosedOrdersByUserref(userref).catch(() => []);
@@ -153,6 +167,16 @@ export async function reconcileKrakenForgeOsPositions(): Promise<ReconcileResult
     const base = pos.base.toUpperCase();
     if (!(pos.qty > 0)) continue;
 
+    const orderMin = orderMinForPair(pair);
+    if (isDustKrakenBalance(pos.qty, pos.marketValueEur, orderMin)) {
+      markForeignOrphanPair(pair);
+      ignored += 1;
+      console.log(
+        `[Kraken/Reconcile] dust ${pair} qty=${pos.qty} €${pos.marketValueEur.toFixed(4)} (ignorado)`,
+      );
+      continue;
+    }
+
     // Already tracked in crypto journal
     if (
       [...already].some(
@@ -175,6 +199,7 @@ export async function reconcileKrakenForgeOsPositions(): Promise<ReconcileResult
 
     if (!candidate) {
       ignored += 1;
+      markForeignOrphanPair(pair);
       console.log(
         `[Kraken/Reconcile] ignorada ${pair} qty=${pos.qty} (saldo ajeno / sin rastro ForgeOS)`,
       );

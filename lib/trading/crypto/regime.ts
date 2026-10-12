@@ -6,6 +6,7 @@ import "server-only";
 
 import { getBars, type Bar, restBackfill } from "@/lib/brokers/kraken/market-store";
 import { ema } from "@/lib/trading/crypto/indicators";
+import { recordRegimeTick } from "@/lib/trading/crypto/diagnostics";
 
 export type MarketRegime = "ALCISTA" | "LATERAL" | "BAJISTA";
 
@@ -14,6 +15,10 @@ type RegimeState = {
   btcDrop1hPct: number;
   buyPauseUntil: number;
   updatedAt: string;
+  /** Raw regime before hysteresis (debug). */
+  rawRegime?: MarketRegime;
+  pendingRegime?: MarketRegime | null;
+  pendingSince?: string | null;
 };
 
 let state: RegimeState = {
@@ -21,7 +26,12 @@ let state: RegimeState = {
   btcDrop1hPct: 0,
   buyPauseUntil: 0,
   updatedAt: new Date().toISOString(),
+  pendingRegime: null,
+  pendingSince: null,
 };
+
+/** Require candidate regime to persist this long before flipping. */
+const REGIME_HYSTERESIS_MS = 20 * 60_000;
 
 function closes(bars: Bar[]): number[] {
   return bars.map((b) => b.close);
@@ -99,15 +109,41 @@ export async function updateMarketRegime(): Promise<RegimeState> {
     );
   }
 
+  // Hysteresis: do not flip on every candle — candidate must persist ≥20 min
+  let next = state.regime;
+  let pendingRegime = state.pendingRegime ?? null;
+  let pendingSince = state.pendingSince ?? null;
+  if (regime === state.regime) {
+    pendingRegime = null;
+    pendingSince = null;
+    next = regime;
+  } else if (regime === pendingRegime && pendingSince) {
+    if (Date.now() - Date.parse(pendingSince) >= REGIME_HYSTERESIS_MS) {
+      next = regime;
+      pendingRegime = null;
+      pendingSince = null;
+    }
+  } else {
+    pendingRegime = regime;
+    pendingSince = new Date().toISOString();
+    next = state.regime;
+  }
+
   state = {
-    regime,
+    regime: next,
+    rawRegime: regime,
     btcDrop1hPct,
     buyPauseUntil,
     updatedAt: new Date().toISOString(),
+    pendingRegime,
+    pendingSince,
   };
   console.log(
-    `[Kraken/Regime] ${regime} btc1h=${btcDrop1hPct.toFixed(2)}% pauseBuys=${buyPauseUntil > Date.now()}`,
+    `[Kraken/Regime] ${next} (raw=${regime}` +
+      `${pendingRegime ? ` pending=${pendingRegime}` : ""}) ` +
+      `btc1h=${btcDrop1hPct.toFixed(2)}% pauseBuys=${buyPauseUntil > Date.now()}`,
   );
+  recordRegimeTick(next);
   return state;
 }
 
@@ -140,6 +176,10 @@ export function allowedStrategiesForRegime(): Set<string> | "all" {
       "LIQUIDITY_SWEEP_15M",
       "EMA_CROSS_15M",
       "SESSION_OPEN_BREAKOUT",
+      "MICRO_BREAKOUT_1M",
+      "MOMENTUM_IGNITION_1M",
+      "CAPITULATION_REVERSAL_1M",
+      "VWAP_BOUNCE_5M",
     ]);
   }
   return new Set(); // BAJISTA — no new buys

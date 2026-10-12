@@ -14,7 +14,12 @@ export function evaluateTopGainerPullback(
 ): CryptoStrategySignal {
   const id = "TOP_GAINER_PULLBACK" as const;
   if (bars15.length < 40) return holdSignal(id, "insuficientes barras 15m");
-  const change24 = ticker?.changePct24h ?? 0;
+  let change24 = ticker?.changePct24h ?? 0;
+  if (!(change24 > 0) && bars15.length >= 96) {
+    const prev = bars15[bars15.length - 96]!.close;
+    const last = bars15[bars15.length - 1]!.close;
+    if (prev > 0) change24 = ((last - prev) / prev) * 100;
+  }
   if (change24 < 8 || change24 > 40) {
     return holdSignal(id, `chg24h=${change24.toFixed(1)}% fuera 8-40`);
   }

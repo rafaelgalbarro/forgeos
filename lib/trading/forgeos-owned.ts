@@ -39,19 +39,22 @@ function normSym(symbol: string): string {
 }
 
 /**
- * Crypto symbols ForgeOS opened (journal BUY without later SELL).
- * Used so Kraken ExitManager never touches manual user balances.
+ * Live crypto symbols ForgeOS opened (journal BUY without later SELL).
+ * Shadow journal opens are NEVER included — they must not count toward
+ * CRYPTO_LIVE_MAX_POSITIONS or ExitManager ownership.
  */
 export function journalOpenCryptoSymbols(): Set<string> {
   const open = new Set<string>();
   const trades = readJournalTrades(8000);
   for (const t of trades) {
-    if (t.market !== "crypto" || t.shadow) continue;
+    // Never count explicit shadow opens toward live ownership / position limits.
+    if (t.market !== "crypto" || t.shadow === true) continue;
     const sym = normSym(t.ticker);
     if (!sym) continue;
     if (t.side === "BUY") open.add(sym);
     if (t.side === "SELL") open.delete(sym);
   }
+  // journalOpenCryptoPairs already filters shadow: false
   for (const p of journalOpenCryptoPairs()) open.add(normSym(p));
   return open;
 }

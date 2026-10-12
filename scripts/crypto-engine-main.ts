@@ -46,8 +46,17 @@ async function analysisTick(): Promise<void> {
   try {
     const result = await runKrakenAnalysisCycle();
     const status = getKrakenEngineStatus();
+    let dataAge = "";
+    try {
+      const { formatDataAgeLog, getMarketDataAges } = await import(
+        "@/lib/brokers/kraken/market-store"
+      );
+      dataAge = formatDataAgeLog(getMarketDataAges(["XBTEUR", "ETHEUR"]));
+    } catch {
+      dataAge = "dataAge=na";
+    }
     console.log(
-      `[CryptoEngine] analysis ok=${result.executed.length} shadow=${result.shadow.length} held=${result.held.length} signals=${result.signals.length} regime=${status.regime.regime} ws=${status.ws.connected} ${Date.now() - t0}ms`,
+      `[CryptoEngine] analysis ok=${result.executed.length} shadow=${result.shadow.length} held=${result.held.length} signals=${result.signals.length} regime=${status.regime.regime} ws=${status.ws.connected} ${dataAge} ${Date.now() - t0}ms`,
     );
   } catch (err) {
     console.error(

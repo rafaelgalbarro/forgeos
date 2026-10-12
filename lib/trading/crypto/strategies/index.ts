@@ -4,7 +4,7 @@
 
 import "server-only";
 
-import { getBars, getTicker } from "@/lib/brokers/kraken/market-store";
+import { getBars, getBook, getTicker } from "@/lib/brokers/kraken/market-store";
 import {
   allowedStrategiesForRegime,
   getMarketRegime,
@@ -24,8 +24,17 @@ import {
 } from "./rs-vs-btc-1h";
 import { evaluateEmaCross15m } from "./ema-cross-15m";
 import { evaluateSessionOpenBreakout } from "./session-open-breakout";
+import { evaluateMicroBreakout1m } from "./micro-breakout-1m";
+import {
+  evaluateMomentumIgnition1m,
+  topGainerPairs1h,
+} from "./momentum-ignition-1m";
+import { evaluateCapitulationReversal1m } from "./capitulation-reversal-1m";
+import { evaluateVwapBounce5m } from "./vwap-bounce-5m";
+import { recordStrategyEval } from "@/lib/trading/crypto/diagnostics";
 import {
   cryptoSignalKey,
+  isFastCryptoStrategy,
   type CryptoStrategyId,
   type CryptoStrategySignal,
 } from "./types";
@@ -47,6 +56,13 @@ export {
   evaluateSessionOpenBreakout,
   isSessionOpenWindow,
 } from "./session-open-breakout";
+export { evaluateMicroBreakout1m } from "./micro-breakout-1m";
+export {
+  evaluateMomentumIgnition1m,
+  topGainerPairs1h,
+} from "./momentum-ignition-1m";
+export { evaluateCapitulationReversal1m } from "./capitulation-reversal-1m";
+export { evaluateVwapBounce5m } from "./vwap-bounce-5m";
 
 /** Maker + taker round-trip (fraction). Defaults match Kraken retail. */
 export function estimateRoundTripCostPct(spreadPct: number): number {
@@ -56,12 +72,28 @@ export function estimateRoundTripCostPct(spreadPct: number): number {
   return maker + taker + Math.max(0, spreadPct) * 2;
 }
 
+/**
+ * Fast strategies: post-only in + post-only TP out → maker+maker+mid spread.
+ * Min target ≈ 1.5% when spread≈0; also require spread < 0.1%.
+ */
+export function estimateFastRoundTripCostPct(spreadPct: number): number {
+  const maker = Number(process.env.KRAKEN_MAKER_FEE_PCT ?? 0.0025);
+  return maker + maker + Math.max(0, spreadPct);
+}
+
+export const FAST_MAX_SPREAD_PCT = 0.001; // 0.1%
+
 /** Discard if expected move to TP < 3 × round-trip cost. */
 export function passesCostFilter(
   signal: CryptoStrategySignal,
   spreadPct: number,
 ): boolean {
   if (signal.direction !== "BUY") return false;
+  if (isFastCryptoStrategy(signal.strategyId)) {
+    if (spreadPct >= FAST_MAX_SPREAD_PCT) return false;
+    const cost = estimateFastRoundTripCostPct(spreadPct);
+    return signal.expectedMovePct >= cost * 3;
+  }
   const cost = estimateRoundTripCostPct(spreadPct);
   return signal.expectedMovePct >= cost * 3;
 }
@@ -69,13 +101,49 @@ export function passesCostFilter(
 export type EvaluatePairOpts = {
   openGridLevels?: number;
   isTop3Rs?: boolean;
+  isTop5Gainer1h?: boolean;
   now?: Date;
+  /** When true, only evaluate fast 1–5m strategies. */
+  fastOnly?: boolean;
 };
+
+export function evaluateFastStrategiesForPair(
+  pair: string,
+  opts?: EvaluatePairOpts,
+): CryptoStrategySignal[] {
+  const bars1 = getBars(pair, "1");
+  const bars5 = getBars(pair, "5");
+  const bars1h = getBars(pair, "60");
+  const book = getBook(pair);
+  const ticker = getTicker(pair);
+  const regime = getMarketRegime().regime;
+
+  const raw: CryptoStrategySignal[] = [
+    evaluateMicroBreakout1m(bars1, book),
+    evaluateMomentumIgnition1m(bars1, {
+      isTop5Gainer1h: opts?.isTop5Gainer1h,
+    }),
+    evaluateCapitulationReversal1m(bars1, regime),
+    evaluateVwapBounce5m(bars5.length ? bars5 : bars1, bars1h),
+  ];
+
+  const spread =
+    ticker && ticker.bid > 0 && ticker.ask > 0 && ticker.mid > 0
+      ? (ticker.ask - ticker.bid) / ticker.mid
+      : 0.001;
+
+  return raw.filter((s) => {
+    if (s.direction !== "BUY") return false;
+    return passesCostFilter(s, spread);
+  });
+}
 
 export function evaluateAllStrategiesForPair(
   pair: string,
   opts?: EvaluatePairOpts,
 ): CryptoStrategySignal[] {
+  if (opts?.fastOnly) return evaluateFastStrategiesForPair(pair, opts);
+
   const bars1 = getBars(pair, "1");
   const bars5 = getBars(pair, "5");
   const bars15 = getBars(pair, "15");
@@ -106,6 +174,33 @@ export function evaluateAllStrategiesForPair(
     ticker && ticker.bid > 0 && ticker.ask > 0
       ? (ticker.ask - ticker.bid) / ticker.mid
       : 0.001;
+
+  // Diagnostics: every eval + near-miss (blocked buy or single-condition hold)
+  for (const s of raw) {
+    let missing: string | null = null;
+    if (s.direction === "BUY") {
+      if (allowed !== "all" && !allowed.has(s.strategyId)) {
+        missing = `régimen ${regime} no permite ${s.strategyId}`;
+      } else if (!passesCostFilter(s, spread)) {
+        missing = "coste_roundtrip_3x";
+      }
+    } else if (/RSI=|EMA|vol|spread|sesión|rango|régimen/i.test(s.reasoning)) {
+      missing = s.reasoning.slice(0, 80);
+    }
+    recordStrategyEval({
+      strategy: s.strategyId,
+      pair,
+      direction: missing && s.direction === "BUY" ? "HOLD" : s.direction,
+      reasoning: missing ?? s.reasoning,
+      missing:
+        s.direction === "BUY" && missing
+          ? missing
+          : s.direction !== "BUY"
+            ? missing
+            : null,
+      passed: s.direction === "BUY" ? ["signal_buy"] : [],
+    });
+  }
 
   return raw.filter((s) => {
     if (s.direction !== "BUY") return false;

@@ -15,9 +15,31 @@ export const ALL_CRYPTO_STRATEGY_IDS = [
   "RS_VS_BTC_1H",
   "EMA_CROSS_15M",
   "SESSION_OPEN_BREAKOUT",
+  "MICRO_BREAKOUT_1M",
+  "MOMENTUM_IGNITION_1M",
+  "CAPITULATION_REVERSAL_1M",
+  "VWAP_BOUNCE_5M",
 ] as const;
 
 export type CryptoStrategyId = (typeof ALL_CRYPTO_STRATEGY_IDS)[number];
+
+/** Fast 1–5m commission-aware strategies (5s analysis loop). */
+export const FAST_CRYPTO_STRATEGY_IDS = [
+  "MICRO_BREAKOUT_1M",
+  "MOMENTUM_IGNITION_1M",
+  "CAPITULATION_REVERSAL_1M",
+  "VWAP_BOUNCE_5M",
+] as const;
+
+export type FastCryptoStrategyId = (typeof FAST_CRYPTO_STRATEGY_IDS)[number];
+
+export const FAST_CRYPTO_STRATEGY_SET: ReadonlySet<string> = new Set(
+  FAST_CRYPTO_STRATEGY_IDS,
+);
+
+export function isFastCryptoStrategy(id: string): boolean {
+  return FAST_CRYPTO_STRATEGY_SET.has(id);
+}
 
 /** Strategies introduced in this release — 48h max 1 open position each. */
 export const NEW_CRYPTO_STRATEGIES: ReadonlySet<CryptoStrategyId> = new Set([
@@ -28,6 +50,10 @@ export const NEW_CRYPTO_STRATEGIES: ReadonlySet<CryptoStrategyId> = new Set([
   "RS_VS_BTC_1H",
   "EMA_CROSS_15M",
   "SESSION_OPEN_BREAKOUT",
+  "MICRO_BREAKOUT_1M",
+  "MOMENTUM_IGNITION_1M",
+  "CAPITULATION_REVERSAL_1M",
+  "VWAP_BOUNCE_5M",
 ]);
 
 export type CryptoStrategySignal = {

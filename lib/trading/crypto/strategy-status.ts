@@ -203,17 +203,21 @@ export async function autoDegradePromoteStrategies(params: {
       continue;
     }
 
-    // 5 live with mean negative
-    if (mode === "live" && live.length >= 5) {
-      const last5 = live.slice(-5);
-      const mean = last5.reduce((s, c) => s + c.netPnlEur, 0) / last5.length;
+    // Live mean-negative degrade: fast strategies need ≥20 trades; others ≥5.
+    const { isFastCryptoStrategy } = await import(
+      "@/lib/trading/crypto/strategies/types"
+    );
+    const minLive = isFastCryptoStrategy(id) ? 20 : 5;
+    if (mode === "live" && live.length >= minLive) {
+      const lastN = live.slice(-minLive);
+      const mean = lastN.reduce((s, c) => s + c.netPnlEur, 0) / lastN.length;
       if (mean < 0) {
         const ok = await setStrategyMode({
           strategyId: id,
           mode: "shadow",
-          reason: `5 ops live mean net €${mean.toFixed(3)} < 0`,
+          reason: `${minLive} ops live mean net €${mean.toFixed(3)} < 0`,
         });
-        if (ok) msgs.push(`${id} → shadow (5 losing)`);
+        if (ok) msgs.push(`${id} → shadow (${minLive} losing)`);
         continue;
       }
     }
@@ -252,20 +256,35 @@ export async function autoDegradePromoteStrategies(params: {
   return msgs;
 }
 
-/** Apply backtest PF degradation after nightly run. */
+/**
+ * Apply backtest PF degradation after nightly run.
+ * Requires ≥ minOosTrades out-of-sample trades per strategy (default 20).
+ */
 export async function applyBacktestDegradation(
   pfByStrategy: Partial<Record<CryptoStrategyId, number>>,
+  opts?: {
+    minOosTrades?: number;
+    oosCount?: Partial<Record<string, number>>;
+  },
 ): Promise<string[]> {
+  const minN = opts?.minOosTrades ?? 20;
   const msgs: string[] = [];
   for (const [id, pf] of Object.entries(pfByStrategy)) {
     if (pf == null || pf >= 0.9) continue;
     if (getStrategyMode(id) !== "live") continue;
+    const n = opts?.oosCount?.[id] ?? 0;
+    if (n < minN) {
+      msgs.push(
+        `${id}: PF=${pf.toFixed(2)} pero solo ${n} ops OOS (<${minN}) — sin cambio`,
+      );
+      continue;
+    }
     const ok = await setStrategyMode({
       strategyId: id,
       mode: "shadow",
-      reason: `backtest nocturno PF=${pf.toFixed(2)} < 0.9`,
+      reason: `backtest nocturno PF=${pf.toFixed(2)} < 0.9 (n_oos=${n})`,
     });
-    if (ok) msgs.push(`${id} → shadow (PF ${pf.toFixed(2)})`);
+    if (ok) msgs.push(`${id} → shadow (PF ${pf.toFixed(2)}, n=${n})`);
   }
   return msgs;
 }

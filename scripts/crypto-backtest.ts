@@ -2,8 +2,9 @@
  * Nightly Kraken crypto backtester — reuses strategy evaluators + exit rules.
  *
  *   npx tsx --require ./scripts/stub-server-only.cjs scripts/crypto-backtest.ts
+ *   npx tsx ... scripts/crypto-backtest.ts --apply   # only then may degrade (≥20 OOS trades)
  *
- * Outputs: .forgeos/reports/crypto-backtest-<date>.md + Telegram ranking.
+ * Manual runs never change strategy status unless --apply is passed.
  */
 
 import fs from "node:fs";
@@ -15,6 +16,7 @@ import {
 import { evaluateTrendPullback1h } from "../lib/trading/crypto/strategies/trend-pullback-1h";
 import { evaluateRsiMeanReversion15m } from "../lib/trading/crypto/strategies/rsi-mean-reversion-15m";
 import { evaluateMomentumBreakout5m } from "../lib/trading/crypto/strategies/momentum-breakout-5m";
+import { evaluateTopGainerPullback } from "../lib/trading/crypto/strategies/top-gainer-pullback";
 import { evaluateVwapReclaim15m } from "../lib/trading/crypto/strategies/vwap-reclaim-15m";
 import { evaluateRangeGrid15m } from "../lib/trading/crypto/strategies/range-grid-15m";
 import {
@@ -25,19 +27,37 @@ import { evaluateLiquiditySweep15m } from "../lib/trading/crypto/strategies/liqu
 import { evaluateBbSqueezeBreakout15m } from "../lib/trading/crypto/strategies/bb-squeeze-breakout-15m";
 import { evaluateEmaCross15m } from "../lib/trading/crypto/strategies/ema-cross-15m";
 import { evaluateSessionOpenBreakout } from "../lib/trading/crypto/strategies/session-open-breakout";
+import { evaluateRsVsBtc1h, topRsPairsVsBtc } from "../lib/trading/crypto/strategies/rs-vs-btc-1h";
+import { evaluateMicroBreakout1m } from "../lib/trading/crypto/strategies/micro-breakout-1m";
+import {
+  evaluateMomentumIgnition1m,
+  topGainerPairs1h,
+} from "../lib/trading/crypto/strategies/momentum-ignition-1m";
+import { evaluateCapitulationReversal1m } from "../lib/trading/crypto/strategies/capitulation-reversal-1m";
+import { evaluateVwapBounce5m } from "../lib/trading/crypto/strategies/vwap-bounce-5m";
 import { applyBacktestDegradation } from "../lib/trading/crypto/strategy-status";
 import type { Bar } from "../lib/brokers/kraken/market-store";
+import {
+  BT_MAKER,
+  BT_TAKER,
+  compoundMaxDrawdownPct,
+  findLimitBuyFill,
+  liquidityBucket,
+  netPnlPctFromPrices,
+  priorRange,
+  roundTripCostFraction,
+  simulateLongTrade,
+} from "../lib/trading/crypto/backtest-core";
+
+/** Fast: maker+maker+spread (post-only round trip). */
+function fastRoundTripCost(spreadPct: number): number {
+  return BT_MAKER + BT_MAKER + Math.max(0, spreadPct);
+}
 
 const ROOT = process.env.FORGEOS_ROOT?.trim() || path.resolve(__dirname, "..");
 process.env.FORGEOS_ROOT = ROOT;
-
-const MAKER = 0.0025;
-const TAKER = 0.004;
 const CACHE = path.join(ROOT, ".forgeos", "cache", "kraken-ohlc");
-
-function estimateRoundTripCostPct(spreadPct: number): number {
-  return MAKER + TAKER + Math.max(0, spreadPct) * 2;
-}
+const APPLY = process.argv.includes("--apply");
 
 type Trade = {
   strategy: CryptoStrategyId;
@@ -49,11 +69,14 @@ type Trade = {
   mfePct: number;
   maePct: number;
   liquidity: string;
+  sample: "in" | "out";
 };
+
+type SignalCount = Record<string, { attempts: number; buys: number; holds: string[] }>;
 
 async function fetchOhlc(
   pair: string,
-  interval: 5 | 15 | 60,
+  interval: 1 | 5 | 15 | 60,
 ): Promise<Bar[]> {
   const cacheFile = path.join(CACHE, `${pair}_${interval}.json`);
   try {
@@ -76,7 +99,9 @@ async function fetchOhlc(
   const result = json.result ?? {};
   const key = Object.keys(result).find((k) => k !== "last");
   if (!key) return [];
-  const rows = result[key] as Array<[number, string, string, string, string, string, string, string]>;
+  const rows = result[key] as Array<
+    [number, string, string, string, string, string, string, string]
+  >;
   const bars: Bar[] = rows.map((r) => ({
     time: Number(r[0]),
     open: Number(r[1]),
@@ -94,22 +119,28 @@ async function topPairs(): Promise<Array<{ pair: string; volEur: number }>> {
   const url = "https://api.kraken.com/0/public/Ticker";
   const res = await fetch(url);
   const json = (await res.json()) as {
-    result?: Record<string, { v?: string[]; c?: string[]; a?: string[]; b?: string[] }>;
+    result?: Record<
+      string,
+      { v?: string[]; c?: string[]; a?: string[]; b?: string[] }
+    >;
   };
   const out: Array<{ pair: string; volEur: number; spread: number }> = [];
   for (const [k, v] of Object.entries(json.result ?? {})) {
     if (!/EUR$/.test(k) && !/ZEUR$/.test(k)) continue;
-    const pair = k.replace(/^X/, "").replace(/ZEUR$/, "EUR").replace(/XBT/, "XBT");
+    const pair = k
+      .replace(/^X/, "")
+      .replace(/ZEUR$/, "EUR")
+      .replace(/XBT/, "XBT");
     const norm = pair.includes("EUR") ? pair : `${pair}EUR`;
     const vol = Number(v.v?.[1] ?? 0);
     const px = Number(v.c?.[0] ?? 0);
     const ask = Number(v.a?.[0] ?? 0);
     const bid = Number(v.b?.[0] ?? 0);
-    const spread = ask > 0 && bid > 0 ? (ask - bid) / ((ask + bid) / 2) : 1;
+    const spread =
+      ask > 0 && bid > 0 ? (ask - bid) / ((ask + bid) / 2) : 1;
     if (spread >= 0.005) continue;
-    out.push({ pair: norm.replace("XBT", "XBT"), volEur: vol * px, spread });
+    out.push({ pair: norm, volEur: vol * px, spread });
   }
-  // Prefer common EUR pairs
   const preferred = [
     "XBTEUR",
     "ETHEUR",
@@ -130,7 +161,7 @@ async function topPairs(): Promise<Array<{ pair: string; volEur: number }>> {
     .filter((o) => o.volEur > 300_000);
   mapped.sort((a, b) => b.volEur - a.volEur);
   const picks = [
-    ...preferred.filter((p) => mapped.some((m) => m.pair.includes(p.slice(0, 3)))),
+    ...preferred.filter((p) => mapped.some((m) => m.pair === p || m.pair.includes(p.slice(0, 3)))),
     ...mapped.map((m) => m.pair),
   ];
   const uniq = [...new Set(picks)].slice(0, 60);
@@ -140,14 +171,35 @@ async function topPairs(): Promise<Array<{ pair: string; volEur: number }>> {
   }));
 }
 
-function liquidityBucket(volEur: number): string {
-  if (volEur > 5_000_000) return ">5M";
-  if (volEur > 1_000_000) return "1-5M";
-  return "0.3-1M";
-}
-
 function sliceBars(bars: Bar[], endIdx: number, n: number): Bar[] {
   return bars.slice(Math.max(0, endIdx - n + 1), endIdx + 1);
+}
+
+/** Align 1h/5m windows to the same unix time as bars15[i]. */
+function windowEndingAt(
+  bars: Bar[],
+  targetTime: number,
+  n: number,
+): Bar[] {
+  if (!bars.length) return [];
+  let end = bars.length - 1;
+  while (end > 0 && bars[end]!.time > targetTime) end -= 1;
+  return bars.slice(Math.max(0, end - n + 1), end + 1);
+}
+
+function rescaleStopsToEntry(
+  entry: number,
+  signalEntry: number,
+  stop: number,
+  tp: number,
+): { stop: number; tp: number } {
+  if (!(signalEntry > 0) || !(entry > 0)) return { stop, tp };
+  const stopPct = (signalEntry - stop) / signalEntry;
+  const tpPct = (tp - signalEntry) / signalEntry;
+  return {
+    stop: entry * (1 - Math.max(0.002, Math.min(0.08, stopPct))),
+    tp: entry * (1 + Math.max(0.004, Math.min(0.15, tpPct))),
+  };
 }
 
 function simulatePair(
@@ -155,102 +207,238 @@ function simulatePair(
   bars5: Bar[],
   bars15: Bar[],
   bars1h: Bar[],
+  btc1h: Bar[],
   volEur: number,
-  optDays: number,
+  days: number,
+  signalCounts: SignalCount,
+  topRs: Set<string>,
 ): Trade[] {
   const trades: Trade[] = [];
   if (bars15.length < 150) return trades;
   const liq = liquidityBucket(volEur);
-  const start = Math.max(120, bars15.length - optDays * 96);
-  for (let i = start; i < bars15.length - 2; i++) {
+  const start = Math.max(120, bars15.length - days * 96);
+  const inSampleEnd = start + Math.floor((bars15.length - start) * (20 / 30));
+
+  for (let i = start; i < bars15.length - 3; i++) {
+    const t15 = bars15[i]!.time;
     const w15 = sliceBars(bars15, i, 150);
-    const w5 = bars5.length
-      ? sliceBars(bars5, Math.min(bars5.length - 1, Math.floor((i * 3))), 80)
-      : w15;
-    const w1h = bars1h.length
-      ? sliceBars(bars1h, Math.min(bars1h.length - 1, Math.floor(i / 4)), 220)
-      : w15;
-    const regime = "ALCISTA" as const;
-    const signals = [
+    const w5 = windowEndingAt(bars5, t15, 80);
+    const w1h = windowEndingAt(bars1h, t15, 220);
+    const wBtc = windowEndingAt(btc1h, t15, 220);
+    const sample: "in" | "out" = i < inSampleEnd ? "in" : "out";
+
+    const raw = [
       evaluateTrendPullback1h(w1h),
       evaluateRsiMeanReversion15m(w15, w1h),
-      evaluateMomentumBreakout5m(w5, w1h),
+      evaluateMomentumBreakout5m(w5.length ? w5 : w15, w1h),
+      evaluateTopGainerPullback(w15, w1h, null),
       evaluateVwapReclaim15m(w15),
-      evaluateRangeGrid15m(w15, "LATERAL", 0),
-      evaluateRsi2Trend5m(w5, w1h),
+      evaluateRangeGrid15m(w15, "LATERAL", 0, {
+        signalBarIndex: w15.length - 1,
+        excludeSignalBarFromRange: true,
+      }),
+      evaluateRsi2Trend5m(w5.length ? w5 : w15, w1h),
       evaluateLiquiditySweep15m(w15),
       evaluateBbSqueezeBreakout15m(w15),
+      evaluateRsVsBtc1h(w15, w1h, wBtc, "ALCISTA", {
+        isTop3Rs: topRs.has(pair),
+      }),
       evaluateEmaCross15m(w15, w1h),
-      evaluateSessionOpenBreakout(
-        w15,
-        new Date((bars15[i]!.time ?? 0) * 1000),
-      ),
-    ].filter((s) => s.direction === "BUY");
+      evaluateSessionOpenBreakout(w15, new Date(t15 * 1000)),
+    ];
 
-    for (const sig of signals) {
-      const cost = estimateRoundTripCostPct(0.001);
-      if (sig.expectedMovePct < cost * 3) continue;
-      // Next bar entry (no lookahead)
-      const entryBar = bars15[i + 1]!;
-      const entry = entryBar.open;
-      let exit = entry;
-      let mfe = 0;
-      let mae = 0;
-      let exited = false;
+    for (const sig of raw) {
+      const id = sig.strategyId;
+      if (!signalCounts[id]) signalCounts[id] = { attempts: 0, buys: 0, holds: [] };
+      signalCounts[id]!.attempts += 1;
+      if (sig.direction !== "BUY") {
+        const reason = sig.reasoning.slice(0, 80);
+        const holds = signalCounts[id]!.holds;
+        if (holds.length < 5 && !holds.includes(reason)) holds.push(reason);
+        continue;
+      }
+      signalCounts[id]!.buys += 1;
+
+      const cost = roundTripCostFraction(0.001);
+      if (sig.expectedMovePct < cost * 3) {
+        const holds = signalCounts[id]!.holds;
+        const r = "cost_filter_3x";
+        if (holds.length < 5 && !holds.includes(r)) holds.push(r);
+        continue;
+      }
+
+      let entryBarIndex: number;
+      let entryPrice: number;
+      let stop: number;
+      let tp: number;
+
+      if (sig.strategyId === "RANGE_GRID_15M") {
+        const range = priorRange(bars15, i, 96);
+        if (!range) continue;
+        const limit = range.lo + (range.hi - range.lo) / 3;
+        const fill = findLimitBuyFill(bars15, i, limit, 16);
+        if (!fill) continue;
+        entryBarIndex = fill.entryBarIndex;
+        entryPrice = fill.entryPrice;
+        const a = Math.abs(sig.atr) || entryPrice * 0.01;
+        stop = range.lo - a;
+        tp = range.hi - (range.hi - range.lo) / 3;
+      } else {
+        // Market: signal on close of i → enter next bar open
+        entryBarIndex = i + 1;
+        entryPrice = bars15[entryBarIndex]!.open;
+        const scaled = rescaleStopsToEntry(
+          entryPrice,
+          sig.entry > 0 ? sig.entry : bars15[i]!.close,
+          sig.stopLoss,
+          sig.takeProfit,
+        );
+        stop = scaled.stop;
+        tp = scaled.tp;
+      }
+
       const maxBars = Math.max(4, Math.floor(sig.maxHoldMs / (15 * 60_000)));
-      for (let j = i + 1; j < Math.min(bars15.length, i + 1 + maxBars); j++) {
-        const b = bars15[j]!;
-        mfe = Math.max(mfe, (b.high - entry) / entry);
-        mae = Math.min(mae, (b.low - entry) / entry);
-        if (b.low <= sig.stopLoss) {
-          exit = sig.stopLoss;
-          exited = true;
-          break;
-        }
-        if (b.high >= sig.takeProfit) {
-          exit = sig.takeProfit;
-          exited = true;
-          break;
-        }
-        if (sig.strategyId === "RSI2_TREND_5M") {
+      let fill = simulateLongTrade({
+        bars: bars15,
+        entryBarIndex,
+        entryPrice,
+        stopLoss: stop,
+        takeProfit: tp,
+        maxBars,
+      });
+      if (!fill) continue;
+
+      // RSI2 early exit overlay
+      if (sig.strategyId === "RSI2_TREND_5M") {
+        for (
+          let j = entryBarIndex + 1;
+          j <= Math.min(bars15.length - 1, entryBarIndex + maxBars);
+          j++
+        ) {
           const reason = rsi2TrendShouldExit(
-            sliceBars(bars5.length ? bars5 : bars15, j, 40),
-            entry,
-            (bars15[i + 1]!.time ?? 0) * 1000,
-            (b.time ?? 0) * 1000,
+            windowEndingAt(bars5.length ? bars5 : bars15, bars15[j]!.time, 40),
+            entryPrice,
+            bars15[entryBarIndex]!.time * 1000,
+            bars15[j]!.time * 1000,
           );
           if (reason) {
-            exit = b.close;
-            exited = true;
+            fill = {
+              ...fill,
+              exit: bars15[j]!.close,
+              grossPct:
+                ((bars15[j]!.close - entryPrice) / entryPrice) * 100,
+              netPct: netPnlPctFromPrices(entryPrice, bars15[j]!.close),
+              exitKind: "signal",
+            };
             break;
           }
         }
       }
-      if (!exited) exit = bars15[Math.min(bars15.length - 1, i + maxBars)]!.close;
-      const gross = (exit - entry) / entry;
-      const fees = MAKER + TAKER; // entry maker, exit taker
-      const netPct = (gross - fees) * 100;
+
       trades.push({
         strategy: sig.strategyId,
         pair,
-        entry,
-        exit,
-        netPct,
-        win: netPct > 0,
-        mfePct: mfe * 100,
-        maePct: mae * 100,
+        entry: fill.entry,
+        exit: fill.exit,
+        netPct: fill.netPct,
+        win: fill.netPct > 0,
+        mfePct: fill.mfePct,
+        maePct: fill.maePct,
         liquidity: liq,
+        sample,
       });
-      void regime;
-      break; // one signal per bar/pair
+      break; // one live trade per bar/pair
     }
   }
   return trades;
 }
 
-function summarize(trades: Trade[]) {
+/** Fast 1m strategies — last `days` days of 1m OHLC (default 7). */
+function simulateFastPair(
+  pair: string,
+  bars1: Bar[],
+  bars5: Bar[],
+  bars1h: Bar[],
+  volEur: number,
+  days: number,
+  signalCounts: SignalCount,
+  top5: Set<string>,
+): Trade[] {
+  const trades: Trade[] = [];
+  if (bars1.length < 80) return trades;
+  const liq = liquidityBucket(volEur);
+  const start = Math.max(40, bars1.length - days * 24 * 60);
+  const inSampleEnd = start + Math.floor((bars1.length - start) * (5 / 7));
+
+  for (let i = start; i < bars1.length - 3; i++) {
+    const t1 = bars1[i]!.time;
+    const w1 = sliceBars(bars1, i, 40);
+    const w5 = windowEndingAt(bars5, t1, 40);
+    const w1h = windowEndingAt(bars1h, t1, 80);
+    const sample: "in" | "out" = i < inSampleEnd ? "in" : "out";
+    const raw = [
+      evaluateMicroBreakout1m(w1, null),
+      evaluateMomentumIgnition1m(w1, { isTop5Gainer1h: top5.has(pair) }),
+      evaluateCapitulationReversal1m(w1, "ALCISTA"),
+      evaluateVwapBounce5m(w5.length ? w5 : w1, w1h),
+    ];
+    for (const sig of raw) {
+      const id = sig.strategyId;
+      if (!signalCounts[id]) signalCounts[id] = { attempts: 0, buys: 0, holds: [] };
+      signalCounts[id]!.attempts += 1;
+      if (sig.direction !== "BUY") {
+        const reason = sig.reasoning.slice(0, 80);
+        const holds = signalCounts[id]!.holds;
+        if (holds.length < 5 && !holds.includes(reason)) holds.push(reason);
+        continue;
+      }
+      signalCounts[id]!.buys += 1;
+      const cost = fastRoundTripCost(0.0005);
+      if (sig.expectedMovePct < cost * 3) continue;
+
+      const entryBarIndex = i + 1;
+      const entryPrice = bars1[entryBarIndex]!.open;
+      const scaled = rescaleStopsToEntry(
+        entryPrice,
+        sig.entry > 0 ? sig.entry : bars1[i]!.close,
+        sig.stopLoss,
+        sig.takeProfit,
+      );
+      const maxBars = Math.max(2, Math.floor(sig.maxHoldMs / 60_000));
+      const fill = simulateLongTrade({
+        bars: bars1,
+        entryBarIndex,
+        entryPrice,
+        stopLoss: scaled.stop,
+        takeProfit: scaled.tp,
+        maxBars,
+      });
+      if (!fill) continue;
+      // Remap net with maker+maker fees
+      const gross = (fill.exit - entryPrice) / entryPrice;
+      const netPct = (gross - cost) * 100;
+      trades.push({
+        strategy: sig.strategyId,
+        pair,
+        entry: fill.entry,
+        exit: fill.exit,
+        netPct,
+        win: netPct > 0,
+        mfePct: fill.mfePct,
+        maePct: fill.maePct,
+        liquidity: liq,
+        sample,
+      });
+      break;
+    }
+  }
+  return trades;
+}
+
+function summarize(trades: Trade[], sample?: "in" | "out") {
+  const list = sample ? trades.filter((t) => t.sample === sample) : trades;
   const by = new Map<string, Trade[]>();
-  for (const t of trades) {
+  for (const t of list) {
     const k = `${t.strategy}|${t.liquidity}`;
     if (!by.has(k)) by.set(k, []);
     by.get(k)!.push(t);
@@ -267,22 +455,16 @@ function summarize(trades: Trade[]) {
     avgMfe: number;
     avgMae: number;
   }> = [];
-  for (const [k, list] of by) {
+  for (const [k, ts] of by) {
     const [strategy, liquidity] = k.split("|");
-    const wins = list.filter((t) => t.win);
+    const wins = ts.filter((t) => t.win);
     const grossWin = wins.reduce((s, t) => s + Math.max(0, t.netPct), 0);
-    const grossLoss = list
+    const grossLoss = ts
       .filter((t) => !t.win)
       .reduce((s, t) => s + Math.abs(t.netPct), 0);
-    let eq = 0;
-    let peak = 0;
-    let maxDd = 0;
     let streak = 0;
     let worst = 0;
-    for (const t of list) {
-      eq += t.netPct;
-      peak = Math.max(peak, eq);
-      maxDd = Math.max(maxDd, peak - eq);
+    for (const t of ts) {
       if (t.netPct < 0) {
         streak += 1;
         worst = Math.max(worst, streak);
@@ -291,68 +473,189 @@ function summarize(trades: Trade[]) {
     rows.push({
       strategy: strategy!,
       liquidity: liquidity!,
-      n: list.length,
-      winRate: list.length ? wins.length / list.length : 0,
-      avgNet: list.reduce((s, t) => s + t.netPct, 0) / Math.max(1, list.length),
+      n: ts.length,
+      winRate: ts.length ? wins.length / ts.length : 0,
+      avgNet: ts.reduce((s, t) => s + t.netPct, 0) / Math.max(1, ts.length),
       pf: grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0,
-      maxDd,
+      maxDd: compoundMaxDrawdownPct(ts.map((t) => t.netPct)),
       worstStreak: worst,
-      avgMfe: list.reduce((s, t) => s + t.mfePct, 0) / Math.max(1, list.length),
-      avgMae: list.reduce((s, t) => s + t.maePct, 0) / Math.max(1, list.length),
+      avgMfe: ts.reduce((s, t) => s + t.mfePct, 0) / Math.max(1, ts.length),
+      avgMae: ts.reduce((s, t) => s + t.maePct, 0) / Math.max(1, ts.length),
     });
   }
   return rows.sort((a, b) => b.avgNet - a.avgNet);
 }
 
+function rowTable(
+  rows: ReturnType<typeof summarize>,
+): string[] {
+  return rows.map(
+    (r) =>
+      `| ${r.strategy} | ${r.liquidity} | ${r.n} | ${(r.winRate * 100).toFixed(0)}% | ${r.avgNet.toFixed(2)} | ${r.pf.toFixed(2)} | ${r.maxDd.toFixed(2)} | ${r.worstStreak} | ${r.avgMfe.toFixed(2)} | ${r.avgMae.toFixed(2)} |`,
+  );
+}
+
 async function main(): Promise<void> {
-  console.log(`[Backtest] root=${ROOT}`);
+  console.log(`[Backtest] root=${ROOT} apply=${APPLY}`);
   const pairs = await topPairs();
   console.log(`[Backtest] pairs=${pairs.length}`);
   const all: Trade[] = [];
-  for (const { pair, volEur } of pairs.slice(0, 25)) {
-    const krakenPair = pair.startsWith("XBT") ? "XXBTZEUR" : pair;
+  const signalCounts: SignalCount = {};
+  for (const id of ALL_CRYPTO_STRATEGY_IDS) {
+    signalCounts[id] = { attempts: 0, buys: 0, holds: [] };
+  }
+
+  // Prefetch BTC for RS
+  let btc1h: Bar[] = [];
+  try {
+    btc1h = await fetchOhlc("XXBTZEUR", 60);
+  } catch {
+    btc1h = [];
+  }
+
+  const pairBars = new Map<
+    string,
+    { b1: Bar[]; b5: Bar[]; b15: Bar[]; b1h: Bar[]; vol: number }
+  >();
+  for (const { pair, volEur } of pairs.slice(0, 40)) {
+    const krakenPair =
+      pair === "XBTEUR" || pair.startsWith("XBT")
+        ? "XXBTZEUR"
+        : pair.replace(/^XBT/, "XXBT");
     try {
       const bars15 = await fetchOhlc(krakenPair, 15);
       const bars5 = await fetchOhlc(krakenPair, 5);
       const bars1h = await fetchOhlc(krakenPair, 60);
-      const trades = simulatePair(pair, bars5, bars15, bars1h, volEur, 30);
-      all.push(...trades);
-      console.log(`[Backtest] ${pair}: ${trades.length} trades`);
+      const bars1 = await fetchOhlc(krakenPair, 1);
+      pairBars.set(pair, {
+        b1: bars1,
+        b5: bars5,
+        b15: bars15,
+        b1h: bars1h,
+        vol: volEur,
+      });
     } catch (err) {
       console.warn(`[Backtest] ${pair}:`, err instanceof Error ? err.message : err);
     }
   }
 
-  const optCut = Math.floor(all.length * (20 / 30));
-  const validate = all.slice(optCut);
-  const rows = summarize(validate.length ? validate : all);
-  const pfBy: Partial<Record<CryptoStrategyId, number>> = {};
-  for (const id of ALL_CRYPTO_STRATEGY_IDS) {
-    const subset = rows.filter((r) => r.strategy === id);
-    if (!subset.length) continue;
-    const n = subset.reduce((s, r) => s + r.n, 0);
-    const pf =
-      subset.reduce((s, r) => s + r.pf * r.n, 0) / Math.max(1, n);
-    pfBy[id] = pf;
+  const topRs = new Set(
+    topRsPairsVsBtc(
+      [...pairBars.keys()],
+      (p) => pairBars.get(p)?.b1h ?? [],
+      btc1h,
+      3,
+    ),
+  );
+  const top5 = new Set(
+    topGainerPairs1h(
+      [...pairBars.keys()],
+      (p) => pairBars.get(p)?.b1h ?? [],
+      5,
+    ),
+  );
+
+  for (const [pair, data] of pairBars) {
+    const trades = simulatePair(
+      pair,
+      data.b5,
+      data.b15,
+      data.b1h,
+      btc1h,
+      data.vol,
+      30,
+      signalCounts,
+      topRs,
+    );
+    const fast = simulateFastPair(
+      pair,
+      data.b1,
+      data.b5,
+      data.b1h,
+      data.vol,
+      7,
+      signalCounts,
+      top5,
+    );
+    all.push(...trades, ...fast);
+    console.log(
+      `[Backtest] ${pair}: ${trades.length} std + ${fast.length} fast vol≈€${(data.vol / 1e6).toFixed(1)}M`,
+    );
   }
-  await applyBacktestDegradation(pfBy);
+
+  const inRows = summarize(all, "in");
+  const outRows = summarize(all, "out");
+  const liqBuckets = new Set(all.map((t) => t.liquidity));
+  for (const b of [">5M", "1-5M", "0.3-1M"] as const) {
+    if (!liqBuckets.has(b)) {
+      console.warn(`[Backtest] falta liquidez ${b} en trades — pares insuficientes o filtro volume`);
+    }
+  }
+
+  const pfBy: Partial<Record<CryptoStrategyId, number>> = {};
+  const oosCount: Partial<Record<CryptoStrategyId, number>> = {};
+  for (const id of ALL_CRYPTO_STRATEGY_IDS) {
+    const subset = outRows.filter((r) => r.strategy === id);
+    const n = subset.reduce((s, r) => s + r.n, 0);
+    oosCount[id] = n;
+    if (!subset.length) continue;
+    pfBy[id] =
+      subset.reduce((s, r) => s + r.pf * r.n, 0) / Math.max(1, n);
+  }
+
+  if (APPLY) {
+    const msgs = await applyBacktestDegradation(pfBy, { minOosTrades: 20, oosCount });
+    console.log(`[Backtest] apply degradation:`, msgs);
+  } else {
+    console.log(
+      `[Backtest] dry-run — no status changes (pass --apply for nightly degrade ≥20 OOS)`,
+    );
+  }
 
   const date = new Date().toISOString().slice(0, 10);
   const reportDir = path.join(ROOT, ".forgeos", "reports");
   fs.mkdirSync(reportDir, { recursive: true });
+  const zeroNotes = ALL_CRYPTO_STRATEGY_IDS.map((id) => {
+    const sc = signalCounts[id]!;
+    const oos = oosCount[id] ?? 0;
+    if (oos > 0 && sc.buys > 0) return null;
+    const why =
+      sc.attempts === 0
+        ? "no evaluada (datos/universo)"
+        : sc.buys === 0
+          ? `0 BUY / ${sc.attempts} intentos — ${sc.holds.slice(0, 3).join("; ") || "filtros"}`
+          : `BUY=${sc.buys} pero 0 trades OOS (fills/coste)`;
+    return `- **${id}**: ${why}`;
+  }).filter(Boolean);
+
   const md = [
     `# Crypto backtest ${date}`,
     ``,
-    `Pairs=${pairs.length} trades=${all.length} (validate≈${validate.length})`,
-    `Costs: maker ${(MAKER * 100).toFixed(2)}% + taker ${(TAKER * 100).toFixed(2)}% / side`,
+    `Pairs=${pairBars.size} trades=${all.length} (in=${all.filter((t) => t.sample === "in").length} out=${all.filter((t) => t.sample === "out").length})`,
+    `Costs: maker ${(BT_MAKER * 100).toFixed(2)}% + taker ${(BT_TAKER * 100).toFixed(2)}% / side`,
+    `Apply degradation: ${APPLY ? "yes (≥20 OOS)" : "no (dry-run)"}`,
+    `Liquidity buckets present: ${[...liqBuckets].join(", ") || "none"}`,
     ``,
+    `## Out of sample (last ~10d)`,
     `| Strategy | Liq | N | WR | AvgNet% | PF | MaxDD% | Worst | MFE | MAE |`,
     `|---|---|---:|---:|---:|---:|---:|---:|---:|---:|`,
-    ...rows.map(
-      (r) =>
-        `| ${r.strategy} | ${r.liquidity} | ${r.n} | ${(r.winRate * 100).toFixed(0)}% | ${r.avgNet.toFixed(2)} | ${r.pf.toFixed(2)} | ${r.maxDd.toFixed(2)} | ${r.worstStreak} | ${r.avgMfe.toFixed(2)} | ${r.avgMae.toFixed(2)} |`,
-    ),
+    ...rowTable(outRows),
+    ``,
+    `## In sample (first ~20d)`,
+    `| Strategy | Liq | N | WR | AvgNet% | PF | MaxDD% | Worst | MFE | MAE |`,
+    `|---|---|---:|---:|---:|---:|---:|---:|---:|---:|`,
+    ...rowTable(inRows),
+    ``,
+    `## Signal attempts (all strategies)`,
+    ...ALL_CRYPTO_STRATEGY_IDS.map((id) => {
+      const sc = signalCounts[id]!;
+      return `- ${id}: attempts=${sc.attempts} buys=${sc.buys} oos_trades=${oosCount[id] ?? 0}`;
+    }),
+    ``,
+    `## Zero / low activity notes`,
+    ...(zeroNotes.length ? zeroNotes : ["- (todas las estrategias generaron trades OOS)"]),
   ].join("\n");
+
   const outFile = path.join(reportDir, `crypto-backtest-${date}.md`);
   fs.writeFileSync(outFile, md, "utf8");
   console.log(`[Backtest] wrote ${outFile}`);
@@ -361,18 +664,23 @@ async function main(): Promise<void> {
     const { sendTelegramMessage } = await import(
       "../lib/notifications/telegram-bot"
     );
-    const top = rows.slice(0, 8);
+    const top = outRows.slice(0, 8);
     await sendTelegramMessage(
-      `📈 <b>Backtest crypto ${date}</b>\n` +
-        top
-          .map(
-            (r) =>
-              `${r.strategy} ${r.liquidity}: n=${r.n} WR=${(r.winRate * 100).toFixed(0)}% net=${r.avgNet.toFixed(2)}% PF=${r.pf.toFixed(2)}`,
-          )
-          .join("\n"),
+      `📈 <b>Backtest crypto ${date}</b> (${APPLY ? "apply" : "dry"})\n` +
+        (top.length
+          ? top
+              .map(
+                (r) =>
+                  `${r.strategy} ${r.liquidity}: n=${r.n} WR=${(r.winRate * 100).toFixed(0)}% net=${r.avgNet.toFixed(2)}% PF=${r.pf.toFixed(2)} DD=${r.maxDd.toFixed(1)}%`,
+              )
+              .join("\n")
+          : "sin trades OOS"),
     );
-  } catch {
-    /* telegram optional */
+  } catch (err) {
+    console.warn(
+      "[Backtest] Telegram:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 

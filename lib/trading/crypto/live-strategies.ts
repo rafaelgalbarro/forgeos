@@ -1,6 +1,6 @@
 /**
  * CRYPTO_LIVE_STRATEGIES — comma list in .env.local, re-read every cycle (no restart).
- * Default: all 12 strategies live. Anything not listed → shadow.
+ * Default: all strategies live (incl. fast 1–5m). Anything not listed → shadow.
  */
 
 import fs from "node:fs";

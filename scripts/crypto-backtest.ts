@@ -42,16 +42,19 @@ import {
   BT_TAKER,
   compoundMaxDrawdownPct,
   findLimitBuyFill,
+  getBacktestMakerFee,
+  getBacktestTakerFee,
   liquidityBucket,
+  makerMakerRoundTripFraction,
   netPnlPctFromPrices,
   priorRange,
   roundTripCostFraction,
   simulateLongTrade,
 } from "../lib/trading/crypto/backtest-core";
 
-/** Fast: maker+maker+spread (post-only round trip). */
+/** Fast: maker+maker+spread (post-only round trip) — live/cached account fees. */
 function fastRoundTripCost(spreadPct: number): number {
-  return BT_MAKER + BT_MAKER + Math.max(0, spreadPct);
+  return makerMakerRoundTripFraction(spreadPct);
 }
 
 const ROOT = process.env.FORGEOS_ROOT?.trim() || path.resolve(__dirname, "..");
@@ -632,7 +635,8 @@ async function main(): Promise<void> {
     `# Crypto backtest ${date}`,
     ``,
     `Pairs=${pairBars.size} trades=${all.length} (in=${all.filter((t) => t.sample === "in").length} out=${all.filter((t) => t.sample === "out").length})`,
-    `Costs: maker ${(BT_MAKER * 100).toFixed(2)}% + taker ${(BT_TAKER * 100).toFixed(2)}% / side`,
+    `Costs: maker ${(getBacktestMakerFee() * 100).toFixed(2)}% + taker ${(getBacktestTakerFee() * 100).toFixed(2)}% / side ` +
+      `(defaults ${((BT_MAKER) * 100).toFixed(2)}%/${(BT_TAKER * 100).toFixed(2)}%)`,
     `Apply degradation: ${APPLY ? "yes (≥20 OOS)" : "no (dry-run)"}`,
     `Liquidity buckets present: ${[...liqBuckets].join(", ") || "none"}`,
     ``,

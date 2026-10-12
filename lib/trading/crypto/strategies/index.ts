@@ -35,10 +35,15 @@ import { recordStrategyEval } from "@/lib/trading/crypto/diagnostics";
 import {
   cryptoSignalKey,
   isFastCryptoStrategy,
+  strategyCostFilterMode,
   type CryptoStrategyId,
   type CryptoStrategySignal,
 } from "./types";
 import { cryptoStrategyEffectiveMode } from "@/lib/trading/crypto/live-strategies";
+import {
+  getMakerFeePct,
+  getTakerFeePct,
+} from "@/lib/trading/crypto/fee-schedule";
 
 export * from "./types";
 export { evaluateTrendPullback1h } from "./trend-pullback-1h";
@@ -64,40 +69,55 @@ export {
 export { evaluateCapitulationReversal1m } from "./capitulation-reversal-1m";
 export { evaluateVwapBounce5m } from "./vwap-bounce-5m";
 
-/** Maker + taker round-trip (fraction). Defaults match Kraken retail. */
-export function estimateRoundTripCostPct(spreadPct: number): number {
-  const taker = Number(process.env.KRAKEN_TAKER_FEE_PCT ?? 0.004); // 0.40%
-  const maker = Number(process.env.KRAKEN_MAKER_FEE_PCT ?? 0.0025); // 0.25%
-  // Entries post-only (maker) + exit often taker on stop
-  return maker + taker + Math.max(0, spreadPct) * 2;
+/**
+ * Round-trip cost fraction for cost filter.
+ * - maker_maker (fast / RANGE_GRID): maker+maker+spread → ~0.80% + spread
+ * - maker_taker (stop/time primary): maker+taker+spread → ~1.20% + spread
+ * Live rates from TradeVolume cache (default 0.40%/0.80%).
+ */
+export function estimateRoundTripCostPct(
+  spreadPct: number,
+  strategyId?: string,
+): number {
+  const maker = getMakerFeePct();
+  const taker = getTakerFeePct();
+  const spread = Math.max(0, spreadPct);
+  const mode = strategyId
+    ? strategyCostFilterMode(strategyId)
+    : "maker_taker";
+  if (mode === "maker_maker") {
+    return maker + maker + spread;
+  }
+  return maker + taker + spread;
 }
 
 /**
- * Fast strategies: post-only in + post-only TP out → maker+maker+mid spread.
- * Min target ≈ 1.5% when spread≈0; also require spread < 0.1%.
+ * Fast strategies: post-only in + post-only TP out → maker+maker+spread.
+ * With account fees 0.40%+0.40% → min target ≥ ~2.4% (+ spread×3 via passesCostFilter).
  */
 export function estimateFastRoundTripCostPct(spreadPct: number): number {
-  const maker = Number(process.env.KRAKEN_MAKER_FEE_PCT ?? 0.0025);
-  return maker + maker + Math.max(0, spreadPct);
+  return estimateRoundTripCostPct(spreadPct, "MICRO_BREAKOUT_1M");
 }
 
 export const FAST_MAX_SPREAD_PCT = 0.001; // 0.1%
 
-/** Discard if expected move to TP < 3 × round-trip cost. */
+/** Discard if expected move to TP < 3 × real round-trip cost. */
 export function passesCostFilter(
   signal: CryptoStrategySignal,
   spreadPct: number,
 ): boolean {
   if (signal.direction !== "BUY") return false;
   if (isFastCryptoStrategy(signal.strategyId)) {
-    // Spread is a hard gate; 3× uses fee-only cost so min target stays ~1.5%.
+    // Spread is a hard gate; fee RT uses live maker+maker.
     if (spreadPct >= FAST_MAX_SPREAD_PCT) return false;
     const feeCost = estimateFastRoundTripCostPct(0);
-    return signal.expectedMovePct >= feeCost * 3;
+    return signal.expectedMovePct + 1e-12 >= feeCost * 3;
   }
-  const cost = estimateRoundTripCostPct(spreadPct);
-  return signal.expectedMovePct >= cost * 3;
+  const cost = estimateRoundTripCostPct(spreadPct, signal.strategyId);
+  return signal.expectedMovePct + 1e-12 >= cost * 3;
 }
+
+export { strategyCostFilterMode };
 
 export type EvaluatePairOpts = {
   openGridLevels?: number;
@@ -240,7 +260,7 @@ export function rankSignals(
       ticker && ticker.bid > 0 && ticker.ask > 0
         ? (ticker.ask - ticker.bid) / ticker.mid
         : 0.001;
-    const cost = estimateRoundTripCostPct(spreadPct);
+    const cost = estimateRoundTripCostPct(spreadPct, s.strategyId);
     const netMove = Math.max(0, s.expectedMovePct - cost);
     const rel = reliability[s.strategyId] ?? 1;
     const score = s.confidence * netMove * Math.max(0.2, rel);

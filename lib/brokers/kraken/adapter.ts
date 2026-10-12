@@ -484,6 +484,21 @@ export class KrakenAdapter {
     return out;
   }
 
+  /**
+   * Account fee schedule from TradeVolume (fee-info=true).
+   * fees = taker %, fees_maker = maker % (Kraken percent strings).
+   */
+  async getTradeVolume(pair?: string): Promise<{
+    currency?: string;
+    volume?: string | number;
+    fees?: Record<string, { fee?: string | number }>;
+    fees_maker?: Record<string, { fee?: string | number }>;
+  }> {
+    const params: Record<string, string | number> = { "fee-info": "true" };
+    if (pair?.trim()) params.pair = pair.trim().toUpperCase();
+    return privatePost("/0/private/TradeVolume", params);
+  }
+
   /** Aggressive limit sell of full position qty (price × (1 − discount)). */
   async closePosition(args: {
     symbol: string;

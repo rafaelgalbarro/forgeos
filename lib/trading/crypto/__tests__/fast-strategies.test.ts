@@ -22,10 +22,14 @@ function bar(
 }
 
 describe("fast strategies + cost filter", () => {
-  it("fast cost filter requires ~1.5% target and spread < 0.1%", () => {
+  it("fast cost filter requires ~2.4% target (maker+maker 0.40%) and spread < 0.1%", async () => {
+    const { __setFeeScheduleForTests } = await import(
+      "@/lib/trading/crypto/fee-schedule"
+    );
+    __setFeeScheduleForTests({ maker: 0.004, taker: 0.008, source: "cache" });
     const cost = estimateFastRoundTripCostPct(0);
-    expect(cost).toBeCloseTo(0.005, 4); // 0.25+0.25
-    expect(cost * 3).toBeCloseTo(0.015, 4);
+    expect(cost).toBeCloseTo(0.008, 4); // 0.40+0.40
+    expect(cost * 3).toBeCloseTo(0.024, 4);
 
     const buy = {
       strategyId: "MICRO_BREAKOUT_1M" as const,
@@ -34,8 +38,8 @@ describe("fast strategies + cost filter", () => {
       reasoning: "t",
       entry: 100,
       stopLoss: 99.3,
-      takeProfit: 101.5,
-      expectedMovePct: 0.015,
+      takeProfit: 102.5,
+      expectedMovePct: 0.024,
       maxHoldMs: 30 * 60_000,
       atr: 0.7,
       stopLossPct: 0.007,
@@ -43,7 +47,8 @@ describe("fast strategies + cost filter", () => {
     };
     expect(passesCostFilter(buy, 0.0005)).toBe(true);
     expect(passesCostFilter(buy, 0.0015)).toBe(false); // spread ≥ 0.1%
-    expect(passesCostFilter({ ...buy, expectedMovePct: 0.01 }, 0)).toBe(false);
+    expect(passesCostFilter({ ...buy, expectedMovePct: 0.015 }, 0)).toBe(false);
+    __setFeeScheduleForTests(null);
   });
 
   it("MICRO_BREAKOUT_1M fires on high break + vol + book imbalance", () => {
@@ -67,7 +72,7 @@ describe("fast strategies + cost filter", () => {
     };
     const sig = evaluateMicroBreakout1m(bars, book);
     expect(sig.direction).toBe("BUY");
-    expect(sig.expectedMovePct).toBe(0.015);
+    expect(sig.expectedMovePct).toBe(0.025);
   });
 
   it("MOMENTUM_IGNITION_1M requires top-5 + 3 green rising vol + pullback", () => {

@@ -99,7 +99,6 @@ import {
 } from "@/lib/trading/crypto/live-strategies";
 import { autoDegradePromoteStrategies } from "@/lib/trading/crypto/strategy-status";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
-import { registerExecutedPosition } from "@/src/core/trading/position-monitor";
 import {
   isCryptoEngineExternal,
   isCryptoEngineStandalone,
@@ -110,6 +109,16 @@ import {
   recordCryptoEngineRestart,
   runCryptoEngineAlarms,
 } from "@/lib/trading/crypto/alarms";
+import {
+  registerCryptoExitPosition,
+  reconcileOpenJournalWithExitRegistry,
+} from "@/lib/trading/exit-manager";
+import {
+  getMakerFeePct,
+  getTakerFeePct,
+  startKrakenFeeScheduleRefresh,
+} from "@/lib/trading/crypto/fee-schedule";
+import { recordFullClose } from "@/lib/trading/trailing-registry";
 
 export type EngineStatus = {
   started: boolean;
@@ -248,11 +257,22 @@ export async function startKrakenEngine(): Promise<void> {
   startRegimeScheduler();
   await updateMarketRegime().catch(() => undefined);
 
+  startKrakenFeeScheduleRefresh();
+
   try {
     await reconcileKrakenForgeOsPositions();
   } catch (err) {
     console.warn(
       "[Kraken/Reconcile]",
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  try {
+    await reconcileOpenJournalWithExitRegistry();
+  } catch (err) {
+    console.warn(
+      "[ExitRegistry/Reconcile]",
       err instanceof Error ? err.message : err,
     );
   }
@@ -421,6 +441,16 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
         continue;
       }
 
+      // Fresh CRYPTO_LIVE_STRATEGIES check immediately before sending the order
+      if (!isCryptoStrategyLive(sig.strategyId)) {
+        await reservation.release(sig.pair);
+        held.push(`${sig.pair}:strategy_not_live`);
+        console.log(
+          `[Kraken/Fast] HOLD ${sig.pair} ${sig.strategyId} — removed from CRYPTO_LIVE_STRATEGIES before send`,
+        );
+        continue;
+      }
+
       try {
         const order = await adapter.placeOrder({
           symbol: sig.pair,
@@ -449,6 +479,11 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
 
         await reservation.commit(sig.pair);
         recordFastTradeOpened();
+        const fillQty = st!.volExec || order.volume;
+        const fillFee =
+          st!.fee > 0
+            ? st!.fee
+            : fillQty * order.price * getMakerFeePct(sig.pair);
         appendCryptoJournal({
           at: new Date().toISOString(),
           strategy: sig.strategyId,
@@ -459,7 +494,7 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
           exit: null,
           exitReason: null,
           grossPnlEur: null,
-          feesEur: st!.fee,
+          feesEur: fillFee,
           netPnlEur: null,
           durationMs: null,
           mfePct: null,
@@ -469,16 +504,27 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
           signalKey: sig.signalKey,
           stopLoss: sig.stopLoss,
           takeProfit: sig.takeProfit,
-          qty: st!.volExec || order.volume,
+          qty: fillQty,
           orderId: order.orderId,
         });
 
-        // Post-only limit TP immediately on fill (never chase).
+        // Same-step exit-manager registration (never IBKR PositionMonitor)
+        registerCryptoExitPosition({
+          symbol: sig.pair,
+          entryPrice: order.price,
+          stopLoss: sig.stopLoss,
+          takeProfit: sig.takeProfit,
+          qty: fillQty,
+          strategy: sig.strategyId,
+          orderId: order.orderId,
+        });
+
+        // Post-only limit TP immediately on fill (never chase / never taker).
         await adapter
           .placeOrder({
             symbol: sig.pair,
             side: "sell",
-            volume: st!.volExec || order.volume,
+            volume: fillQty,
             price: sig.takeProfit,
             oflags: "post",
           })
@@ -489,19 +535,12 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
             ),
           );
 
-        await registerExecutedPosition({
-          ticker: sig.pair,
-          shares: st!.volExec || order.volume,
-          entryPrice: order.price,
-          stopLoss: sig.stopLoss,
-          takeProfit: sig.takeProfit,
-          orderId: order.orderId,
-        }).catch(() => undefined);
-
         executed.push(`${sig.pair}:${sig.strategyId}`);
-        void sendTelegramMessage(
-          `⚡ BUY FAST ${sig.pair} ${st!.volExec || order.volume} @ €${order.price.toFixed(4)} | ${sig.strategyId}`,
-        ).catch(() => undefined);
+        const buyLine =
+          `⚡ BUY FAST ₿ KRAKEN ${sig.pair} ${fillQty} @ €${order.price.toFixed(4)} | ` +
+          `${sig.strategyId} fee €${fillFee.toFixed(4)} SL €${sig.stopLoss.toFixed(4)} TP €${sig.takeProfit.toFixed(4)}`;
+        console.log(`[Kraken/Fast] ${buyLine}`);
+        void sendTelegramMessage(buyLine).catch(() => undefined);
         break; // max 1 fast position
       } catch (err) {
         await reservation.release(sig.pair);
@@ -564,7 +603,9 @@ async function runShadowExits(): Promise<void> {
       open,
       exit: exitPx,
       exitReason: reason,
-      feesEur: entry * 0.0025 + exitPx * 0.004, // maker in + taker out estimate
+      feesEur:
+        entry * getMakerFeePct(open.pair) +
+        exitPx * getTakerFeePct(open.pair),
       mfePct: (peak - entry) / entry,
       maePct: null,
     });
@@ -645,8 +686,12 @@ async function runKrakenExits(): Promise<void> {
     if (!reason) continue;
 
     const discount = cryptoSellAggressiveDiscountPct();
-    const aggressive = reason === "STOP_LOSS" || reason === "MAX_HOLD";
-    const limit = aggressive ? mid * (1 - discount) : mid; // post-only attempt at mid for TP
+    // TP / trailing / partial → ALWAYS maker (post-only). ONLY stop + time → taker (aggressive).
+    const takerExit =
+      reason === "STOP_LOSS" ||
+      reason === "MAX_HOLD" ||
+      reason === "BREAKEVEN";
+    const limit = takerExit ? mid * (1 - discount) : Math.max(mid, tp);
     const qty = reason === "PARTIAL_TP" ? pos.qty / 2 : pos.qty;
 
     try {
@@ -655,10 +700,17 @@ async function runKrakenExits(): Promise<void> {
         side: "sell",
         volume: qty,
         price: limit,
-        oflags: aggressive ? undefined : "post",
+        oflags: takerExit ? undefined : "post",
       });
-      const fees = 0; // filled from trades history async later
-      const pnl = (order.price - entry) * order.volume;
+      const entryFeeRate = getMakerFeePct(pos.symbol);
+      const exitFeeRate = takerExit
+        ? getTakerFeePct(pos.symbol)
+        : getMakerFeePct(pos.symbol);
+      const buyFeeEst = entry * order.volume * entryFeeRate;
+      const sellFeeEst = order.price * order.volume * exitFeeRate;
+      const fees = buyFeeEst + sellFeeEst;
+      const gross = (order.price - entry) * order.volume;
+      const net = gross - fees;
       appendCryptoJournal({
         at: new Date().toISOString(),
         strategy,
@@ -668,15 +720,18 @@ async function runKrakenExits(): Promise<void> {
         entry,
         exit: order.price,
         exitReason: reason,
-        grossPnlEur: pnl,
+        grossPnlEur: gross,
         feesEur: fees,
-        netPnlEur: pnl - fees,
+        netPnlEur: net,
         durationMs: holdMs,
         mfePct: (peak - entry) / entry,
         maePct: null,
         shadow: false,
         rMultiple,
       });
+      if (reason !== "PARTIAL_TP") {
+        recordFullClose(pos.symbol);
+      }
       if (reason === "STOP_LOSS") {
         recordKrakenStopHit();
         if (isFastCryptoStrategy(strategy)) recordFastStop();
@@ -687,8 +742,9 @@ async function runKrakenExits(): Promise<void> {
 
       const line =
         `🔴 SELL ₿ KRAKEN ${pos.symbol} ${order.volume} @ €${order.price.toFixed(4)} | ` +
-        `${reason} ${strategy} neto €${(pnl - fees).toFixed(2)} ` +
+        `${reason} ${strategy} neto €${net.toFixed(2)} fee €${fees.toFixed(4)} ` +
         `(entry €${entry.toFixed(4)} SL €${stop.toFixed(4)} TP €${tp.toFixed(4)})`;
+      console.log(`[Kraken/Exit] ${line}`);
       void sendTelegramMessage(line).catch(() => undefined);
     } catch (err) {
       console.warn(
@@ -936,6 +992,16 @@ export async function runKrakenAnalysisCycle(): Promise<{
       continue;
     }
 
+    // Fresh CRYPTO_LIVE_STRATEGIES check immediately before sending the order
+    if (!isCryptoStrategyLive(sig.strategyId)) {
+      await reservation.release(sig.pair);
+      held.push(`${sig.pair}:strategy_not_live`);
+      console.log(
+        `[Kraken/Cycle] HOLD ${sig.pair} ${sig.strategyId} — removed from CRYPTO_LIVE_STRATEGIES before send`,
+      );
+      continue;
+    }
+
     try {
       const attemptBuy = async (limitPx: number) => {
         const order = await adapter.placeOrder({
@@ -954,13 +1020,18 @@ export async function runKrakenAnalysisCycle(): Promise<{
           (st.status === "closed" || st.volExec >= st.vol * 0.99) &&
           st.volExec > 0;
         if (filled) {
+          const vol = st!.volExec || order.volume;
+          const fee =
+            st!.fee > 0
+              ? st!.fee
+              : vol * order.price * getMakerFeePct(sig.pair);
           return {
             order: {
               ...order,
-              volume: st!.volExec || order.volume,
+              volume: vol,
               price: order.price,
             },
-            fee: st!.fee,
+            fee,
           };
         }
         if (order.orderId) {
@@ -1012,19 +1083,22 @@ export async function runKrakenAnalysisCycle(): Promise<{
         qty: order.volume,
         orderId: order.orderId,
       });
-      await registerExecutedPosition({
-        ticker: sig.pair,
-        shares: order.volume,
+      // Same-step exit-manager registration (never IBKR PositionMonitor)
+      registerCryptoExitPosition({
+        symbol: sig.pair,
         entryPrice: order.price,
         stopLoss: sig.stopLoss,
         takeProfit: sig.takeProfit,
+        qty: order.volume,
+        strategy: sig.strategyId,
         orderId: order.orderId,
-      }).catch(() => undefined);
+      });
 
       const line =
         `🟢 BUY ₿ KRAKEN ${sig.pair} ${order.volume} @ €${order.price.toFixed(4)} | ` +
         `${sig.strategyId} SL €${sig.stopLoss.toFixed(4)} TP €${sig.takeProfit.toFixed(4)} ` +
-        `notional≈€${(order.volume * order.price).toFixed(2)}`;
+        `fee €${filled.fee.toFixed(4)} notional≈€${(order.volume * order.price).toFixed(2)}`;
+      console.log(`[Kraken/Cycle] ${line}`);
       void sendTelegramMessage(line).catch(() => undefined);
       executed.push(`${sig.pair}:${sig.strategyId}`);
     } catch (err) {

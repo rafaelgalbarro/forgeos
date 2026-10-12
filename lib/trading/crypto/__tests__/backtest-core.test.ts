@@ -15,11 +15,13 @@ function bar(t: number, o: number, h: number, l: number, c: number): Bar {
 }
 
 describe("backtest-core PnL", () => {
-  it("+2% move → net ≈ +2% − maker − taker", () => {
+  it("+2% move → net ≈ +2% − maker 0.40% − taker 0.80%", () => {
     const entry = 100;
     const exit = 102;
     const net = netPnlPctFromPrices(entry, exit);
     const expected = (0.02 - BT_MAKER - BT_TAKER) * 100;
+    expect(BT_MAKER).toBeCloseTo(0.004, 6);
+    expect(BT_TAKER).toBeCloseTo(0.008, 6);
     expect(net).toBeCloseTo(expected, 6);
   });
 
@@ -56,7 +58,8 @@ describe("backtest-core PnL", () => {
     expect(fill).not.toBeNull();
     expect(fill!.exitKind).toBe("take_profit");
     expect(fill!.grossPct).toBeCloseTo(2, 5);
-    expect(fill!.netPct).toBeCloseTo((0.02 - BT_MAKER - BT_TAKER) * 100, 5);
+    // TP exit uses maker+maker
+    expect(fill!.netPct).toBeCloseTo((0.02 - BT_MAKER - BT_MAKER) * 100, 5);
   });
 
   it("simulateLongTrade: stop hit yields ~−3% gross", () => {

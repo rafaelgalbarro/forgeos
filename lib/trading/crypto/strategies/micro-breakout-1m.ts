@@ -12,7 +12,7 @@ function bookImbalance(book: BookSnap | null): number | null {
 
 /**
  * MICRO_BREAKOUT_1M: break 15×1m high, vol > 3× avg, bids > 1.5× asks (L10).
- * TP +1.5%, SL −0.7%, max hold 30m.
+ * TP +2.5% (≥3× maker+maker @ 0.40%), SL −0.7%, max hold 30m.
  */
 export function evaluateMicroBreakout1m(
   bars1m: readonly Bar[],
@@ -38,8 +38,8 @@ export function evaluateMicroBreakout1m(
     reasoning: `MICRO_BREAKOUT_1M high15 volRel=${rv.toFixed(1)} imb=${imb.toFixed(2)}`,
     entry: price,
     stopLoss: price * (1 - 0.007),
-    takeProfit: price * (1 + 0.015),
-    expectedMovePct: 0.015,
+    takeProfit: price * (1 + 0.025),
+    expectedMovePct: 0.025,
     maxHoldMs: 30 * 60_000,
     atr: price * 0.007,
     stopLossPct: 0.007,

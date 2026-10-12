@@ -31,8 +31,12 @@ import {
   EXIT_TRAIL_ACTIVATE_PCT,
   EXIT_TRAIL_DROP_PCT,
   clearTrailingForOpen,
+  evaluateRegisteredStopOrTarget,
   getTrailingState,
+  isExitRegistered,
+  purgeNonCryptoFromTrailingRegistry,
   recordFullClose,
+  registerCryptoExitPosition,
   upsertTrailingState,
 } from "@/lib/trading/trailing-registry";
 import {
@@ -52,6 +56,14 @@ import {
 } from "@/lib/trading/crypto/config";
 import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 import { loadTradingState } from "@/src/core/trading/trading-state-store";
+import { listOpenCryptoJournal } from "@/lib/trading/crypto/journal-crypto";
+import { maxHoldMsForStrategy } from "@/lib/trading/crypto/reconcile";
+
+export {
+  registerCryptoExitPosition,
+  isExitRegistered,
+  purgeNonCryptoFromTrailingRegistry,
+} from "@/lib/trading/trailing-registry";
 
 export const DEFAULT_EXIT_STOP_LOSS_PCT = EXIT_STOP_LOSS_PCT;
 export const DEFAULT_EXIT_TAKE_PROFIT_PCT = EXIT_TRAIL_ACTIVATE_PCT;
@@ -157,7 +169,11 @@ function stockPositions(rows: IbkrPositionRow[]): OpenPositionRow[] {
   return out;
 }
 
-function decideExit(pos: OpenPositionRow): ExitAction | null {
+/**
+ * Evaluate exit for one position (exported for E2E tests).
+ * Absolute SL/TP from exit registry take precedence; then % stop / trailing / time.
+ */
+export function decideExit(pos: OpenPositionRow): ExitAction | null {
   const entry = pos.avgCost;
   const price = pos.currentPrice;
   const qty = pos.qty;
@@ -169,10 +185,16 @@ function decideExit(pos: OpenPositionRow): ExitAction | null {
       : (price - entry) / entry;
   const pnlUSD = (price - entry) * qty;
 
-  // Crypto: force close after 24h
-  if (pos.openedAt) {
-    const openedMs = Date.parse(pos.openedAt);
-    if (Number.isFinite(openedMs) && Date.now() - openedMs >= CRYPTO_MAX_HOLD_MS) {
+  let state = getTrailingState(pos.symbol);
+  const openedAt = pos.openedAt ?? state?.openedAt;
+  const strategy = state?.strategy;
+  const maxHold =
+    strategy != null ? maxHoldMsForStrategy(strategy) : CRYPTO_MAX_HOLD_MS;
+
+  // Time exit
+  if (openedAt) {
+    const openedMs = Date.parse(openedAt);
+    if (Number.isFinite(openedMs) && Date.now() - openedMs >= maxHold) {
       return {
         symbol: pos.symbol,
         side: "SELL",
@@ -186,7 +208,25 @@ function decideExit(pos: OpenPositionRow): ExitAction | null {
     }
   }
 
-  // Hard stop −3%
+  // Absolute stop / target from exit-manager registration
+  const absHit = evaluateRegisteredStopOrTarget({
+    symbol: pos.symbol,
+    price,
+  });
+  if (absHit === "STOP_LOSS" || absHit === "TAKE_PROFIT") {
+    return {
+      symbol: pos.symbol,
+      side: "SELL",
+      qty,
+      price,
+      entry,
+      pnlPct,
+      pnlUSD,
+      reason: absHit,
+    };
+  }
+
+  // Hard stop −3% (fallback when no absolute SL registered)
   if (pnlPct <= -EXIT_STOP_LOSS_PCT) {
     return {
       symbol: pos.symbol,
@@ -200,7 +240,6 @@ function decideExit(pos: OpenPositionRow): ExitAction | null {
     };
   }
 
-  let state = getTrailingState(pos.symbol);
   if (!state || !(state.peak > 0)) {
     state = clearTrailingForOpen(pos.symbol, Math.max(entry, price));
   }
@@ -652,4 +691,77 @@ let singleton: ExitManager | null = null;
 export function getExitManager(): ExitManager {
   if (!singleton) singleton = new ExitManager();
   return singleton;
+}
+
+export type ReconcileExitRegistryResult = {
+  registered: string[];
+  already: string[];
+  alerts: string[];
+};
+
+/**
+ * On engine start: every open real journal BUY must be in the exit registry.
+ * Missing → register from journal SL/TP (or defaults) OR raise Telegram alert.
+ */
+export async function reconcileOpenJournalWithExitRegistry(): Promise<ReconcileExitRegistryResult> {
+  purgeNonCryptoFromTrailingRegistry();
+  const opens = listOpenCryptoJournal({ shadow: false });
+  const registered: string[] = [];
+  const already: string[] = [];
+  const alerts: string[] = [];
+
+  for (const open of opens) {
+    const pair = open.pair.toUpperCase().replace("/", "");
+    if (isExitRegistered(pair)) {
+      already.push(pair);
+      continue;
+    }
+    const entry = open.entry > 0 ? open.entry : 0;
+    if (!(entry > 0)) {
+      const msg =
+        `⚠️ EXIT REGISTRY: open journal ${pair} sin entry — no se pudo registrar`;
+      alerts.push(msg);
+      console.error(`[ExitRegistry] ${msg}`);
+      void sendTelegramMessage(msg).catch(() => undefined);
+      continue;
+    }
+    const sl =
+      open.stopLoss != null && open.stopLoss > 0
+        ? open.stopLoss
+        : entry * (1 - EXIT_STOP_LOSS_PCT);
+    const tp =
+      open.takeProfit != null && open.takeProfit > 0
+        ? open.takeProfit
+        : entry * (1 + EXIT_TRAIL_ACTIVATE_PCT);
+    try {
+      registerCryptoExitPosition({
+        symbol: pair,
+        entryPrice: entry,
+        stopLoss: sl,
+        takeProfit: tp,
+        qty: open.qty && open.qty > 0 ? open.qty : 0,
+        openedAt: open.at,
+        strategy: String(open.strategy),
+        orderId: open.orderId,
+      });
+      registered.push(pair);
+      const line =
+        `🔧 EXIT REGISTRY: adoptada ${pair} entry=${entry} SL=${sl} TP=${tp} ` +
+        `(journal open sin registro previo)`;
+      console.warn(`[ExitRegistry] ${line}`);
+      void sendTelegramMessage(line).catch(() => undefined);
+    } catch (err) {
+      const msg =
+        `⚠️ EXIT REGISTRY FAIL ${pair}: ${err instanceof Error ? err.message : String(err)}`;
+      alerts.push(msg);
+      console.error(`[ExitRegistry] ${msg}`);
+      void sendTelegramMessage(msg).catch(() => undefined);
+    }
+  }
+
+  console.log(
+    `[ExitRegistry] reconcile open=${opens.length} registered=${registered.length} ` +
+      `already=${already.length} alerts=${alerts.length}`,
+  );
+  return { registered, already, alerts };
 }

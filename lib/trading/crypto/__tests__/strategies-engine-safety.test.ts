@@ -181,10 +181,15 @@ describe("crypto engine safety (12 strategies)", () => {
     expect(isCryptoStrategyLive("RANGE_GRID_15M")).toBe(false);
   });
 
-  it("OTC-style: cost filter requires ≥3× round-trip", async () => {
+  it("OTC-style: cost filter requires ≥3× round-trip (maker+taker account fees)", async () => {
+    const { __setFeeScheduleForTests } = await import(
+      "@/lib/trading/crypto/fee-schedule"
+    );
+    __setFeeScheduleForTests({ maker: 0.004, taker: 0.008, source: "cache" });
     const { passesCostFilter } = await import(
       "@/lib/trading/crypto/strategies/index"
     );
+    // maker 0.40% + taker 0.80% + spread 0.1% = 1.3%; 3× = 3.9%
     const ok = passesCostFilter(
       {
         strategyId: "EMA_CROSS_15M",
@@ -193,8 +198,8 @@ describe("crypto engine safety (12 strategies)", () => {
         reasoning: "t",
         entry: 100,
         stopLoss: 99,
-        takeProfit: 103,
-        expectedMovePct: 0.03,
+        takeProfit: 104,
+        expectedMovePct: 0.04,
         maxHoldMs: 1,
         atr: 1,
         stopLossPct: 0.01,
@@ -202,7 +207,6 @@ describe("crypto engine safety (12 strategies)", () => {
       },
       0.001,
     );
-    // maker 0.25% + taker 0.40% + spread ≈ 0.85%; 3× ≈ 2.55% — 3% passes
     expect(ok).toBe(true);
     const fail = passesCostFilter(
       {
@@ -222,5 +226,6 @@ describe("crypto engine safety (12 strategies)", () => {
       0.001,
     );
     expect(fail).toBe(false);
+    __setFeeScheduleForTests(null);
   });
 });

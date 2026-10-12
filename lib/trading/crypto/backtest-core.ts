@@ -1,12 +1,44 @@
 /**
  * Shared backtest PnL / equity / fill logic — used by scripts/crypto-backtest.ts + tests.
  * No lookahead: signal on closed bar i; entry on later bar; exit after entry bar.
+ *
+ * Fees: account schedule (TradeVolume cache) with defaults maker 0.40% / taker 0.80%.
  */
 
 import type { Bar } from "@/lib/brokers/kraken/market-store";
+import {
+  DEFAULT_KRAKEN_MAKER_FEE,
+  DEFAULT_KRAKEN_TAKER_FEE,
+  getMakerFeePct,
+  getTakerFeePct,
+  readCachedFeeSchedule,
+} from "@/lib/trading/crypto/fee-schedule";
 
-export const BT_MAKER = 0.0025;
-export const BT_TAKER = 0.004;
+/** @deprecated Prefer getBacktestMakerFee() — kept as alias to account-tier default. */
+export const BT_MAKER = DEFAULT_KRAKEN_MAKER_FEE;
+/** @deprecated Prefer getBacktestTakerFee() — kept as alias to account-tier default. */
+export const BT_TAKER = DEFAULT_KRAKEN_TAKER_FEE;
+
+export function getBacktestMakerFee(): number {
+  try {
+    // Prefer live/cache schedule; falls back to 0.40%
+    const cached = readCachedFeeSchedule();
+    if (cached.source === "trade_volume" || cached.source === "cache") {
+      return getMakerFeePct();
+    }
+    return getMakerFeePct();
+  } catch {
+    return DEFAULT_KRAKEN_MAKER_FEE;
+  }
+}
+
+export function getBacktestTakerFee(): number {
+  try {
+    return getTakerFeePct();
+  } catch {
+    return DEFAULT_KRAKEN_TAKER_FEE;
+  }
+}
 
 export type BacktestExitKind = "take_profit" | "stop" | "timeout" | "signal";
 
@@ -22,12 +54,19 @@ export type SimulatedFill = {
 
 /** Round-trip cost as fraction of notional (maker entry + taker exit + spread). */
 export function roundTripCostFraction(spreadPct = 0.001): number {
-  return BT_MAKER + BT_TAKER + Math.max(0, spreadPct) * 2;
+  return getBacktestMakerFee() + getBacktestTakerFee() + Math.max(0, spreadPct) * 2;
+}
+
+/** Maker+maker RT for strategies with post-only TP primary. */
+export function makerMakerRoundTripFraction(spreadPct = 0): number {
+  const m = getBacktestMakerFee();
+  return m + m + Math.max(0, spreadPct);
 }
 
 /**
  * Net P&L % of notional from entry→exit prices.
  * Fees are fractions of notional (not of price incorrectly scaled).
+ * Default: maker entry + taker exit (stop/time path). TP path should pass exitFee=maker.
  */
 export function netPnlPctFromPrices(
   entry: number,
@@ -37,8 +76,8 @@ export function netPnlPctFromPrices(
   if (!(entry > 0)) return 0;
   const gross = (exit - entry) / entry;
   const fees =
-    (opts?.entryFee ?? BT_MAKER) +
-    (opts?.exitFee ?? BT_TAKER) +
+    (opts?.entryFee ?? getBacktestMakerFee()) +
+    (opts?.exitFee ?? getBacktestTakerFee()) +
     Math.max(0, opts?.spreadPct ?? 0) * 2;
   return (gross - fees) * 100;
 }
@@ -65,6 +104,7 @@ export function compoundMaxDrawdownPct(netPctSeries: readonly number[]): number 
  * Simulate long: entry at `entryPrice` on entryBarIndex.
  * Stop/TP checked from entryBarIndex+1 onward (never same bar as entry without path).
  * If both hit same bar → assume worst case (stop first).
+ * Fees: TP exit = maker+maker; stop/timeout = maker+taker.
  */
 export function simulateLongTrade(params: {
   bars: readonly Bar[];
@@ -111,7 +151,13 @@ export function simulateLongTrade(params: {
       exitKind = "timeout";
     }
   }
-  const netPct = netPnlPctFromPrices(entryPrice, exit);
+  const maker = getBacktestMakerFee();
+  const taker = getBacktestTakerFee();
+  const exitFee = exitKind === "take_profit" ? maker : taker;
+  const netPct = netPnlPctFromPrices(entryPrice, exit, {
+    entryFee: maker,
+    exitFee,
+  });
   return {
     entry: entryPrice,
     exit,

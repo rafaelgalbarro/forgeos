@@ -41,6 +41,18 @@ import {
   listPermanentSkipTickers,
   shouldSkipUntradeableTicker,
 } from "./untradeable-tickers";
+import { isLegacyOrphanTicker } from "@/lib/trading/forgeos-owned";
+import {
+  assertIbkrTradable,
+  isIbkrNonTradable,
+} from "@/lib/trading/ibkr-non-tradable";
+import {
+  assertStocksExecutionAllowed,
+  isStocksExecutionEnabled,
+} from "@/lib/trading/stocks-execution-gate";
+import { isCryptoTrailingSymbol } from "@/lib/trading/trailing-registry";
+import { isAlpacaCryptoTicker } from "@/lib/brokers/alpaca-pairs";
+import { isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
 
 const MONITOR_INTERVAL_MS = 30_000;
 const STALE_HOURS = 24;
@@ -61,6 +73,39 @@ function isConfirmedIbkrOrderId(orderId: string | null | undefined): boolean {
   if (!s || s.toLowerCase() === "n/a") return false;
   if (s.toUpperCase().startsWith("PAPER_")) return false;
   return true;
+}
+
+/** Crypto pairs must never enter IBKR PositionMonitor (use ExitManager). */
+function isCryptoMonitorTicker(ticker: string): boolean {
+  const t = ticker.trim().toUpperCase().replace("/", "");
+  if (!t) return false;
+  if (isCryptoTrailingSymbol(t)) return true;
+  if (isAlpacaCryptoTicker(t)) return true;
+  if (isIbkrCryptoTicker(t)) return true;
+  return false;
+}
+
+/** Pre-SELL guards: orphan / non-tradable (fresh disk) / stocks execution gate. */
+function assertPositionMonitorSellAllowed(ticker: string): void {
+  const t = ticker.trim().toUpperCase();
+  if (isLegacyOrphanTicker(t)) {
+    throw new Error(`${t}: legacy orphan — PositionMonitor no SELL`);
+  }
+  if (isCryptoMonitorTicker(t)) {
+    throw new Error(`${t}: crypto — PositionMonitor no SELL (ExitManager)`);
+  }
+  // Fresh disk read of ibkr-non-tradable.json
+  if (isIbkrNonTradable(t)) {
+    assertIbkrTradable(t); // throws with detail
+  }
+  // Enforce gate semantics (SELL only blocked by global pause)
+  assertStocksExecutionAllowed({ side: "SELL" });
+  // Also respect STOCKS_EXECUTION_ENABLED for auto PositionMonitor exits
+  if (!isStocksExecutionEnabled()) {
+    throw new Error(
+      `${t}: STOCKS_EXECUTION_ENABLED=false — PositionMonitor no SELL`,
+    );
+  }
 }
 
 /** In-memory SL/TP registry (survives within the Node process). */
@@ -306,6 +351,13 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
 
   // Drop registry entries that are no longer open in IBKR, or already sold today
   for (const t of [...positionSLTP.keys()]) {
+    if (isLegacyOrphanTicker(t) || isCryptoMonitorTicker(t) || isIbkrNonTradable(t)) {
+      dropFromRegistry(t);
+      console.log(
+        `[PositionMonitor] ${t} orphan/crypto/non-tradable — eliminada del registro`,
+      );
+      continue;
+    }
     if (isSellBlacklisted(t)) {
       dropFromRegistry(t);
       console.log(`[PositionMonitor] ${t} en sellBlacklist — eliminada del registro`);
@@ -317,12 +369,15 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
     console.log(`[PositionMonitor] ${t} qty=0 en IBKR — eliminada del registro`);
   }
 
-  // Persist: only symbols that exist in IBKR with qty > 0 (never blacklist)
+  // Persist: only symbols that exist in IBKR with qty > 0 (never blacklist / orphan / crypto)
   updateTradingState((state) => ({
     ...state,
     monitoredPositions: state.monitoredPositions.filter((p) => {
       const t = p.ticker.toUpperCase();
       if (shouldSkipUntradeableTicker(t) || isSellBlacklisted(t)) return false;
+      if (isLegacyOrphanTicker(t) || isCryptoMonitorTicker(t) || isIbkrNonTradable(t)) {
+        return false;
+      }
       return ibkrOpen.has(t);
     }),
   }));
@@ -348,9 +403,19 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   const active: string[] = [];
   for (const row of ibkrRows) {
     const ticker = String(row.symbol ?? "").trim().toUpperCase();
-    if (!ticker || shouldSkipUntradeableTicker(ticker) || isSellBlacklisted(ticker)) {
+    if (
+      !ticker ||
+      shouldSkipUntradeableTicker(ticker) ||
+      isSellBlacklisted(ticker) ||
+      isLegacyOrphanTicker(ticker) ||
+      isCryptoMonitorTicker(ticker) ||
+      isIbkrNonTradable(ticker)
+    ) {
       if (ticker && isSellBlacklisted(ticker)) {
         console.log(`[PositionMonitor] ${ticker} sellBlacklist — no re-registrar / no SELL`);
+      }
+      if (ticker && isLegacyOrphanTicker(ticker)) {
+        console.log(`[PositionMonitor] ${ticker} legacy orphan — no re-registrar / no SELL`);
       }
       continue;
     }
@@ -543,6 +608,16 @@ async function beginExitSell(
 ): Promise<ExitSellResult> {
   const ticker = pos.ticker.toUpperCase();
   const mem = positionSLTP.get(ticker);
+
+  try {
+    assertPositionMonitorSellAllowed(ticker);
+  } catch (err) {
+    dropFromRegistry(ticker);
+    console.log(
+      `[PositionMonitor] ${ticker} SELL bloqueado — ${err instanceof Error ? err.message : err}`,
+    );
+    return { status: "skipped", reason: "blocked" };
+  }
 
   if (isSellBlacklisted(ticker)) {
     dropFromRegistry(ticker);
@@ -864,15 +939,27 @@ export function startPositionMonitor(): void {
         err instanceof Error ? err.message : err,
       );
     }
-    // Clear persisted monitors that are not live IBKR (or blacklisted)
+    // Clear persisted monitors that are not live IBKR (or blacklisted / orphan / crypto)
     updateTradingState((state) => ({
       ...state,
-      monitoredPositions: state.monitoredPositions.filter(
-        (p) => !isSellBlacklisted(p.ticker) && !shouldSkipUntradeableTicker(p.ticker),
-      ),
+      monitoredPositions: state.monitoredPositions.filter((p) => {
+        const t = p.ticker.toUpperCase();
+        if (isSellBlacklisted(t) || shouldSkipUntradeableTicker(t)) return false;
+        if (isLegacyOrphanTicker(t) || isCryptoMonitorTicker(t) || isIbkrNonTradable(t)) {
+          return false;
+        }
+        return true;
+      }),
     }));
     for (const t of [...positionSLTP.keys()]) {
-      if (isSellBlacklisted(t)) dropFromRegistry(t);
+      if (
+        isSellBlacklisted(t) ||
+        isLegacyOrphanTicker(t) ||
+        isCryptoMonitorTicker(t) ||
+        isIbkrNonTradable(t)
+      ) {
+        dropFromRegistry(t);
+      }
     }
     console.log(
       `[PositionMonitor] startup blacklist=${[...sellBlacklist].join(",") || "(vacía)"}`,
@@ -900,6 +987,25 @@ export async function registerExecutedPosition(params: {
   account?: string;
 }): Promise<void> {
   const ticker = params.ticker.trim().toUpperCase();
+
+  // Crypto must never enter IBKR PositionMonitor — ExitManager owns crypto exits
+  if (isCryptoMonitorTicker(ticker)) {
+    console.warn(
+      `[PositionMonitor] skip crypto ${ticker} — register via ExitManager / crypto-trailing.json`,
+    );
+    return;
+  }
+  if (isLegacyOrphanTicker(ticker)) {
+    console.warn(`[PositionMonitor] skip legacy orphan ${ticker} — no monitor`);
+    return;
+  }
+  if (isIbkrNonTradable(ticker)) {
+    console.warn(
+      `[PositionMonitor] skip non-tradable ${ticker} — ibkr-non-tradable.json`,
+    );
+    return;
+  }
+
   const entry = params.entryPrice > 0 ? params.entryPrice : 0;
   const sl =
     params.stopLoss && params.stopLoss > 0

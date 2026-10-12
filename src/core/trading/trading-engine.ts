@@ -1828,23 +1828,23 @@ export class TradingEngine {
         open: true,
       })
 
-      await registerExecutedPosition({
-        ticker: pair,
-        shares: submitted.volume,
+      const { registerCryptoExitPosition } = await import(
+        '@/lib/trading/exit-manager'
+      )
+      registerCryptoExitPosition({
+        symbol: pair,
         entryPrice: submitted.price,
         stopLoss: buy.stopLoss,
         takeProfit: buy.takeProfit,
+        qty: submitted.volume,
+        strategy: buy.strategyId,
         orderId: submitted.orderId,
-      }).catch((err) =>
-        console.warn(
-          `[PositionMonitor] register Kraken ${pair}:`,
-          err instanceof Error ? err.message : err,
-        ),
-      )
+      })
 
       const buyLine =
         `🟢 BUY ₿ KRAKEN ${pair} ${submitted.volume} @ €${submitted.price.toFixed(4)} | ` +
-        `${buy.strategyId} conf=${(buy.confidence * 100).toFixed(0)}%`
+        `${buy.strategyId} conf=${(buy.confidence * 100).toFixed(0)}% SL €${buy.stopLoss.toFixed(4)} TP €${buy.takeProfit.toFixed(4)}`
+      console.log(`[AutoExecute] ${buyLine}`)
       void sendTelegramMessage(buyLine).catch(() => undefined)
 
       return {
@@ -2144,19 +2144,34 @@ export class TradingEngine {
 
       const estShares =
         quote.price > 0 ? ALPACA_CRYPTO_ORDER_NOTIONAL_USD / quote.price : 0
-      await registerExecutedPosition({
-        ticker,
-        shares: estShares,
-        entryPrice: quote.price,
-        stopLoss: signal.stopLoss,
-        takeProfit: signal.takeProfit,
-        orderId: submitted.id,
-      }).catch((err) =>
-        console.warn(
-          `[PositionMonitor] register Alpaca ${ticker}:`,
-          err instanceof Error ? err.message : err,
-        ),
-      )
+      if (asset === 'crypto') {
+        const { registerCryptoExitPosition } = await import(
+          '@/lib/trading/exit-manager'
+        )
+        registerCryptoExitPosition({
+          symbol: ticker,
+          entryPrice: quote.price,
+          stopLoss: signal.stopLoss,
+          takeProfit: signal.takeProfit,
+          qty: estShares,
+          strategy: signal.primaryStrategy,
+          orderId: submitted.id,
+        })
+      } else {
+        await registerExecutedPosition({
+          ticker,
+          shares: estShares,
+          entryPrice: quote.price,
+          stopLoss: signal.stopLoss,
+          takeProfit: signal.takeProfit,
+          orderId: submitted.id,
+        }).catch((err) =>
+          console.warn(
+            `[PositionMonitor] register Alpaca ${ticker}:`,
+            err instanceof Error ? err.message : err,
+          ),
+        )
+      }
 
       return {
         status: 'EXECUTED',

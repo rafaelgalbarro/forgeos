@@ -41,6 +41,19 @@ export function isFastCryptoStrategy(id: string): boolean {
   return FAST_CRYPTO_STRATEGY_SET.has(id);
 }
 
+/**
+ * Cost-filter mode:
+ * - maker_maker: entry plans post-only TP as primary exit (fast + RANGE_GRID)
+ * - maker_taker: primary exit path is often stop / time (taker)
+ */
+export type StrategyCostFilterMode = "maker_maker" | "maker_taker";
+
+export function strategyCostFilterMode(strategyId: string): StrategyCostFilterMode {
+  if (isFastCryptoStrategy(strategyId)) return "maker_maker";
+  if (strategyId === "RANGE_GRID_15M") return "maker_maker";
+  return "maker_taker";
+}
+
 /** Strategies introduced in this release — 48h max 1 open position each. */
 export const NEW_CRYPTO_STRATEGIES: ReadonlySet<CryptoStrategyId> = new Set([
   "RANGE_GRID_15M",

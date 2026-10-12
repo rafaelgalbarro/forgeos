@@ -72,12 +72,17 @@ describe("fast strategies + cost filter", () => {
 
   it("MOMENTUM_IGNITION_1M requires top-5 + 3 green rising vol + pullback", () => {
     const t = 1_700_000_000;
-    const bars: Bar[] = [
-      bar(t, 100, 101, 99, 100.5, 10),
-      bar(t + 60, 100.5, 102, 100, 101.5, 20),
+    const bars: Bar[] = [];
+    // Warm-up bars (strategy requires length >= 6)
+    for (let i = 0; i < 3; i++) {
+      bars.push(bar(t + i * 60, 99, 100, 98, 99.5, 5));
+    }
+    bars.push(
+      bar(t + 3 * 60, 100, 101, 99, 100.5, 10),
+      bar(t + 4 * 60, 100.5, 102, 100, 101.5, 20),
       // last: green with 30-50% pullback from high
-      bar(t + 120, 101.5, 104, 101.5, 103, 40), // pullback (104-103)/(104-101.5)=0.4
-    ];
+      bar(t + 5 * 60, 101.5, 104, 101.5, 103, 40), // pullback (104-103)/(104-101.5)=0.4
+    );
     expect(evaluateMomentumIgnition1m(bars, { isTop5Gainer1h: false }).direction).toBe(
       "HOLD",
     );
@@ -88,13 +93,14 @@ describe("fast strategies + cost filter", () => {
   it("CAPITULATION_REVERSAL_1M recovers half wick", () => {
     const bars: Bar[] = [];
     const t = 1_700_000_000;
-    for (let i = 0; i < 22; i++) {
+    // length >= 25 (23 warm-up + dump + recover)
+    for (let i = 0; i < 23; i++) {
       bars.push(bar(t + i * 60, 100, 101, 99, 100, 10));
     }
     // dump >1.5% with huge vol
-    bars.push(bar(t + 22 * 60, 100, 100, 97, 98, 200));
+    bars.push(bar(t + 23 * 60, 100, 100, 97, 98, 200));
     // recover half wick: mid between close 98 and low 97 = 97.5
-    bars.push(bar(t + 23 * 60, 98, 99, 97.8, 98.6, 30));
+    bars.push(bar(t + 24 * 60, 98, 99, 97.8, 98.6, 30));
     const sig = evaluateCapitulationReversal1m(bars, "LATERAL");
     expect(sig.direction).toBe("BUY");
     expect(evaluateCapitulationReversal1m(bars, "BAJISTA").direction).toBe("HOLD");

@@ -90,9 +90,10 @@ export function passesCostFilter(
 ): boolean {
   if (signal.direction !== "BUY") return false;
   if (isFastCryptoStrategy(signal.strategyId)) {
+    // Spread is a hard gate; 3× uses fee-only cost so min target stays ~1.5%.
     if (spreadPct >= FAST_MAX_SPREAD_PCT) return false;
-    const cost = estimateFastRoundTripCostPct(spreadPct);
-    return signal.expectedMovePct >= cost * 3;
+    const feeCost = estimateFastRoundTripCostPct(0);
+    return signal.expectedMovePct >= feeCost * 3;
   }
   const cost = estimateRoundTripCostPct(spreadPct);
   return signal.expectedMovePct >= cost * 3;

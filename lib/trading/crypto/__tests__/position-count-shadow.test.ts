@@ -93,8 +93,9 @@ describe("position count ignores shadow + dust", () => {
     });
     expect(reserved.ok).toBe(true);
 
-    // Dust residual must not count
-    expect(isDustKrakenBalance(0.000134, 0.000134 * 90_000, 0.0001)).toBe(true);
+    // Dust residual must not count (notional < €1 and/or qty < ordermin)
+    expect(isDustKrakenBalance(0.000134, 0.5, 0.0001)).toBe(true);
+    expect(isDustKrakenBalance(0.00005, 0.00005 * 90_000, 0.0001)).toBe(true);
     expect(isDustKrakenBalance(0.0000000079, 0.001, 0.01)).toBe(true);
   });
 
@@ -159,9 +160,9 @@ describe("market data staleness", () => {
     } = await import("@/lib/brokers/kraken/market-store");
 
     const now = Date.now();
-    // Fresh write then age artificially via old ticker
+    // Fresh 5m candle so only BTC price age trips the watchdog
     setBars("ETHEUR", "5", [
-      { time: Math.floor(now / 1000) - 600, open: 1, high: 1, low: 1, close: 1, volume: 1 },
+      { time: Math.floor(now / 1000) - 60, open: 1, high: 1, low: 1, close: 1, volume: 1 },
     ]);
     setTicker("ETHEUR", {
       bid: 1,
@@ -191,8 +192,6 @@ describe("market data staleness", () => {
       updatedAt: now - 20 * 60_000, // 20 min — BTC stale
     });
 
-    // Force barUpdatedAt stale by rewriting ages through getMarketDataAges with fake now
-    // setBars stamps Date.now(); use isMarketDataStale with tight thresholds on price
     const ages = getMarketDataAges(["ETHEUR", "XBTEUR"], now);
     const check = isMarketDataStale(ages, { bar5MaxMs: 3 * 60_000, btcMaxMs: 15 * 60_000 });
     expect(check.stale).toBe(true);

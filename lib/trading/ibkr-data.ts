@@ -347,7 +347,7 @@ export async function fetchPremarketUsPrice(ticker: string): Promise<TradingPric
 
   if (!shouldSkipEodhdQuote(symbol)) {
     const eod = await getEodhdQuote(symbol);
-    if (eod?.price > 0) {
+    if (eod != null && eod.price > 0) {
       const snap = snapshotFromEodhd(symbol, eod);
       const check = isUsablePremarketQuote({
         price: snap.currentPrice,

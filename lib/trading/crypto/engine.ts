@@ -8,6 +8,7 @@ import { getKrakenAdapter, isKrakenConfigured } from "@/lib/brokers/kraken";
 import { getKrakenPairMeta, quantizeKrakenVolume } from "@/lib/brokers/kraken/asset-pairs";
 import { atr } from "@/lib/trading/crypto/indicators";
 import {
+  backfillUniverseHigherTfs,
   formatDataAgeLog,
   getBars,
   getBook,
@@ -341,7 +342,7 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
       return { executed, held };
     }
 
-    const pairs = getKrakenUniversePairs();
+    const pairs = await getKrakenUniversePairs();
     const top5 = new Set(
       topGainerPairs1h(pairs, (p) => getBars(p, "60"), 5),
     );
@@ -772,11 +773,18 @@ export async function runKrakenAnalysisCycle(): Promise<{
   await startKrakenEngine();
   await checkAndRecoverStaleMarketData().catch(() => undefined);
   const pairs = await getKrakenUniversePairs();
-  // Ensure bars for top pairs
+  // 1h+4h for full universe (avoids "insuficientes barras 1h" discards)
+  const needHigher = pairs.filter((p) => getBars(p, "60").length < 60);
+  if (needHigher.length) {
+    await backfillUniverseHigherTfs(needHigher, {
+      label: "cycle-gap",
+      delayMs: 180,
+    }).catch(() => undefined);
+  }
+  // Fast TFs for top pairs still short on 15m
   for (const p of pairs.slice(0, 15)) {
     if (getBars(p, "15").length < 40) {
       await restBackfill(p, 15).catch(() => undefined);
-      await restBackfill(p, 60).catch(() => undefined);
       await restBackfill(p, 5).catch(() => undefined);
       await restBackfill(p, 1).catch(() => undefined);
     }
@@ -1279,10 +1287,20 @@ export function getKrakenEngineStatus(): EngineStatus {
   if (!hb) return local;
 
   const ageMs = Date.now() - Date.parse(hb.updatedAt);
+  const localRegime = getMarketRegime();
+  // Prefer heartbeat regime so Next.js status/diagnostics match engine logs
+  const regime =
+    hb.regime && Number.isFinite(ageMs) && ageMs < 5 * 60_000
+      ? {
+          ...localRegime,
+          regime: hb.regime as ReturnType<typeof getMarketRegime>["regime"],
+          updatedAt: hb.updatedAt,
+        }
+      : localRegime;
   return {
     started: Number.isFinite(ageMs) && ageMs < 5 * 60_000,
     universe: peekKrakenUniverse(),
-    regime: getMarketRegime(),
+    regime,
     ws: {
       connected: hb.wsConnected,
       symbols: hb.wsSymbols,

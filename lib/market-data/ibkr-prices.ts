@@ -15,7 +15,7 @@ import {
   IBKR_PRICE_CACHE_TTL_MS,
 } from "@/lib/trading/ibkr-cache";
 import { IBKR_CRYPTO_SEC_TYPE } from "@/src/core/trading/crypto-ibkr";
-import { getEuropeanEurEquity } from "@/lib/trading/europe-equities";
+import { isEuropeanEurEquity } from "@/lib/trading/europe-equities";
 
 /** Hard cap — skip ticker if IBKR price not back within 3s. */
 const FETCH_TIMEOUT_MS = 3_000;
@@ -88,25 +88,22 @@ async function fetchRouteQuote(
 
 /**
  * Live IBKR price for a ticker. null if IBKR has no quote (caller must not hit FMP HTTP).
+ * European EUR equities: never request IBKR market data (no EU quote subscription) —
+ * analysis uses EODHD; IBKR is contract resolve + order submit only.
  */
 export async function getIbkrPrice(ticker: string): Promise<IbkrLivePrice | null> {
   const symbol = ticker.trim().toUpperCase();
   if (!symbol) return null;
+  if (isEuropeanEurEquity(symbol)) return null;
 
   const routes = quoteRoutesForTicker(symbol);
-  const eu = getEuropeanEurEquity(symbol);
   for (const route of routes) {
     const secType = route.exchange === "PAXOS" ? IBKR_CRYPTO_SEC_TYPE : "STK";
-    const primary =
-      eu && route.currency === "EUR"
-        ? eu.primaryExchange
-        : undefined;
     const quote = await fetchRouteQuote(
       route.symbol,
       route.exchange,
       route.currency,
       secType,
-      primary,
     );
     if (!quote || !(quote.price > 0)) continue;
     return {

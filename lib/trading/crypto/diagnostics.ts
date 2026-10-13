@@ -198,6 +198,7 @@ export function formatDiagnosticsTelegram(): string {
   const lines = [
     "🔍 <b>Kraken diagnóstico (0 ops 24h)</b>",
     `Universo: ${s.universePairs.length} pares`,
+    `Régimen actual: ${s.regimeLast ?? "—"} @ ${s.regimeLastAt ?? "—"}`,
     `Régimen 24h: ALCISTA ${pct(s.regimeMinutes.ALCISTA)} | LATERAL ${pct(s.regimeMinutes.LATERAL)} | BAJISTA ${pct(s.regimeMinutes.BAJISTA)}`,
     `Último ciclo: signals=${s.lastCycleSignals} @ ${s.lastCycleAt ?? "—"}`,
   ];

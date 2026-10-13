@@ -1,12 +1,15 @@
 /**
  * Stocks execution brakes — re-read every cycle / every order (no stale cache).
- * - STOCKS_EXECUTION_ENABLED (default true) from .env.local each call
+ * - STOCKS_EXECUTION_ENABLED (default true) from .env.local each call — master override
+ * - STOCKS_EXECUTION_US / STOCKS_EXECUTION_EU (default true) — market switches
+ * - STOCKS_EXECUTION_PREMARKET (default false) — US premarket live orders (shadow when off)
  * - Global pause after >3 NO_ACK/rejects in 30 min → 2h halt + Telegram
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
+import { isEuropeanEurEquity } from "@/lib/trading/europe-equities";
 
 const ENV_LOCAL = path.join(process.cwd(), ".env.local");
 const PAUSE_FILE = path.join(
@@ -67,13 +70,50 @@ export function readEnvLocalKey(key: string): string | undefined {
 }
 
 /**
- * STOCKS_EXECUTION_ENABLED — default true.
+ * STOCKS_EXECUTION_ENABLED — default true (master override for US + EU).
  * Disk (.env.local) wins over process.env so toggles apply without restart.
  */
 export function isStocksExecutionEnabled(): boolean {
   const fromDisk = readEnvLocalKey("STOCKS_EXECUTION_ENABLED");
   if (fromDisk != null) return parseBool(fromDisk, true);
   return parseBool(process.env.STOCKS_EXECUTION_ENABLED, true);
+}
+
+function readMarketSwitch(key: "STOCKS_EXECUTION_US" | "STOCKS_EXECUTION_EU"): boolean {
+  const fromDisk = readEnvLocalKey(key);
+  if (fromDisk != null) return parseBool(fromDisk, true);
+  return parseBool(process.env[key], true);
+}
+
+/** US/ADR stocks execution switch — re-read from .env.local each call. */
+export function isStocksExecutionUsEnabled(): boolean {
+  if (!isStocksExecutionEnabled()) return false;
+  return readMarketSwitch("STOCKS_EXECUTION_US");
+}
+
+/** European local equities execution switch — re-read from .env.local each call. */
+export function isStocksExecutionEuEnabled(): boolean {
+  if (!isStocksExecutionEnabled()) return false;
+  return readMarketSwitch("STOCKS_EXECUTION_EU");
+}
+
+/** Market-aware enable: EU locals → EU switch; everything else stocks → US switch. */
+export function isStocksExecutionEnabledForSymbol(symbol: string): boolean {
+  if (!isStocksExecutionEnabled()) return false;
+  if (isEuropeanEurEquity(symbol)) return isStocksExecutionEuEnabled();
+  return isStocksExecutionUsEnabled();
+}
+
+/**
+ * US premarket live orders — default false.
+ * When false: PRE_MARKET still analyzes + journals shadow with live premarket price (no orders).
+ * Disk (.env.local) wins over process.env.
+ */
+export function isStocksExecutionPremarketEnabled(): boolean {
+  if (!isStocksExecutionEnabled() || !isStocksExecutionUsEnabled()) return false;
+  const fromDisk = readEnvLocalKey("STOCKS_EXECUTION_PREMARKET");
+  if (fromDisk != null) return parseBool(fromDisk, false);
+  return parseBool(process.env.STOCKS_EXECUTION_PREMARKET, false);
 }
 
 function loadEvents(): RejectEvent[] {
@@ -188,10 +228,15 @@ export async function recordStocksRejectOrNoAck(params: {
 
 /**
  * Throws if stocks BUYs must not be sent (flag off or global pause).
- * SELLs / exits: only blocked by global pause (not by STOCKS_EXECUTION_ENABLED).
+ * SELLs / exits: only blocked by global pause (not by STOCKS_EXECUTION_* flags).
+ * Pass `symbol` so STOCKS_EXECUTION_US / STOCKS_EXECUTION_EU apply correctly.
+ * Pass `premarket: true` for US premarket live BUYs (STOCKS_EXECUTION_PREMARKET).
  */
 export function assertStocksExecutionAllowed(opts?: {
   side?: "BUY" | "SELL";
+  symbol?: string;
+  /** When true, also require STOCKS_EXECUTION_PREMARKET (US extended-hours entries). */
+  premarket?: boolean;
 }): void {
   const side = opts?.side ?? "BUY";
   const pausedUntil = stocksExecutionPausedUntil();
@@ -201,9 +246,30 @@ export function assertStocksExecutionAllowed(opts?: {
       `STOCKS_EXECUTION_PAUSED hasta ${pausedUntil.toISOString()}: ${reason}`,
     );
   }
-  if (side === "BUY" && !isStocksExecutionEnabled()) {
+  if (side !== "BUY") return;
+
+  if (!isStocksExecutionEnabled()) {
     throw new Error(
       "STOCKS_EXECUTION_ENABLED=false — ciclo analiza pero no envía órdenes",
+    );
+  }
+
+  const symbol = opts?.symbol?.trim().toUpperCase();
+  if (!symbol) return;
+
+  if (isEuropeanEurEquity(symbol) && !isStocksExecutionEuEnabled()) {
+    throw new Error(
+      "STOCKS_EXECUTION_EU=false — ciclo analiza EU pero no envía órdenes",
+    );
+  }
+  if (!isEuropeanEurEquity(symbol) && !isStocksExecutionUsEnabled()) {
+    throw new Error(
+      "STOCKS_EXECUTION_US=false — ciclo analiza US pero no envía órdenes",
+    );
+  }
+  if (opts?.premarket && !isEuropeanEurEquity(symbol) && !isStocksExecutionPremarketEnabled()) {
+    throw new Error(
+      "STOCKS_EXECUTION_PREMARKET=false — premarket analiza en shadow, sin órdenes",
     );
   }
 }

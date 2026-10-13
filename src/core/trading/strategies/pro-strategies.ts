@@ -409,13 +409,14 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
 
 async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
   const timeoutMs = 8_000
-  // EU locals: prefer EODHD venue symbol (DTE.XETRA / TEF.MC) — never US ADR history
+  // EU locals: EODHD only (SAN.MC / DTE.XETRA) — never IBKR history (no EU MD sub)
   const eu = getEuropeanEurEquity(symbol)
-  if (eu && isEodhdConfigured()) {
+  if (eu) {
+    if (!isEodhdConfigured()) return []
     try {
       const eod = await getEodhdHistory(eu.eodhd, 275)
-      if (eod.length >= 20) {
-        return eod.map((b) => ({
+      return eod
+        .map((b) => ({
           open: b.open,
           high: b.high,
           low: b.low,
@@ -423,9 +424,9 @@ async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
           volume: b.volume,
           date: b.date,
         }))
-      }
+        .filter((b) => b.date && b.close > 0)
     } catch {
-      /* fall through */
+      return []
     }
   }
   try {
@@ -589,7 +590,6 @@ async function loadLivePrice(
   symbol: string,
   inputs?: Partial<ScreenerInputs>,
 ): Promise<{ price: number; change1d: number; change1h: number; volume: number; yearHigh: number; dayHigh: number; dayLow: number }> {
-  const ibkr = await getIbkrPriceCached(symbol).catch(() => null);
   let change1d = inputs?.change1dPct ?? 0;
   let change1h = inputs?.change1hPct ?? 0;
 
@@ -600,6 +600,32 @@ async function loadLivePrice(
       if (!inputs?.change1hPct) change1h = metrics.change1hPct;
     }
   }
+
+  // EU locals: cycle already priced via EODHD — never call IBKR market data.
+  if (isEuropeanEurEquity(symbol)) {
+    if (inputs?.price != null && inputs.price > 0) {
+      return {
+        price: inputs.price,
+        change1d,
+        change1h,
+        volume: inputs.volume ?? 0,
+        yearHigh: inputs.yearHigh ?? 0,
+        dayHigh: inputs.price,
+        dayLow: inputs.price,
+      };
+    }
+    return {
+      price: 0,
+      change1d,
+      change1h,
+      volume: inputs?.volume ?? 0,
+      yearHigh: inputs?.yearHigh ?? 0,
+      dayHigh: 0,
+      dayLow: 0,
+    };
+  }
+
+  const ibkr = await getIbkrPriceCached(symbol).catch(() => null);
 
   if (ibkr && ibkr.price > 0) {
     return {

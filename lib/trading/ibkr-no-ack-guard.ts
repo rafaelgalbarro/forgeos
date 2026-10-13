@@ -111,7 +111,7 @@ export async function gateNoAckRetry(
   assertOrdersAllowedAfterReconnect();
   // Fresh disk blocklist + global pause before any re-submit
   assertIbkrTradable(symbol);
-  assertStocksExecutionAllowed({ side: opts?.side ?? "BUY" });
+  assertStocksExecutionAllowed({ side: opts?.side ?? "BUY", symbol });
   const existing = await findExistingIbkrFillOrOrder(symbol);
   if (existing.found) {
     return {

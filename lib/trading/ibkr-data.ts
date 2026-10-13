@@ -18,7 +18,10 @@ import {
   IBKR_PRICE_CACHE_TTL_MS,
 } from "@/lib/trading/ibkr-cache";
 import { resolveDayOpenDailyPnl } from "@/lib/trading/nav-day-open";
-import { getEuropeanEurEquity } from "@/lib/trading/europe-equities";
+import {
+  getEuropeanEurEquity,
+  isEuropeanEurEquity,
+} from "@/lib/trading/europe-equities";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -69,6 +72,8 @@ export type TradingPriceSnapshot = {
   quoteCurrency: string;
   quoteRoute: string;
   quoteErrors: readonly string[];
+  /** Last trade / quote update (ISO) — required for premarket freshness checks. */
+  quoteUpdatedAt?: string;
 };
 
 export type TradingPositionSnapshot = {
@@ -185,6 +190,7 @@ function snapshotFromEodhd(symbol: string, eod: NonNullable<Awaited<ReturnType<t
     quoteCurrency: eu ? "EUR" : "USD",
     quoteRoute: "EODHD-REALTIME",
     quoteErrors: [],
+    quoteUpdatedAt: eod.updatedAt,
   };
 }
 
@@ -208,6 +214,7 @@ function snapshotFromIbkr(
     quoteCurrency: ibkr.currency,
     quoteRoute: ibkr.route,
     quoteErrors: [],
+    quoteUpdatedAt: new Date().toISOString(),
   };
 }
 
@@ -241,10 +248,11 @@ function resolveAlpacaCryptoId(symbol: string): string | null {
   return toAlpacaCryptoPairId(symbol);
 }
 
-/** EODHD primary for equities; Alpaca for crypto; IBKR optional fallback. */
+/** EODHD primary for equities; Alpaca for crypto; IBKR optional fallback (US only). */
 async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapshot> {
   const symbol = ticker.trim().toUpperCase();
   const quoteErrors: string[] = [];
+  const euLocal = isEuropeanEurEquity(symbol);
 
   const alpacaCryptoId = resolveAlpacaCryptoId(symbol);
   if (alpacaCryptoId) {
@@ -264,9 +272,11 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
 
   if (!shouldSkipEodhdQuote(symbol)) {
     const eod = await getEodhdQuote(symbol);
-    if (eod?.price > 0) {
+    if (eod != null && eod.price > 0) {
+      const ccy = euLocal ? "€" : "$";
       console.log(
-        `[Universe] ${symbol} precio EODHD $${eod.price.toFixed(2)} Δ${eod.changePercentage.toFixed(2)}%`,
+        `[Universe] ${symbol} precio EODHD ${ccy}${eod.price.toFixed(2)} Δ${eod.changePercentage.toFixed(2)}%` +
+          (euLocal ? " (EU — sin IBKR quotes)" : ""),
       );
       return snapshotFromEodhd(symbol, eod);
     }
@@ -275,9 +285,14 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     quoteErrors.push("EODHD: ticker en lista de ignorados");
   }
 
+  // EU locals: never fall back to IBKR market data (no EU stock MD subscription).
+  if (euLocal) {
+    throw new Error(`sin precio EU — skip (${quoteErrors.join("; ")}; IBKR quotes disabled for EU)`);
+  }
+
   try {
     const ibkr = await getIbkrPrice(symbol);
-    if (ibkr?.price > 0) {
+    if (ibkr != null && ibkr.price > 0) {
       console.log(
         `[Universe] ${symbol} precio IBKR fallback $${ibkr.price.toFixed(2)} via ${ibkr.exchange}/${ibkr.currency}`,
       );
@@ -289,6 +304,77 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
   }
 
   throw new Error(`sin precio — skip (${quoteErrors.join("; ")})`);
+}
+
+/**
+ * US premarket price: prefer IBKR bid/ask (LMT outsideRth), then EODHD realtime
+ * only if the quote is fresh — never prior-day close.
+ */
+export async function fetchPremarketUsPrice(ticker: string): Promise<TradingPriceSnapshot | null> {
+  const { isUsablePremarketQuote } = await import("@/lib/trading/us-premarket");
+  const symbol = ticker.trim().toUpperCase();
+  if (!symbol || isEuropeanEurEquity(symbol)) return null;
+
+  const errors: string[] = [];
+
+  try {
+    const ibkr = await getIbkrPrice(symbol);
+    if (ibkr != null && ibkr.price > 0) {
+      const snap = snapshotFromIbkr(symbol, ibkr);
+      const check = isUsablePremarketQuote({
+        price: snap.currentPrice,
+        previousClose: snap.previousClose,
+        bid: snap.bid,
+        ask: snap.ask,
+        volume: snap.volume,
+        updatedAt: snap.quoteUpdatedAt,
+        quoteRoute: snap.quoteRoute,
+      });
+      if (check.ok) {
+        console.log(
+          `[Premarket] ${symbol} IBKR $${snap.currentPrice.toFixed(2)} ` +
+            `bid=${snap.bid.toFixed(2)} ask=${snap.ask.toFixed(2)}`,
+        );
+        return snap;
+      }
+      errors.push(`IBKR: ${check.reason}`);
+    } else {
+      errors.push("IBKR: no price");
+    }
+  } catch (err) {
+    errors.push(`IBKR: ${err instanceof Error ? err.message : "error"}`);
+  }
+
+  if (!shouldSkipEodhdQuote(symbol)) {
+    const eod = await getEodhdQuote(symbol);
+    if (eod?.price > 0) {
+      const snap = snapshotFromEodhd(symbol, eod);
+      const check = isUsablePremarketQuote({
+        price: snap.currentPrice,
+        previousClose: snap.previousClose,
+        bid: snap.bid,
+        ask: snap.ask,
+        volume: snap.volume,
+        updatedAt: snap.quoteUpdatedAt ?? eod.updatedAt,
+        quoteRoute: snap.quoteRoute,
+      });
+      if (check.ok) {
+        console.log(
+          `[Premarket] ${symbol} EODHD realtime $${snap.currentPrice.toFixed(2)} ` +
+            `Δ${eod.changePercentage.toFixed(2)}% ts=${eod.updatedAt}`,
+        );
+        return snap;
+      }
+      errors.push(`EODHD: ${check.reason}`);
+    } else {
+      errors.push("EODHD: no price");
+    }
+  } else {
+    errors.push("EODHD: ignored ticker");
+  }
+
+  console.warn(`[Premarket] ${symbol} skip — no live premarket quote (${errors.join("; ")})`);
+  return null;
 }
 
 export type IbkrPositionRow = {
@@ -394,7 +480,9 @@ function asPositive(n: unknown): number | null {
 }
 
 async function fetchIbkrLiveLimitQuote(ticker: string): Promise<LiveLimitQuote | null> {
-  const ibkr = await getIbkrPrice(ticker.trim().toUpperCase());
+  const symbol = ticker.trim().toUpperCase();
+  if (isEuropeanEurEquity(symbol)) return null;
+  const ibkr = await getIbkrPrice(symbol);
   if (!ibkr || !(ibkr.price > 0)) return null;
   const bid = ibkr.bid ?? ibkr.price;
   const ask = ibkr.ask ?? ibkr.price;
@@ -406,9 +494,26 @@ async function fetchIbkrLiveLimitQuote(ticker: string): Promise<LiveLimitQuote |
   };
 }
 
+async function fetchEodhdLiveLimitQuote(ticker: string): Promise<LiveLimitQuote | null> {
+  const symbol = ticker.trim().toUpperCase();
+  if (shouldSkipEodhdQuote(symbol)) return null;
+  const eod = await getEodhdQuote(symbol);
+  if (!eod || !(eod.price > 0)) return null;
+  const bid =
+    eod.low > 0 && eod.high > 0 ? Math.min(eod.price, (eod.high + eod.low) / 2) : eod.price;
+  const ask =
+    eod.high > 0 && eod.low > 0 ? Math.max(eod.price, (eod.high + eod.low) / 2) : eod.price;
+  return {
+    bid,
+    ask,
+    last: eod.price,
+    mid: (bid + ask) / 2,
+  };
+}
+
 /**
- * Live LMT price from IBKR market-data at approval/submit time.
- * FMP is never used for realtime prices (Starter 429).
+ * Live LMT price at approval/submit time.
+ * EU equities: EODHD only (no IBKR market data). US: IBKR then suggested.
  */
 export async function fetchLiveLimitPrice(args: {
   readonly symbol: string;
@@ -416,7 +521,10 @@ export async function fetchLiveLimitPrice(args: {
   readonly asset: "STK" | "FOREX" | "CRYPTO";
   readonly suggested?: number | null;
 }): Promise<number> {
-  const quote = await fetchIbkrLiveLimitQuote(args.symbol);
+  const symbol = args.symbol.trim().toUpperCase();
+  const quote = isEuropeanEurEquity(symbol)
+    ? await fetchEodhdLiveLimitQuote(symbol)
+    : await fetchIbkrLiveLimitQuote(symbol);
 
   const fromLive = quote
     ? resolveLimitPriceFromQuote({
@@ -430,5 +538,9 @@ export async function fetchLiveLimitPrice(args: {
 
   const suggested = asPositive(args.suggested);
   if (suggested != null) return suggested;
-  throw new Error(`No IBKR limitPrice for ${args.symbol}`);
+  throw new Error(
+    isEuropeanEurEquity(symbol)
+      ? `No EODHD limitPrice for ${symbol}`
+      : `No IBKR limitPrice for ${symbol}`,
+  );
 }

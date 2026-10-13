@@ -29,6 +29,7 @@ import {
 } from '@/lib/trading/usa-sectors'
 import { isUsStockTicker } from '@/lib/trading/stocks-universe'
 import {
+  getIbkrNonTradableEntry,
   isIbkrNonTradable,
   recordIbkrNonTradable,
   shouldPersistIbkrNonTradable,
@@ -36,6 +37,9 @@ import {
 import {
   getStocksExecutionPauseReason,
   isStocksExecutionEnabled,
+  isStocksExecutionEuEnabled,
+  isStocksExecutionPremarketEnabled,
+  isStocksExecutionUsEnabled,
   stocksExecutionPausedUntil,
 } from '@/lib/trading/stocks-execution-gate'
 import { isOtcPinkNonExecutable } from '@/lib/trading/otc-pink'
@@ -44,6 +48,19 @@ import {
   isEuropeanEquityOrderWindow,
   isUsListedEquityOrderWindow,
 } from '@/lib/trading/cycle-schedule'
+import { isUsPremarketSession } from '@/lib/trading/exchange-hours'
+import {
+  assertPremarketLiveGates,
+  getPremarketLiveReadiness,
+  isPremarketLiveReady,
+  isUsablePremarketQuote,
+  premarketLimitPrice,
+  PREMARKET_SIZE_FACTOR,
+  listPendingPremarketShadowTickers,
+  recordPremarketShadowSignal,
+  resolvePremarketShadowAtClose,
+  resolvePremarketShadowAtOpen,
+} from '@/lib/trading/us-premarket'
 import { isEuropeanEurEquity } from '@/lib/trading/europe-equities'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
@@ -54,6 +71,7 @@ import {
   fetchTradingAccountSnapshot,
   fetchTradingOpenSymbols,
   fetchTradingPosition,
+  fetchPremarketUsPrice,
   fetchTradingPrice,
 } from '@/lib/trading/ibkr-data'
 import { midFromBidAsk } from '@/lib/trading/limit-price'
@@ -67,7 +85,6 @@ import { US_QUOTE_EXCHANGES } from '@/lib/trading/ticker-price-routes'
 import {
   getUsMarketSession,
   selectTickersForOpenMarkets,
-  isUsaPremarketPrepareOnly,
   getActiveTradingPhase,
   ASIA_ETF_TICKERS,
   EUROPE_ETF_TICKERS,
@@ -979,16 +996,34 @@ export class TradingEngine {
             scoped.tickers.length > 0 ? scoped.tickers : seedTickers,
             explicit,
           )
-    // STOCKS_EXECUTION_ENABLED / global pause — analyze but do not send orders
+    // STOCKS_EXECUTION_* / global pause — analyze but do not send orders
     let stocksAnalysisOnly = Boolean(options?.analysisOnly)
     if (kind === "stocks") {
       const enabled = isStocksExecutionEnabled()
+      const usOn = isStocksExecutionUsEnabled()
+      const euOn = isStocksExecutionEuEnabled()
       const pausedUntil = stocksExecutionPausedUntil()
       if (!enabled) {
         stocksAnalysisOnly = true
         console.warn(
           "[Cycle/stocks] STOCKS_EXECUTION_ENABLED=false — análisis sin órdenes",
         )
+      } else if (!usOn && !euOn) {
+        stocksAnalysisOnly = true
+        console.warn(
+          "[Cycle/stocks] STOCKS_EXECUTION_US=false y STOCKS_EXECUTION_EU=false — análisis sin órdenes",
+        )
+      } else {
+        if (!usOn) {
+          console.warn(
+            "[Cycle/stocks] STOCKS_EXECUTION_US=false — US/ADR sin órdenes (EU puede enviar)",
+          )
+        }
+        if (!euOn) {
+          console.warn(
+            "[Cycle/stocks] STOCKS_EXECUTION_EU=false — EU sin órdenes (US puede enviar)",
+          )
+        }
       }
       if (pausedUntil) {
         stocksAnalysisOnly = true
@@ -997,6 +1032,43 @@ export class TradingEngine {
             `${getStocksExecutionPauseReason() ?? "freno global"}`,
         )
       }
+      if (isStocksExecutionPremarketEnabled()) {
+        console.log(
+          `[Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — ${getPremarketLiveReadiness().detail}`,
+        )
+      } else if (isUsPremarketSession()) {
+        console.log(
+          "[Cycle/stocks] STOCKS_EXECUTION_PREMARKET=false — premarket shadow (sin órdenes)",
+        )
+      }
+      // Resolve shadow MTM at open / near close for pending premarket signals only
+      void (async () => {
+        try {
+          const unique = listPendingPremarketShadowTickers().slice(0, 25)
+          if (unique.length === 0) return
+          const marks = new Map<string, number>()
+          for (const t of unique) {
+            try {
+              const px = await this.fetchPrice(t)
+              if (px.currentPrice > 0) marks.set(t.toUpperCase(), px.currentPrice)
+            } catch {
+              /* skip */
+            }
+          }
+          const nOpen = resolvePremarketShadowAtOpen(marks)
+          const nClose = resolvePremarketShadowAtClose(marks)
+          if (nOpen > 0 || nClose > 0) {
+            console.log(
+              `[Premarket/shadow] resolved open=${nOpen} close=${nClose} · ${getPremarketLiveReadiness().detail}`,
+            )
+          }
+        } catch (err) {
+          console.warn(
+            "[Premarket/shadow] resolve failed:",
+            err instanceof Error ? err.message : err,
+          )
+        }
+      })()
     }
     const cycleOpts: RunCycleOptions = {
       ...options,
@@ -2299,12 +2371,19 @@ export class TradingEngine {
         };
       }
       if (isIbkrNonTradable(ticker)) {
+        const entry = getIbkrNonTradableEntry(ticker);
+        const manual = entry && /^ManualBlock$/i.test(entry.ibkrStatus);
+        const reason = manual
+          ? `${ticker}: bloqueo manual — ${entry.message}`
+          : `${ticker}: en lista IBKR non-tradable (${entry?.ibkrStatus ?? "blocked"}${
+              entry?.code != null ? `/${entry.code}` : ""
+            }${entry?.message ? ` — ${entry.message}` : ""})`;
         return {
           status: "SKIPPED",
           ticker,
           direction: "HOLD",
-          reason: `${ticker}: en lista IBKR non-tradable (INACTIVE/201/10147)`,
-          signal: notAnalyzedSignal("IBKR non-tradable"),
+          reason,
+          signal: notAnalyzedSignal(manual ? "bloqueo manual" : "IBKR non-tradable"),
           timestamp: new Date().toISOString(),
         };
       }
@@ -2320,6 +2399,8 @@ export class TradingEngine {
             timestamp: new Date().toISOString(),
           };
         }
+      } else if (isUsPremarketSession()) {
+        // US premarket: analyze + shadow (or live behind STOCKS_EXECUTION_PREMARKET)
       } else if (!isUsListedEquityOrderWindow()) {
         return {
           status: "HOLD",
@@ -2431,10 +2512,34 @@ export class TradingEngine {
       }
     }
 
-    console.log(`[AutoExecute] ${ticker} → obteniendo precio (EODHD/Alpaca)…`)
+    const inUsPremarket =
+      kind === 'stocks' &&
+      !isEuropeanEurEquity(ticker) &&
+      !isIbkrCryptoTicker(ticker) &&
+      isUsPremarketSession()
+
+    console.log(
+      `[AutoExecute] ${ticker} → obteniendo precio ` +
+        `${inUsPremarket ? '(premarket IBKR/EODHD live)' : '(EODHD/Alpaca)'}…`,
+    )
     let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
     try {
-      priceData = await this.fetchPrice(ticker)
+      if (inUsPremarket) {
+        const pmQuote = await fetchPremarketUsPrice(ticker)
+        if (!pmQuote) {
+          return {
+            status: 'SKIPPED',
+            ticker,
+            direction: 'HOLD',
+            reason: `${ticker}: sin precio premarket live (nunca prior-close)`,
+            signal: notAnalyzedSignal('sin precio premarket live'),
+            timestamp: new Date().toISOString(),
+          }
+        }
+        priceData = pmQuote
+      } else {
+        priceData = await this.fetchPrice(ticker)
+      }
       console.log(
         `[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)} (${priceData.quoteRoute})`,
       )
@@ -2468,7 +2573,12 @@ export class TradingEngine {
       : null
 
     if (usSession && kind === 'stocks' && !isEuropeanEurEquity(ticker)) {
-      if (!usSession.isTradeable || !isUsListedEquityOrderWindow()) {
+      const premarketSession =
+        usSession.phase === 'PRE_MARKET' && isUsPremarketSession()
+      if (
+        !premarketSession &&
+        (!usSession.isTradeable || !isUsListedEquityOrderWindow())
+      ) {
         return {
           status: 'HOLD', ticker, direction: 'HOLD',
           reason: `${ticker}: fuera de sesión regular NYSE (${usSession.sessionLabel})`,
@@ -2540,17 +2650,86 @@ export class TradingEngine {
       }
     }
 
-    // USA premarket: prepare only — no execute (entries need regular session)
-    if (isUsaPremarketPrepareOnly() && !isIbkrCryptoTicker(ticker)) {
-      console.log(`[AutoExecute] ${ticker} → Premarket prepare-only (no ejecutar aún)`)
-      return {
-        status: 'HOLD',
-        ticker,
-        direction: 'HOLD',
-        reason: `${ticker}: premarket ET — candidato preparado, ejecución en regular 09:30 ET`,
-        signal: { ...analysisSnap, reasoning: `${analysisSnap.reasoning} [premarket prepare-only]` },
-        timestamp: new Date().toISOString(),
+    // USA premarket: shadow by default; live only if STOCKS_EXECUTION_PREMARKET + readiness
+    let usPremarketLive = false
+    if (inUsPremarket) {
+      const quoteCheck = isUsablePremarketQuote({
+        price: priceData.currentPrice,
+        previousClose: priceData.previousClose,
+        bid: priceData.bid,
+        ask: priceData.ask,
+        volume: priceData.volume,
+        updatedAt: priceData.quoteUpdatedAt,
+        quoteRoute: priceData.quoteRoute,
+      })
+      if (!quoteCheck.ok) {
+        console.log(`[AutoExecute] ${ticker} → Premarket skip: ${quoteCheck.reason}`)
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `${ticker}: ${quoteCheck.reason}`,
+          signal: {
+            ...analysisSnap,
+            reasoning: `${analysisSnap.reasoning} [premarket skip]`,
+          },
+          timestamp: new Date().toISOString(),
+        }
       }
+
+      const switchOn = isStocksExecutionPremarketEnabled()
+      const ready = isPremarketLiveReady()
+      usPremarketLive = switchOn && ready
+      if (!usPremarketLive) {
+        recordPremarketShadowSignal({
+          ticker,
+          strategy: signal.primaryStrategy || 'PRO',
+          entryPremarket: priceData.currentPrice,
+          stopLoss: strategy.stopLoss > 0 ? strategy.stopLoss : undefined,
+          takeProfit: strategy.takeProfit > 0 ? strategy.takeProfit : undefined,
+        })
+        const { appendJournalTrade } = await import('@/lib/trading/journal/trades')
+        appendJournalTrade({
+          at: new Date().toISOString(),
+          market: 'stocks',
+          strategy: signal.primaryStrategy || 'PRO',
+          ticker,
+          side: 'BUY',
+          entry: priceData.currentPrice,
+          exit: null,
+          exitReason: null,
+          grossPnlUsd: null,
+          costsUsd: 0,
+          netPnlUsd: null,
+          rMultiple: null,
+          durationMs: null,
+          shadow: true,
+          open: true,
+        })
+        const readiness = getPremarketLiveReadiness()
+        const why = !switchOn
+          ? 'STOCKS_EXECUTION_PREMARKET=false'
+          : readiness.detail
+        console.log(
+          `[AutoExecute] ${ticker} → Premarket SHADOW @$${priceData.currentPrice.toFixed(2)} (${why})`,
+        )
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `${ticker}: premarket shadow — ${why}`,
+          signal: {
+            ...analysisSnap,
+            reasoning: `${analysisSnap.reasoning} [premarket shadow]`,
+          },
+          timestamp: new Date().toISOString(),
+          stopLoss: strategy.stopLoss > 0 ? strategy.stopLoss : undefined,
+          takeProfit: strategy.takeProfit > 0 ? strategy.takeProfit : undefined,
+        }
+      }
+      console.log(
+        `[AutoExecute] ${ticker} → Premarket LIVE path (switch+ready, size×${PREMARKET_SIZE_FACTOR})`,
+      )
     }
 
     if (execGate) execGate.buySignal = true
@@ -2846,6 +3025,27 @@ export class TradingEngine {
       { stopLossPrice: riskOk.stopLossPrice },
     )
     let resolvedShares = sized.qty > 0 ? sized.qty : preRisk.qty
+    if (usPremarketLive) {
+      try {
+        assertPremarketLiveGates({
+          bid: priceData.bid,
+          ask: priceData.ask,
+          volume: priceData.volume,
+        })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'premarket gate'
+        console.warn(`[AutoExecute] ${ticker} BLOCKED premarket: ${msg}`)
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: msg,
+          signal: analysisSnap,
+          timestamp: new Date().toISOString(),
+        }
+      }
+      resolvedShares = Math.max(1, Math.floor(resolvedShares * PREMARKET_SIZE_FACTOR))
+    }
     // Cap notional to available USD cash; if < 1 share → skip this cycle
     while (resolvedShares > 1 && resolvedShares * priceData.currentPrice > cashForSizing) {
       resolvedShares -= 1
@@ -2913,7 +3113,11 @@ export class TradingEngine {
         ? signal.suggestedLimitPrice
         : undefined
     const mid = midFromBidAsk(priceData.bid, priceData.ask)
+    const premarketLmt = usPremarketLive
+      ? premarketLimitPrice('BUY', priceData.bid, priceData.ask)
+      : null
     const limitPrice =
+      (premarketLmt != null && premarketLmt > 0 ? premarketLmt : undefined) ??
       suggested ??
       (priceData.currentPrice > 0 ? priceData.currentPrice : undefined) ??
       mid ??
@@ -3034,6 +3238,35 @@ export class TradingEngine {
       }
     }
 
+    // Per-market switches (US/EU) — analyze OK, block BUY before enqueue
+    if (cycleOpts?.cycleKind === 'stocks' && signal.direction === 'BUY') {
+      const eu = isEuropeanEurEquity(ticker)
+      if (eu && !isStocksExecutionEuEnabled()) {
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `[STOCKS_EXECUTION_EU=false] ${signal.reasoning}`,
+          signal: analysisSnap,
+          timestamp: new Date().toISOString(),
+          stopLoss: effectiveStopLoss,
+          takeProfit: effectiveTakeProfit,
+        }
+      }
+      if (!eu && !isStocksExecutionUsEnabled()) {
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: `[STOCKS_EXECUTION_US=false] ${signal.reasoning}`,
+          signal: analysisSnap,
+          timestamp: new Date().toISOString(),
+          stopLoss: effectiveStopLoss,
+          takeProfit: effectiveTakeProfit,
+        }
+      }
+    }
+
     const pending = this.approvals.enqueue({
       ticker,
       direction: signal.direction,
@@ -3046,7 +3279,7 @@ export class TradingEngine {
       takeProfit: effectiveTakeProfit,
       reason: signal.reasoning,
       signal: analysisSnap,
-      outsideRth: isIbkrCryptoTicker(ticker) ? true : usExtendedHours,
+      outsideRth: isIbkrCryptoTicker(ticker) ? true : usPremarketLive ? true : usExtendedHours,
       preTradeChecklist: checklistSnapshot,
       smartPlan: smartPlan
         ? {

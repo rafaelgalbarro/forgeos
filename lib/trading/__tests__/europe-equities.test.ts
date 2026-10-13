@@ -42,4 +42,13 @@ describe("europe-equities contract resolve", () => {
       expect(europeanQuoteRoutes(sym).every((r) => r.currency === "EUR")).toBe(true);
     }
   });
+
+  it("EODHD symbols use exchange suffix (SAN.MC, DTE.XETRA)", () => {
+    expect(getEuropeanEurEquity("SAN")?.eodhd).toBe("SAN.MC");
+    expect(getEuropeanEurEquity("IBE")?.eodhd).toBe("IBE.MC");
+    expect(getEuropeanEurEquity("BBVA")?.eodhd).toBe("BBVA.MC");
+    expect(getEuropeanEurEquity("ITX")?.eodhd).toBe("ITX.MC");
+    expect(getEuropeanEurEquity("DTE")?.eodhd).toBe("DTE.XETRA");
+    expect(getEuropeanEurEquity("TEF")?.eodhd).toBe("TEF.MC");
+  });
 });

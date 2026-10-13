@@ -220,50 +220,168 @@ export function isMarketDataStale(
 
 const PUBLIC = "https://api.kraken.com";
 
+export type RestBackfillResult = {
+  pair: string;
+  interval: number;
+  ok: boolean;
+  bars: number;
+  reason?: string;
+};
+
 /** REST OHLC seed / fallback — lives here so store writes share this module instance. */
-export async function restBackfill(pairAlt: string, interval: number): Promise<void> {
+export async function restBackfill(
+  pairAlt: string,
+  interval: number,
+): Promise<RestBackfillResult> {
   const url = `${PUBLIC}/0/public/OHLC?pair=${encodeURIComponent(pairAlt)}&interval=${interval}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    console.warn(`[Kraken/REST] OHLC HTTP ${res.status} ${pairAlt} ${interval}m`);
-    return;
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      const reason = `HTTP ${res.status}`;
+      console.warn(`[Kraken/REST] OHLC ${reason} ${pairAlt} ${interval}m`);
+      return { pair: pairAlt, interval, ok: false, bars: 0, reason };
+    }
+    const body = (await res.json()) as {
+      error?: string[];
+      result?: Record<string, unknown>;
+    };
+    if (body.error?.length) {
+      const reason = body.error.join("; ");
+      console.warn(`[Kraken/REST] OHLC ${pairAlt}: ${reason}`);
+      return { pair: pairAlt, interval, ok: false, bars: 0, reason };
+    }
+    const series = Object.entries(body.result ?? {}).find(([k]) => k !== "last")?.[1];
+    if (!Array.isArray(series)) {
+      const reason = `sin series keys=${Object.keys(body.result ?? {}).join(",")}`;
+      console.warn(`[Kraken/REST] OHLC ${pairAlt} ${reason}`);
+      return { pair: pairAlt, interval, ok: false, bars: 0, reason };
+    }
+    const tf = String(interval) as Tf;
+    if (!["1", "3", "5", "15", "60", "240"].includes(tf)) {
+      return {
+        pair: pairAlt,
+        interval,
+        ok: false,
+        bars: 0,
+        reason: `tf inválido ${interval}`,
+      };
+    }
+    const bars: Bar[] = [];
+    for (const row of series) {
+      if (!Array.isArray(row) || row.length < 7) continue;
+      bars.push({
+        time: Number(row[0]),
+        open: Number(row[1]),
+        high: Number(row[2]),
+        low: Number(row[3]),
+        close: Number(row[4]),
+        volume: Number(row[6]),
+      });
+    }
+    if (!bars.length) {
+      return {
+        pair: pairAlt,
+        interval,
+        ok: false,
+        bars: 0,
+        reason: "series vacía",
+      };
+    }
+    setBars(pairAlt, tf, bars);
+    const up = pairAlt.toUpperCase();
+    if (up === "XXBTZEUR") setBars("XBTEUR", tf, bars);
+    if (up === "XBTEUR") setBars("XXBTZEUR", tf, bars);
+    if (up === "XETHZEUR") setBars("ETHEUR", tf, bars);
+    if (up === "ETHEUR") setBars("XETHZEUR", tf, bars);
+    return { pair: pairAlt, interval, ok: true, bars: bars.length };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(`[Kraken/REST] OHLC ${pairAlt} ${interval}m: ${reason}`);
+    return { pair: pairAlt, interval, ok: false, bars: 0, reason };
   }
-  const body = (await res.json()) as {
-    error?: string[];
-    result?: Record<string, unknown>;
-  };
-  if (body.error?.length) {
-    console.warn(`[Kraken/REST] OHLC ${pairAlt}: ${body.error.join("; ")}`);
-    return;
+}
+
+const MIN_BARS_1H = 60;
+const MIN_BARS_4H = 50;
+
+/**
+ * Ensure 1h + 4h OHLC for a pair (strategies need ≥60×1h).
+ * Logs when data is still insufficient after REST.
+ */
+export async function ensurePairHigherTfBars(
+  pairAlt: string,
+  opts?: { min1h?: number; min4h?: number; force?: boolean },
+): Promise<{
+  pair: string;
+  bars1h: number;
+  bars4h: number;
+  ok: boolean;
+  reasons: string[];
+}> {
+  const min1h = opts?.min1h ?? MIN_BARS_1H;
+  const min4h = opts?.min4h ?? MIN_BARS_4H;
+  const reasons: string[] = [];
+  let bars1h = getBars(pairAlt, "60").length;
+  let bars4h = getBars(pairAlt, "240").length;
+
+  if (opts?.force || bars1h < min1h) {
+    const r = await restBackfill(pairAlt, 60);
+    bars1h = getBars(pairAlt, "60").length;
+    if (!r.ok) reasons.push(`1h:${r.reason ?? "fail"}`);
+    else if (bars1h < min1h) {
+      reasons.push(`1h:solo ${bars1h}/${min1h} tras REST`);
+    }
   }
-  const series = Object.entries(body.result ?? {}).find(([k]) => k !== "last")?.[1];
-  if (!Array.isArray(series)) {
+  if (opts?.force || bars4h < min4h) {
+    const r = await restBackfill(pairAlt, 240);
+    bars4h = getBars(pairAlt, "240").length;
+    if (!r.ok) reasons.push(`4h:${r.reason ?? "fail"}`);
+    else if (bars4h < min4h) {
+      reasons.push(`4h:solo ${bars4h}/${min4h} tras REST`);
+    }
+  }
+
+  const ok = bars1h >= min1h && bars4h >= min4h;
+  if (!ok && reasons.length) {
     console.warn(
-      `[Kraken/REST] OHLC ${pairAlt} sin series keys=${Object.keys(body.result ?? {}).join(",")}`,
+      `[Kraken/REST] insuficientes barras superiores ${pairAlt}: ` +
+        `1h=${bars1h} 4h=${bars4h} (${reasons.join("; ")})`,
     );
-    return;
   }
-  const tf = String(interval) as Tf;
-  if (!["1", "3", "5", "15", "60", "240"].includes(tf)) return;
-  const bars: Bar[] = [];
-  for (const row of series) {
-    if (!Array.isArray(row) || row.length < 7) continue;
-    bars.push({
-      time: Number(row[0]),
-      open: Number(row[1]),
-      high: Number(row[2]),
-      low: Number(row[3]),
-      close: Number(row[4]),
-      volume: Number(row[6]),
-    });
+  return { pair: pairAlt, bars1h, bars4h, ok, reasons };
+}
+
+/**
+ * REST backfill 1h+4h for all universe pairs (startup / new entries).
+ * Rate-limited to respect Kraken public API.
+ */
+export async function backfillUniverseHigherTfs(
+  pairs: readonly string[],
+  opts?: { delayMs?: number; force?: boolean; label?: string },
+): Promise<{ ok: number; weak: number; total: number }> {
+  const delayMs = opts?.delayMs ?? 220;
+  const label = opts?.label ?? "universe";
+  let ok = 0;
+  let weak = 0;
+  const weakPairs: string[] = [];
+  for (const pair of pairs) {
+    const r = await ensurePairHigherTfBars(pair, { force: opts?.force });
+    if (r.ok) ok += 1;
+    else {
+      weak += 1;
+      weakPairs.push(
+        `${r.pair}(1h=${r.bars1h},4h=${r.bars4h}${r.reasons.length ? `:${r.reasons.join(",")}` : ""})`,
+      );
+    }
+    if (delayMs > 0) await new Promise((res) => setTimeout(res, delayMs));
   }
-  if (!bars.length) return;
-  setBars(pairAlt, tf, bars);
-  const up = pairAlt.toUpperCase();
-  if (up === "XXBTZEUR") setBars("XBTEUR", tf, bars);
-  if (up === "XBTEUR") setBars("XXBTZEUR", tf, bars);
-  if (up === "XETHZEUR") setBars("ETHEUR", tf, bars);
-  if (up === "ETHEUR") setBars("XETHZEUR", tf, bars);
+  console.log(
+    `[Kraken/REST] backfill 1h+4h ${label}: ok=${ok} weak=${weak} total=${pairs.length}` +
+      (weakPairs.length
+        ? ` | weak=[${weakPairs.slice(0, 12).join("; ")}${weakPairs.length > 12 ? "…" : ""}]`
+        : ""),
+  );
+  return { ok, weak, total: pairs.length };
 }
 
 /** Ingest a public trade into 1m and 3m candles (WS trade channel). */

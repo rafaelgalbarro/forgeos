@@ -11,6 +11,8 @@ import { getHistory as getEodhdHistory, isEodhdConfigured } from "@/lib/market-d
 import { quoteRoutesForTicker } from "@/lib/trading/ticker-price-routes";
 import { getOrSetIbkrCached, ibkrCacheKey } from "@/lib/trading/ibkr-cache";
 import { IBKR_CRYPTO_SEC_TYPE, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
+import { isEuropeanEurEquity } from "@/lib/trading/europe-equities";
+import { getIntradayHistory } from "@/lib/market-data/eodhd";
 
 export type IbkrBarSize = "1 min" | "5 mins" | "15 mins" | "1 hour" | "1 day";
 
@@ -80,6 +82,8 @@ export async function ibkrHistorical(
 ): Promise<OhlcvBar[]> {
   const ticker = symbol.trim().toUpperCase();
   if (!ticker) return [];
+  // EU locals: never reqHistoricalData (no EU market-data subscription).
+  if (isEuropeanEurEquity(ticker)) return [];
 
   const key = ibkrCacheKey("hist", ticker, duration.replace(/\s+/g, ""), bar.replace(/\s+/g, ""));
   return getOrSetIbkrCached(key, async () => {
@@ -105,7 +109,9 @@ export async function ibkrHistorical(
 export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
   const ticker = symbol.trim().toUpperCase();
   const { isUsStockTicker } = await import("@/lib/trading/stocks-universe");
-  const preferEodhd = isUsStockTicker(ticker) || isIbkrCryptoTicker(ticker);
+  const euLocal = isEuropeanEurEquity(ticker);
+  const preferEodhd =
+    euLocal || isUsStockTicker(ticker) || isIbkrCryptoTicker(ticker);
 
   async function loadEodhdBars(): Promise<OhlcvBar[]> {
     if (!isEodhdConfigured()) return [];
@@ -125,7 +131,14 @@ export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
   if (preferEodhd) {
     const eodhd = await loadEodhdBars();
     if (eodhd.length >= 20) {
-      console.log(`[History] ${ticker}: EODHD directo (${eodhd.length} barras)`);
+      console.log(
+        `[History] ${ticker}: EODHD directo (${eodhd.length} barras)` +
+          (euLocal ? " [EU]" : ""),
+      );
+      return eodhd;
+    }
+    if (euLocal) {
+      console.warn(`[History] ${ticker}: EODHD insuficiente para EU — sin IBKR history`);
       return eodhd;
     }
   }
@@ -146,6 +159,20 @@ export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
 
 /** Intraday 1-hour bars for swing entry timing. */
 export async function ibkrBars1h(symbol: string): Promise<OhlcvBar[]> {
+  const ticker = symbol.trim().toUpperCase();
+  if (isEuropeanEurEquity(ticker) && isEodhdConfigured()) {
+    const rows = await getIntradayHistory(ticker, "1h", 10).catch(() => []);
+    return rows
+      .map((r) => ({
+        open: r.open,
+        high: r.high,
+        low: r.low,
+        close: r.close,
+        volume: r.volume,
+        date: r.date,
+      }))
+      .filter((b) => b.date && b.close > 0);
+  }
   return ibkrHistorical(symbol, "10 D", "1 hour");
 }
 

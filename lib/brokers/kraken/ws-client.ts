@@ -7,6 +7,8 @@ import "server-only";
 
 import {
   applyTradeTick,
+  backfillUniverseHigherTfs,
+  ensurePairHigherTfBars,
   getBars,
   getMarketDataAges,
   isMarketDataStale,
@@ -236,7 +238,7 @@ function connect(): void {
 
 async function restReloadCandles(alts: string[]): Promise<void> {
   for (const alt of alts) {
-    for (const iv of [1, 5, 15, 60]) {
+    for (const iv of [1, 5, 15, 60, 240]) {
       await restBackfill(alt, iv).catch(() => undefined);
       await new Promise((r) => setTimeout(r, 150));
     }
@@ -297,11 +299,13 @@ async function restFallbackTick(): Promise<void> {
   restFallbackBusy = true;
   try {
     const alts = symbols.map(altFromWs);
-    // Rate-limit: backfill up to 5 pairs per tick
+    // Rate-limit: backfill up to 5 pairs per tick; always keep 1h/4h warm
     for (const alt of alts.slice(0, 5)) {
-      if (getBars(alt, "15").length >= 50) continue;
-      await restBackfill(alt, 15);
-      await restBackfill(alt, 60);
+      const need15 = getBars(alt, "15").length < 50;
+      const need1h = getBars(alt, "60").length < 60;
+      if (!need15 && !need1h) continue;
+      if (need15) await restBackfill(alt, 15);
+      await ensurePairHigherTfBars(alt);
       await new Promise((r) => setTimeout(r, 350));
     }
   } catch (err) {
@@ -315,14 +319,19 @@ async function restFallbackTick(): Promise<void> {
 export async function startKrakenMarketData(wsNames: string[]): Promise<void> {
   symbols = [...new Set(wsNames.map(toWsSymbol))];
   started = true;
-  // Initial REST seed for BTC/ETH + first 8
-  const seedAlts = symbols.slice(0, 10).map(altFromWs);
+  const allAlts = symbols.map(altFromWs);
+  // Fast TFs for first 10; 1h+4h for entire universe (TREND_PULLBACK / RS / regime)
+  const seedAlts = allAlts.slice(0, 10);
   for (const alt of seedAlts) {
-    for (const iv of [1, 5, 15, 60]) {
+    for (const iv of [1, 5, 15]) {
       await restBackfill(alt, iv).catch(() => undefined);
       await new Promise((r) => setTimeout(r, 200));
     }
   }
+  await backfillUniverseHigherTfs(allAlts, {
+    label: "startup",
+    delayMs: 220,
+  });
   connect();
   if (!watchdogTimer) {
     watchdogTimer = setInterval(() => {
@@ -335,8 +344,25 @@ export async function startKrakenMarketData(wsNames: string[]): Promise<void> {
 }
 
 export function updateKrakenMarketSubscriptions(wsNames: string[]): void {
+  const prev = new Set(symbols);
   symbols = [...new Set(wsNames.map(toWsSymbol))];
+  const added = symbols.filter((s) => !prev.has(s)).map(altFromWs);
   if (ws && ws.readyState === 1) subscribeAll(ws);
+  if (added.length) {
+    console.log(
+      `[Kraken/WS] nuevos pares → REST 1h+4h: ${added.slice(0, 20).join(",")}`,
+    );
+    void backfillUniverseHigherTfs(added, {
+      label: "new-pairs",
+      force: true,
+      delayMs: 250,
+    }).catch((err) =>
+      console.warn(
+        "[Kraken/WS] new-pair backfill:",
+        err instanceof Error ? err.message : err,
+      ),
+    );
+  }
 }
 
 export function getKrakenWsStatus(): {

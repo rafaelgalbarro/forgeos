@@ -76,11 +76,11 @@ function seedManualBlocks(cache: CacheShape): boolean {
   const seeds: Array<{ symbol: string; message: string }> = [
     {
       symbol: "DTE",
-      message: "ManualBlock hasta verificar contrato Xetra EUR (no DTE Energy)",
+      message: "bloqueo manual hasta verificar contrato Xetra EUR (no DTE Energy)",
     },
     {
       symbol: "TEF",
-      message: "ManualBlock hasta verificar contrato BME EUR (no ADR NYSE)",
+      message: "bloqueo manual hasta verificar contrato BME EUR (no ADR NYSE)",
     },
   ];
   let changed = false;
@@ -174,6 +174,9 @@ export function assertIbkrTradable(symbol: string): void {
   const t = symbol.trim().toUpperCase();
   const entry = getIbkrNonTradableEntry(t);
   if (!entry) return;
+  if (isManualBlock(entry)) {
+    throw new Error(`${t}: bloqueo manual — ${entry.message}`);
+  }
   throw new Error(
     `${t}: bloqueado en ibkr-non-tradable.json ` +
       `(${entry.ibkrStatus}${entry.code != null ? ` code=${entry.code}` : ""}) — ${entry.message}`,

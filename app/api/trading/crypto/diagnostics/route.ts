@@ -1,5 +1,6 @@
 /**
  * GET /api/trading/crypto/diagnostics — régimen 24h, señales / casi-señales, descartes.
+ * Regime `current` matches engine log / heartbeat (not Next.js empty in-memory state).
  */
 
 import { NextResponse } from "next/server";
@@ -9,14 +10,79 @@ import {
   topDiscardReasons,
 } from "@/lib/trading/crypto/diagnostics";
 import { getMarketRegime } from "@/lib/trading/crypto/regime";
+import {
+  isCryptoEngineExternal,
+  readCryptoEngineHeartbeat,
+} from "@/lib/trading/crypto/engine-heartbeat";
 import { peekKrakenUniverse } from "@/lib/brokers/kraken/universe";
+import type { MarketRegime } from "@/lib/trading/crypto/regime";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+function resolveCurrentRegime(): {
+  current: MarketRegime | string;
+  source: "memory" | "heartbeat" | "diagnostics";
+  raw: MarketRegime | null;
+  pending: MarketRegime | null;
+  btcDrop1hPct: number;
+  btcRet4hPct: number | null;
+  btcRet24hPct: number | null;
+  updatedAt: string | null;
+} {
+  const local = getMarketRegime();
+  const diag = loadDiagnostics();
+  const hb = readCryptoEngineHeartbeat();
+  const hbAge = hb ? Date.now() - Date.parse(hb.updatedAt) : Infinity;
+  const hbFresh = Number.isFinite(hbAge) && hbAge < 5 * 60_000;
+
+  // Prefer standalone engine heartbeat when Next.js does not own regime updates
+  if (isCryptoEngineExternal() && hbFresh && hb?.regime) {
+    return {
+      current: hb.regime,
+      source: "heartbeat",
+      raw: (diag.regimeLast as MarketRegime | null) ?? local.rawRegime ?? null,
+      pending: local.pendingRegime ?? null,
+      btcDrop1hPct: local.btcDrop1hPct,
+      btcRet4hPct: local.btcRet4hPct ?? null,
+      btcRet24hPct: local.btcRet24hPct ?? null,
+      updatedAt: hb.updatedAt,
+    };
+  }
+
+  // Local memory if this process runs the regime scheduler
+  if (local.updatedAt && local.regime) {
+    const age = Date.now() - Date.parse(local.updatedAt);
+    if (Number.isFinite(age) && age < 30 * 60_000) {
+      return {
+        current: local.regime,
+        source: "memory",
+        raw: local.rawRegime ?? null,
+        pending: local.pendingRegime ?? null,
+        btcDrop1hPct: local.btcDrop1hPct,
+        btcRet4hPct: local.btcRet4hPct ?? null,
+        btcRet24hPct: local.btcRet24hPct ?? null,
+        updatedAt: local.updatedAt,
+      };
+    }
+  }
+
+  // Persisted diagnostics (same value written by recordRegimeTick / [Kraken/Regime] log)
+  return {
+    current: diag.regimeLast ?? local.regime,
+    source: "diagnostics",
+    raw: local.rawRegime ?? null,
+    pending: local.pendingRegime ?? null,
+    btcDrop1hPct: local.btcDrop1hPct,
+    btcRet4hPct: local.btcRet4hPct ?? null,
+    btcRet24hPct: local.btcRet24hPct ?? null,
+    updatedAt: diag.regimeLastAt,
+  };
+}
+
 export async function GET() {
   const diag = loadDiagnostics();
-  const regime = getMarketRegime();
+  const regime = resolveCurrentRegime();
   const uni = peekKrakenUniverse();
   const totalMin =
     diag.regimeMinutes.ALCISTA +
@@ -26,10 +92,17 @@ export async function GET() {
     ok: true,
     at: new Date().toISOString(),
     regime: {
-      current: regime.regime,
-      raw: regime.rawRegime ?? null,
-      pending: regime.pendingRegime ?? null,
+      current: regime.current,
+      source: regime.source,
+      raw: regime.raw,
+      pending: regime.pending,
       btcDrop1hPct: regime.btcDrop1hPct,
+      btcRet4hPct: regime.btcRet4hPct,
+      btcRet24hPct: regime.btcRet24hPct,
+      updatedAt: regime.updatedAt,
+      /** Same as Telegram diag / rolling minutes from recordRegimeTick */
+      lastRecorded: diag.regimeLast,
+      lastRecordedAt: diag.regimeLastAt,
       hoursLast24h: {
         ALCISTA: (diag.regimeMinutes.ALCISTA / 60).toFixed(2),
         LATERAL: (diag.regimeMinutes.LATERAL / 60).toFixed(2),

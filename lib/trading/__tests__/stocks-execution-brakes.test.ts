@@ -96,7 +96,7 @@ describe("stocks execution brakes (08/10 addendum)", () => {
 
     // Further storm attempts also blocked via ManualBlock assert
     await expect(gateNoAckRetry("GSK", { side: "BUY" })).rejects.toThrow(
-      /bloqueado|ManualBlock|NO_ACK/i,
+      /bloqueo manual|bloqueado|ManualBlock|NO_ACK/i,
     );
 
     // VWAGY same policy
@@ -107,7 +107,7 @@ describe("stocks execution brakes (08/10 addendum)", () => {
     });
     expect(isIbkrNonTradable("VWAGY")).toBe(true);
     await expect(gateNoAckRetry("VWAGY", { side: "BUY" })).rejects.toThrow(
-      /bloqueado|ManualBlock/i,
+      /bloqueo manual|bloqueado|ManualBlock/i,
     );
   });
 
@@ -141,7 +141,7 @@ describe("stocks execution brakes (08/10 addendum)", () => {
       "@/lib/trading/ibkr-non-tradable"
     );
     expect(isIbkrNonTradable("DTE")).toBe(true);
-    expect(() => assertIbkrTradable("DTE")).toThrow(/DTE.*bloqueado|ManualBlock/i);
+    expect(() => assertIbkrTradable("DTE")).toThrow(/DTE: bloqueo manual/i);
 
     // Fresh write of TEF mid-process must be visible without restart
     const disk = JSON.parse(fs.readFileSync(cacheFile, "utf8")) as {
@@ -182,5 +182,41 @@ describe("stocks execution brakes (08/10 addendum)", () => {
     );
     // SELLs still allowed when only the flag is off (exits)
     expect(() => assertStocksExecutionAllowed({ side: "SELL" })).not.toThrow();
+  });
+
+  it("STOCKS_EXECUTION_EU=false blocks EU BUY; US still allowed", async () => {
+    fs.writeFileSync(
+      path.join(tmp, ".env.local"),
+      "STOCKS_EXECUTION_ENABLED=true\nSTOCKS_EXECUTION_EU=false\nSTOCKS_EXECUTION_US=true\n",
+      "utf8",
+    );
+    const {
+      isStocksExecutionEuEnabled,
+      isStocksExecutionUsEnabled,
+      assertStocksExecutionAllowed,
+      __resetStocksExecutionGateForTests,
+    } = await import("@/lib/trading/stocks-execution-gate");
+    __resetStocksExecutionGateForTests();
+    expect(isStocksExecutionEuEnabled()).toBe(false);
+    expect(isStocksExecutionUsEnabled()).toBe(true);
+    expect(() =>
+      assertStocksExecutionAllowed({ side: "BUY", symbol: "SAN" }),
+    ).toThrow(/STOCKS_EXECUTION_EU=false/);
+    expect(() =>
+      assertStocksExecutionAllowed({ side: "BUY", symbol: "AAPL" }),
+    ).not.toThrow();
+  });
+
+  it("ManualBlock assert says bloqueo manual with message", async () => {
+    const { assertIbkrTradable, recordManualBlock } = await import(
+      "@/lib/trading/ibkr-non-tradable"
+    );
+    await recordManualBlock({
+      symbol: "ITX",
+      message: "bloqueo manual prueba contrato BM",
+    });
+    expect(() => assertIbkrTradable("ITX")).toThrow(
+      /bloqueo manual — bloqueo manual prueba contrato BM/,
+    );
   });
 });

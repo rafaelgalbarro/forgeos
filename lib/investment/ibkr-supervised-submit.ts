@@ -21,6 +21,7 @@ import {
   isEuropeanEquityOrderWindow,
   isUsListedEquityOrderWindow,
 } from "@/lib/trading/cycle-schedule";
+import { isUsPremarketSession } from "@/lib/trading/exchange-hours";
 import {
   getEuropeanEurEquity,
   ibkrEurStocksAccountId,
@@ -41,8 +42,10 @@ import {
 } from "@/lib/trading/ibkr-non-tradable";
 import {
   assertStocksExecutionAllowed,
+  isStocksExecutionPremarketEnabled,
   recordStocksRejectOrNoAck,
 } from "@/lib/trading/stocks-execution-gate";
+import { isPremarketLiveReady } from "@/lib/trading/us-premarket";
 import { isOtcPinkNonExecutable } from "@/lib/trading/otc-pink";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 
@@ -310,7 +313,16 @@ export async function submitSupervisedLiveLimitOrder(args: {
         `${symbol}: OTC/PINK — excluido del universo ejecutable (no enviar orden)`,
       );
     }
-    assertStocksExecutionAllowed({ side: args.side });
+    const premarketBuy =
+      args.side === "BUY" &&
+      Boolean(args.outsideRth) &&
+      isUsPremarketSession() &&
+      !eu;
+    assertStocksExecutionAllowed({
+      side: args.side,
+      symbol,
+      premarket: premarketBuy,
+    });
   }
 
   // Session gates for new BUYs (SELL exits always allowed)
@@ -319,6 +331,17 @@ export async function submitSupervisedLiveLimitOrder(args: {
       if (!isEuropeanEquityOrderWindow()) {
         throw new Error(
           `${symbol}: fuera de sesión EU (Madrid 09:00–17:30 / London 08:00–16:30) — no enviar BUY europea`,
+        );
+      }
+    } else if (isUsPremarketSession() && args.outsideRth) {
+      if (!isStocksExecutionPremarketEnabled()) {
+        throw new Error(
+          `${symbol}: STOCKS_EXECUTION_PREMARKET=false — premarket shadow only`,
+        );
+      }
+      if (!isPremarketLiveReady()) {
+        throw new Error(
+          `${symbol}: premarket live not ready — need ≥20 improving shadow signals`,
         );
       }
     } else if (!isUsListedEquityOrderWindow()) {
@@ -548,7 +571,7 @@ export async function submitSupervisedLiveLimitOrder(args: {
     // Re-read blocklist + brakes before any retry
     if (!crypto) {
       assertIbkrTradable(symbol);
-      assertStocksExecutionAllowed({ side: args.side });
+      assertStocksExecutionAllowed({ side: args.side, symbol });
     }
     const gate = await gateNoAckRetry(symbol, { side: args.side });
     if (gate.action === "abort_existing") {
@@ -562,7 +585,7 @@ export async function submitSupervisedLiveLimitOrder(args: {
     console.warn(`[AutoExecute] ${symbol}: NO_ACK — reintento único (${gate.reason})`);
     if (!crypto) {
       assertIbkrTradable(symbol);
-      assertStocksExecutionAllowed({ side: args.side });
+      assertStocksExecutionAllowed({ side: args.side, symbol });
     }
     await ensureConnectedBeforeContractDetails(symbol);
     executed = await withBrokerRetry(symbol, "reintento post-NO_ACK", () =>

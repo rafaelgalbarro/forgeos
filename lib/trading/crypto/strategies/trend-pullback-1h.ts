@@ -2,11 +2,30 @@ import type { Bar } from "@/lib/brokers/kraken/market-store";
 import { atr, ema, rsi } from "@/lib/trading/crypto/indicators";
 import { holdSignal, type CryptoStrategySignal } from "./types";
 
-/** TREND_PULLBACK_1H: EMA20 > EMA50 on 1h, pullback to EMA20, RSI 40–55. */
+/** Live RSI band — flipped to 35–60 only if OOS net improves (validate script). */
+export const TREND_PULLBACK_RSI_MIN = 40;
+export const TREND_PULLBACK_RSI_MAX = 55;
+
+/** Candidate wider band for near-misses at 34–37 and 56–64. */
+export const TREND_PULLBACK_RSI_MIN_WIDE = 35;
+export const TREND_PULLBACK_RSI_MAX_WIDE = 60;
+
+export type TrendPullbackRsiOpts = {
+  rsiMin?: number;
+  rsiMax?: number;
+};
+
+/**
+ * TREND_PULLBACK_1H: EMA20 > EMA50 on 1h, pullback to EMA20, RSI band.
+ * Default RSI 40–55; adopt 35–60 only after OOS validation with real fees.
+ */
 export function evaluateTrendPullback1h(
   bars1h: readonly Bar[],
+  opts?: TrendPullbackRsiOpts,
 ): CryptoStrategySignal {
   const id = "TREND_PULLBACK_1H" as const;
+  const rsiMin = opts?.rsiMin ?? TREND_PULLBACK_RSI_MIN;
+  const rsiMax = opts?.rsiMax ?? TREND_PULLBACK_RSI_MAX;
   if (bars1h.length < 60) return holdSignal(id, "insuficientes barras 1h");
   const closes = bars1h.map((b) => b.close);
   const price = closes[closes.length - 1]!;
@@ -19,7 +38,9 @@ export function evaluateTrendPullback1h(
   }
   if (!(e20 > e50)) return holdSignal(id, "EMA20<=EMA50 1h");
   if (Math.abs(price - e20) / price > 0.012) return holdSignal(id, "no en EMA20");
-  if (r < 40 || r > 55) return holdSignal(id, `RSI=${r.toFixed(0)} fuera 40-55`);
+  if (r < rsiMin || r > rsiMax) {
+    return holdSignal(id, `RSI=${r.toFixed(0)} fuera ${rsiMin}-${rsiMax}`);
+  }
   const stopDist = Math.min(a * 1.5, price * 0.03);
   return {
     strategyId: id,

@@ -1335,11 +1335,38 @@ class IBKRClient(EWrapper, EClient):
         d.mkdir(parents=True, exist_ok=True)
         return d / "ibkr-eu-contracts.json"
 
+    def _contract_cache_today(self) -> str:
+        return time.strftime("%Y-%m-%d", time.gmtime())
+
+    def _contract_entry_fresh(self, entry: dict[str, Any] | None) -> bool:
+        if not entry or not entry.get("conId"):
+            return False
+        day = str(entry.get("day") or (entry.get("cachedAt") or "")[:10])
+        return day == self._contract_cache_today()
+
     def _load_contract_cache(self) -> dict[str, Any]:
+        """Load EU contract cache; drop entries not from today (once-per-day resolve)."""
         path = self._contract_cache_path()
         try:
             if path.exists():
-                return json.loads(path.read_text(encoding="utf-8"))
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(raw, dict):
+                    return {}
+                today = self._contract_cache_today()
+                fresh = {
+                    k: v
+                    for k, v in raw.items()
+                    if isinstance(v, dict) and self._contract_entry_fresh(v)
+                }
+                if len(fresh) != len(raw):
+                    log.info(
+                        "EU contract cache pruned %d stale → %d fresh (day=%s)",
+                        len(raw) - len(fresh),
+                        len(fresh),
+                        today,
+                    )
+                    self._save_contract_cache(fresh)
+                return fresh
         except Exception:
             pass
         return {}
@@ -1491,7 +1518,9 @@ class IBKRClient(EWrapper, EClient):
                     "exchange": getattr(qualified, "exchange", "SMART") or "SMART",
                     "primaryExchange": getattr(qualified, "primaryExchange", primary) or primary,
                     "longName": long_name[:120],
+                    "companyName": long_name[:120],
                     "cachedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "day": self._contract_cache_today(),
                 }
                 if cache[cache_key]["conId"]:
                     self._save_contract_cache(cache)
@@ -1813,6 +1842,8 @@ class IBKRClient(EWrapper, EClient):
                     sl.auxPrice = float(stop_loss)
                     sl.parentId = parent_id
                     sl.tif = "GTC"
+                    # Premarket / extended: stop must be able to trigger outside RTH
+                    sl.outsideRth = bool(order.outsideRth)
                     sl.transmit = False
                     if account:
                         sl.account = account
@@ -1826,6 +1857,7 @@ class IBKRClient(EWrapper, EClient):
                     tp.lmtPrice = float(take_profit)
                     tp.parentId = parent_id
                     tp.tif = "GTC"
+                    tp.outsideRth = bool(order.outsideRth)
                     tp.transmit = bool(transmit)
                     if account:
                         tp.account = account
@@ -2633,6 +2665,61 @@ def history(
         return result
     except Exception as exc:
         audit("IBKR_HISTORY_FAILED", cleaned, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.get("/api/ibkr/contract/{symbol}", dependencies=auth)
+def qualify_stock_contract(
+    symbol: str,
+    currency: str = "EUR",
+    primaryExchange: str = "",
+):
+    """
+    Resolve STK via reqContractDetails and cache once per calendar day.
+    Used for EU pre-trade verify (conId / primary / currency / name) — not for quotes.
+    """
+    cleaned = symbol.strip().upper()
+    if not cleaned or len(cleaned) > 20:
+        raise HTTPException(400, "symbol inválido")
+    ccy = (currency or "EUR").strip().upper() or "EUR"
+    primary = (primaryExchange or "").strip().upper()
+    if not primary and ccy == "EUR":
+        primary = ibkr._EU_LOCAL_PRIMARY.get(cleaned, "")
+    try:
+        contract = ibkr._qualify_stock_contract(
+            {
+                "symbol": cleaned,
+                "currency": ccy,
+                "primary_exchange": primary,
+                "exchange": "SMART",
+                "sec_type": "STK",
+            }
+        )
+        con_id = int(getattr(contract, "conId", 0) or 0)
+        if con_id <= 0:
+            raise RuntimeError(f"sin conId para {cleaned}")
+        # Prefer cached longName
+        cache = ibkr._load_contract_cache()
+        key = f"{cleaned}|{ccy}|{primary or 'SMART'}"
+        cached = cache.get(key) or {}
+        long_name = str(cached.get("longName") or cached.get("companyName") or "")
+        payload = {
+            "ok": True,
+            "symbol": cleaned,
+            "conId": con_id,
+            "exchange": getattr(contract, "exchange", "SMART") or "SMART",
+            "primaryExchange": getattr(contract, "primaryExchange", primary) or primary,
+            "currency": getattr(contract, "currency", ccy) or ccy,
+            "longName": long_name,
+            "companyName": long_name,
+            "cachedAt": cached.get("cachedAt")
+            or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "day": cached.get("day") or ibkr._contract_cache_today(),
+        }
+        audit("IBKR_CONTRACT_QUALIFY", cleaned, {"conId": con_id, "primary": payload["primaryExchange"]})
+        return payload
+    except Exception as exc:
+        audit("IBKR_CONTRACT_FAILED", cleaned, {"error": str(exc)})
         raise HTTPException(503, str(exc)) from exc
 
 

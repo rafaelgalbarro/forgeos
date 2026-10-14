@@ -206,6 +206,28 @@ export class KrakenFuturesAdapter {
     return this.getInstrument(pf);
   }
 
+  /** Historical 8h funding rates (public). */
+  async getHistoricalFundingRates(
+    symbol: string,
+  ): Promise<Array<{ time: number; rate: number }>> {
+    const sym = symbol.toUpperCase();
+    const raw = await publicGet<{ rates?: Record<string, unknown>[] }>(
+      "/historical-funding-rates",
+      { symbol: sym },
+    );
+    const rows = raw.rates ?? (Array.isArray(raw) ? raw : []);
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((r) => {
+        const row = r as Record<string, unknown>;
+        const ts = num(row.timestamp ?? row.time);
+        const rate = num(row.fundingRate ?? row.relativeFundingRate ?? row.rate);
+        return { time: ts > 1e12 ? Math.floor(ts / 1000) : ts, rate };
+      })
+      .filter((x) => x.time > 0)
+      .sort((a, b) => a.time - b.time);
+  }
+
   async getQuote(symbol: string): Promise<FuturesQuote> {
     const sym = symbol.toUpperCase();
     const raw = await publicGet<{ tickers?: Record<string, unknown>[] }>("/tickers");

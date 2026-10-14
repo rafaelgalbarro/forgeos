@@ -148,16 +148,32 @@ export function listOpenCryptoJournal(opts?: {
     if (shadowMode === true && !t.shadow) continue;
     if (shadowMode === false && t.shadow) continue;
     const key = `${t.shadow ? "S" : "L"}|${t.strategy}|${t.pair}|${t.signalKey ?? t.at}`;
-    if (t.side === "BUY" && (t.open || t.exit == null)) {
+    const isOpenLeg =
+      (t.side === "BUY" ||
+        (t.venue === "futures" && t.positionSide === "short" && t.side === "SELL")) &&
+      (t.open || t.exit == null);
+    if (isOpenLeg) {
       opens.set(key, t);
     }
-    if (t.side === "SELL") {
-      // close matching open
+    if (t.side === "SELL" && t.exitReason) {
+      // close matching open (long exit leg)
       for (const [k, o] of opens) {
         if (
           o.pair === t.pair &&
           o.strategy === t.strategy &&
           o.shadow === t.shadow
+        ) {
+          opens.delete(k);
+        }
+      }
+    }
+    if (t.side === "BUY" && t.exitReason && t.venue === "futures") {
+      for (const [k, o] of opens) {
+        if (
+          o.pair === t.pair &&
+          o.strategy === t.strategy &&
+          o.shadow === t.shadow &&
+          o.positionSide === "short"
         ) {
           opens.delete(k);
         }
@@ -338,6 +354,7 @@ export function closeCryptoJournalOpen(params: {
   exit: number;
   exitReason: string;
   feesEur?: number;
+  fundingPaidEur?: number;
   mfePct?: number | null;
   maePct?: number | null;
 }): void {
@@ -348,17 +365,33 @@ export function closeCryptoJournalOpen(params: {
       : o.shadow
         ? shadowSimQty(o.entry)
         : 1;
-  const gross = (params.exit - o.entry) * qty;
-  const fees = params.feesEur ?? 0;
-  const net = gross - fees;
+  const side: "long" | "short" =
+    o.positionSide ??
+    (o.side === "SELL" && o.venue === "futures" ? "short" : "long");
+  const gross =
+    side === "short"
+      ? (o.entry - params.exit) * qty
+      : (params.exit - o.entry) * qty;
+  const tradingFees = params.feesEur ?? 0;
+  const fundingPaid = params.fundingPaidEur ?? o.fundingPaidEur ?? 0;
+  const fees = tradingFees + Math.max(0, fundingPaid);
+  const net = gross - tradingFees - Math.max(0, fundingPaid);
   const notional = o.entry * qty;
   const openedAt = Date.parse(o.at);
+  const stopDist =
+    side === "short"
+      ? o.stopLoss != null && o.stopLoss > o.entry
+        ? o.stopLoss - o.entry
+        : null
+      : o.stopLoss != null && o.entry > o.stopLoss
+        ? o.entry - o.stopLoss
+        : null;
   appendCryptoJournal({
     at: new Date().toISOString(),
     strategy: o.strategy,
     pair: o.pair,
     regime: o.regime,
-    side: "SELL",
+    side: side === "short" ? "BUY" : "SELL",
     entry: o.entry,
     exit: params.exit,
     exitReason: params.exitReason,
@@ -371,9 +404,34 @@ export function closeCryptoJournalOpen(params: {
     maePct: params.maePct ?? null,
     shadow: o.shadow,
     signalKey: o.signalKey,
+    venue: o.venue,
+    positionSide: side,
+    leverage: o.leverage ?? null,
+    fundingPaidEur: fundingPaid,
+    pfSymbol: o.pfSymbol ?? null,
     rMultiple:
-      o.stopLoss != null && o.entry > o.stopLoss
-        ? (params.exit - o.entry) / (o.entry - o.stopLoss)
+      stopDist != null && stopDist > 0
+        ? (side === "short"
+            ? (o.entry - params.exit) / stopDist
+            : (params.exit - o.entry) / stopDist)
         : null,
   });
+}
+
+export function formatFuturesCloseTelegram(
+  open: CryptoJournalTrade,
+  exit: number,
+  exitReason: string,
+  opts?: { fundingPaidEur?: number; netPnlEur?: number },
+): string {
+  const side = open.positionSide ?? "long";
+  const lev = open.leverage ?? 1;
+  const fund = opts?.fundingPaidEur ?? 0;
+  const net = opts?.netPnlEur;
+  const sym = open.pfSymbol ?? open.pair;
+  return (
+    `${side === "short" ? "🔴 SHORT" : "🟢 LONG"} EXIT Futures ${sym} @ ${exit.toFixed(4)} | ` +
+    `${open.strategy} ${exitReason} lev=${lev} funding=€${fund.toFixed(4)}` +
+    (net != null ? ` net=€${net.toFixed(2)}` : "")
+  );
 }

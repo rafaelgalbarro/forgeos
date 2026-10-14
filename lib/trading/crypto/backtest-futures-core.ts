@@ -35,6 +35,71 @@ export function estimateFundingPct(
   return sign * fundingRate8h * periods;
 }
 
+export function simulateFuturesLongTrade(params: {
+  bars: readonly Bar[];
+  entryBarIndex: number;
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  maxBars: number;
+  makerFee?: number;
+  takerFee?: number;
+  fundingRate8h?: number;
+  barMinutes?: number;
+}): SimulatedFill | null {
+  const maker = params.makerFee ?? getFuturesBacktestMakerFee();
+  const taker = params.takerFee ?? getFuturesBacktestTakerFee();
+  const { bars, entryBarIndex, entryPrice, stopLoss, takeProfit, maxBars } = params;
+  if (!(entryPrice > 0) || entryBarIndex < 0 || entryBarIndex >= bars.length - 1) {
+    return null;
+  }
+  let mfe = 0;
+  let mae = 0;
+  let exit = entryPrice;
+  let exitKind: BacktestExitKind = "timeout";
+  const last = Math.min(bars.length - 1, entryBarIndex + maxBars);
+  for (let j = entryBarIndex + 1; j <= last; j++) {
+    const b = bars[j]!;
+    mfe = Math.max(mfe, (b.high - entryPrice) / entryPrice);
+    mae = Math.min(mae, (b.low - entryPrice) / entryPrice);
+    const hitStop = b.low <= stopLoss;
+    const hitTp = b.high >= takeProfit;
+    if (hitStop && hitTp) {
+      exit = stopLoss;
+      exitKind = "stop";
+      break;
+    }
+    if (hitStop) {
+      exit = stopLoss;
+      exitKind = "stop";
+      break;
+    }
+    if (hitTp) {
+      exit = takeProfit;
+      exitKind = "take_profit";
+      break;
+    }
+    if (j === last) {
+      exit = b.close;
+      exitKind = "timeout";
+    }
+  }
+  const exitFee = exitKind === "take_profit" ? maker : taker;
+  const gross = (exit - entryPrice) / entryPrice;
+  const holdHours = ((last - entryBarIndex) * (params.barMinutes ?? 15)) / 60;
+  const funding = estimateFundingPct(params.fundingRate8h ?? 0, holdHours, "long");
+  const netPct = (gross - maker - exitFee - funding) * 100;
+  return {
+    entry: entryPrice,
+    exit,
+    grossPct: gross * 100,
+    netPct,
+    mfePct: mfe * 100,
+    maePct: mae * 100,
+    exitKind,
+  };
+}
+
 export function simulateShortTrade(params: {
   bars: readonly Bar[];
   entryBarIndex: number;
@@ -44,6 +109,8 @@ export function simulateShortTrade(params: {
   maxBars: number;
   makerFee?: number;
   takerFee?: number;
+  fundingRate8h?: number;
+  barMinutes?: number;
 }): SimulatedFill | null {
   const { bars, entryBarIndex, entryPrice, stopLoss, takeProfit, maxBars } = params;
   if (!(entryPrice > 0) || entryBarIndex < 0 || entryBarIndex >= bars.length - 1) {
@@ -84,7 +151,9 @@ export function simulateShortTrade(params: {
   const taker = params.takerFee ?? getFuturesBacktestTakerFee();
   const exitFee = exitKind === "take_profit" ? maker : taker;
   const gross = (entryPrice - exit) / entryPrice;
-  const netPct = (gross - maker - exitFee) * 100;
+  const holdHours = ((last - entryBarIndex) * (params.barMinutes ?? 15)) / 60;
+  const funding = estimateFundingPct(params.fundingRate8h ?? 0, holdHours, "short");
+  const netPct = (gross - maker - exitFee - funding) * 100;
   return {
     entry: entryPrice,
     exit,

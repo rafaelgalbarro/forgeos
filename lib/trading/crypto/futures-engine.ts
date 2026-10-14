@@ -26,8 +26,11 @@ import {
 import {
   appendCryptoJournal,
   closeCryptoJournalOpen,
+  formatFuturesCloseTelegram,
   listOpenCryptoJournal,
+  type CryptoJournalTrade,
 } from "@/lib/trading/crypto/journal-crypto";
+import { accrueFundingEur } from "@/lib/trading/crypto/futures-funding";
 import { getMarketRegime } from "@/lib/trading/crypto/regime";
 import {
   evaluateAllStrategiesForPair,
@@ -37,7 +40,10 @@ import {
 import { shadowSimQty } from "@/lib/trading/crypto/signal-guards";
 import { maxHoldMsForStrategy } from "@/lib/trading/crypto/reconcile";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
-import { subscribeFuturesForSpotPairs } from "@/lib/brokers/kraken-futures/ws-client";
+import {
+  getFuturesWsTicker,
+  subscribeFuturesForSpotPairs,
+} from "@/lib/brokers/kraken-futures/ws-client";
 
 export type FuturesEngineStatus = {
   started: boolean;
@@ -106,8 +112,100 @@ export async function startKrakenFuturesEngine(): Promise<void> {
   );
 }
 
+async function markPx(pf: string, adapter: ReturnType<typeof getKrakenFuturesAdapter>): Promise<number | null> {
+  const ws = getFuturesWsTicker(pf);
+  if (ws?.mark > 0) return ws.mark;
+  const q = await adapter.getQuote(pf).catch(() => null);
+  return q?.mid ?? null;
+}
+
+async function finalizeFuturesClose(
+  open: CryptoJournalTrade,
+  exit: number,
+  exitReason: string,
+  tradingFeesEur = 0,
+): Promise<void> {
+  const adapter = getKrakenFuturesAdapter();
+  const pf = open.pfSymbol ?? spotPairToPfSymbol(open.pair) ?? open.pair;
+  const q = await adapter.getQuote(pf).catch(() => null);
+  const qty =
+    open.qty && open.qty > 0 ? open.qty : shadowSimQty(open.entry);
+  const side = open.positionSide ?? "long";
+  const openedAt = Date.parse(open.at);
+  const holdMs = Number.isFinite(openedAt) ? Date.now() - openedAt : 0;
+  const fundingPaid = accrueFundingEur({
+    notionalEur: open.entry * qty,
+    fundingRate8h: q?.fundingRate ?? 0,
+    holdMs,
+    side,
+  });
+  closeCryptoJournalOpen({
+    open,
+    exit,
+    exitReason,
+    feesEur: tradingFeesEur,
+    fundingPaidEur: fundingPaid,
+  });
+  const gross =
+    side === "short"
+      ? (open.entry - exit) * qty
+      : (exit - open.entry) * qty;
+  const net = gross - tradingFeesEur - Math.max(0, fundingPaid);
+  const line = formatFuturesCloseTelegram(open, exit, exitReason, {
+    fundingPaidEur: fundingPaid,
+    netPnlEur: net,
+  });
+  void sendTelegramMessage(line).catch(() => undefined);
+}
+
+async function runFuturesShadowExits(): Promise<void> {
+  const opens = listOpenCryptoJournal({ shadow: true }).filter(
+    (t) => t.venue === "futures",
+  );
+  if (!opens.length) return;
+  const adapter = getKrakenFuturesAdapter();
+  for (const open of opens) {
+    const pf = open.pfSymbol ?? spotPairToPfSymbol(open.pair) ?? open.pair;
+    const mid = await markPx(pf, adapter);
+    if (mid == null || !(mid > 0)) continue;
+    const side = open.positionSide ?? "long";
+    const stop =
+      open.stopLoss != null && open.stopLoss > 0
+        ? open.stopLoss
+        : side === "short"
+          ? open.entry * 1.03
+          : open.entry * 0.97;
+    const tp =
+      open.takeProfit != null && open.takeProfit > 0
+        ? open.takeProfit
+        : side === "short"
+          ? open.entry * 0.96
+          : open.entry * 1.04;
+    const openedAt = Date.parse(open.at);
+    const holdMs = Number.isFinite(openedAt) ? Date.now() - openedAt : 0;
+    const maxHold = maxHoldMsForStrategy(String(open.strategy));
+    let reason: string | null = null;
+    if (holdMs >= maxHold) reason = "MAX_HOLD";
+    if (!reason && side === "long") {
+      if (mid <= stop) reason = "STOP_LOSS";
+      else if (mid >= tp) reason = "TAKE_PROFIT";
+    }
+    if (!reason && side === "short") {
+      if (mid >= stop) reason = "STOP_LOSS";
+      else if (mid <= tp) reason = "TAKE_PROFIT";
+    }
+    if (!reason) continue;
+    const fees =
+      open.entry *
+      (open.qty && open.qty > 0 ? open.qty : shadowSimQty(open.entry)) *
+      0.0007;
+    await finalizeFuturesClose(open, mid, reason, fees);
+  }
+}
+
 export async function runFuturesExitLoop(): Promise<void> {
   if (!isKrakenFuturesConfigured()) return;
+  await runFuturesShadowExits().catch(() => undefined);
   const adapter = getKrakenFuturesAdapter();
   const positions = await adapter.getOpenPositions().catch(() => []);
   const opens = listOpenCryptoJournal({ shadow: false }).filter(
@@ -117,12 +215,7 @@ export async function runFuturesExitLoop(): Promise<void> {
     const pf = spotPairToPfSymbol(open.pair) ?? open.pair;
     const pos = positions.find((p) => p.symbol === pf);
     if (!pos) {
-      closeCryptoJournalOpen({
-        open,
-        exit: open.entry,
-        exitReason: "EXCHANGE_FLAT",
-        feesEur: 0,
-      });
+      await finalizeFuturesClose(open, open.entry, "EXCHANGE_FLAT", 0);
       continue;
     }
     const dist = liquidationDistancePct(pos.side, pos.markPrice, pos.liquidationPrice);
@@ -136,15 +229,7 @@ export async function runFuturesExitLoop(): Promise<void> {
           reduceOnly: true,
         })
         .catch(() => undefined);
-      closeCryptoJournalOpen({
-        open,
-        exit: pos.markPrice,
-        exitReason: "LIQ_PROXIMITY_50",
-        feesEur: 0,
-      });
-      void sendTelegramMessage(
-        `🔴 EXIT Futures ${pf} — distancia liquidación <50%`,
-      ).catch(() => undefined);
+      await finalizeFuturesClose(open, pos.markPrice, "LIQ_PROXIMITY_50", 0);
     }
     const maxHold = maxHoldMsForStrategy(String(open.strategy));
     if (maxHold > 0 && Date.now() - Date.parse(open.at) > maxHold) {
@@ -157,12 +242,7 @@ export async function runFuturesExitLoop(): Promise<void> {
           reduceOnly: true,
         })
         .catch(() => undefined);
-      closeCryptoJournalOpen({
-        open,
-        exit: pos.markPrice,
-        exitReason: "TIME_EXIT",
-        feesEur: 0,
-      });
+      await finalizeFuturesClose(open, pos.markPrice, "TIME_EXIT", 0);
     }
   }
 }

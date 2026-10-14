@@ -1317,7 +1317,7 @@ class IBKRClient(EWrapper, EClient):
         "DTE": ("TELEKOM", "DEUTSCHE TELEKOM", "DT.TELEKOM"),
         "TEF": ("TELEFONICA", "TELEFÓNICA"),
         "SAN": ("SANTANDER",),
-        "ITX": ("INDITEX",),
+        "ITX": ("INDITEX", "INDUSTRIA DE DIS", "DISENO TEXTIL", "DISEÑO TEXTIL"),
         "IBE": ("IBERDROLA",),
         "AENA": ("AENA",),
         "BBVA": ("BBVA", "BILBAO"),

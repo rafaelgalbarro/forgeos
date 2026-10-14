@@ -384,6 +384,83 @@ export async function backfillUniverseHigherTfs(
   return { ok, weak, total: pairs.length };
 }
 
+const MIN_BARS_5 = 30;
+const MIN_BARS_15 = 40;
+
+/** Ensure 5m + 15m OHLC (strategies need ≥40×15m). */
+export async function ensurePairMidTfBars(
+  pairAlt: string,
+  opts?: { min5?: number; min15?: number; force?: boolean },
+): Promise<{
+  pair: string;
+  bars5: number;
+  bars15: number;
+  ok: boolean;
+  reasons: string[];
+}> {
+  const min5 = opts?.min5 ?? MIN_BARS_5;
+  const min15 = opts?.min15 ?? MIN_BARS_15;
+  const reasons: string[] = [];
+  let bars5 = getBars(pairAlt, "5").length;
+  let bars15 = getBars(pairAlt, "15").length;
+
+  if (opts?.force || bars5 < min5) {
+    const r = await restBackfill(pairAlt, 5);
+    bars5 = getBars(pairAlt, "5").length;
+    if (!r.ok) reasons.push(`5m:${r.reason ?? "fail"}`);
+    else if (bars5 < min5) reasons.push(`5m:solo ${bars5}/${min5} tras REST`);
+  }
+  if (opts?.force || bars15 < min15) {
+    const r = await restBackfill(pairAlt, 15);
+    bars15 = getBars(pairAlt, "15").length;
+    if (!r.ok) reasons.push(`15m:${r.reason ?? "fail"}`);
+    else if (bars15 < min15) reasons.push(`15m:solo ${bars15}/${min15} tras REST`);
+  }
+
+  const ok = bars5 >= min5 && bars15 >= min15;
+  if (!ok && reasons.length) {
+    console.warn(
+      `[Kraken/REST] insuficientes barras medias ${pairAlt}: ` +
+        `5m=${bars5} 15m=${bars15} (${reasons.join("; ")})`,
+    );
+  }
+  return { pair: pairAlt, bars5, bars15, ok, reasons };
+}
+
+/**
+ * REST backfill 5m, 15m, 1h, 4h for all universe pairs.
+ */
+export async function backfillUniverseStandardTfs(
+  pairs: readonly string[],
+  opts?: { delayMs?: number; force?: boolean; label?: string },
+): Promise<{ ok: number; weak: number; total: number }> {
+  const delayMs = opts?.delayMs ?? 220;
+  const label = opts?.label ?? "universe";
+  let ok = 0;
+  let weak = 0;
+  const weakPairs: string[] = [];
+  for (const pair of pairs) {
+    const mid = await ensurePairMidTfBars(pair, { force: opts?.force });
+    const hi = await ensurePairHigherTfBars(pair, { force: opts?.force });
+    if (mid.ok && hi.ok) ok += 1;
+    else {
+      weak += 1;
+      const parts = [...mid.reasons, ...hi.reasons];
+      weakPairs.push(
+        `${pair}(5=${mid.bars5},15=${mid.bars15},1h=${hi.bars1h},4h=${hi.bars4h}${parts.length ? `:${parts.join(",")}` : ""})`,
+      );
+    }
+    if (delayMs > 0) await new Promise((res) => setTimeout(res, delayMs));
+  }
+  console.log(
+    `[Kraken/REST] backfill 5/15/1h/4h ${label}: ok=${ok} weak=${weak} total=${pairs.length}` +
+      (weakPairs.length
+        ? ` | weak=[${weakPairs.slice(0, 10).join("; ")}${weakPairs.length > 10 ? "…" : ""}]`
+        : ""),
+  );
+  return { ok, weak, total: pairs.length };
+}
+
 /** Ingest a public trade into 1m and 3m candles (WS trade channel). */
 export function applyTradeTick(
   pair: string,

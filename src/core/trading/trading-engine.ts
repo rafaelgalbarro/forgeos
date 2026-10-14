@@ -1388,6 +1388,36 @@ export class TradingEngine {
           `enviadas=${enviadas} sin_capital=${sinCapital} rechazadas=${rechazadas}`,
       )
 
+      try {
+        const { recordStocksCycleSummary } = await import(
+          '@/lib/trading/stocks/daily-telegram'
+        )
+        const discardByReason: Record<string, number> = {}
+        for (const o of orders) {
+          if (o.signal.analyzed === false) {
+            const key = (o.reason || o.signal.reasoning || 'no analizado').slice(0, 72)
+            discardByReason[key] = (discardByReason[key] ?? 0) + 1
+          } else if (
+            o.direction === 'HOLD' ||
+            o.status === 'HOLD' ||
+            o.status === 'REJECTED_CONFIDENCE'
+          ) {
+            const key = (o.signal.reasoning || o.reason || 'hold').slice(0, 72)
+            discardByReason[key] = (discardByReason[key] ?? 0) + 1
+          }
+        }
+        recordStocksCycleSummary({
+          analyzed: analyzedOk,
+          signals: señales,
+          ordersSent: enviadas,
+          ordersFilled: autoEjecutadas,
+          accountLabel: isEuropeanEquityOrderWindow() ? 'U15513057' : 'U24225949',
+          discardByReason,
+        })
+      } catch {
+        /* optional */
+      }
+
       const cycleElapsedMs = Date.now() - cycleBodyStartedMs
       if (cycleElapsedMs > 100_000) {
         const slowest = [...tickerDurationsMs].sort((a, b) => b.ms - a.ms).slice(0, 5)

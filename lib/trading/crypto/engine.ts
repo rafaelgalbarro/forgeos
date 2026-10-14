@@ -8,7 +8,12 @@ import { getKrakenAdapter, isKrakenConfigured } from "@/lib/brokers/kraken";
 import { getKrakenPairMeta, quantizeKrakenVolume } from "@/lib/brokers/kraken/asset-pairs";
 import { atr } from "@/lib/trading/crypto/indicators";
 import {
-  backfillUniverseHigherTfs,
+  shadowExitFeesEur,
+  shadowSimQty,
+} from "@/lib/trading/crypto/signal-guards";
+import { passesCostFilter } from "@/lib/trading/crypto/strategies/index";
+import {
+  backfillUniverseStandardTfs,
   formatDataAgeLog,
   getBars,
   getBook,
@@ -283,6 +288,11 @@ export async function startKrakenEngine(): Promise<void> {
       void refreshKrakenUniverse(true)
         .then((u) => {
           updateKrakenMarketSubscriptions(u.selected.map((p) => p.wsname));
+          const alts = u.selected.map((p) => p.altname);
+          return backfillUniverseStandardTfs(alts, {
+            label: "hourly-gap",
+            delayMs: 200,
+          });
         })
         .catch((err) =>
           console.warn("[Kraken/Universe]", err instanceof Error ? err.message : err),
@@ -383,6 +393,11 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
     for (const sig of ranked.slice(0, 3)) {
       if (!canOpenFastTrade().ok) break;
       if (!isCryptoStrategyLive(sig.strategyId) || sig.shadow) {
+        if (!passesCostFilter(sig, sig.spreadPct)) {
+          held.push(`${sig.pair}:shadow_cost`);
+          continue;
+        }
+        const shQty = shadowSimQty(sig.entry);
         appendCryptoJournal({
           at: new Date().toISOString(),
           strategy: sig.strategyId,
@@ -403,6 +418,7 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
           signalKey: sig.signalKey,
           stopLoss: sig.stopLoss,
           takeProfit: sig.takeProfit,
+          qty: shQty,
         });
         held.push(`${sig.pair}:shadow`);
         continue;
@@ -550,6 +566,18 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
         );
       }
     }
+    try {
+      const { recordCycleMeta } = await import(
+        "@/lib/trading/crypto/diagnostics"
+      );
+      recordCycleMeta({
+        universePairs: pairs,
+        signals: collected.length,
+        tradesLast24h: 0,
+      });
+    } catch {
+      /* optional */
+    }
     return { executed, held };
   } finally {
     fastCycleBusy = false;
@@ -600,13 +628,19 @@ async function runShadowExits(): Promise<void> {
     if (!reason) continue;
     const exitPx = mid ?? entry;
     const peak = Math.max(exitPx, entry);
+    const qty =
+      open.qty && open.qty > 0 ? open.qty : shadowSimQty(entry);
     closeCryptoJournalOpen({
-      open,
+      open: { ...open, qty },
       exit: exitPx,
       exitReason: reason,
-      feesEur:
-        entry * getMakerFeePct(open.pair) +
-        exitPx * getTakerFeePct(open.pair),
+      feesEur: shadowExitFeesEur({
+        entry,
+        exit: exitPx,
+        qty,
+        pair: open.pair,
+        exitReason: reason,
+      }),
       mfePct: (peak - entry) / entry,
       maePct: null,
     });
@@ -773,21 +807,17 @@ export async function runKrakenAnalysisCycle(): Promise<{
   await startKrakenEngine();
   await checkAndRecoverStaleMarketData().catch(() => undefined);
   const pairs = await getKrakenUniversePairs();
-  // 1h+4h for full universe (avoids "insuficientes barras 1h" discards)
-  const needHigher = pairs.filter((p) => getBars(p, "60").length < 60);
-  if (needHigher.length) {
-    await backfillUniverseHigherTfs(needHigher, {
+  const needBars = pairs.filter(
+    (p) =>
+      getBars(p, "5").length < 30 ||
+      getBars(p, "15").length < 40 ||
+      getBars(p, "60").length < 60,
+  );
+  if (needBars.length) {
+    await backfillUniverseStandardTfs(needBars, {
       label: "cycle-gap",
       delayMs: 180,
     }).catch(() => undefined);
-  }
-  // Fast TFs for top pairs still short on 15m
-  for (const p of pairs.slice(0, 15)) {
-    if (getBars(p, "15").length < 40) {
-      await restBackfill(p, 15).catch(() => undefined);
-      await restBackfill(p, 5).catch(() => undefined);
-      await restBackfill(p, 1).catch(() => undefined);
-    }
   }
 
   const eq = await equityEur();
@@ -907,6 +937,11 @@ export async function runKrakenAnalysisCycle(): Promise<{
     }
 
     if (isShadow) {
+      if (!passesCostFilter(sig, sig.spreadPct)) {
+        held.push(`${sig.pair}:shadow_cost`);
+        continue;
+      }
+      const shQty = shadowSimQty(sig.entry);
       appendCryptoJournal({
         at: new Date().toISOString(),
         strategy: sig.strategyId,
@@ -927,6 +962,7 @@ export async function runKrakenAnalysisCycle(): Promise<{
         signalKey: sig.signalKey,
         stopLoss: sig.stopLoss,
         takeProfit: sig.takeProfit,
+        qty: shQty,
       });
       shadow.push(`${sig.pair}:${sig.strategyId}`);
       console.log(
@@ -1211,8 +1247,8 @@ function startDailyReportScheduler(): void {
     const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
     const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
     const wd = parts.find((p) => p.type === "weekday")?.value ?? "";
-    // Daily summary 22:00 Europe/Madrid
-    if (h === 22 && m < 5) {
+    // Daily summary 22:15 Europe/Madrid
+    if (h === 22 && m >= 15 && m < 20) {
       void sendDailyCryptoReport().catch(() => undefined);
     }
     if (wd === "Sun" && h === 20 && m < 5) {
@@ -1233,29 +1269,47 @@ async function sendDailyCryptoReport(): Promise<void> {
       Number.isFinite(Date.parse(t.at)) &&
       Date.parse(t.at) >= dayAgo,
   ).length;
+  const shadowClosed = readCryptoJournal().filter(
+    (t) =>
+      t.shadow &&
+      t.side === "SELL" &&
+      t.netPct != null &&
+      Number.isFinite(Date.parse(t.at)) &&
+      Date.parse(t.at) >= dayAgo,
+  );
   const lines = [
-    "📊 <b>Kraken diario 22:00 Madrid</b>",
+    "📊 <b>Kraken diario 22:15 Madrid</b>",
     `P&L día: €${risk.dayPnlEur.toFixed(2)} | sem: €${risk.weekPnlEur.toFixed(2)}`,
-    `Régimen: ${getMarketRegime().regime} | ops 24h: ${trades24}`,
+    `Régimen: ${getMarketRegime().regime} | ops live 24h: ${trades24}`,
     ...perfs.slice(0, 16).map(
       (p) =>
-        `${p.strategy}: live n=${p.trades} WR=${(p.winRate * 100).toFixed(0)}% net=€${p.netPnlEur.toFixed(2)} | shadow n=${p.shadowTrades} | <b>${p.mode}</b>`,
+        `${p.strategy}: live n=${p.trades} WR=${(p.winRate * 100).toFixed(0)}% net=€${p.netPnlEur.toFixed(2)} | shadow n=${p.shadowTrades} net=€${p.shadowNetPnlEur.toFixed(2)} | <b>${p.mode}</b>`,
     ),
     ...formatFastMetricsTelegramLines(),
   ];
+  if (shadowClosed.length) {
+    lines.push(
+      `Shadow cerradas 24h (${shadowClosed.length}): ` +
+        shadowClosed
+          .slice(-8)
+          .map(
+            (t) =>
+              `${t.strategy}/${t.pair} ${t.netPct!.toFixed(2)}% (${t.exitReason ?? "?"})`,
+          )
+          .join(" | "),
+    );
+  }
   await sendTelegramMessage(lines.join("\n"));
-  if (trades24 === 0) {
-    try {
-      const { formatDiagnosticsTelegram } = await import(
-        "@/lib/trading/crypto/diagnostics"
-      );
-      await sendTelegramMessage(formatDiagnosticsTelegram());
-    } catch (err) {
-      console.warn(
-        "[Kraken/Diag] telegram:",
-        err instanceof Error ? err.message : err,
-      );
-    }
+  try {
+    const { formatDiagnosticsTelegram } = await import(
+      "@/lib/trading/crypto/diagnostics"
+    );
+    await sendTelegramMessage(formatDiagnosticsTelegram());
+  } catch (err) {
+    console.warn(
+      "[Kraken/Diag] telegram:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 

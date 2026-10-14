@@ -7,8 +7,9 @@ import "server-only";
 
 import {
   applyTradeTick,
-  backfillUniverseHigherTfs,
+  backfillUniverseStandardTfs,
   ensurePairHigherTfBars,
+  ensurePairMidTfBars,
   getBars,
   getMarketDataAges,
   isMarketDataStale,
@@ -301,10 +302,13 @@ async function restFallbackTick(): Promise<void> {
     const alts = symbols.map(altFromWs);
     // Rate-limit: backfill up to 5 pairs per tick; always keep 1h/4h warm
     for (const alt of alts.slice(0, 5)) {
-      const need15 = getBars(alt, "15").length < 50;
+      const need5 = getBars(alt, "5").length < 30;
+      const need15 = getBars(alt, "15").length < 40;
       const need1h = getBars(alt, "60").length < 60;
-      if (!need15 && !need1h) continue;
+      if (!need5 && !need15 && !need1h) continue;
+      if (need5) await restBackfill(alt, 5);
       if (need15) await restBackfill(alt, 15);
+      await ensurePairMidTfBars(alt);
       await ensurePairHigherTfBars(alt);
       await new Promise((r) => setTimeout(r, 350));
     }
@@ -328,7 +332,7 @@ export async function startKrakenMarketData(wsNames: string[]): Promise<void> {
       await new Promise((r) => setTimeout(r, 200));
     }
   }
-  await backfillUniverseHigherTfs(allAlts, {
+  await backfillUniverseStandardTfs(allAlts, {
     label: "startup",
     delayMs: 220,
   });
@@ -350,9 +354,9 @@ export function updateKrakenMarketSubscriptions(wsNames: string[]): void {
   if (ws && ws.readyState === 1) subscribeAll(ws);
   if (added.length) {
     console.log(
-      `[Kraken/WS] nuevos pares → REST 1h+4h: ${added.slice(0, 20).join(",")}`,
+      `[Kraken/WS] nuevos pares → REST 5/15/1h/4h: ${added.slice(0, 20).join(",")}`,
     );
-    void backfillUniverseHigherTfs(added, {
+    void backfillUniverseStandardTfs(added, {
       label: "new-pairs",
       force: true,
       delayMs: 250,

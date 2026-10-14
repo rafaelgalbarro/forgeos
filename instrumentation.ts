@@ -10,5 +10,12 @@ export async function register() {
     startApprovalExpiryMonitor();
     startWebhookExportListener();
     startIbkrReconnectMonitor();
+    const { startStocksDailyTelegramScheduler } = await import(
+      "@/lib/trading/stocks/daily-telegram"
+    );
+    startStocksDailyTelegramScheduler();
+    void import("@/lib/trading/stocks/eodhd-universe-check").then((m) =>
+      m.runStartupEodhdUniverseCheck(),
+    );
   }
 }

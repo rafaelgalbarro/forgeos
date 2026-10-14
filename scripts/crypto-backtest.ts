@@ -36,6 +36,8 @@ import {
 import { evaluateCapitulationReversal1m } from "../lib/trading/crypto/strategies/capitulation-reversal-1m";
 import { evaluateVwapBounce5m } from "../lib/trading/crypto/strategies/vwap-bounce-5m";
 import { applyBacktestDegradation } from "../lib/trading/crypto/strategy-status";
+import { applyStopDistanceCap } from "../lib/trading/crypto/signal-guards";
+import { passesCostFilter } from "../lib/trading/crypto/strategies/index";
 import type { Bar } from "../lib/brokers/kraken/market-store";
 import {
   BT_MAKER,
@@ -61,6 +63,8 @@ const ROOT = process.env.FORGEOS_ROOT?.trim() || path.resolve(__dirname, "..");
 process.env.FORGEOS_ROOT = ROOT;
 const CACHE = path.join(ROOT, ".forgeos", "cache", "kraken-ohlc");
 const APPLY = process.argv.includes("--apply");
+/** Match lib/brokers/kraken/universe.ts MIN_VOLUME_EUR — degrade only live-eligible liquidity. */
+const LIVE_MIN_VOL_EUR = 1_000_000;
 
 type Trade = {
   strategy: CryptoStrategyId;
@@ -73,6 +77,7 @@ type Trade = {
   maePct: number;
   liquidity: string;
   sample: "in" | "out";
+  volEur: number;
 };
 
 type SignalCount = Record<string, { attempts: number; buys: number; holds: string[] }>;
@@ -161,7 +166,7 @@ async function topPairs(): Promise<Array<{ pair: string; volEur: number }>> {
       ...o,
       pair: o.pair.replace(/^XXBTZ/, "XBT").replace(/ZEUR$/, "EUR"),
     }))
-    .filter((o) => o.volEur > 300_000);
+    .filter((o) => o.volEur > LIVE_MIN_VOL_EUR);
   mapped.sort((a, b) => b.volEur - a.volEur);
   const picks = [
     ...preferred.filter((p) => mapped.some((m) => m.pair === p || m.pair.includes(p.slice(0, 3)))),
@@ -262,8 +267,8 @@ function simulatePair(
       }
       signalCounts[id]!.buys += 1;
 
-      const cost = roundTripCostFraction(0.001);
-      if (sig.expectedMovePct < cost * 3) {
+      if (applyStopDistanceCap(sig) === null) continue;
+      if (!passesCostFilter(sig, 0.001)) {
         const holds = signalCounts[id]!.holds;
         const r = "cost_filter_3x";
         if (holds.length < 5 && !holds.includes(r)) holds.push(r);
@@ -349,6 +354,7 @@ function simulatePair(
         maePct: fill.maePct,
         liquidity: liq,
         sample,
+        volEur,
       });
       break; // one live trade per bar/pair
     }
@@ -396,8 +402,9 @@ function simulateFastPair(
         continue;
       }
       signalCounts[id]!.buys += 1;
+      if (applyStopDistanceCap(sig) === null) continue;
+      if (!passesCostFilter(sig, 0.0005)) continue;
       const cost = fastRoundTripCost(0.0005);
-      if (sig.expectedMovePct < cost * 3) continue;
 
       const entryBarIndex = i + 1;
       const entryPrice = bars1[entryBarIndex]!.open;
@@ -431,6 +438,7 @@ function simulateFastPair(
         maePct: fill.maePct,
         liquidity: liq,
         sample,
+        volEur,
       });
       break;
     }
@@ -588,17 +596,27 @@ async function main(): Promise<void> {
 
   const inRows = summarize(all, "in");
   const outRows = summarize(all, "out");
+  const liveBuckets = new Set(
+    [...pairBars.values()]
+      .filter((d) => d.vol >= LIVE_MIN_VOL_EUR)
+      .map((d) => liquidityBucket(d.vol)),
+  );
   const liqBuckets = new Set(all.map((t) => t.liquidity));
-  for (const b of [">5M", "1-5M", "0.3-1M"] as const) {
+  for (const b of liveBuckets) {
     if (!liqBuckets.has(b)) {
-      console.warn(`[Backtest] falta liquidez ${b} en trades — pares insuficientes o filtro volume`);
+      console.warn(
+        `[Backtest] sin trades en bucket live ${b} — universo o señales`,
+      );
     }
   }
 
   const pfBy: Partial<Record<CryptoStrategyId, number>> = {};
   const oosCount: Partial<Record<CryptoStrategyId, number>> = {};
+  const liveOut = all.filter(
+    (t) => t.sample === "out" && t.volEur >= LIVE_MIN_VOL_EUR,
+  );
   for (const id of ALL_CRYPTO_STRATEGY_IDS) {
-    const subset = outRows.filter((r) => r.strategy === id);
+    const subset = summarize(liveOut, "out").filter((r) => r.strategy === id);
     const n = subset.reduce((s, r) => s + r.n, 0);
     oosCount[id] = n;
     if (!subset.length) continue;

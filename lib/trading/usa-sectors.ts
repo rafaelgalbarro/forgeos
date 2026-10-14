@@ -14,7 +14,7 @@ export const USA_SECTOR_TECHNOLOGY = [
 
 export const USA_SECTOR_FINANCIALS = [
   "JPM", "BAC", "GS", "MS", "WFC", "BLK", "SCHW", "C", "AXP", "V",
-  "MA", "PYPL", "SQ", "HOOD", "SOFI",
+  "MA", "PYPL", "XYZ", "HOOD", "SOFI",
 ] as const;
 
 export const USA_SECTOR_HEALTHCARE = [

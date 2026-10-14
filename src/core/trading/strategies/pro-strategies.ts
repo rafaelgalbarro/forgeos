@@ -787,6 +787,8 @@ function scoreFinal(args: {
   firstHour: boolean;
   marketPos: boolean;
   change1d: number;
+  supportDistPct: number | null;
+  atrPct: number | null;
 }): { confidence: number; breakdown: string } {
   let conf = args.primaryBase;
   const parts: string[] = [`${(args.primaryBase * 100).toFixed(0)}% base`];
@@ -833,6 +835,13 @@ function scoreFinal(args: {
   if (args.sectorNeg === true) {
     conf -= 0.1;
     parts.push("-10% sector−");
+  }
+  if (args.supportDistPct != null && args.supportDistPct > 0.05) {
+    const excess = args.supportDistPct - 0.05;
+    const atrRef = args.atrPct != null && args.atrPct > 0 ? args.atrPct : 0.02;
+    const penalty = Math.min(0.15, excess * (1 + 1 / atrRef));
+    conf -= penalty;
+    parts.push(`-${(penalty * 100).toFixed(0)}% soporte +${(args.supportDistPct * 100).toFixed(0)}%`);
   }
   conf = Math.max(0, Math.min(0.95, conf));
   return { confidence: Number(conf.toFixed(3)), breakdown: parts.join(" ") };
@@ -1157,9 +1166,12 @@ export async function evaluateProStrategies(
     console.log(`[ProStrategy] ${symbol}: VIX ${vixLevel.toFixed(1)} — tamaño ×50%`);
   }
 
-  if (support != null && price > 0 && (price - support) / price > 0.05 && !crypto) {
-    return hold("Soporte >5% lejos — skip");
-  }
+  const supportDistPct =
+    support != null && price > 0 && support < price
+      ? (price - support) / price
+      : null;
+  const atrPct =
+    atr14 != null && price > 0 ? atr14 / price : null;
 
   const phase = getActiveTradingPhase();
   const firstHour = phase === "USA_OPEN" || phase === "EUROPE_OPEN";
@@ -1622,6 +1634,8 @@ export async function evaluateProStrategies(
     firstHour,
     marketPos: spyChange > 0 || (crypto && (change1d > 0 || change1h > 0)),
     change1d,
+    supportDistPct,
+    atrPct,
   });
 
   if (agentCombo?.direction === "BUY" && agentCombo.confidence > scored.confidence) {
@@ -1708,6 +1722,11 @@ export async function evaluateProStrategies(
           base: Math.round(primary.baseConfidence * 100),
           multi: hits.length,
           relVol: Math.round(relVol * 10) / 10,
+          ...(supportDistPct != null
+            ? {
+                supportDistPct: Math.round(supportDistPct * 1000) / 10,
+              }
+            : {}),
         },
         scoreTotal: Math.round(scored.confidence * 100),
       }),

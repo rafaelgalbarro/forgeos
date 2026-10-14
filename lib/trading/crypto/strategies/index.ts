@@ -32,6 +32,7 @@ import {
 import { evaluateCapitulationReversal1m } from "./capitulation-reversal-1m";
 import { evaluateVwapBounce5m } from "./vwap-bounce-5m";
 import { recordStrategyEval } from "@/lib/trading/crypto/diagnostics";
+import { applyStopDistanceCap } from "@/lib/trading/crypto/signal-guards";
 import {
   cryptoSignalKey,
   isFastCryptoStrategy,
@@ -152,9 +153,40 @@ export function evaluateFastStrategiesForPair(
     ticker && ticker.bid > 0 && ticker.ask > 0 && ticker.mid > 0
       ? (ticker.ask - ticker.bid) / ticker.mid
       : 0.001;
+  const allowed = allowedStrategiesForRegime();
+
+  for (const s of raw) {
+    let missing: string | null = null;
+    if (s.direction === "BUY") {
+      if (allowed !== "all" && !allowed.has(s.strategyId)) {
+        missing = `régimen ${regime} no permite ${s.strategyId}`;
+      } else if (applyStopDistanceCap(s) === null) {
+        missing = "stop_distance_cap";
+      } else if (!passesCostFilter(s, spread)) {
+        missing = "coste_roundtrip_3x";
+      }
+    } else if (/RSI=|EMA|vol|spread|sesión|rango|régimen|1m|5m/i.test(s.reasoning)) {
+      missing = s.reasoning.slice(0, 80);
+    }
+    recordStrategyEval({
+      strategy: s.strategyId,
+      pair,
+      direction: missing && s.direction === "BUY" ? "HOLD" : s.direction,
+      reasoning: missing ?? s.reasoning,
+      missing:
+        s.direction === "BUY" && missing
+          ? missing
+          : s.direction !== "BUY"
+            ? missing
+            : null,
+      passed: s.direction === "BUY" && !missing ? ["signal_buy"] : [],
+    });
+  }
 
   return raw.filter((s) => {
     if (s.direction !== "BUY") return false;
+    if (allowed !== "all" && !allowed.has(s.strategyId)) return false;
+    if (applyStopDistanceCap(s) === null) return false;
     return passesCostFilter(s, spread);
   });
 }
@@ -202,6 +234,8 @@ export function evaluateAllStrategiesForPair(
     if (s.direction === "BUY") {
       if (allowed !== "all" && !allowed.has(s.strategyId)) {
         missing = `régimen ${regime} no permite ${s.strategyId}`;
+      } else if (applyStopDistanceCap(s) === null) {
+        missing = "stop_distance_cap";
       } else if (!passesCostFilter(s, spread)) {
         missing = "coste_roundtrip_3x";
       }
@@ -226,6 +260,7 @@ export function evaluateAllStrategiesForPair(
   return raw.filter((s) => {
     if (s.direction !== "BUY") return false;
     if (allowed !== "all" && !allowed.has(s.strategyId)) return false;
+    if (applyStopDistanceCap(s) === null) return false;
     return passesCostFilter(s, spread);
   });
 }

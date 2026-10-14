@@ -188,7 +188,7 @@ export function startDailyStrategyReportScheduler(): void {
     const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
     const mi = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
     const dayKey = `${y}-${mo}-${d}`;
-    if (h === 22 && mi >= 15 && mi < 20 && lastDailyReportDay !== dayKey) {
+    if (h === 22 && mi >= 15 && mi < 25 && lastDailyReportDay !== dayKey) {
       lastDailyReportDay = dayKey;
       void sendDailyStrategyTelegramReport().catch((err) => {
         console.warn("[Journal] daily report failed:", err instanceof Error ? err.message : err);

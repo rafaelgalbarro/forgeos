@@ -13,6 +13,10 @@ import {
   getStrategyMode,
   loadStrategyStatus,
 } from "@/lib/trading/crypto/strategy-status";
+import {
+  isShadowStatsValid,
+  shadowSimQty,
+} from "@/lib/trading/crypto/signal-guards";
 
 function forgeosRoot(): string {
   return process.env.FORGEOS_ROOT?.trim() || process.cwd();
@@ -175,6 +179,7 @@ export function computeCryptoStrategyPerf(
   >();
   for (const t of trades) {
     if (t.side !== "SELL" || t.netPnlEur == null) continue;
+    if (t.shadow && !isShadowStatsValid(t)) continue;
     let row = map.get(t.strategy);
     if (!row) {
       row = {
@@ -330,7 +335,12 @@ export function closeCryptoJournalOpen(params: {
   maePct?: number | null;
 }): void {
   const o = params.open;
-  const qty = o.qty && o.qty > 0 ? o.qty : 1;
+  const qty =
+    o.qty && o.qty > 0
+      ? o.qty
+      : o.shadow
+        ? shadowSimQty(o.entry)
+        : 1;
   const gross = (params.exit - o.entry) * qty;
   const fees = params.feesEur ?? 0;
   const net = gross - fees;

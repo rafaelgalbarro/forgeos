@@ -9,6 +9,7 @@ import "server-only";
 import { readJournalTrades } from "@/lib/trading/journal/trades";
 import { journalOpenCryptoPairs } from "@/lib/trading/crypto/journal-crypto";
 import { loadTradingState } from "@/src/core/trading/trading-state-store";
+import { isOrphanTickerSuffix } from "@/src/core/trading/untradeable-tickers";
 
 /** Known legacy / non-ForgeOS holdings permanently excluded from ExitManager. */
 export const LEGACY_ORPHAN_TICKERS: ReadonlySet<string> = new Set([
@@ -31,7 +32,9 @@ export const LEGACY_ORPHAN_TICKERS: ReadonlySet<string> = new Set([
 ]);
 
 export function isLegacyOrphanTicker(symbol: string): boolean {
-  return LEGACY_ORPHAN_TICKERS.has(symbol.trim().toUpperCase());
+  const t = symbol.trim().toUpperCase();
+  if (LEGACY_ORPHAN_TICKERS.has(t)) return true;
+  return isOrphanTickerSuffix(t);
 }
 
 function normSym(symbol: string): string {

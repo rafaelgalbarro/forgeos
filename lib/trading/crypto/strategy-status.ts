@@ -11,6 +11,7 @@ import {
   type CryptoStrategyId,
 } from "@/lib/trading/crypto/strategies/types";
 import type { CryptoJournalTrade } from "@/lib/trading/crypto/journal-crypto";
+import { isShadowStatsValid } from "@/lib/trading/crypto/signal-guards";
 
 export type StrategyMode = "live" | "shadow";
 
@@ -148,6 +149,7 @@ function closedTrades(trades: readonly CryptoJournalTrade[]): Closed[] {
   const out: Closed[] = [];
   for (const t of trades) {
     if (t.side !== "SELL" || t.netPnlEur == null) continue;
+    if (t.shadow && !isShadowStatsValid(t)) continue;
     const at = Date.parse(t.at);
     const entry = t.entry > 0 ? t.entry : 1;
     // Approximate % from net if notional unknown — use net/entry as weak proxy; prefer stored

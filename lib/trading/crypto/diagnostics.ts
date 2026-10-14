@@ -163,15 +163,15 @@ export function recordStrategyEval(params: {
 }
 
 export function recordCycleMeta(params: {
-  universePairs: string[];
-  signals: number;
-  tradesLast24h: number;
+  universePairs?: string[];
+  signals?: number;
+  tradesLast24h?: number;
 }): void {
   const s = loadDiagnostics();
-  s.universePairs = params.universePairs;
-  s.lastCycleSignals = params.signals;
+  if (params.universePairs) s.universePairs = params.universePairs;
+  if (params.signals != null) s.lastCycleSignals = params.signals;
   s.lastCycleAt = new Date().toISOString();
-  s.tradesLast24h = params.tradesLast24h;
+  if (params.tradesLast24h != null) s.tradesLast24h = params.tradesLast24h;
   saveDiagnostics(s);
 }
 

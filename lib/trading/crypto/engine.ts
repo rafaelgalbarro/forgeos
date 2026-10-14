@@ -573,7 +573,6 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
       recordCycleMeta({
         universePairs: pairs,
         signals: collected.length,
-        tradesLast24h: 0,
       });
     } catch {
       /* optional */

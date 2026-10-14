@@ -14,6 +14,7 @@ import { resolveStocksCycleUniverse, isUsStockTicker } from "@/lib/trading/stock
 import { getEquityStrategySession } from "@/lib/trading/equity-strategy-session";
 import { europeEurSeedSymbols } from "@/lib/trading/europe-equities";
 import type { OrderResult } from "@/src/core/trading/trading-engine";
+import { getEodhdWsStatus } from "@/lib/market-data/eodhd-ws-client";
 
 function isCycleSignal(o: OrderResult): boolean {
   if (o.status === "SIGNAL_NO_CAPITAL") return true;
@@ -95,6 +96,7 @@ export async function GET() {
     lastCycle: last,
     signals,
     statusCounts: countByStatus(last?.orders),
+    eodhdWs: getEodhdWsStatus(),
     summary: last
       ? {
           analizados: last.orders.length,

@@ -22,6 +22,9 @@ import { pruneExpiredIbkrNonTradable } from "@/lib/trading/ibkr-non-tradable";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
+import { ensureEodhdUsWsForUniverse } from "@/lib/market-data/eodhd-ws-client";
+import { isEuropeanEurEquity } from "@/lib/trading/europe-equities";
+import { clearEodhdWsQcBlocks } from "@/lib/market-data/eodhd-ws-qc";
 
 const engine = new TradingEngine();
 
@@ -99,6 +102,16 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
       }).catch((err) =>
         console.warn(
           "[Cycle/stocks] expire-stale-approved:",
+          err instanceof Error ? err.message : err,
+        ),
+      );
+      const usOnly = config.tickers.filter(
+        (t) => !isEuropeanEurEquity(t.trim().toUpperCase()),
+      );
+      clearEodhdWsQcBlocks();
+      await ensureEodhdUsWsForUniverse(usOnly).catch((err) =>
+        console.warn(
+          "[EODHD/WS] universe subscribe:",
           err instanceof Error ? err.message : err,
         ),
       );

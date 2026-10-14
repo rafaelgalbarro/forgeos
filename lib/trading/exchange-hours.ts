@@ -91,6 +91,20 @@ export function isUsRegularSession(at: Date = new Date()): boolean {
   return inRange(c.nowMinutes, 9, 30, 16, 0);
 }
 
+/** EODHD US WebSocket window — 04:00–20:00 ET (pre + regular + post). */
+export function isUsEodhdWsSession(at: Date = new Date()): boolean {
+  const c = zonedClock("America/New_York", at);
+  if (c.weekend || isNyseHoliday(c.dateKey)) return false;
+  return inRange(c.nowMinutes, 4, 0, 20, 0);
+}
+
+/** America/New_York — post-market 16:00–20:00 (weekday, not NYSE holiday). */
+export function isUsAfterHoursSession(at: Date = new Date()): boolean {
+  const c = zonedClock("America/New_York", at);
+  if (c.weekend || isNyseHoliday(c.dateKey)) return false;
+  return inRange(c.nowMinutes, 16, 0, 20, 0);
+}
+
 /** US-listed equity / ADR BUY entries — only NYSE regular. */
 export function isUsListedEquityOrderWindow(at: Date = new Date()): boolean {
   return isUsRegularSession(at);

@@ -22,6 +22,10 @@ import {
   getEuropeanEurEquity,
   isEuropeanEurEquity,
 } from "@/lib/trading/europe-equities";
+import {
+  mustUseEodhdWsForUsEntry,
+  resolveUsEquityLivePrice,
+} from "@/lib/trading/us-equity-live-price";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -270,7 +274,18 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     }
   }
 
-  if (!shouldSkipEodhdQuote(symbol)) {
+  // US regular / extended: EODHD WebSocket only for entry marks (never REST /real-time delay).
+  if (!euLocal && mustUseEodhdWsForUsEntry()) {
+    const live = await resolveUsEquityLivePrice(symbol);
+    if (live.ok) {
+      console.log(
+        `[Universe] ${symbol} precio EODHD-WS $${live.snap.currentPrice.toFixed(2)} ` +
+          `bid=${live.snap.bid.toFixed(2)} ask=${live.snap.ask.toFixed(2)}`,
+      );
+      return live.snap;
+    }
+    quoteErrors.push(live.reason);
+  } else if (!shouldSkipEodhdQuote(symbol)) {
     const eod = await getEodhdQuote(symbol);
     if (eod != null && eod.price > 0) {
       const ccy = euLocal ? "€" : "$";
@@ -316,6 +331,33 @@ export async function fetchPremarketUsPrice(ticker: string): Promise<TradingPric
   if (!symbol || isEuropeanEurEquity(symbol)) return null;
 
   const errors: string[] = [];
+
+  if (mustUseEodhdWsForUsEntry()) {
+    const live = await resolveUsEquityLivePrice(symbol);
+    if (live.ok) {
+      const check = isUsablePremarketQuote({
+        price: live.snap.currentPrice,
+        previousClose: live.snap.previousClose,
+        bid: live.snap.bid,
+        ask: live.snap.ask,
+        volume: live.snap.volume,
+        updatedAt: live.snap.quoteUpdatedAt,
+        quoteRoute: live.snap.quoteRoute,
+      });
+      if (check.ok) {
+        console.log(
+          `[Premarket] ${symbol} EODHD-WS $${live.snap.currentPrice.toFixed(2)} ` +
+            `bid=${live.snap.bid.toFixed(2)} ask=${live.snap.ask.toFixed(2)}`,
+        );
+        return live.snap;
+      }
+      errors.push(`EODHD-WS: ${check.reason}`);
+    } else {
+      errors.push(live.reason);
+    }
+    console.warn(`[Premarket] ${symbol} skip — ${errors.join("; ")}`);
+    return null;
+  }
 
   try {
     const ibkr = await getIbkrPrice(symbol);

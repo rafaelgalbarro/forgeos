@@ -2582,7 +2582,7 @@ export class TradingEngine {
 
     console.log(
       `[AutoExecute] ${ticker} → obteniendo precio ` +
-        `${inUsPremarket ? '(premarket IBKR/EODHD live)' : '(EODHD/Alpaca)'}…`,
+        `${inUsPremarket ? '(premarket EODHD-WS + 1m QC)' : '(EODHD-WS/EU REST/Alpaca)'}…`,
     )
     let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
     try {

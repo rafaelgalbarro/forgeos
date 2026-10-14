@@ -41,8 +41,25 @@ function loadEnvFile(filePath) {
   }
 }
 
+const os = require("node:os");
 const root = path.resolve(__dirname, "..");
 process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || root;
+
+if (!(process.env.FORGEOS_CACHE_DIR ?? "").trim()) {
+  const local =
+    process.env.LOCALAPPDATA?.trim() ||
+    (process.platform === "win32"
+      ? path.join(os.homedir(), "AppData", "Local")
+      : "");
+  if (local) {
+    process.env.FORGEOS_CACHE_DIR = path.join(
+      local,
+      "forgeos-node",
+      ".forgeos",
+      "cache",
+    );
+  }
+}
 
 if (typeof globalThis.WebSocket === "undefined") {
   try {
@@ -67,6 +84,9 @@ process.env.CRYPTO_BROKER = (process.env.CRYPTO_BROKER || "kraken").trim() || "k
 process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || root;
 process.chdir(root);
 console.log(`[CryptoEngine] FORGEOS_ROOT=${process.env.FORGEOS_ROOT}`);
+console.log(
+  `[CryptoEngine] FORGEOS_CACHE_DIR=${process.env.FORGEOS_CACHE_DIR || path.join(root, ".forgeos", "cache")}`,
+);
 
 const stub = path.join(__dirname, "stub-server-only.cjs");
 const mainTs = path.join(__dirname, "crypto-engine-main.ts");

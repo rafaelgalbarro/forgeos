@@ -10,12 +10,13 @@ import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { readCryptoEngineHeartbeat } from "@/lib/trading/crypto/engine-heartbeat";
 import { readFuturesEngineState } from "@/lib/trading/crypto/futures-engine-state";
 import { isCryptoFuturesVenue } from "@/lib/trading/crypto/futures-config";
+import { resolveForgeosCacheDir } from "@/lib/trading/crypto/forgeos-cache";
 import {
   maxHoldMsForStrategy,
 } from "@/lib/trading/crypto/reconcile";
 import { readCryptoJournal } from "@/lib/trading/crypto/journal-crypto";
 
-const DIR = path.join(process.cwd(), ".forgeos", "cache");
+const DIR = resolveForgeosCacheDir();
 const RESTARTS_FILE = path.join(DIR, "crypto-engine-restarts.json");
 const ALARM_STATE_FILE = path.join(DIR, "crypto-engine-alarms.json");
 

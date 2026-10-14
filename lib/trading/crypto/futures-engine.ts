@@ -60,6 +60,8 @@ import {
   writeFuturesEngineState,
   type KrakenFuturesEngineStateFile,
 } from "@/lib/trading/crypto/futures-engine-state";
+import { recordCryptoEngineRestart } from "@/lib/trading/crypto/alarms";
+import { isCryptoEngineStandalone } from "@/lib/trading/crypto/engine-heartbeat";
 
 export type FuturesEngineStatus = {
   started: boolean;
@@ -83,6 +85,7 @@ let lastMarginFetchAt: string | null = null;
 let exitTimer: ReturnType<typeof setInterval> | null = null;
 let backfillTimer: ReturnType<typeof setInterval> | null = null;
 let marginTimer: ReturnType<typeof setInterval> | null = null;
+let cycleBusy = false;
 
 function mirrorShortFromLong(sig: RankedSignal): RankedSignal | null {
   if (!(sig.entry > 0) || !(sig.stopLoss > 0) || !(sig.takeProfit > 0)) return null;
@@ -122,10 +125,13 @@ export async function startKrakenFuturesEngine(): Promise<void> {
   if (futuresStarted) return;
   futuresStarted = true;
   futuresStartedAt = new Date().toISOString();
+  if (isCryptoEngineStandalone()) {
+    recordCryptoEngineRestart();
+  }
 
   const pairs = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
   subscribeFuturesForSpotPairs(pairs);
-  await backfillFuturesUniverse(pairs, { delayMs: 160 }).catch(() => undefined);
+  void backfillFuturesUniverse(pairs, { delayMs: 160 }).catch(() => undefined);
   await refreshFuturesFlexMargin().catch(() => undefined);
   publishFuturesEngineState({ lastCycle: null });
 
@@ -329,9 +335,14 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   shadow: string[];
   held: string[];
 }> {
+  if (cycleBusy) {
+    return { signals: [], executed: [], shadow: [], held: ["cycle_busy"] };
+  }
+  cycleBusy = true;
   const executed: string[] = [];
   const shadow: string[] = [];
   const held: string[] = [];
+  try {
   await startKrakenFuturesEngine();
 
   const adapter = getKrakenFuturesAdapter();
@@ -516,21 +527,37 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     `[Kraken/Futures] cycle margin=${lastAvailableMargin.toFixed(4)} symbols=${pairs.length} ${dataAgeLog} signals=${ranked.length} orders=${executed.length} shadow=${shadow.length}`,
   );
   return { signals: ranked, executed, shadow, held };
+  } finally {
+    cycleBusy = false;
+  }
 }
 
 export function getKrakenFuturesEngineStatus(): FuturesEngineStatus {
   const file = readFuturesEngineState();
-  const live = isFuturesEngineStateLive();
-  const ws = file?.ws ?? getFuturesWsStatus();
+  if (file) {
+    const live = isFuturesEngineStateLive();
+    return {
+      started: live || file.started,
+      venue: "futures",
+      shadowMode: file.shadowMode,
+      leverageCap: file.leverageCap,
+      availableMargin: file.availableMargin,
+      lastCycleAt: file.lastCycleAt,
+      ws: { connected: file.ws.connected, symbols: file.ws.symbols ?? [] },
+      pid: file.pid,
+      stateUpdatedAt: file.updatedAt,
+    };
+  }
+  const ws = getFuturesWsStatus();
   return {
-    started: live || futuresStarted,
+    started: futuresStarted,
     venue: "futures",
-    shadowMode: file?.shadowMode ?? futuresShadowMode(),
-    leverageCap: file?.leverageCap ?? futuresMaxLeverage(),
-    availableMargin: file?.availableMargin ?? lastAvailableMargin,
-    lastCycleAt: file?.lastCycleAt ?? futuresLastCycle,
+    shadowMode: futuresShadowMode(),
+    leverageCap: futuresMaxLeverage(),
+    availableMargin: lastAvailableMargin,
+    lastCycleAt: futuresLastCycle,
     ws: { connected: ws.connected, symbols: ws.symbols ?? [] },
-    pid: file?.pid,
-    stateUpdatedAt: file?.updatedAt ?? null,
+    pid: process.pid,
+    stateUpdatedAt: null,
   };
 }

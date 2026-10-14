@@ -25,7 +25,6 @@ import {
 import { getKrakenFuturesEngineStatus } from "@/lib/trading/crypto/futures-engine";
 import { getFuturesDailyRisk } from "@/lib/trading/crypto/futures-daily-risk";
 import { isKrakenFuturesConfigured } from "@/lib/brokers/kraken-futures";
-import { getFuturesWsStatus } from "@/lib/brokers/kraken-futures/ws-client";
 import { checkFuturesEngineCycleAlarm } from "@/lib/trading/crypto/alarms";
 import { FUTURES_ENGINE_STATE_FILE } from "@/lib/trading/crypto/futures-engine-state";
 
@@ -146,10 +145,7 @@ export async function GET() {
       engine: getKrakenFuturesEngineStatus(),
       stateFile: FUTURES_ENGINE_STATE_FILE,
       dailyRisk: getFuturesDailyRisk(),
-      ws: (() => {
-        const eng = getKrakenFuturesEngineStatus();
-        return eng.ws ?? getFuturesWsStatus();
-      })(),
+      ws: getKrakenFuturesEngineStatus().ws,
     },
   });
 }

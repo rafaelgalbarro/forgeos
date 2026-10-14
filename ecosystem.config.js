@@ -13,8 +13,31 @@
  */
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
 
 const ROOT = __dirname;
+
+function resolveSharedForgeosCacheDir() {
+  if (process.env.FORGEOS_CACHE_DIR?.trim()) {
+    return process.env.FORGEOS_CACHE_DIR.trim();
+  }
+  const local =
+    process.env.LOCALAPPDATA?.trim() ||
+    (process.platform === "win32"
+      ? path.join(os.homedir(), "AppData", "Local")
+      : "");
+  if (local) {
+    return path.join(local, "forgeos-node", ".forgeos", "cache");
+  }
+  return path.join(ROOT, ".forgeos", "cache");
+}
+
+const FORGEOS_SHARED_CACHE = resolveSharedForgeosCacheDir();
+try {
+  fs.mkdirSync(FORGEOS_SHARED_CACHE, { recursive: true });
+} catch {
+  /* ignore */
+}
 const LOG_DIR = path.join(ROOT, "logs");
 try {
   fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -34,6 +57,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
+        FORGEOS_CACHE_DIR: FORGEOS_SHARED_CACHE,
         // Kraken WS/exits/analysis owned by forgeos-crypto-engine
         CRYPTO_ENGINE_EXTERNAL: "1",
         // EODHD US WS owned by forgeos-eodhd-us-ws (single API-key connection)
@@ -95,6 +119,7 @@ module.exports = {
       merge_logs: true,
       env: {
         NODE_ENV: "production",
+        FORGEOS_CACHE_DIR: FORGEOS_SHARED_CACHE,
         CRYPTO_BROKER: "kraken",
         CRYPTO_ENGINE_ROLE: "standalone",
         CRYPTO_ANALYSIS_INTERVAL_MS: "60000",

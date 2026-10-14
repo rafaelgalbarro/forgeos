@@ -68,8 +68,19 @@ async function analysisTick(): Promise<void> {
         `[CryptoEngine] analysis ok=${result.executed.length} shadow=${result.shadow.length} held=${result.held.length} signals=${result.signals.length} regime=${status.regime.regime} ws=${status.ws.connected} ${dataAge} ${Date.now() - t0}ms`,
       );
     } else {
+      let dataAge = "dataAge=na";
+      try {
+        const { formatDataAgeLog, getMarketDataAges } = await import(
+          "@/lib/brokers/kraken/market-store"
+        );
+        dataAge = formatDataAgeLog(getMarketDataAges(["XBTEUR", "ETHEUR"]));
+      } catch {
+        /* ignore */
+      }
+      const fState = readFuturesEngineState();
+      const wsOk = fState?.ws.connected ?? getFuturesWsStatus().connected;
       console.log(
-        `[CryptoEngine] futures analysis ${Date.now() - t0}ms signals=${result.signals.length} orders=${result.executed.length}`,
+        `[CryptoEngine] analysis ws=${wsOk} ${dataAge} signals=${result.signals.length} orders=${result.executed.length} held=${result.held.length} ${Date.now() - t0}ms`,
       );
     }
   } catch (err) {

@@ -5,10 +5,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const FUTURES_ENGINE_STATE_FILE = path.join(
-  process.cwd(),
-  ".forgeos",
-  "cache",
+import { forgeosCacheFile } from "@/lib/trading/crypto/forgeos-cache";
+
+export const FUTURES_ENGINE_STATE_FILE = forgeosCacheFile(
   "kraken-futures-engine-state.json",
 );
 

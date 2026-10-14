@@ -63,6 +63,7 @@ export function startKrakenFuturesMarketData(pfSymbols: string[]): void {
     socket.send(
       JSON.stringify({ event: "subscribe", feed: "ticker", product_ids: subscribed }),
     );
+    void patchFuturesEngineWsState(true).catch(() => undefined);
   };
   socket.onmessage = (ev) => {
     try {
@@ -86,8 +87,21 @@ export function startKrakenFuturesMarketData(pfSymbols: string[]): void {
   };
   socket.onclose = () => {
     ws = null;
+    void patchFuturesEngineWsState(false).catch(() => undefined);
     setTimeout(() => startKrakenFuturesMarketData(subscribed), 5_000);
   };
+}
+
+async function patchFuturesEngineWsState(connected: boolean): Promise<void> {
+  const { readFuturesEngineState, writeFuturesEngineState } = await import(
+    "@/lib/trading/crypto/futures-engine-state"
+  );
+  const prev = readFuturesEngineState();
+  if (!prev?.started) return;
+  writeFuturesEngineState({
+    ...prev,
+    ws: { connected, symbols: [...subscribed] },
+  });
 }
 
 export function subscribeFuturesForSpotPairs(spotPairs: string[]): void {

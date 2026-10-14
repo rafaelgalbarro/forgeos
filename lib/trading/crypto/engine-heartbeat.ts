@@ -5,12 +5,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const FILE = path.join(
-  process.cwd(),
-  ".forgeos",
-  "cache",
-  "crypto-engine-heartbeat.json",
-);
+import { forgeosCacheFile } from "@/lib/trading/crypto/forgeos-cache";
+
+const FILE = forgeosCacheFile("crypto-engine-heartbeat.json");
 
 export type CryptoEngineHeartbeat = {
   pid: number;

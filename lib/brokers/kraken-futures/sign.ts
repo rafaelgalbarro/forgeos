@@ -53,23 +53,21 @@ export function isKrakenFuturesConfigured(): boolean {
 }
 
 /**
- * Authent = base64(HMAC-SHA512(secret, sha256(nonce + postData) + endpointPath))
- * endpointPath e.g. `/api/v3/accounts`
+ * Authent = base64(HMAC-SHA512(secret, SHA256(postData + nonce + endpointPath)))
+ * endpointPath e.g. `/api/v3/accounts` (no `/derivatives` URL prefix)
  */
 export function signKrakenFuturesRequest(
   endpointPath: string,
   postData: string,
   nonce: string,
+  secretOverride?: string,
 ): string {
-  const secret = krakenFuturesApiSecret();
+  const secret = secretOverride ?? krakenFuturesApiSecret();
   if (!secret) throw new Error("KRAKEN_FUTURES API secret missing");
-  const hash = crypto
-    .createHash("sha256")
-    .update(nonce + postData, "utf8")
-    .digest();
+  const message = `${postData}${nonce}${endpointPath}`;
+  const hash = crypto.createHash("sha256").update(message, "utf8").digest();
   const hmac = crypto.createHmac("sha512", Buffer.from(secret, "base64"));
   hmac.update(hash);
-  hmac.update(endpointPath, "utf8");
   return hmac.digest("base64");
 }
 

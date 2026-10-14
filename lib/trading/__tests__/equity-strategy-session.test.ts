@@ -39,4 +39,16 @@ describe("equity-strategy-session", () => {
     expect(aapl.strategyPhase).toBe("USA_PREMARKET");
     expect(aapl.eligibleStrategyIds.some((id) => id.startsWith("EU_"))).toBe(false);
   });
+
+  it("AAPL 10:46 ET Wednesday — NY RTH opens all US equity strategies", () => {
+    const at = dateAtLocal("America/New_York", 2026, 10, 14, 10, 46);
+    const aapl = getEquityStrategySession("AAPL", at);
+    expect(aapl.market).toBe("US_LISTED");
+    expect(aapl.regularSessionOpen).toBe(true);
+    expect(aapl.usPhase).toBe("REGULAR");
+    expect(aapl.strategyPhase).toBe("USA_REGULAR");
+    expect(aapl.eligibleStrategyIds.length).toBeGreaterThan(0);
+    expect(aapl.eligibleStrategyIds).toContain("USA_EODHD_MOMENTUM");
+    expect(aapl.eligibleStrategyIds).toContain("USA_GAP_AND_GO");
+  });
 });

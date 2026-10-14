@@ -10,6 +10,7 @@ import {
 } from "@/lib/trading/europe-equities";
 import {
   getUsExchangeSession,
+  isUsRegularSession,
   zonedClock,
   type ZonedClock,
 } from "@/lib/trading/exchange-hours";
@@ -108,13 +109,16 @@ function euStrategyPhase(clock: ZonedClock, open: boolean): ActiveTradingPhase {
 function usActivePhaseFromNy(at: Date): ActiveTradingPhase {
   const us = getUsExchangeSession(at);
   if (us.phase === "PRE_MARKET") return "USA_PREMARKET";
-  if (us.phase === "REGULAR") {
+  if (us.phase === "REGULAR" || isUsRegularSession(at)) {
     const ny = us.clock;
     if (inRange(ny.nowMinutes, 9, 30, 10, 30)) return "USA_OPEN";
     return "USA_REGULAR";
   }
   const madrid = getActiveTradingPhase();
   if (madrid === "USA_AFTERHOURS") return "USA_AFTERHOURS";
+  if (madrid === "USA_PREMARKET" || madrid === "USA_OPEN" || madrid === "USA_REGULAR") {
+    return madrid;
+  }
   return madrid;
 }
 
@@ -145,9 +149,23 @@ function listUsEligibleStrategyIds(phase: ActiveTradingPhase): string[] {
   return [];
 }
 
+/** All US equity pro-strategies eligible during NYSE regular (09:30–16:00 ET). */
+export function listAllUsEquityStrategyIds(): string[] {
+  const ids = new Set<string>();
+  for (const phase of [
+    "USA_PREMARKET",
+    "USA_OPEN",
+    "USA_REGULAR",
+    "USA_AFTERHOURS",
+  ] as ActiveTradingPhase[]) {
+    for (const id of listUsEligibleStrategyIds(phase)) ids.add(id);
+  }
+  return [...ids];
+}
+
 /**
  * Session context for pro-strategies / cycle diagnostics.
- * EU locals: exchange-local RTH only. US: unchanged (Madrid-timed active phase + NY order window).
+ * EU locals: exchange-local RTH only. US listings: NY session drives phase + eligibility.
  */
 export function getEquityStrategySession(symbol: string, at: Date = new Date()): EquityStrategySession {
   const upper = symbol.trim().toUpperCase();
@@ -185,15 +203,17 @@ export function getEquityStrategySession(symbol: string, at: Date = new Date()):
     };
   }
 
-  const strategyPhase = usActivePhaseFromNy(at);
-  const usRegular = us.phase === "REGULAR";
+  const usRegular = isUsRegularSession(at);
   const usPremarket = us.phase === "PRE_MARKET";
+  const strategyPhase = usActivePhaseFromNy(at);
   const europeAdrContext =
     isEuropeFocusTicker(upper) && isEuropeOpen() && !usRegular && !usPremarket;
-  const eligibleStrategyIds = [
-    ...listUsEligibleStrategyIds(strategyPhase),
-    ...(europeAdrContext ? [...EU_STRATEGY_IDS] : []),
-  ];
+  const eligibleStrategyIds = usRegular
+    ? [...listAllUsEquityStrategyIds()]
+    : [
+        ...listUsEligibleStrategyIds(strategyPhase),
+        ...(europeAdrContext ? [...EU_STRATEGY_IDS] : []),
+      ];
   const regularSessionOpen = usRegular || usPremarket;
   const summary =
     `US_LISTED ${formatClock(us.clock)} America/New_York usPhase=${us.phase} ` +

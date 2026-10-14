@@ -62,6 +62,10 @@ import {
 } from "@/lib/trading/crypto/futures-engine-state";
 import { recordCryptoEngineRestart } from "@/lib/trading/crypto/alarms";
 import { isCryptoEngineStandalone } from "@/lib/trading/crypto/engine-heartbeat";
+import { isKrakenFuturesAuthError } from "@/lib/brokers/kraken-futures/auth-errors";
+import fs from "node:fs";
+import path from "node:path";
+import { resolveForgeosCacheDir } from "@/lib/trading/crypto/forgeos-cache";
 
 export type FuturesEngineStatus = {
   started: boolean;
@@ -82,6 +86,8 @@ let lastAvailableMargin = 0;
 let lastBalanceValue = 0;
 let lastMarginCurrency = "EUR";
 let lastMarginFetchAt: string | null = null;
+let lastMarginAuthErrorAt: string | null = null;
+let marginEverFetched = false;
 let exitTimer: ReturnType<typeof setInterval> | null = null;
 let backfillTimer: ReturnType<typeof setInterval> | null = null;
 let marginTimer: ReturnType<typeof setInterval> | null = null;
@@ -132,7 +138,12 @@ export async function startKrakenFuturesEngine(): Promise<void> {
   const pairs = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
   subscribeFuturesForSpotPairs(pairs);
   void backfillFuturesUniverse(pairs, { delayMs: 160 }).catch(() => undefined);
-  await refreshFuturesFlexMargin().catch(() => undefined);
+  await refreshFuturesFlexMargin().catch((err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    if (isKrakenFuturesAuthError(message)) {
+      console.warn("[Kraken/Futures] auth error on start — flex margin unavailable");
+    }
+  });
   publishFuturesEngineState({ lastCycle: null });
 
   if (!backfillTimer) {
@@ -166,13 +177,72 @@ export async function startKrakenFuturesEngine(): Promise<void> {
   );
 }
 
+const FUTURES_AUTH_ALARM_FILE = path.join(
+  resolveForgeosCacheDir(),
+  "kraken-futures-auth-alarm.json",
+);
+
+function loadFuturesAuthAlarmAt(): string | undefined {
+  try {
+    if (!fs.existsSync(FUTURES_AUTH_ALARM_FILE)) return undefined;
+    const raw = JSON.parse(fs.readFileSync(FUTURES_AUTH_ALARM_FILE, "utf8")) as {
+      lastAt?: string;
+    };
+    return raw.lastAt;
+  } catch {
+    return undefined;
+  }
+}
+
+function saveFuturesAuthAlarmAt(iso: string): void {
+  try {
+    fs.mkdirSync(path.dirname(FUTURES_AUTH_ALARM_FILE), { recursive: true });
+    fs.writeFileSync(FUTURES_AUTH_ALARM_FILE, JSON.stringify({ lastAt: iso }, null, 2), "utf8");
+  } catch {
+    /* ignore */
+  }
+}
+
+function maybeTelegramFuturesAuthError(message: string): void {
+  const now = new Date().toISOString();
+  const prev = loadFuturesAuthAlarmAt();
+  const prevMs = prev ? Date.parse(prev) : NaN;
+  if (Number.isFinite(prevMs) && Date.now() - prevMs < 15 * 60_000) return;
+  saveFuturesAuthAlarmAt(now);
+  void sendTelegramMessage(
+    `🚨 <b>Kraken Futures</b>: auth error en cuenta privada — ${message.slice(0, 120)}`,
+  ).catch(() => undefined);
+}
+
+export function formatFuturesCycleMarginLog(): string {
+  if (lastMarginAuthErrorAt && !marginEverFetched) {
+    return "margin=UNAVAILABLE(auth error)";
+  }
+  if (lastMarginAuthErrorAt) {
+    return `margin=${lastAvailableMargin.toFixed(4)}(stale-auth)`;
+  }
+  return `margin=${lastAvailableMargin.toFixed(4)}`;
+}
+
 async function refreshFuturesFlexMargin(): Promise<void> {
   const adapter = getKrakenFuturesAdapter();
-  const acct = await adapter.getAccount();
-  lastAvailableMargin = acct.availableMargin;
-  lastBalanceValue = acct.balanceValue;
-  lastMarginCurrency = acct.currency;
-  lastMarginFetchAt = new Date().toISOString();
+  try {
+    const acct = await adapter.getAccount();
+    lastAvailableMargin = acct.availableMargin;
+    lastBalanceValue = acct.balanceValue;
+    lastMarginCurrency = acct.currency;
+    lastMarginFetchAt = new Date().toISOString();
+    lastMarginAuthErrorAt = null;
+    marginEverFetched = true;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (isKrakenFuturesAuthError(message)) {
+      lastMarginAuthErrorAt = new Date().toISOString();
+      maybeTelegramFuturesAuthError(message);
+      console.warn("[Kraken/Futures] auth error — flex margin fetch failed:", message);
+    }
+    throw err;
+  }
 }
 
 function publishFuturesEngineState(opts: {
@@ -346,7 +416,14 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   await startKrakenFuturesEngine();
 
   const adapter = getKrakenFuturesAdapter();
-  await refreshFuturesFlexMargin().catch(() => undefined);
+  try {
+    await refreshFuturesFlexMargin();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (isKrakenFuturesAuthError(message)) {
+      held.push("margin_auth_error");
+    }
+  }
   const acct = {
     availableMargin: lastAvailableMargin,
     balanceValue: lastBalanceValue,
@@ -523,8 +600,9 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     shadow: shadow.length,
   };
   publishFuturesEngineState({ lastCycle: lastCycleMeta });
+  const authNote = lastMarginAuthErrorAt ? " auth error" : "";
   console.log(
-    `[Kraken/Futures] cycle margin=${lastAvailableMargin.toFixed(4)} symbols=${pairs.length} ${dataAgeLog} signals=${ranked.length} orders=${executed.length} shadow=${shadow.length}`,
+    `[Kraken/Futures] cycle ${formatFuturesCycleMarginLog()} symbols=${pairs.length} ${dataAgeLog} signals=${ranked.length} orders=${executed.length} shadow=${shadow.length}${authNote}`,
   );
   return { signals: ranked, executed, shadow, held };
   } finally {

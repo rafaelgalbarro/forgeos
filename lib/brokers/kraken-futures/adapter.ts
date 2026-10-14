@@ -201,11 +201,12 @@ async function privateCall<T>(
   if (!res.ok) {
     throw new Error(`Kraken Futures private HTTP ${res.status}: ${text.slice(0, 200)}`);
   }
-  if (body.error) throw new Error(`Kraken Futures: ${body.error}`);
+  if (body.error) {
+    throw new Error(`Kraken Futures: ${body.error}`);
+  }
   if (body.errors?.length) {
-    throw new Error(
-      `Kraken Futures: ${body.errors.map((e) => e.message ?? "error").join("; ")}`,
-    );
+    const msg = body.errors.map((e) => e.message ?? "error").join("; ");
+    throw new Error(`Kraken Futures: ${msg}`);
   }
   return (body.result ?? body) as T;
 }

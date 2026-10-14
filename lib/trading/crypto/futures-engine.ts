@@ -28,6 +28,7 @@ import {
   closeCryptoJournalOpen,
   formatFuturesCloseTelegram,
   listOpenCryptoJournal,
+  strategyReliabilityMap,
   type CryptoJournalTrade,
 } from "@/lib/trading/crypto/journal-crypto";
 import { accrueFundingEur } from "@/lib/trading/crypto/futures-funding";
@@ -41,9 +42,24 @@ import { shadowSimQty } from "@/lib/trading/crypto/signal-guards";
 import { maxHoldMsForStrategy } from "@/lib/trading/crypto/reconcile";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import {
+  backfillFuturesUniverse,
+} from "@/lib/brokers/kraken-futures/market-sync";
+import {
+  getFuturesWsStatus,
   getFuturesWsTicker,
   subscribeFuturesForSpotPairs,
 } from "@/lib/brokers/kraken-futures/ws-client";
+import {
+  formatDataAgeLog,
+  getBars,
+  getMarketDataAges,
+} from "@/lib/brokers/kraken/market-store";
+import {
+  isFuturesEngineStateLive,
+  readFuturesEngineState,
+  writeFuturesEngineState,
+  type KrakenFuturesEngineStateFile,
+} from "@/lib/trading/crypto/futures-engine-state";
 
 export type FuturesEngineStatus = {
   started: boolean;
@@ -52,11 +68,21 @@ export type FuturesEngineStatus = {
   leverageCap: number;
   availableMargin: number;
   lastCycleAt: string | null;
+  ws?: { connected: boolean; symbols: string[] };
+  pid?: number;
+  stateUpdatedAt?: string | null;
 };
 
 let futuresStarted = false;
+let futuresStartedAt: string | null = null;
 let futuresLastCycle: string | null = null;
+let lastAvailableMargin = 0;
+let lastBalanceValue = 0;
+let lastMarginCurrency = "EUR";
+let lastMarginFetchAt: string | null = null;
 let exitTimer: ReturnType<typeof setInterval> | null = null;
+let backfillTimer: ReturnType<typeof setInterval> | null = null;
+let marginTimer: ReturnType<typeof setInterval> | null = null;
 
 function mirrorShortFromLong(sig: RankedSignal): RankedSignal | null {
   if (!(sig.entry > 0) || !(sig.stopLoss > 0) || !(sig.takeProfit > 0)) return null;
@@ -95,9 +121,31 @@ export async function startKrakenFuturesEngine(): Promise<void> {
   }
   if (futuresStarted) return;
   futuresStarted = true;
+  futuresStartedAt = new Date().toISOString();
 
   const pairs = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
   subscribeFuturesForSpotPairs(pairs);
+  await backfillFuturesUniverse(pairs, { delayMs: 160 }).catch(() => undefined);
+  await refreshFuturesFlexMargin().catch(() => undefined);
+  publishFuturesEngineState({ lastCycle: null });
+
+  if (!backfillTimer) {
+    backfillTimer = setInterval(() => {
+      void getKrakenUniversePairs()
+        .then((p) => backfillFuturesUniverse(p, { delayMs: 120 }))
+        .catch(() => undefined);
+    }, 15 * 60_000);
+    backfillTimer.unref?.();
+  }
+
+  if (!marginTimer) {
+    marginTimer = setInterval(() => {
+      void refreshFuturesFlexMargin()
+        .then(() => publishFuturesEngineState({ lastCycle: readFuturesEngineState()?.lastCycle ?? null }))
+        .catch(() => undefined);
+    }, 60_000);
+    marginTimer.unref?.();
+  }
 
   if (!exitTimer) {
     exitTimer = setInterval(() => {
@@ -112,9 +160,37 @@ export async function startKrakenFuturesEngine(): Promise<void> {
   );
 }
 
+async function refreshFuturesFlexMargin(): Promise<void> {
+  const adapter = getKrakenFuturesAdapter();
+  const acct = await adapter.getAccount();
+  lastAvailableMargin = acct.availableMargin;
+  lastBalanceValue = acct.balanceValue;
+  lastMarginCurrency = acct.currency;
+  lastMarginFetchAt = new Date().toISOString();
+}
+
+function publishFuturesEngineState(opts: {
+  lastCycle: KrakenFuturesEngineStateFile["lastCycle"];
+}): void {
+  const ws = getFuturesWsStatus();
+  writeFuturesEngineState({
+    started: futuresStarted,
+    startedAt: futuresStartedAt ?? undefined,
+    shadowMode: futuresShadowMode(),
+    leverageCap: futuresMaxLeverage(),
+    availableMargin: lastAvailableMargin,
+    balanceValue: lastBalanceValue,
+    currency: lastMarginCurrency,
+    lastCycleAt: futuresLastCycle,
+    lastMarginFetchAt,
+    ws: { connected: ws.connected, symbols: ws.symbols },
+    lastCycle: opts.lastCycle,
+  });
+}
+
 async function markPx(pf: string, adapter: ReturnType<typeof getKrakenFuturesAdapter>): Promise<number | null> {
   const ws = getFuturesWsTicker(pf);
-  if (ws?.mark > 0) return ws.mark;
+  if (ws && ws.mark > 0) return ws.mark;
   const q = await adapter.getQuote(pf).catch(() => null);
   return q?.mid ?? null;
 }
@@ -259,29 +335,32 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   await startKrakenFuturesEngine();
 
   const adapter = getKrakenFuturesAdapter();
-  const acct = await adapter.getAccount().catch(() => ({
-    availableMargin: 0,
-    balanceValue: 0,
-    currency: "EUR",
-    initialMargin: 0,
-    maintenanceMargin: 0,
-    pnl: 0,
-    unrealizedFunding: 0,
-    flexAccount: true,
-  }));
+  await refreshFuturesFlexMargin().catch(() => undefined);
+  const acct = {
+    availableMargin: lastAvailableMargin,
+    balanceValue: lastBalanceValue,
+    currency: lastMarginCurrency,
+  };
   syncFuturesDailyRisk(acct.balanceValue || acct.availableMargin);
 
   const pairs = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
+  const needBars = pairs.filter(
+    (p) => getBars(p, "5").length < 20 || getBars(p, "60").length < 30,
+  );
+  if (needBars.length) {
+    await backfillFuturesUniverse(needBars, { delayMs: 120 }).catch(() => undefined);
+  }
   const collected: RankedSignal[] = [];
   for (const pair of pairs) {
-    const sigs = evaluateAllStrategiesForPair(pair, {
+    const raw = evaluateAllStrategiesForPair(pair, {
       openGridLevels: 0,
       isTop3Rs: false,
     }).map((s) => ({ ...s, pair }));
-    collected.push(...rankSignals(sigs, new Map()));
+    const sigs = rankSignals(raw, strategyReliabilityMap());
+    collected.push(...sigs);
     for (const s of sigs) {
       if (s.direction === "BUY") {
-        const m = mirrorShortFromLong({ ...s, pair });
+        const m = mirrorShortFromLong(s);
         if (m) collected.push(m);
       }
     }
@@ -422,16 +501,36 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   }
 
   futuresLastCycle = new Date().toISOString();
+  const ages = getMarketDataAges(pairs.slice(0, 3));
+  const sampleAge = ages.find((a) => a.priceAgeMs >= 0)?.priceAgeMs ?? ages[0]?.bar5AgeMs ?? null;
+  const dataAgeLog = formatDataAgeLog(ages.length ? ages : getMarketDataAges(["XBTEUR", "ETHEUR"]));
+  const lastCycleMeta: KrakenFuturesEngineStateFile["lastCycle"] = {
+    symbols: pairs.length,
+    dataAgeMs: sampleAge != null && sampleAge >= 0 ? sampleAge : null,
+    signals: ranked.length,
+    orders: executed.length,
+    shadow: shadow.length,
+  };
+  publishFuturesEngineState({ lastCycle: lastCycleMeta });
+  console.log(
+    `[Kraken/Futures] cycle margin=${lastAvailableMargin.toFixed(4)} symbols=${pairs.length} ${dataAgeLog} signals=${ranked.length} orders=${executed.length} shadow=${shadow.length}`,
+  );
   return { signals: ranked, executed, shadow, held };
 }
 
 export function getKrakenFuturesEngineStatus(): FuturesEngineStatus {
+  const file = readFuturesEngineState();
+  const live = isFuturesEngineStateLive();
+  const ws = file?.ws ?? getFuturesWsStatus();
   return {
-    started: futuresStarted,
+    started: live || futuresStarted,
     venue: "futures",
-    shadowMode: futuresShadowMode(),
-    leverageCap: futuresMaxLeverage(),
-    availableMargin: 0,
-    lastCycleAt: futuresLastCycle,
+    shadowMode: file?.shadowMode ?? futuresShadowMode(),
+    leverageCap: file?.leverageCap ?? futuresMaxLeverage(),
+    availableMargin: file?.availableMargin ?? lastAvailableMargin,
+    lastCycleAt: file?.lastCycleAt ?? futuresLastCycle,
+    ws: { connected: ws.connected, symbols: ws.symbols ?? [] },
+    pid: file?.pid,
+    stateUpdatedAt: file?.updatedAt ?? null,
   };
 }

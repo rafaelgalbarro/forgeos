@@ -248,7 +248,7 @@ async function restReloadCandles(alts: string[]): Promise<void> {
 
 /**
  * Candle/price age watchdog: ws=true can still serve frozen OHLC.
- * If 5m bars >3m or BTC >15m stale → reconnect WS, REST reload, Telegram.
+ * If ticks >7m or BTC >15m stale → reconnect WS, REST reload, Telegram.
  */
 export async function checkAndRecoverStaleMarketData(): Promise<{
   recovered: boolean;

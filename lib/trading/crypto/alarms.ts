@@ -8,6 +8,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { readCryptoEngineHeartbeat } from "@/lib/trading/crypto/engine-heartbeat";
+import { readFuturesEngineState } from "@/lib/trading/crypto/futures-engine-state";
+import { isCryptoFuturesVenue } from "@/lib/trading/crypto/futures-config";
 import {
   maxHoldMsForStrategy,
 } from "@/lib/trading/crypto/reconcile";
@@ -20,6 +22,7 @@ const ALARM_STATE_FILE = path.join(DIR, "crypto-engine-alarms.json");
 type AlarmState = {
   lastHeartbeatAlarmAt?: string;
   lastRestartAlarmAt?: string;
+  lastFuturesCycleAlarmAt?: string;
   maxHoldAlarms?: Record<string, string>;
 };
 
@@ -140,8 +143,41 @@ export async function checkCryptoMaxHoldAlarms(): Promise<void> {
   saveAlarmState(state);
 }
 
+/** Futures engine: no completed cycle for >5 min (reads shared state file). */
+export async function checkFuturesEngineCycleAlarm(): Promise<void> {
+  if (!isCryptoFuturesVenue()) return;
+  const state = readFuturesEngineState();
+  const alarmState = loadAlarmState();
+  if (!state?.started) {
+    if ((process.env.CRYPTO_ENGINE_ROLE ?? "").trim().toLowerCase() === "standalone") {
+      return;
+    }
+    if (!recently(alarmState.lastFuturesCycleAlarmAt, 15 * 60_000)) {
+      alarmState.lastFuturesCycleAlarmAt = new Date().toISOString();
+      saveAlarmState(alarmState);
+      await sendTelegramMessage(
+        "🚨 <b>Kraken Futures</b>: motor sin estado (¿forgeos-crypto-engine caído?)",
+      ).catch(() => undefined);
+    }
+    return;
+  }
+  const last = state.lastCycleAt ? Date.parse(state.lastCycleAt) : NaN;
+  const fileAge = Date.now() - Date.parse(state.updatedAt);
+  const cycleAge = Number.isFinite(last) ? Date.now() - last : fileAge;
+  if (Number.isFinite(cycleAge) && cycleAge > 5 * 60_000) {
+    if (!recently(alarmState.lastFuturesCycleAlarmAt, 15 * 60_000)) {
+      alarmState.lastFuturesCycleAlarmAt = new Date().toISOString();
+      saveAlarmState(alarmState);
+      await sendTelegramMessage(
+        `🚨 <b>Kraken Futures</b>: sin ciclo completo hace ${Math.round(cycleAge / 60_000)} min (>5 min)`,
+      ).catch(() => undefined);
+    }
+  }
+}
+
 /** Combined tick for exit/analysis loops. */
 export async function runCryptoEngineAlarms(): Promise<void> {
   await checkCryptoHeartbeatAlarm().catch(() => undefined);
+  await checkFuturesEngineCycleAlarm().catch(() => undefined);
   await checkCryptoMaxHoldAlarms().catch(() => undefined);
 }

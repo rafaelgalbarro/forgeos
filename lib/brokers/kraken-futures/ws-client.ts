@@ -4,6 +4,7 @@
 
 import "server-only";
 
+import { ingestFuturesWsTicker } from "./market-sync";
 import { spotPairToPfSymbol } from "./instruments";
 
 type WsLike = {
@@ -56,6 +57,9 @@ export function startKrakenFuturesMarketData(pfSymbols: string[]): void {
   const socket = new WS("wss://futures.kraken.com/ws/v1");
   ws = socket;
   socket.onopen = () => {
+    console.log(
+      `[Kraken/Futures/WS] conectado — ${subscribed.length} PF símbolos`,
+    );
     socket.send(
       JSON.stringify({ event: "subscribe", feed: "ticker", product_ids: subscribed }),
     );
@@ -66,14 +70,16 @@ export function startKrakenFuturesMarketData(pfSymbols: string[]): void {
       if (msg.feed !== "ticker") return;
       const sym = String(msg.product_id ?? msg.symbol ?? "").toUpperCase();
       if (!sym) return;
-      cache.set(sym, {
+      const snap = {
         symbol: sym,
         bid: num(msg.bid),
         ask: num(msg.ask),
         mark: num(msg.markPrice ?? msg.price),
         fundingRate: num(msg.funding_rate ?? msg.relativeFundingRate),
         updatedAt: new Date().toISOString(),
-      });
+      };
+      cache.set(sym, snap);
+      ingestFuturesWsTicker(sym, snap);
     } catch {
       /* ignore */
     }
@@ -89,4 +95,26 @@ export function subscribeFuturesForSpotPairs(spotPairs: string[]): void {
     .map((p) => spotPairToPfSymbol(p))
     .filter((s): s is string => Boolean(s));
   if (pf.length) startKrakenFuturesMarketData(pf);
+}
+
+/** Test hook: simulate WS ticker payload without a socket. */
+export function __testIngestFuturesWsMessage(raw: string): void {
+  try {
+    const msg = JSON.parse(raw) as Record<string, unknown>;
+    if (msg.feed !== "ticker") return;
+    const sym = String(msg.product_id ?? msg.symbol ?? "").toUpperCase();
+    if (!sym) return;
+    const snap = {
+      symbol: sym,
+      bid: num(msg.bid),
+      ask: num(msg.ask),
+      mark: num(msg.markPrice ?? msg.price),
+      fundingRate: num(msg.funding_rate ?? msg.relativeFundingRate),
+      updatedAt: new Date().toISOString(),
+    };
+    cache.set(sym, snap);
+    ingestFuturesWsTicker(sym, snap);
+  } catch {
+    /* ignore */
+  }
 }

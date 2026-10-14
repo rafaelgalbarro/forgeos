@@ -380,6 +380,20 @@ export class KrakenFuturesAdapter {
     });
   }
 
+  async getMaxLeveragePreference(symbol: string): Promise<number | null> {
+    const sym = symbol.toUpperCase();
+    const raw = await privateCall<Record<string, unknown>>("GET", "/leveragepreferences", {
+      symbol: sym,
+    });
+    const rows = (raw.leveragePreferences as Record<string, unknown>[]) ?? [];
+    const row =
+      rows.find((r) => String(r.symbol ?? "").toUpperCase() === sym) ??
+      rows[0];
+    if (!row) return null;
+    const lev = num(row.maxLeverage ?? row.leverage);
+    return lev > 0 ? lev : null;
+  }
+
   async sendOrder(params: {
     symbol: string;
     side: "buy" | "sell";

@@ -178,25 +178,26 @@ export function formatDataAgeLog(ages: readonly PairDataAge[]): string {
 }
 
 /**
- * Stale if 5m bars older than 3 min, or BTC price/60m older than 15 min.
+ * Stale when last tick is too old (5m bar write can lag while ticks flow).
+ * Default tick max 7 min for 5m context; BTC price/60m max 15 min.
  */
 export function isMarketDataStale(
   ages: readonly PairDataAge[],
-  opts?: { bar5MaxMs?: number; btcMaxMs?: number },
+  opts?: { bar5MaxMs?: number; btcMaxMs?: number; tickMaxMs?: number },
 ): { stale: boolean; reason?: string } {
-  const bar5Max = opts?.bar5MaxMs ?? 3 * 60_000;
+  const tickMax = opts?.tickMaxMs ?? opts?.bar5MaxMs ?? 7 * 60_000;
   const btcMax = opts?.btcMaxMs ?? 15 * 60_000;
   for (const a of ages) {
-    if (a.bar5AgeMs >= 0 && a.bar5AgeMs > bar5Max) {
+    if (a.priceAgeMs >= 0 && a.priceAgeMs > tickMax) {
       return {
         stale: true,
-        reason: `${a.pair} 5m bar age ${(a.bar5AgeMs / 1000).toFixed(0)}s > ${bar5Max / 1000}s`,
+        reason: `${a.pair} price age ${(a.priceAgeMs / 1000).toFixed(0)}s > ${tickMax / 1000}s`,
       };
     }
-    if (a.candle5LagMs >= 0 && a.candle5LagMs > bar5Max + 5 * 60_000) {
+    if (a.priceAgeMs < 0 && a.bar5AgeMs >= 0 && a.bar5AgeMs > tickMax) {
       return {
         stale: true,
-        reason: `${a.pair} 5m candle lag ${(a.candle5LagMs / 1000).toFixed(0)}s`,
+        reason: `${a.pair} 5m bar age ${(a.bar5AgeMs / 1000).toFixed(0)}s > ${tickMax / 1000}s (no tick)`,
       };
     }
   }

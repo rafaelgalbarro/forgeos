@@ -43,6 +43,15 @@ function loadEnvFile(filePath) {
 
 const root = path.resolve(__dirname, "..");
 process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || root;
+
+if (typeof globalThis.WebSocket === "undefined") {
+  try {
+    const undici = require("node:undici");
+    if (undici.WebSocket) globalThis.WebSocket = undici.WebSocket;
+  } catch {
+    /* Node without undici WebSocket — REST fallback */
+  }
+}
 const envCandidates = [
   process.env.FORGEOS_ENV_FILE,
   "/var/www/forgeos/.env.local",

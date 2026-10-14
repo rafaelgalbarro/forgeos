@@ -18,6 +18,9 @@ import {
 import { isKrakenConfigured } from "@/lib/brokers/kraken";
 import { isKrakenCryptoBroker, isCryptoFuturesVenue } from "@/lib/trading/crypto/config";
 import { isKrakenFuturesConfigured } from "@/lib/brokers/kraken-futures";
+import { getFuturesWsStatus } from "@/lib/brokers/kraken-futures/ws-client";
+import { readFuturesEngineState } from "@/lib/trading/crypto/futures-engine-state";
+import { runCryptoEngineAlarms } from "@/lib/trading/crypto/alarms";
 
 const ANALYSIS_MS = Math.max(
   15_000,
@@ -28,18 +31,22 @@ const startedAt = new Date().toISOString();
 
 function heartbeat(): void {
   const s = getKrakenEngineStatus();
+  const futures = isCryptoFuturesVenue();
+  const fState = futures ? readFuturesEngineState() : null;
+  const fWs = futures ? getFuturesWsStatus() : null;
   writeCryptoEngineHeartbeat({
     role: "standalone",
     startedAt,
-    lastCycleAt: s.lastCycleAt,
-    exitLoopRunning: s.exitLoopRunning,
-    wsConnected: s.ws.connected,
-    wsSymbols: s.ws.symbols,
+    lastCycleAt: fState?.lastCycleAt ?? s.lastCycleAt,
+    exitLoopRunning: futures ? true : s.exitLoopRunning,
+    wsConnected: fWs?.connected ?? s.ws.connected,
+    wsSymbols: fWs?.symbols.length ?? s.ws.symbols,
     regime: s.regime.regime,
     analysisIntervalMs: ANALYSIS_MS,
     lastSignals: s.lastSignals,
     openForgeOs: s.openForgeOs,
   });
+  void runCryptoEngineAlarms().catch(() => undefined);
 }
 
 async function analysisTick(): Promise<void> {
@@ -47,18 +54,24 @@ async function analysisTick(): Promise<void> {
   try {
     const result = await runKrakenAnalysisCycle();
     const status = getKrakenEngineStatus();
-    let dataAge = "";
-    try {
-      const { formatDataAgeLog, getMarketDataAges } = await import(
-        "@/lib/brokers/kraken/market-store"
+    if (!isCryptoFuturesVenue()) {
+      let dataAge = "";
+      try {
+        const { formatDataAgeLog, getMarketDataAges } = await import(
+          "@/lib/brokers/kraken/market-store"
+        );
+        dataAge = formatDataAgeLog(getMarketDataAges(["XBTEUR", "ETHEUR"]));
+      } catch {
+        dataAge = "dataAge=na";
+      }
+      console.log(
+        `[CryptoEngine] analysis ok=${result.executed.length} shadow=${result.shadow.length} held=${result.held.length} signals=${result.signals.length} regime=${status.regime.regime} ws=${status.ws.connected} ${dataAge} ${Date.now() - t0}ms`,
       );
-      dataAge = formatDataAgeLog(getMarketDataAges(["XBTEUR", "ETHEUR"]));
-    } catch {
-      dataAge = "dataAge=na";
+    } else {
+      console.log(
+        `[CryptoEngine] futures analysis ${Date.now() - t0}ms signals=${result.signals.length} orders=${result.executed.length}`,
+      );
     }
-    console.log(
-      `[CryptoEngine] analysis ok=${result.executed.length} shadow=${result.shadow.length} held=${result.held.length} signals=${result.signals.length} regime=${status.regime.regime} ws=${status.ws.connected} ${dataAge} ${Date.now() - t0}ms`,
-    );
   } catch (err) {
     console.error(
       "[CryptoEngine] analysis error:",

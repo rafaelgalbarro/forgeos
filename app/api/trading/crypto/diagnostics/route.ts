@@ -26,6 +26,8 @@ import { getKrakenFuturesEngineStatus } from "@/lib/trading/crypto/futures-engin
 import { getFuturesDailyRisk } from "@/lib/trading/crypto/futures-daily-risk";
 import { isKrakenFuturesConfigured } from "@/lib/brokers/kraken-futures";
 import { getFuturesWsStatus } from "@/lib/brokers/kraken-futures/ws-client";
+import { checkFuturesEngineCycleAlarm } from "@/lib/trading/crypto/alarms";
+import { FUTURES_ENGINE_STATE_FILE } from "@/lib/trading/crypto/futures-engine-state";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -91,6 +93,7 @@ function resolveCurrentRegime(): {
 }
 
 export async function GET() {
+  await checkFuturesEngineCycleAlarm().catch(() => undefined);
   const diag = loadDiagnostics();
   const regime = resolveCurrentRegime();
   const uni = peekKrakenUniverse();
@@ -122,8 +125,8 @@ export async function GET() {
       strategyMatrix: REGIME_STRATEGY_MATRIX,
     },
     universe: {
-      selected: uni.selected?.map((p) => p.wsname ?? p.altname) ?? diag.universePairs,
-      count: uni.selected?.length ?? diag.universePairs.length,
+      selected: uni?.selected?.map((p) => p.wsname ?? p.altname) ?? diag.universePairs,
+      count: uni?.selected?.length ?? diag.universePairs.length,
       diagnosticsPairs: diag.universePairs,
     },
     lastCycle: {
@@ -141,8 +144,12 @@ export async function GET() {
       leverageCap: futuresMaxLeverage(),
       liveStrategies: [...parseFuturesLiveStrategiesList()],
       engine: getKrakenFuturesEngineStatus(),
+      stateFile: FUTURES_ENGINE_STATE_FILE,
       dailyRisk: getFuturesDailyRisk(),
-      ws: getFuturesWsStatus(),
+      ws: (() => {
+        const eng = getKrakenFuturesEngineStatus();
+        return eng.ws ?? getFuturesWsStatus();
+      })(),
     },
   });
 }

@@ -17,11 +17,12 @@ import {
   gateNoAckRetry,
 } from "@/lib/trading/ibkr-no-ack-guard";
 import { notifyOrderRejected } from "@/lib/notifications/telegram-bot";
-import {
-  isEuropeanEquityOrderWindow,
-  isUsListedEquityOrderWindow,
-} from "@/lib/trading/cycle-schedule";
+import { isUsListedEquityOrderWindow } from "@/lib/trading/cycle-schedule";
 import { isUsPremarketSession } from "@/lib/trading/exchange-hours";
+import {
+  getEquityStrategySession,
+  isEuropeanEurEquityRegularSession,
+} from "@/lib/trading/equity-strategy-session";
 import {
   getEuropeanEurEquity,
   ibkrEurStocksAccountId,
@@ -328,9 +329,10 @@ export async function submitSupervisedLiveLimitOrder(args: {
   // Session gates for new BUYs (SELL exits always allowed)
   if (!crypto && args.side === "BUY") {
     if (eu) {
-      if (!isEuropeanEquityOrderWindow()) {
+      const euSess = getEquityStrategySession(symbol);
+      if (!isEuropeanEurEquityRegularSession(symbol)) {
         throw new Error(
-          `${symbol}: fuera de sesión EU (Madrid 09:00–17:30 / London 08:00–16:30) — no enviar BUY europea`,
+          `${symbol}: fuera de sesión EU (${euSess.localTime} ${euSess.timeZone}; ${euSess.sessionLabel}) — no enviar BUY europea`,
         );
       }
     } else if (isUsPremarketSession() && args.outsideRth) {

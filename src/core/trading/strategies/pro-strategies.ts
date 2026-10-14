@@ -17,8 +17,13 @@ import { getIbkrPriceCached } from "@/lib/market-data/ibkr-prices";
 import { ibkrBars5m, ibkrBars1h, ibkrDailyBars } from "@/lib/market-data/ibkr-history";
 import { evaluateSwingStrategies, passesCostFilter } from "@/lib/trading/swing/strategies";
 import { isStrategyDisabled } from "@/lib/trading/journal/trades";
-import { getCurrentTradingPhase, isEuropeanEquityOrderWindow } from "@/lib/trading/cycle-schedule";
+import { getCurrentTradingPhase } from "@/lib/trading/cycle-schedule";
 import { isUsRegularFirstQuarterHour } from "@/lib/trading/exchange-hours";
+import {
+  formatNoStrategyHoldReason,
+  getEquityStrategySession,
+  minConfidencePhaseForSession,
+} from "@/lib/trading/equity-strategy-session";
 import { getEuropeanEurEquity, isEuropeanEurEquity } from "@/lib/trading/europe-equities";
 import { getHistory as getEodhdHistory, isEodhdConfigured } from "@/lib/market-data/eodhd";
 import {
@@ -48,7 +53,6 @@ import {
   ASIA_ETF_TICKERS,
   EUROPE_DIRECT_TICKERS,
   EUROPE_ETF_TICKERS,
-  getActiveTradingPhase,
   isAsiaFocusTicker,
   isAsiaOpen,
   isEuropeFocusTicker,
@@ -443,7 +447,14 @@ async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
 function minTradeConfidenceForPhase(phase: string, crypto: boolean): number {
   if (crypto) return CRYPTO_MIN_CONFIDENCE;
   if (phase === "USA_PREMARKET" || phase === "PRE_MARKET") return 0.62;
-  if (phase === "USA_REGULAR" || phase === "USA_OPEN" || phase === "EUROPA" || phase === "ASIA") {
+  if (
+    phase === "USA_REGULAR" ||
+    phase === "USA_OPEN" ||
+    phase === "EUROPA" ||
+    phase === "EUROPE" ||
+    phase === "EUROPE_OPEN" ||
+    phase === "ASIA"
+  ) {
     return 0.6;
   }
   if (phase === "USA_AFTERHOURS") {
@@ -897,6 +908,15 @@ export async function evaluateProStrategies(
     return hold("Blacklist: 3 pérdidas consecutivas");
   }
 
+  const strategySession = getEquityStrategySession(symbol);
+  console.log(`[ProStrategy] ${symbol}: ${strategySession.summary}`);
+
+  if (strategySession.market === "EU_LOCAL" && !strategySession.regularSessionOpen) {
+    return hold(
+      `Fuera de sesión ${strategySession.venue ?? "EU"} (${strategySession.localTime} ${strategySession.timeZone})`,
+    );
+  }
+
   // --- CRYPTO INTRADÍA (Alpaca default / Kraken EUR / IBKR PAXOS) ---
   const alpacaCrypto = isAlpacaCryptoTicker(symbol);
   if (crypto || alpacaCrypto) {
@@ -1015,12 +1035,16 @@ export async function evaluateProStrategies(
     });
   }
 
-  // --- SWING ACCIONES (preferido en USA_REGULAR / EUROPA) ---
+  // --- SWING ACCIONES (symbol session — EU locals ignore US PRE_MARKET forge phase) ---
   if (!crypto && !alpacaCrypto) {
-    const phase = getCurrentTradingPhase();
-      if (phase === "USA_REGULAR" || phase === "EUROPA" || phase === "PRE_MARKET") {
-      // Avoid first 15 minutes of USA regular (09:30–09:45 ET)
-      if (phase === "USA_REGULAR" && isUsRegularFirstQuarterHour()) {
+    const forgePhase = getCurrentTradingPhase();
+    if (strategySession.swingAnalysisAllowed) {
+      // Avoid first 15 minutes of USA regular (09:30–09:45 ET) — US listings only
+      if (
+        strategySession.market === "US_LISTED" &&
+        forgePhase === "USA_REGULAR" &&
+        isUsRegularFirstQuarterHour()
+      ) {
         return hold(`${symbol}: primeros 15 min USA (09:30–09:45 ET) — diferir entrada swing`);
       }
       const hourly = await ibkrBars1h(symbol).catch(() => [] as OhlcvBar[]);
@@ -1138,10 +1162,11 @@ export async function evaluateProStrategies(
     scoreTotal: opts?.scoreTotal ?? null,
   });
 
-  // 5-min IBKR bars for VWAP / intraday momentum (USA sessions)
-  const phaseEarly = getActiveTradingPhase();
+  // 5-min IBKR bars for VWAP / intraday momentum (US listings in US session)
+  const phase = strategySession.strategyPhase;
   const needIntraday =
-    phaseEarly === "USA_OPEN" || phaseEarly === "USA_REGULAR" || phaseEarly === "USA_PREMARKET";
+    strategySession.market === "US_LISTED" &&
+    (phase === "USA_OPEN" || phase === "USA_REGULAR" || phase === "USA_PREMARKET");
   const bars5m = needIntraday ? await ibkrBars5m(symbol).catch(() => [] as OhlcvBar[]) : [];
   const intradayTech = bars5m.length >= 20 ? computeTechnicalIndicators(bars5m) : null;
   const vwap5m = intradayTech?.volume.vwap ?? technicals.volume.vwap;
@@ -1173,7 +1198,6 @@ export async function evaluateProStrategies(
   const atrPct =
     atr14 != null && price > 0 ? atr14 / price : null;
 
-  const phase = getActiveTradingPhase();
   const firstHour = phase === "USA_OPEN" || phase === "EUROPE_OPEN";
   const news4h = newsPositiveHours(newsCtx, 4);
   const news8h = newsPositiveHours(newsCtx, 8);
@@ -1223,13 +1247,14 @@ export async function evaluateProStrategies(
     }
   }
 
-  // ─── EUROPE (local EUR equities use exchange window, not US phase) ───
-  const euLocal = isEuropeanEurEquity(symbol) && isEuropeanEquityOrderWindow();
+  // ─── EUROPE (local EUR: exchange-local RTH; ADR/ETF: Madrid EU window when US closed) ───
+  const euLocal =
+    strategySession.market === "EU_LOCAL" && strategySession.regularSessionOpen;
   const europeSession =
     phase === "EUROPE_OPEN" ||
     phase === "EUROPE" ||
     euLocal ||
-    (isEuropeOpen() && (isEuropeFocusTicker(symbol) || isEuropeanEurEquity(symbol)));
+    (isEuropeOpen() && isEuropeFocusTicker(symbol) && strategySession.market === "US_LISTED");
   if (europeSession) {
     if (
       (phase === "EUROPE_OPEN" || euLocal) &&
@@ -1614,11 +1639,16 @@ export async function evaluateProStrategies(
         },
       };
     }
-    console.log(`[ProStrategy] ${symbol}: ninguna señal (${phase})`);
-    return hold("Ninguna estrategia activa en sesión", rsiVal, fullMetrics());
+    console.log(
+      `[ProStrategy] ${symbol}: ninguna señal (${phase}) elegibles=[${strategySession.eligibleStrategyIds.join(",")}]`,
+    );
+    return hold(formatNoStrategyHoldReason(strategySession, phase), rsiVal, fullMetrics());
   }
 
-  const minTradeConfidence = minTradeConfidenceForPhase(phase, crypto);
+  const minTradeConfidence = minTradeConfidenceForPhase(
+    minConfidencePhaseForSession(strategySession),
+    crypto,
+  );
 
   hits.sort((a, b) => b.baseConfidence - a.baseConfidence);
   const primary = hits[0]!;

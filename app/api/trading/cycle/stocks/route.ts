@@ -11,6 +11,8 @@ import {
   nextOpenLabel,
 } from "@/lib/trading/cycle-schedule";
 import { resolveStocksCycleUniverse, isUsStockTicker } from "@/lib/trading/stocks-universe";
+import { getEquityStrategySession } from "@/lib/trading/equity-strategy-session";
+import { europeEurSeedSymbols } from "@/lib/trading/europe-equities";
 import type { OrderResult } from "@/src/core/trading/trading-engine";
 
 function isCycleSignal(o: OrderResult): boolean {
@@ -62,11 +64,31 @@ export async function GET() {
   const bad = universe.tickers.filter((t) => !isUsStockTicker(t));
   const last = global.__lastStocksCycle ?? null;
   const signals = mapCycleSignals(last?.orders);
+  const sessionDiagnostics = ["SAN", "IBE", "SAP", "ASML", "MC"]
+    .concat(europeEurSeedSymbols().slice(0, 3))
+    .filter((s, i, a) => a.indexOf(s) === i)
+    .slice(0, 8)
+    .map((symbol) => {
+      const s = getEquityStrategySession(symbol);
+      return {
+        symbol,
+        market: s.market,
+        localTime: s.localTime,
+        timeZone: s.timeZone,
+        open: s.regularSessionOpen,
+        strategyPhase: s.strategyPhase,
+        usPhase: s.usPhase,
+        forgePhase: s.forgePhase,
+        eligibleStrategyIds: s.eligibleStrategyIds,
+        summary: s.summary,
+      };
+    });
   return NextResponse.json({
     cycleKind: "stocks",
     phase,
     windowOpen: isUsStocksCycleWindow(),
     nextOpen: nextOpenLabel(phase),
+    sessionDiagnostics,
     universe,
     universeClean: bad.length === 0,
     nonStockInUniverse: bad,

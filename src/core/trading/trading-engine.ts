@@ -62,6 +62,11 @@ import {
   resolvePremarketShadowAtOpen,
 } from '@/lib/trading/us-premarket'
 import { isEuropeanEurEquity } from '@/lib/trading/europe-equities'
+import {
+  getEquityStrategySession,
+  isEuropeanEurEquityRegularSession,
+  minConfidencePhaseForSession,
+} from '@/lib/trading/equity-strategy-session'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
@@ -637,7 +642,14 @@ const AUTO_CYCLE_MIN_BUY_CONFIDENCE = 0.7
 const USA_REGULAR_MIN_CONFIDENCE = 0.6
 
 function minConfidenceForPhase(phase: string): number {
-  if (phase === 'USA_REGULAR' || phase === 'USA_OPEN' || phase === 'EUROPA' || phase === 'ASIA') {
+  if (
+    phase === 'USA_REGULAR' ||
+    phase === 'USA_OPEN' ||
+    phase === 'EUROPA' ||
+    phase === 'EUROPE' ||
+    phase === 'EUROPE_OPEN' ||
+    phase === 'ASIA'
+  ) {
     return USA_REGULAR_MIN_CONFIDENCE
   }
   if (phase === 'USA_PREMARKET' || phase === 'PRE_MARKET') return 0.62
@@ -1383,9 +1395,15 @@ export class TradingEngine {
           o.status === "SIGNAL_NO_CAPITAL" ||
           (o.status === "REJECTED_RISK" && isCapitalAffordabilityReject(o.reason ?? "")),
       ).length
+      const euSample = ['SAN', 'IBE', 'SAP']
+        .map((sym) => {
+          const s = getEquityStrategySession(sym)
+          return `${sym}:${s.localTime}${s.regularSessionOpen ? '✓' : '✗'}[${s.eligibleStrategyIds.length}]`
+        })
+        .join(' ')
       console.log(
         `[Cycle/stocks] fase=${fase} analizados=${analyzedOk} señales=${señales} BUY=${buyN} ` +
-          `enviadas=${enviadas} sin_capital=${sinCapital} rechazadas=${rechazadas}`,
+          `enviadas=${enviadas} sin_capital=${sinCapital} rechazadas=${rechazadas} | euSess ${euSample}`,
       )
 
       try {
@@ -2419,12 +2437,13 @@ export class TradingEngine {
       }
       // Session gates before analysis: EU local vs US/ADR
       if (isEuropeanEurEquity(ticker)) {
-        if (!isEuropeanEquityOrderWindow()) {
+        const euSess = getEquityStrategySession(ticker)
+        if (!isEuropeanEurEquityRegularSession(ticker)) {
           return {
             status: "HOLD",
             ticker,
             direction: "HOLD",
-            reason: `${ticker}: fuera de sesión EU (Madrid 09:00–17:30 / London 08:00–16:30)`,
+            reason: `${ticker}: fuera de sesión EU (${euSess.localTime} ${euSess.timeZone}; ${euSess.sessionLabel})`,
             signal: notAnalyzedSignal("fuera de sesión regular EU"),
             timestamp: new Date().toISOString(),
           };
@@ -2906,7 +2925,8 @@ export class TradingEngine {
       }
     }
 
-    const phase = getActiveTradingPhase()
+    const strategySession = getEquityStrategySession(ticker)
+    const phase = minConfidencePhaseForSession(strategySession)
     const minConfidence = minConfidenceForPhase(phase)
 
     if (signal.confidence < minConfidence) {

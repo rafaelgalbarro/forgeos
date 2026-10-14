@@ -27,9 +27,15 @@ import {
 } from "@/lib/trading/cycle-schedule";
 import {
   fetchCapitalSnapshot,
+  fetchCapitalSnapshotForAccount,
   requiresUsdBalance,
   type CapitalSnapshot,
 } from "@/lib/trading/capital";
+import {
+  ibkrEurStocksAccountId,
+  isEuropeanEurEquity,
+} from "@/lib/trading/europe-equities";
+import { computeUsableEurForLocalStockBuy } from "@/lib/trading/stock-account-capital";
 
 export type AgentSignal = {
   agent: string;
@@ -518,12 +524,28 @@ export async function runPreOrderRiskCheck(input: {
 }): Promise<PreOrderRiskResult> {
   const ticker = input.ticker.trim().toUpperCase();
   const price = input.price;
-  const capital = input.capital ?? (await fetchCapitalSnapshot());
+  let capital = input.capital ?? (await fetchCapitalSnapshot());
+  if (isEuropeanEurEquity(ticker)) {
+    const eurAcct = ibkrEurStocksAccountId();
+    capital =
+      (await fetchCapitalSnapshotForAccount(eurAcct).catch(() => null)) ?? capital;
+  }
 
-  const available =
+  const euLocal = isEuropeanEurEquity(ticker);
+  let available =
     capital.availableFunds > 0
       ? capital.availableFunds
       : Math.max(capital.cashUSD, capital.cashEUR, capital.tradingCashUSD);
+  if (euLocal && capital.cashEUR > 0) {
+    const { usableEur } = computeUsableEurForLocalStockBuy({
+      cashEur: capital.cashEUR,
+      cashUsd: capital.cashUSD,
+      availableFunds: capital.availableFunds,
+      availableFundsCurrency: "EUR",
+    });
+    available = usableEur > 0 ? usableEur : capital.cashEUR;
+  }
+  const ccySym = euLocal ? "€" : "$";
 
   const atrPct = atrPctFromBars(price, input.bars ?? []);
   let stopLossPct = atrPct;
@@ -572,8 +594,9 @@ export async function runPreOrderRiskCheck(input: {
 
   let qty = Math.floor(budget / price);
   if (qty === 0) {
+    const acct = euLocal ? `cuenta ${ibkrEurStocksAccountId()} ` : "";
     return reject(
-      `capital insuficiente — precio $${price.toFixed(2)} > presupuesto $${budget.toFixed(2)} (cash≈$${available.toFixed(2)})`,
+      `capital insuficiente — ${acct}precio ${ccySym}${price.toFixed(2)} > presupuesto ${ccySym}${budget.toFixed(2)} (utilizable≈${ccySym}${available.toFixed(2)})`,
     );
   }
 

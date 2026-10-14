@@ -62,11 +62,15 @@ export function isEuropeanEurEquityRegularSession(symbol: string, at: Date = new
   return isEuPrimaryExchangeRegularSession(spec.primaryExchange, at);
 }
 
-const EU_STRATEGY_IDS = [
+export const EU_EQUITY_STRATEGY_IDS = [
   "EU_APERTURA_BREAKOUT",
   "EU_EMA21_PULLBACK",
   "EU_TREND_CONTINUATION",
 ] as const;
+
+export type EuEquityStrategyId = (typeof EU_EQUITY_STRATEGY_IDS)[number];
+
+const EU_STRATEGY_IDS = EU_EQUITY_STRATEGY_IDS;
 
 export type EquityStrategyMarket = "EU_LOCAL" | "US_LISTED" | "OTHER";
 
@@ -218,11 +222,25 @@ export function isUsListedSymbol(symbol: string): boolean {
 }
 
 /** Human-readable hold when no strategy hits — explains session vs signal miss. */
-export function formatNoStrategyHoldReason(session: EquityStrategySession, globalPhase: ActiveTradingPhase): string {
+export function formatNoStrategyHoldReason(
+  session: EquityStrategySession,
+  globalPhase: ActiveTradingPhase,
+  opts?: { evaluatedStrategyIds?: readonly string[] },
+): string {
   if (session.market === "EU_LOCAL" && !session.regularSessionOpen) {
     return (
       `Fuera de sesión ${session.venue ?? "EU"} (${session.localTime} ${session.timeZone}; ` +
       `${session.sessionLabel}) — usPhase=${session.usPhase} no aplica`
+    );
+  }
+  if (session.market === "EU_LOCAL" && session.regularSessionOpen) {
+    const evaluated =
+      opts?.evaluatedStrategyIds?.length
+        ? opts.evaluatedStrategyIds.join(", ")
+        : session.eligibleStrategyIds.join(", ");
+    return (
+      `Sin señal BUY EU — evaluadas [${evaluated}] (${session.localTime} ${session.timeZone}; ` +
+      `fase=${globalPhase}) — condiciones técnicas no cumplidas`
     );
   }
   const eligible =

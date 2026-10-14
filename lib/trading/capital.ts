@@ -13,6 +13,15 @@ import {
   getOrSetIbkrCached,
   ibkrCacheKey,
 } from "@/lib/trading/ibkr-cache";
+import {
+  ibkrEurStocksAccountId,
+  isEuropeanEurEquity,
+} from "@/lib/trading/europe-equities";
+import {
+  extractAccountCashFromTags,
+  pickStockAccountCapitalFromMap,
+  type StockAccountCapitalPick,
+} from "@/lib/trading/stock-account-capital";
 
 export type CapitalSnapshot = TradingAccountSnapshot & {
   cashEUR: number;
@@ -32,6 +41,61 @@ function num(tags: Record<string, AccountTag> | undefined, tag: string): number 
 
 function tagCurrency(tags: Record<string, AccountTag> | undefined, tag: string): string {
   return String(tags?.[tag]?.currency ?? "").toUpperCase();
+}
+
+async function loadCapitalForAccountId(accountId: string): Promise<CapitalSnapshot> {
+  const id = accountId.trim();
+  const [base, account, positions] = await Promise.all([
+    fetchTradingAccountSnapshot(),
+    ibkrServiceFetch<AccountMap>("/api/ibkr/account").catch(() => ({}) as AccountMap),
+    ibkrServiceFetch<
+      Array<{
+        symbol?: string;
+        position?: number;
+        avgCost?: number;
+        marketValue?: number;
+        currency?: string;
+        account?: string;
+      }>
+    >("/api/ibkr/positions").catch(() => []),
+  ]);
+
+  const tags = account[id];
+  const row = extractAccountCashFromTags(tags);
+  const cashUSD = row.cashUsd;
+  const cashEUR = row.cashEur;
+  const availableFunds =
+    num(tags, "AvailableFunds") || Math.max(cashUSD, cashEUR, 0);
+  const grossPositionValue = num(tags, "GrossPositionValue");
+  const navUSD = num(tags, "NetLiquidation") || base.navUSD;
+
+  const openTickers: string[] = [];
+  let exposureUSD = 0;
+  for (const p of Array.isArray(positions) ? positions : []) {
+    if (p.account && p.account !== id) continue;
+    const qty = Math.abs(Number(p.position ?? 0));
+    if (!(qty > 0)) continue;
+    const symbol = String(p.symbol ?? "").trim().toUpperCase();
+    if (!symbol) continue;
+    openTickers.push(symbol);
+    const mv = Math.abs(Number(p.marketValue ?? 0));
+    const avg = Number(p.avgCost ?? 0);
+    exposureUSD += mv > 0 ? mv : qty * (Number.isFinite(avg) ? avg : 0);
+  }
+
+  const tradingCash = cashUSD > 0 ? cashUSD : cashEUR > 0 ? cashEUR : 0;
+
+  return {
+    ...base,
+    navUSD: navUSD > 0 ? navUSD : base.navUSD,
+    cashUSD: cashUSD > 0 ? cashUSD : tradingCash,
+    cashEUR,
+    availableFunds: availableFunds > 0 ? availableFunds : tradingCash,
+    grossPositionValue,
+    exposureUSD,
+    openTickers: [...new Set(openTickers)],
+    primaryAccountId: id,
+  };
 }
 
 async function loadCapitalLive(): Promise<CapitalSnapshot> {
@@ -116,6 +180,64 @@ async function loadCapitalLive(): Promise<CapitalSnapshot> {
 /** Cached ~30s — short enough for live sizing, long enough to avoid spam. */
 export async function fetchCapitalSnapshot(): Promise<CapitalSnapshot> {
   return getOrSetIbkrCached(ibkrCacheKey("capital-v2"), loadCapitalLive, 30_000);
+}
+
+export async function fetchCapitalSnapshotForAccount(
+  accountId: string,
+): Promise<CapitalSnapshot> {
+  const id = accountId.trim();
+  if (!id) return fetchCapitalSnapshot();
+  return getOrSetIbkrCached(
+    ibkrCacheKey(`capital-acct-${id}`),
+    () => loadCapitalForAccountId(id),
+    30_000,
+  );
+}
+
+export type { StockAccountCapitalPick };
+
+export async function pickIbkrStockAccountCapital(
+  ticker: string,
+): Promise<StockAccountCapitalPick> {
+  try {
+    const account = await ibkrServiceFetch<AccountMap>("/api/ibkr/account");
+    const pick = pickStockAccountCapitalFromMap(account ?? {}, ticker);
+    const sym = ticker.trim().toUpperCase();
+    if (pick.currency === "EUR") {
+      console.log(
+        `[Capital] ${sym} EUR → ${pick.accountId} utilizable €${pick.usableCash.toFixed(2)} (${pick.detail})`,
+      );
+    } else if (pick.accountId && pick.cash > 0) {
+      console.log(`[Capital] ${sym} USD → ${pick.accountId} cashUSD=$${pick.cash.toFixed(2)}`);
+    }
+    return pick;
+  } catch (err) {
+    console.warn(
+      "[Capital] pickIbkrStockAccountCapital failed:",
+      err instanceof Error ? err.message : err,
+    );
+    const sym = ticker.trim().toUpperCase();
+    if (isEuropeanEurEquity(sym)) {
+      return {
+        accountId: ibkrEurStocksAccountId(),
+        currency: "EUR",
+        cash: 0,
+        usableCash: 0,
+        cashUsd: 0,
+        cashEur: 0,
+        detail: err instanceof Error ? err.message : String(err),
+      };
+    }
+    return {
+      accountId: null,
+      currency: "USD",
+      cash: 0,
+      usableCash: 0,
+      cashUsd: 0,
+      cashEur: 0,
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 /**

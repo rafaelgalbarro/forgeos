@@ -22,7 +22,13 @@ import {
   sendTelegramMessage,
 } from '@/lib/notifications/telegram-bot'
 import { runPreOrderRiskCheck, logPreOrderDecision } from '@/lib/trading/agents'
-import { fetchCapitalSnapshot, pickIbkrAccountWithMostUsd } from '@/lib/trading/capital'
+import {
+  fetchCapitalSnapshot,
+  fetchCapitalSnapshotForAccount,
+  pickIbkrAccountWithMostUsd,
+  pickIbkrStockAccountCapital,
+  type StockAccountCapitalPick,
+} from '@/lib/trading/capital'
 import {
   isIbkrExecutableEquity,
   isIbkrNonExecutableUsEtf,
@@ -577,21 +583,27 @@ async function emitSignalNoCapital(params: {
   agents?: string
   reasoning: string
   urgency: string
+  currency?: 'USD' | 'EUR'
+  accountId?: string | null
 }): Promise<OrderResult> {
   const ticker = params.ticker.toUpperCase()
+  const ccy = params.currency ?? 'USD'
+  const sym = ccy === 'EUR' ? '€' : '$'
   const usable = params.usableCash ?? params.available * 0.8
   const rule = params.limitingRule ?? "reserve"
+  const acct = params.accountId ? `cuenta ${params.accountId} ` : ''
   const detail =
     params.detail ??
-    `utilizable $${usable.toFixed(2)}; regla=${rule}`
+    `utilizable ${sym}${usable.toFixed(2)}; regla=${rule}`
   const now = Date.now()
   const last = noCapitalTelegramAt.get(ticker) ?? 0
   if (now - last >= NO_CAPITAL_TELEGRAM_TTL_MS) {
     noCapitalTelegramAt.set(ticker, now)
     const conf = Math.round(params.confidence * 100)
+    const flag = ccy === 'EUR' ? '🇪🇺' : '🇺🇸'
     const line =
-      `💡 OPORTUNIDAD 🇺🇸 ${ticker} BUY ${conf}% @ $${params.price.toFixed(2)} ` +
-      `— sin capital (${detail})`
+      `💡 OPORTUNIDAD ${flag} ${ticker} BUY ${conf}% @ ${sym}${params.price.toFixed(2)} ` +
+      `— sin capital (${acct}${detail})`
     void sendTelegramMessage(line).catch((err) => {
       console.warn(
         `[Telegram] SIGNAL_NO_CAPITAL ${ticker}:`,
@@ -601,7 +613,7 @@ async function emitSignalNoCapital(params: {
   }
   console.log(
     `[Signal] ${ticker}: SIGNAL_NO_CAPITAL conf=${(params.confidence * 100).toFixed(0)}% ` +
-      `price=$${params.price.toFixed(2)} ${detail}`,
+      `price=${sym}${params.price.toFixed(2)} ${acct}${detail}`,
   )
   return {
     status: 'SIGNAL_NO_CAPITAL',
@@ -609,7 +621,8 @@ async function emitSignalNoCapital(params: {
     direction: 'BUY',
     price: params.price,
     agents: params.agents,
-    reason: `sin capital — cash $${params.available.toFixed(2)}; ${detail}`,
+    reason:
+      `sin capital — ${acct}${ccy} cash ${sym}${params.available.toFixed(2)}; ${detail}`,
     signal: {
       confidence: params.confidence,
       reasoning: params.reasoning,
@@ -2790,28 +2803,58 @@ export class TradingEngine {
       at: new Date().toISOString(),
     })
 
-    // Account-aware PRE_ORDER_RISK_CHECK + dynamic sizing (USD cash only).
+    // Account-aware PRE_ORDER_RISK_CHECK + dynamic sizing (USD or EUR by listing).
     // Capital never filters the universe — unaffordable BUY → SIGNAL_NO_CAPITAL.
     // Crypto IBKR always sizes against dedicated PAXOS account (default U24225949).
     const cryptoIbkr = kind === 'crypto' && isIbkrCryptoEnabled()
+    const euLocalStock = kind === 'stocks' && isEuropeanEurEquity(ticker)
+    let stockCapital: StockAccountCapitalPick | null = null
     const richest = cryptoIbkr
       ? {
           accountId: cryptoIbkrAccountId(),
           cashUSD: 0,
         }
-      : await pickIbkrAccountWithMostUsd().catch(() => ({
-          accountId: null as string | null,
-          cashUSD: 0,
-        }))
-    const capitalSnap = await fetchCapitalSnapshot().catch(() => null)
-    let cashForSizing =
-      richest.cashUSD > 0
-        ? richest.cashUSD
-        : Math.max(0, capitalSnap?.cashUSD ?? account.cashUSD)
+      : euLocalStock
+        ? await pickIbkrStockAccountCapital(ticker).catch(() => null)
+        : await pickIbkrAccountWithMostUsd().catch(() => ({
+            accountId: null as string | null,
+            cashUSD: 0,
+          }))
+    if (euLocalStock && richest && "currency" in richest) {
+      stockCapital = richest as StockAccountCapitalPick
+    }
+    let capitalSnap = await fetchCapitalSnapshot().catch(() => null)
+    if (stockCapital?.accountId) {
+      capitalSnap =
+        (await fetchCapitalSnapshotForAccount(stockCapital.accountId).catch(() => null)) ??
+        capitalSnap
+    }
+    let cashForSizing = 0
+    let sizingCurrency: 'USD' | 'EUR' = 'USD'
+    let stockAccountId: string | null = null
     if (cryptoIbkr) {
-      // Prefer snapshot cash; hard notional cap applied later ($25 default)
+      cashForSizing = Math.max(0, capitalSnap?.cashUSD ?? account.cashUSD)
       cashForSizing = Math.max(cashForSizing, cryptoLiveMaxNotionalUsd())
       account.primaryAccountId = cryptoIbkrAccountId()
+    } else if (stockCapital) {
+      sizingCurrency = stockCapital.currency
+      stockAccountId = stockCapital.accountId
+      cashForSizing = Math.max(0, stockCapital.usableCash)
+      if (stockCapital.accountId) {
+        account.primaryAccountId = stockCapital.accountId
+        account.cashUSD = stockCapital.usableCash
+      }
+    } else {
+      const usdPick = richest as { accountId: string | null; cashUSD: number }
+      cashForSizing =
+        usdPick.cashUSD > 0
+          ? usdPick.cashUSD
+          : Math.max(0, capitalSnap?.cashUSD ?? account.cashUSD)
+      stockAccountId = usdPick.accountId
+      if (usdPick.accountId) {
+        account.primaryAccountId = usdPick.accountId
+        if (usdPick.cashUSD > 0) account.cashUSD = usdPick.cashUSD
+      }
     }
 
     const agentsLabel = signal.primaryStrategy || 'PRO'
@@ -2822,21 +2865,19 @@ export class TradingEngine {
         ticker,
         confidence: signal.confidence,
         price: priceData.currentPrice,
-        available: cashForSizing,
+        available: stockCapital?.cash ?? cashForSizing,
+        usableCash: cashForSizing,
+        detail: stockCapital?.detail,
+        currency: sizingCurrency,
+        accountId: stockAccountId,
         agents: agentsLabel,
         reasoning: signal.reasoning,
         urgency: signal.urgency,
       })
     }
 
-    // Prefer destination account with positive USD for all subsequent sizing / submit
-    if (richest.accountId) {
-      account.primaryAccountId = richest.accountId
-      if (richest.cashUSD > 0) account.cashUSD = richest.cashUSD
-    }
-
     const capital = resolveAccountCapitalPolicy(
-      richest.accountId ?? account.primaryAccountId ?? process.env.IBKR_ACCOUNT_ID,
+      stockAccountId ?? account.primaryAccountId ?? process.env.IBKR_ACCOUNT_ID,
       cashForSizing,
       signal.confidence,
       strategy.positionSizeFactor ?? 1,
@@ -2886,7 +2927,11 @@ export class TradingEngine {
           ticker,
           confidence: signal.confidence,
           price: priceData.currentPrice,
-          available: cashForSizing,
+          available: stockCapital?.cash ?? cashForSizing,
+          usableCash: cashForSizing,
+          currency: sizingCurrency,
+          accountId: stockAccountId,
+          detail: stockCapital?.detail,
           agents: agentsLabel,
           reasoning: signal.reasoning,
           urgency: signal.urgency,
@@ -3113,10 +3158,12 @@ export class TradingEngine {
         ticker,
         confidence: signal.confidence,
         price: priceData.currentPrice,
-        available: cashForSizing,
+        available: stockCapital?.cash ?? cashForSizing,
         usableCash: sized.usableCash,
         limitingRule: sized.limitingRule,
-        detail: sized.reason,
+        detail: stockCapital?.detail ?? sized.reason,
+        currency: sizingCurrency,
+        accountId: stockAccountId,
         agents: agentsLabel,
         reasoning: signal.reasoning,
         urgency: signal.urgency,
@@ -3133,18 +3180,24 @@ export class TradingEngine {
         ticker,
         confidence: signal.confidence,
         price: priceData.currentPrice,
-        available: cashForSizing,
+        available: stockCapital?.cash ?? cashForSizing,
         usableCash: sized.usableCash,
         limitingRule: "price",
-        detail: sized.reason,
+        detail: stockCapital?.detail ?? sized.reason,
+        currency: sizingCurrency,
+        accountId: stockAccountId,
         agents: agentsLabel,
         reasoning: signal.reasoning,
         urgency: signal.urgency,
       })
     }
     const orderValueUSD = resolvedShares * priceData.currentPrice
+    const cashLabel =
+      sizingCurrency === "EUR"
+        ? `cashEUR €${cashForSizing.toFixed(2)}`
+        : `cashUSD $${cashForSizing.toFixed(2)}`
     console.log(
-      `[AutoExecute] ${ticker} → account=${richest.accountId ?? 'default'} cashUSD $${cashForSizing.toFixed(2)} | ` +
+      `[AutoExecute] ${ticker} → account=${stockAccountId ?? account.primaryAccountId ?? 'default'} ${cashLabel} | ` +
         `deployable $${sized.deployable.toFixed(2)} usable $${sized.usableCash.toFixed(2)} | ` +
         `precio $${priceData.currentPrice.toFixed(2)} | qty ${resolvedShares}` +
         (sized.fractional ? " (fractional)" : ""),

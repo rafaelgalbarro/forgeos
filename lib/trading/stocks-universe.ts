@@ -23,10 +23,10 @@ import { isIbkrNonTradable } from "@/lib/trading/ibkr-non-tradable";
 import { isOtcPinkNonExecutable } from "@/lib/trading/otc-pink";
 import {
   getCurrentTradingPhase,
-  isEuropeanEquityOrderWindow,
-  isUsListedEquityOrderWindow,
   type ForgeTradingPhase,
 } from "@/lib/trading/cycle-schedule";
+import { bumpStocksCycleCounter } from "@/lib/trading/stocks-cycle-alternate";
+import { planStocksCycleUniverse } from "@/lib/trading/stocks-cycle-focus";
 import {
   europeEurSeedSymbols,
   isEuropeanEurEquity,
@@ -62,6 +62,8 @@ export type StocksUniverseResult = {
   scanned: number;
   momentum: Array<{ symbol: string; changePct: number }>;
   indicatorEtfsExcluded?: string[];
+  /** EU vs US premarket alternation when both sessions overlap. */
+  universePlan?: string;
 };
 
 /** Equity eligible for stocks-cycle IBKR orders (US or EU local, not ETF/crypto/FX). */
@@ -126,15 +128,22 @@ function finalize(
  * Resolve up to 50 equities for analysis based on Madrid order windows.
  * Prefers last opportunity-scan selected/top when fresh (<20 min).
  */
-export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult> {
-  const phase = getCurrentTradingPhase();
-  const euOpen = isEuropeanEquityOrderWindow();
-  const usOpen = isUsListedEquityOrderWindow();
+export async function resolveStocksCycleUniverse(at: Date = new Date()): Promise<StocksUniverseResult> {
+  const phase = getCurrentTradingPhase(at);
+  const cycleN = bumpStocksCycleCounter();
+  const plan = planStocksCycleUniverse(at, cycleN);
+  const euOpen = plan.includeEu;
+  const usOpen = plan.includeUsRegular || plan.includeUsPremarketAnalysis;
   const changeBySymbol = new Map<string, number>();
 
   if (!euOpen && !usOpen) {
     return finalize([], phase, "outside-equity-windows", 0, changeBySymbol);
   }
+
+  console.log(
+    `[StocksUniverse] plan=${plan.label} phase=${phase} cycle#=${cycleN}` +
+      (plan.overlapFocus ? ` overlapFocus=${plan.overlapFocus}` : ""),
+  );
 
   const scan = loadStocksOpportunityScan();
   const scanAgeMs = scan ? Date.now() - Date.parse(scan.at) : Number.POSITIVE_INFINITY;
@@ -142,7 +151,7 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
   const scanPrefer: string[] = [];
   if (scanFresh && scan) {
     for (const o of [...scan.selected, ...scan.top10]) {
-      if (o.market === "US" && !usOpen) continue;
+      if (o.market === "US" && !plan.includeUsRegular && !plan.includeUsPremarketAnalysis) continue;
       if (o.market === "EU" && !euOpen) continue;
       if (!isUsStockTicker(o.symbol)) continue;
       scanPrefer.push(o.symbol);
@@ -152,10 +161,12 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
 
   const seed: string[] = [...scanPrefer];
   if (euOpen) seed.push(...europeEurSeedSymbols());
-  if (usOpen) seed.push(...USA_EXECUTABLE_EQUITIES);
+  if (plan.includeUsRegular || plan.includeUsPremarketAnalysis) {
+    seed.push(...USA_EXECUTABLE_EQUITIES);
+  }
 
   let screener: Awaited<ReturnType<typeof screenerUsGainers>> = [];
-  if (usOpen) {
+  if (plan.includeUsRegular || plan.includeUsPremarketAnalysis) {
     try {
       screener = await screenerUsGainers({
         minVolume: MIN_VOLUME,
@@ -178,7 +189,7 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
   }
 
   const union = new Set<string>(seed.filter(isUsStockTicker));
-  if (usOpen) {
+  if (plan.includeUsRegular || plan.includeUsPremarketAnalysis) {
     for (const row of screener) {
       if (isUsStockTicker(row.symbol) && !isEuropeanEurEquity(row.symbol)) {
         union.add(row.symbol);
@@ -193,10 +204,12 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
   const sourceParts = [
     scanFresh ? "opp-scan" : null,
     euOpen ? "eu-eur" : null,
-    usOpen ? "us-adr" : null,
+    plan.includeUsPremarketAnalysis ? "us-premarket" : null,
+    plan.includeUsRegular ? "us-regular" : null,
+    plan.overlapFocus ? `alt-${plan.overlapFocus}` : null,
   ].filter(Boolean);
 
-  return finalize(
+  const result = finalize(
     [...union],
     phase,
     sourceParts.join("+") || `phase-${phase.toLowerCase()}`,
@@ -204,4 +217,5 @@ export async function resolveStocksCycleUniverse(): Promise<StocksUniverseResult
     changeBySymbol,
     scanPrefer.length ? scanPrefer : seed,
   );
+  return { ...result, universePlan: plan.label };
 }

@@ -21,10 +21,12 @@ import { getCurrentTradingPhase } from "@/lib/trading/cycle-schedule";
 import { isUsRegularFirstQuarterHour } from "@/lib/trading/exchange-hours";
 import {
   formatNoStrategyHoldReason,
+  EU_EQUITY_STRATEGY_IDS,
   getEquityStrategySession,
   minConfidencePhaseForSession,
 } from "@/lib/trading/equity-strategy-session";
 import { getEuropeanEurEquity, isEuropeanEurEquity } from "@/lib/trading/europe-equities";
+import { evaluateEuEligibleStrategies } from "@/lib/trading/eu-pro-strategy-eval";
 import { getHistory as getEodhdHistory, isEodhdConfigured } from "@/lib/market-data/eodhd";
 import {
   evaluateCryptoIntradayStrategies,
@@ -1112,7 +1114,10 @@ export async function evaluateProStrategies(
   }
 
   const vol20 = bars.slice(-20).reduce((s, b) => s + b.volume, 0) / 20;
-  if (vol20 < 300_000 && !crypto) return hold("Volumen medio 20d insuficiente");
+  const euLocalOpen =
+    strategySession.market === "EU_LOCAL" && strategySession.regularSessionOpen;
+  const minVol20 = euLocalOpen ? 50_000 : 300_000;
+  if (vol20 < minVol20 && !crypto) return hold("Volumen medio 20d insuficiente");
 
   const deepDown = change1d < -3;
 
@@ -1255,64 +1260,42 @@ export async function evaluateProStrategies(
     phase === "EUROPE" ||
     euLocal ||
     (isEuropeOpen() && isEuropeFocusTicker(symbol) && strategySession.market === "US_LISTED");
-  if (europeSession) {
-    if (
-      (phase === "EUROPE_OPEN" || euLocal) &&
-      change1d >= 0.5 &&
-      relVol >= 1.3 &&
-      ema9 != null &&
-      ema21 != null &&
-      ema9 > ema21 &&
-      resistance != null &&
-      price > resistance
-    ) {
+
+  let euEvaluated: string[] = [];
+  if (europeSession && (strategySession.eligibleStrategyIds.length > 0 || euLocal)) {
+    const eligible =
+      euLocal && strategySession.eligibleStrategyIds.length === 0
+        ? [...EU_EQUITY_STRATEGY_IDS]
+        : strategySession.eligibleStrategyIds;
+    const euOut = evaluateEuEligibleStrategies({
+      eligibleIds: eligible,
+      euLocal,
+      phase,
+      price,
+      change1d,
+      relVol,
+      ema9,
+      ema20,
+      ema21,
+      ema50,
+      resistance,
+      support,
+      dayLow,
+      rsiVal,
+      reversalCandles,
+    });
+    euEvaluated = euOut.evaluated;
+    for (const eh of euOut.hits) {
       hits.push(
-        hit("EU_APERTURA_BREAKOUT", `Gap/breakout EU +${change1d.toFixed(1)}%`, {
-          stopLossPrice: dayLow > 0 ? dayLow : price * 0.985,
-          takeProfitPrice: price * 1.04,
+        hit(eh.id, eh.reason, {
+          stopLossPrice: eh.stopLossPrice,
+          takeProfitPrice: eh.takeProfitPrice,
         }),
       );
     }
-    if (
-      ema9 != null &&
-      ema21 != null &&
-      ema50 != null &&
-      ema9 > ema21 &&
-      ema21 > ema50 &&
-      nearLevel(price, ema21, 0.015) &&
-      rsiVal != null &&
-      rsiVal >= 38 &&
-      rsiVal <= 60
-    ) {
-      hits.push(
-        hit(
-          "EU_EMA21_PULLBACK",
-          `Pullback EMA21 EU RSI=${rsiVal.toFixed(0)}${hasBullishReversalCandle(reversalCandles) ? " + vela" : ""}`,
-          {
-            stopLossPrice: ema50 ?? price * 0.97,
-            takeProfitPrice: resistance ?? price * 1.05,
-          },
-        ),
-      );
-    }
-    // Trend continuation for Spanish/German locals during their session
-    if (
-      euLocal &&
-      ema20 != null &&
-      ema50 != null &&
-      ema20 > ema50 &&
-      rsiVal != null &&
-      rsiVal >= 45 &&
-      rsiVal <= 68 &&
-      change1d > -1 &&
-      change1d < 4 &&
-      relVol >= 1.0
-    ) {
-      hits.push(
-        hit("EU_TREND_CONTINUATION", `Tendencia EU EMA20>50 RSI=${rsiVal.toFixed(0)}`, {
-          stopLossPrice: (support != null ? support : price) * 0.985,
-          takeProfitPrice: resistance ?? price * 1.04,
-        }),
+    if (euLocal && euEvaluated.length > 0) {
+      console.log(
+        `[ProStrategy] ${symbol}: EU evaluadas [${euEvaluated.join(",")}] hits=${euOut.hits.length}`,
       );
     }
   }
@@ -1584,15 +1567,25 @@ export async function evaluateProStrategies(
     }
   }
 
-  if (defensiveMarket) {
+  if (defensiveMarket && !euLocal) {
     const filtered = hits.filter((h) => REVERSAL_ONLY_IDS.includes(h.id));
     hits.length = 0;
     hits.push(...filtered);
+  } else if (defensiveMarket && euLocal) {
+    const euHits = hits.filter((h) => String(h.id).startsWith("EU_"));
+    const rev = hits.filter((h) => REVERSAL_ONLY_IDS.includes(h.id));
+    hits.length = 0;
+    hits.push(...rev, ...euHits);
   }
-  if (deepDown) {
+  if (deepDown && !euLocal) {
     const filtered = hits.filter((h) => REVERSAL_ONLY_IDS.includes(h.id));
     hits.length = 0;
     hits.push(...filtered);
+  } else if (deepDown && euLocal) {
+    const euHits = hits.filter((h) => String(h.id).startsWith("EU_"));
+    const rev = hits.filter((h) => REVERSAL_ONLY_IDS.includes(h.id));
+    hits.length = 0;
+    hits.push(...rev, ...euHits);
   }
 
   // Multi-agent layer (Momentum + Technical + Sector Rotation)
@@ -1640,9 +1633,15 @@ export async function evaluateProStrategies(
       };
     }
     console.log(
-      `[ProStrategy] ${symbol}: ninguna señal (${phase}) elegibles=[${strategySession.eligibleStrategyIds.join(",")}]`,
+      `[ProStrategy] ${symbol}: ninguna señal (${phase}) evaluadas=[${(euEvaluated.length ? euEvaluated : strategySession.eligibleStrategyIds).join(",")}]`,
     );
-    return hold(formatNoStrategyHoldReason(strategySession, phase), rsiVal, fullMetrics());
+    return hold(
+      formatNoStrategyHoldReason(strategySession, phase, {
+        evaluatedStrategyIds: euEvaluated.length ? euEvaluated : strategySession.eligibleStrategyIds,
+      }),
+      rsiVal,
+      fullMetrics(),
+    );
   }
 
   const minTradeConfidence = minTradeConfidenceForPhase(

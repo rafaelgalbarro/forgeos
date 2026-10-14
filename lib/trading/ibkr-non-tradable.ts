@@ -71,34 +71,10 @@ function isManualBlock(entry: IbkrNonTradableEntry): boolean {
   return /^ManualBlock$/i.test(entry.ibkrStatus);
 }
 
-function seedManualBlocks(cache: CacheShape): boolean {
-  // Keep DTE/TEF blocked until EU contract path is proven in production
-  const seeds: Array<{ symbol: string; message: string }> = [
-    {
-      symbol: "DTE",
-      message: "bloqueo manual hasta verificar contrato Xetra EUR (no DTE Energy)",
-    },
-    {
-      symbol: "TEF",
-      message: "bloqueo manual hasta verificar contrato BME EUR (no ADR NYSE)",
-    },
-  ];
-  let changed = false;
-  for (const s of seeds) {
-    const cur = cache.entries[s.symbol];
-    if (cur && isManualBlock(cur)) continue;
-    cache.entries[s.symbol] = {
-      symbol: s.symbol,
-      code: null,
-      message: s.message,
-      ibkrStatus: "ManualBlock",
-      addedAt: new Date().toISOString(),
-      telegramSent: true,
-      expiresAt: null,
-    };
-    changed = true;
-  }
-  return changed;
+function seedManualBlocks(_cache: CacheShape): boolean {
+  // No startup seeds — ManualBlock entries (HYDC, ITX, etc.) live only in ibkr-non-tradable.json on disk.
+  // DTE/TEF rely on contract verify (EUR primary); never SMART/USD fallback.
+  return false;
 }
 
 /** Always fresh from disk + seed ManualBlocks if missing. */

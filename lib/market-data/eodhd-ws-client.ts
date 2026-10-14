@@ -41,6 +41,20 @@ type WsLike = {
   onclose: ((ev: unknown) => void) | null;
 };
 
+export type ParsedEodhdUsQuoteMessage =
+  | { kind: "status"; code: number; message: string }
+  | {
+      kind: "quote";
+      symbol: string;
+      bid: number;
+      ask: number;
+      bidSize?: number;
+      askSize?: number;
+      tsMs: number;
+      mid?: number;
+    }
+  | { kind: "ignored" };
+
 let quoteWs: WsLike | null = null;
 let subscribed = new Set<string>();
 let started = false;
@@ -51,6 +65,11 @@ let statsTimer: ReturnType<typeof setInterval> | null = null;
 let subscribePollTimer: ReturnType<typeof setInterval> | null = null;
 let lastMsgAt = 0;
 let last422AlertAt = 0;
+let symbolsLimitReached = false;
+let lastAppliedSubscribeKey = "";
+let postSubscribeDebugLogsRemaining = 0;
+let minuteQuoteMsgCount = 0;
+const minuteQuoteSymbols = new Set<string>();
 const startedAt = new Date().toISOString();
 
 function ownsWebSocketConnection(): boolean {
@@ -78,6 +97,56 @@ function quoteMid(bp: number, ap: number): number | undefined {
   return undefined;
 }
 
+function setsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const x of a) if (!b.has(x)) return false;
+  return true;
+}
+
+function subscribeListKey(tickers: readonly string[]): string {
+  return [...tickers].map(normalizeUsSymbol).sort().join(",");
+}
+
+/** Parse /ws/us-quote JSON (status or quote row with s, bp, ap, bs, as, t). */
+export function parseEodhdUsQuotePayload(raw: string): ParsedEodhdUsQuoteMessage {
+  let msg: Record<string, unknown>;
+  try {
+    msg = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return { kind: "ignored" };
+  }
+
+  if (msg.status_code != null) {
+    return {
+      kind: "status",
+      code: Number(msg.status_code),
+      message: String(msg.message ?? ""),
+    };
+  }
+
+  const symRaw = String(msg.s ?? msg.symbol ?? "").trim();
+  if (!symRaw) return { kind: "ignored" };
+  const symbol = normalizeUsSymbol(symRaw);
+  if (!symbol) return { kind: "ignored" };
+
+  const bp = Number(msg.bp);
+  const ap = Number(msg.ap);
+  const t = Number(msg.t);
+  const tsMs = Number.isFinite(t) ? (t < 1e12 ? t * 1000 : t) : Date.now();
+  const mid = quoteMid(bp, ap);
+
+  return {
+    kind: "quote",
+    symbol,
+    bid: bp,
+    ask: ap,
+    bidSize: Number(msg.bs) > 0 ? Number(msg.bs) : undefined,
+    askSize: Number(msg.as) > 0 ? Number(msg.as) : undefined,
+    tsMs,
+    mid,
+  };
+}
+
 async function alertEodhd422(message: string): Promise<void> {
   last422AlertAt = Date.now();
   const { sendSystemTelegramAlert } = await import("@/lib/notifications/telegram-policy");
@@ -87,44 +156,51 @@ async function alertEodhd422(message: string): Promise<void> {
   ).catch(() => undefined);
 }
 
+function logIncomingRaw(raw: string, reason: string): void {
+  console.log(`[EODHD/WS] ${reason}: ${raw.slice(0, 2000)}`);
+}
+
+function markSubscribeBatch(): void {
+  postSubscribeDebugLogsRemaining = 5;
+}
+
 function handlePayload(raw: string): void {
   lastMsgAt = Date.now();
-  let msg: Record<string, unknown>;
-  try {
-    msg = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return;
+
+  if (postSubscribeDebugLogsRemaining > 0) {
+    postSubscribeDebugLogsRemaining -= 1;
+    logIncomingRaw(raw, `post-subscribe msg ${5 - postSubscribeDebugLogsRemaining}/5`);
   }
 
-  if (msg.status_code != null) {
-    const code = Number(msg.status_code);
-    const message = String(msg.message ?? "");
-    console.log(`[EODHD/WS] response status_code=${code} message=${message}`);
-    if (code === 422) {
-      void alertEodhd422(message);
+  const parsed = parseEodhdUsQuotePayload(raw);
+
+  if (parsed.kind === "status") {
+    if (parsed.code !== 200) {
+      logIncomingRaw(raw, `status_code=${parsed.code}`);
+    } else {
+      console.log(`[EODHD/WS] response status_code=${parsed.code} message=${parsed.message}`);
+    }
+    if (parsed.code === 422) {
+      symbolsLimitReached = true;
+      void alertEodhd422(parsed.message);
     }
     return;
   }
 
-  const symRaw = String(msg.s ?? msg.symbol ?? "").trim();
-  if (!symRaw) return;
-  const symbol = normalizeUsSymbol(symRaw);
-  if (!symbol) return;
+  if (parsed.kind !== "quote") return;
 
-  const bp = Number(msg.bp);
-  const ap = Number(msg.ap);
-  const t = Number(msg.t);
-  const tsMs = Number.isFinite(t) ? (t < 1e12 ? t * 1000 : t) : Date.now();
-  const mid = quoteMid(bp, ap);
-  patchEodhdWsQuote(symbol, {
-    bid: bp > 0 ? bp : undefined,
-    ask: ap > 0 ? ap : undefined,
-    last: mid,
-    bidSize: Number(msg.bs) > 0 ? Number(msg.bs) : undefined,
-    askSize: Number(msg.as) > 0 ? Number(msg.as) : undefined,
-    quoteUpdatedAtMs: tsMs,
-    tradeUpdatedAtMs: tsMs,
-    extendedHours: !isUsRegularFromClock(tsMs),
+  minuteQuoteMsgCount += 1;
+  minuteQuoteSymbols.add(parsed.symbol);
+
+  patchEodhdWsQuote(parsed.symbol, {
+    bid: parsed.bid > 0 ? parsed.bid : undefined,
+    ask: parsed.ask > 0 ? parsed.ask : undefined,
+    last: parsed.mid,
+    bidSize: parsed.bidSize,
+    askSize: parsed.askSize,
+    quoteUpdatedAtMs: parsed.tsMs,
+    tradeUpdatedAtMs: parsed.tsMs,
+    extendedHours: !isUsRegularFromClock(parsed.tsMs),
   });
 }
 
@@ -134,6 +210,11 @@ function isUsRegularFromClock(atMs: number): boolean {
 
 function sendSubscribe(socket: WsLike, symbols: string[]): void {
   if (!symbols.length) return;
+  if (symbolsLimitReached) {
+    console.warn("[EODHD/WS] skip subscribe — prior 422 symbols limit on this connection");
+    return;
+  }
+  markSubscribeBatch();
   socket.send(
     JSON.stringify({
       action: "subscribe",
@@ -152,9 +233,12 @@ function sendUnsubscribe(socket: WsLike, symbols: string[]): void {
   );
 }
 
-function reconcileOnSocket(socket: WsLike | null, desired: Set<string>): void {
+function reconcileOnSocket(
+  socket: WsLike | null,
+  desired: Set<string>,
+  prev: Set<string>,
+): void {
   if (!socket || socket.readyState !== 1) return;
-  const prev = subscribed;
   const toDrop = [...prev].filter((s) => !desired.has(s));
   const toAdd = [...desired].filter((s) => !prev.has(s));
   if (toDrop.length) sendUnsubscribe(socket, toDrop);
@@ -183,11 +267,14 @@ function connectUsQuote(): void {
   quoteWs = socket;
 
   socket.onopen = () => {
+    symbolsLimitReached = false;
     console.log(
       `[EODHD/WS] connected — us-quote (${subscribed.size} symbols pending subscribe)`,
     );
     lastMsgAt = Date.now();
-    sendSubscribe(socket, [...subscribed]);
+    if (subscribed.size) {
+      sendSubscribe(socket, [...subscribed]);
+    }
   };
   socket.onmessage = (ev) => {
     handlePayload(String(ev.data ?? ""));
@@ -225,16 +312,38 @@ export function pickEodhdWsSubscriptionTickers(
 export function updateEodhdWsSubscriptions(tickers: readonly string[]): string[] {
   const picked = pickEodhdWsSubscriptionTickers(tickers, EODHD_WS_SUBSCRIBE_CAP);
   const desired = new Set(picked);
-  const prev = subscribed;
-  subscribed = desired;
-  if (ownsWebSocketConnection()) {
-    reconcileOnSocket(quoteWs, desired);
+  const prev = new Set(subscribed);
+
+  if (setsEqual(prev, desired)) {
+    return picked;
   }
+
+  if (symbolsLimitReached) {
+    console.warn(
+      "[EODHD/WS] subscription list changed but 422 active — wait for reconnect before resubscribe",
+    );
+    return picked;
+  }
+
+  subscribed = desired;
+  lastAppliedSubscribeKey = subscribeListKey(picked);
+
+  if (ownsWebSocketConnection()) {
+    reconcileOnSocket(quoteWs, desired, prev);
+  }
+
   const dropped = [...prev].filter((s) => !desired.has(s)).length;
   const added = [...desired].filter((s) => !prev.has(s)).length;
   console.log(
     `[EODHD/WS] subscribe ${desired.size} tickers (cap ${EODHD_WS_SUBSCRIBE_CAP}, +${added} −${dropped})`,
   );
+  if (desired.size < EODHD_WS_SUBSCRIBE_CAP) {
+    console.log(
+      `[EODHD/WS] ${desired.size}/${EODHD_WS_SUBSCRIBE_CAP} US symbols — ` +
+        "cycle universe + premarket shadow pending (not full scanner list)",
+    );
+  }
+
   if (isEodhdWsStandalone()) {
     flushSharedStoreNow();
   }
@@ -309,6 +418,8 @@ async function pollSubscribeRequestFile(): Promise<void> {
   if (!isEodhdWsStandalone() || !isUsEodhdWsSession()) return;
   const req = readEodhdWsSubscribeRequest();
   if (!req?.tickers?.length) return;
+  const key = subscribeListKey(req.tickers);
+  if (key === lastAppliedSubscribeKey) return;
   updateEodhdWsSubscriptions(req.tickers);
 }
 
@@ -320,8 +431,14 @@ function logFreshSymbolStats(): void {
     const q = getEodhdWsQuote(sym);
     if (q && now - q.updatedAtMs <= 60_000) fresh += 1;
   }
+  const msgCount = minuteQuoteMsgCount;
+  const symCount = minuteQuoteSymbols.size;
+  minuteQuoteMsgCount = 0;
+  minuteQuoteSymbols.clear();
+
   console.log(
-    `[EODHD/WS] fresh symbols last 1m: ${fresh}/${subscribed.size} subscribed`,
+    `[EODHD/WS] minute stats: ${msgCount} quote msgs from ${symCount} tickers; ` +
+      `fresh symbols last 1m: ${fresh}/${subscribed.size} subscribed`,
   );
   if (isEodhdWsStandalone()) {
     writeEodhdWsHeartbeat({
@@ -413,6 +530,11 @@ export function __resetEodhdWsClientForTests(): void {
   quoteWs = null;
   lastMsgAt = 0;
   last422AlertAt = 0;
+  symbolsLimitReached = false;
+  lastAppliedSubscribeKey = "";
+  postSubscribeDebugLogsRemaining = 0;
+  minuteQuoteMsgCount = 0;
+  minuteQuoteSymbols.clear();
   registerEodhdWsRuntimeSnapshot(null);
   if (watchdogTimer) clearInterval(watchdogTimer);
   watchdogTimer = null;

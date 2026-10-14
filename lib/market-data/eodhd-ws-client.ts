@@ -1,6 +1,6 @@
 /**
- * EODHD All-in-One US WebSocket — quotes (/ws/us-quote) + trades (/ws/us).
- * Production: single PM2 writer (forgeos-eodhd-us-ws); Next.js reads shared store.
+ * EODHD US WebSocket — single /ws/us-quote connection (bid/ask).
+ * PM2 writer (forgeos-eodhd-us-ws) owns the socket; Next.js is reader-only.
  */
 
 import "server-only";
@@ -13,16 +13,13 @@ import {
   patchEodhdWsQuote,
   registerEodhdWsRuntimeSnapshot,
   hydrateEodhdWsStoreFromFile,
-  type EodhdWsMarketStatus,
 } from "@/lib/market-data/eodhd-ws-store";
 import {
   EODHD_WS_SUBSCRIBE_CAP,
-  isEodhdWsExternal,
   isEodhdWsStandalone,
   readEodhdWsHeartbeat,
   readEodhdWsSharedStore,
   readEodhdWsSubscribeRequest,
-  shouldNextJsOwnEodhdWs,
   writeEodhdWsHeartbeat,
   writeEodhdWsSubscribeRequest,
 } from "@/lib/market-data/eodhd-ws-shared";
@@ -44,39 +41,28 @@ type WsLike = {
   onclose: ((ev: unknown) => void) | null;
 };
 
-type Channel = "quote" | "trade";
-
 let quoteWs: WsLike | null = null;
-let tradeWs: WsLike | null = null;
 let subscribed = new Set<string>();
 let started = false;
-let reconnectQuoteTimer: ReturnType<typeof setTimeout> | null = null;
-let reconnectTradeTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let watchdogTimer: ReturnType<typeof setInterval> | null = null;
 let qcTimer: ReturnType<typeof setInterval> | null = null;
 let statsTimer: ReturnType<typeof setInterval> | null = null;
 let subscribePollTimer: ReturnType<typeof setInterval> | null = null;
 let lastMsgAt = 0;
-let channelsOpen = 0;
 let last422AlertAt = 0;
 const startedAt = new Date().toISOString();
 
 function ownsWebSocketConnection(): boolean {
-  return isEodhdWsStandalone() || shouldNextJsOwnEodhdWs();
-}
-
-function logWsConnectedIfReady(): void {
-  if (channelsOpen >= 2) {
-    console.log("[EODHD/WS] connected — us-quote + us (2 channels)");
-  }
+  return isEodhdWsStandalone();
 }
 
 function apiKey(): string {
   return process.env.EODHD_API_KEY?.trim() ?? "";
 }
 
-function wsUrl(path: "us-quote" | "us"): string {
-  return `wss://ws.eodhistoricaldata.com/ws/${path}?api_token=${encodeURIComponent(apiKey())}`;
+function wsQuoteUrl(): string {
+  return `wss://ws.eodhistoricaldata.com/ws/us-quote?api_token=${encodeURIComponent(apiKey())}`;
 }
 
 function normalizeUsSymbol(raw: string): string {
@@ -85,11 +71,10 @@ function normalizeUsSymbol(raw: string): string {
   return dot > 0 ? s.slice(0, dot) : s;
 }
 
-function parseMarketStatus(ms: unknown): EodhdWsMarketStatus | undefined {
-  const v = String(ms ?? "").toLowerCase();
-  if (v === "open") return "open";
-  if (v === "closed") return "closed";
-  if (v.includes("extended")) return "extended hours";
+function quoteMid(bp: number, ap: number): number | undefined {
+  if (bp > 0 && ap >= bp) return (bp + ap) / 2;
+  if (bp > 0) return bp;
+  if (ap > 0) return ap;
   return undefined;
 }
 
@@ -103,7 +88,7 @@ async function alertEodhd422(message: string): Promise<void> {
   ).catch(() => undefined);
 }
 
-function handlePayload(raw: string, channel: Channel): void {
+function handlePayload(raw: string): void {
   lastMsgAt = Date.now();
   let msg: Record<string, unknown>;
   try {
@@ -127,35 +112,20 @@ function handlePayload(raw: string, channel: Channel): void {
   const symbol = normalizeUsSymbol(symRaw);
   if (!symbol) return;
 
-  if (channel === "quote") {
-    const bp = Number(msg.bp);
-    const ap = Number(msg.ap);
-    const t = Number(msg.t);
-    const tsMs = Number.isFinite(t) ? (t < 1e12 ? t * 1000 : t) : Date.now();
-    patchEodhdWsQuote(symbol, {
-      bid: bp > 0 ? bp : undefined,
-      ask: ap > 0 ? ap : undefined,
-      bidSize: Number(msg.bs) > 0 ? Number(msg.bs) : undefined,
-      askSize: Number(msg.as) > 0 ? Number(msg.as) : undefined,
-      quoteUpdatedAtMs: tsMs,
-      extendedHours: !isUsRegularFromClock(tsMs),
-    });
-    return;
-  }
-
-  const price = Number(msg.p);
+  const bp = Number(msg.bp);
+  const ap = Number(msg.ap);
   const t = Number(msg.t);
   const tsMs = Number.isFinite(t) ? (t < 1e12 ? t * 1000 : t) : Date.now();
-  const ms = parseMarketStatus(msg.ms);
-  const extended =
-    ms === "extended hours" ||
-    (ms == null && !isUsRegularFromClock(tsMs));
+  const mid = quoteMid(bp, ap);
   patchEodhdWsQuote(symbol, {
-    last: price > 0 ? price : undefined,
-    lastSize: Number(msg.v) > 0 ? Number(msg.v) : undefined,
+    bid: bp > 0 ? bp : undefined,
+    ask: ap > 0 ? ap : undefined,
+    last: mid,
+    bidSize: Number(msg.bs) > 0 ? Number(msg.bs) : undefined,
+    askSize: Number(msg.as) > 0 ? Number(msg.as) : undefined,
+    quoteUpdatedAtMs: tsMs,
     tradeUpdatedAtMs: tsMs,
-    marketStatus: ms,
-    extendedHours: extended,
+    extendedHours: !isUsRegularFromClock(tsMs),
   });
 }
 
@@ -192,7 +162,7 @@ function reconcileOnSocket(socket: WsLike | null, desired: Set<string>): void {
   if (toAdd.length) sendSubscribe(socket, toAdd);
 }
 
-function connectChannel(channel: Channel): void {
+function connectUsQuote(): void {
   if (!isEodhdConfigured()) return;
   const WS = (globalThis as { WebSocket?: new (url: string) => WsLike }).WebSocket;
   if (!WS) {
@@ -200,45 +170,38 @@ function connectChannel(channel: Channel): void {
     return;
   }
 
-  const path = channel === "quote" ? "us-quote" : "us";
-  const url = wsUrl(path);
   let socket: WsLike;
   try {
-    socket = new WS(url);
+    socket = new WS(wsQuoteUrl());
   } catch (err) {
     console.warn(
-      `[EODHD/WS] connect ${path} failed:`,
+      "[EODHD/WS] connect us-quote failed:",
       err instanceof Error ? err.message : err,
     );
     return;
   }
 
-  if (channel === "quote") quoteWs = socket;
-  else tradeWs = socket;
+  quoteWs = socket;
 
   socket.onopen = () => {
-    channelsOpen += 1;
-    logWsConnectedIfReady();
+    console.log(
+      `[EODHD/WS] connected — us-quote (${subscribed.size} symbols pending subscribe)`,
+    );
     lastMsgAt = Date.now();
     sendSubscribe(socket, [...subscribed]);
   };
   socket.onmessage = (ev) => {
-    handlePayload(String(ev.data ?? ""), channel);
+    handlePayload(String(ev.data ?? ""));
   };
   socket.onerror = () => {
-    console.warn(`[EODHD/WS] ${path} error`);
+    console.warn("[EODHD/WS] us-quote error");
   };
   socket.onclose = () => {
-    channelsOpen = Math.max(0, channelsOpen - 1);
-    console.warn(`[EODHD/WS] ${path} cerrado — reconectando en 3s`);
-    if (channel === "quote") quoteWs = null;
-    else tradeWs = null;
+    console.warn("[EODHD/WS] us-quote cerrado — reconectando en 3s");
+    quoteWs = null;
     if (!started) return;
-    const timerRef = channel === "quote" ? reconnectQuoteTimer : reconnectTradeTimer;
-    if (timerRef) clearTimeout(timerRef);
-    const t = setTimeout(() => connectChannel(channel), 3_000);
-    if (channel === "quote") reconnectQuoteTimer = t;
-    else reconnectTradeTimer = t;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => connectUsQuote(), 3_000);
   };
 }
 
@@ -267,7 +230,6 @@ export function updateEodhdWsSubscriptions(tickers: readonly string[]): string[]
   subscribed = desired;
   if (ownsWebSocketConnection()) {
     reconcileOnSocket(quoteWs, desired);
-    reconcileOnSocket(tradeWs, desired);
   }
   const dropped = [...prev].filter((s) => !desired.has(s)).length;
   const added = [...desired].filter((s) => !prev.has(s)).length;
@@ -280,17 +242,18 @@ export function updateEodhdWsSubscriptions(tickers: readonly string[]): string[]
   return picked;
 }
 
+/** Next.js: write subscribe request + hydrate store — never opens a socket. */
 export async function ensureEodhdUsWsForUniverse(tickers: readonly string[]): Promise<string[]> {
   if (!isEodhdConfigured()) return [];
   if (!isUsEodhdWsSession()) return [];
 
   const picked = pickEodhdWsSubscriptionTickers(tickers, EODHD_WS_SUBSCRIBE_CAP);
 
-  if (isEodhdWsExternal() && !isEodhdWsStandalone()) {
+  if (!isEodhdWsStandalone()) {
     writeEodhdWsSubscribeRequest(picked);
     hydrateEodhdWsStoreFromFile(true);
     console.log(
-      `[EODHD/WS] subscribe request ${picked.length} US tickers → PM2 writer (no local socket)`,
+      `[EODHD/WS] subscribe request ${picked.length} US tickers → forgeos-eodhd-us-ws (reader only)`,
     );
     return picked;
   }
@@ -302,9 +265,6 @@ export async function ensureEodhdUsWsForUniverse(tickers: readonly string[]): Pr
 export function startEodhdUsMarketData(): void {
   if (!isEodhdConfigured()) return;
   if (!ownsWebSocketConnection()) {
-    if (isEodhdWsExternal()) {
-      console.log("[EODHD/WS] sockets owned by forgeos-eodhd-us-ws — reader only");
-    }
     return;
   }
   if (started) return;
@@ -314,19 +274,16 @@ export function startEodhdUsMarketData(): void {
     subscribed: [...subscribed],
     lastMsgAt,
     quoteConnected: Boolean(quoteWs && quoteWs.readyState === 1),
-    tradeConnected: Boolean(tradeWs && tradeWs.readyState === 1),
+    tradeConnected: false,
   }));
 
-  connectChannel("quote");
-  connectChannel("trade");
+  connectUsQuote();
 
-  if (isEodhdWsStandalone() && !subscribePollTimer) {
+  if (!subscribePollTimer) {
     subscribePollTimer = setInterval(() => {
       void pollSubscribeRequestFile();
     }, 4_000);
-    if (typeof subscribePollTimer === "object" && "unref" in subscribePollTimer) {
-      subscribePollTimer.unref?.();
-    }
+    subscribePollTimer.unref?.();
   }
 
   if (!watchdogTimer) {
@@ -373,7 +330,7 @@ function logFreshSymbolStats(): void {
       startedAt,
       subscribed: subscribed.size,
       quoteConnected: Boolean(quoteWs && quoteWs.readyState === 1),
-      tradeConnected: Boolean(tradeWs && tradeWs.readyState === 1),
+      tradeConnected: false,
       freshSymbolsLastMinute: fresh,
       lastMsgAtMs: lastMsgAt,
     });
@@ -388,7 +345,7 @@ async function minuteQcTick(): Promise<void> {
 }
 
 export function getEodhdWsSubscribedTickers(): string[] {
-  if (isEodhdWsExternal() && !isEodhdWsStandalone()) {
+  if (!isEodhdWsStandalone()) {
     const snap = readEodhdWsSharedStore();
     return snap?.subscribed ?? [];
   }
@@ -402,7 +359,6 @@ async function staleWatchdogTick(): Promise<void> {
     console.warn("[EODHD/WS] socket silencioso — reconectando");
     try {
       quoteWs?.close();
-      tradeWs?.close();
     } catch {
       /* ignore */
     }
@@ -419,7 +375,7 @@ export function getEodhdWsStatus(): {
   external: boolean;
   writerPid: number | null;
 } {
-  if (isEodhdWsExternal() && !isEodhdWsStandalone()) {
+  if (!isEodhdWsStandalone()) {
     hydrateEodhdWsStoreFromFile(true);
     const hb = readEodhdWsHeartbeat();
     const snap = readEodhdWsSharedStore();
@@ -427,7 +383,7 @@ export function getEodhdWsStatus(): {
       started: Boolean(hb && Date.now() - Date.parse(hb.updatedAt) < 5 * 60_000),
       subscribed: snap?.subscribed?.length ?? hb?.subscribed ?? 0,
       quoteConnected: snap?.meta?.quoteConnected ?? hb?.quoteConnected ?? false,
-      tradeConnected: snap?.meta?.tradeConnected ?? hb?.tradeConnected ?? false,
+      tradeConnected: false,
       lastMsgAgeMs: snap?.meta?.lastMsgAtMs
         ? Date.now() - snap.meta.lastMsgAtMs
         : hb?.lastMsgAtMs
@@ -443,11 +399,11 @@ export function getEodhdWsStatus(): {
     started,
     subscribed: subscribed.size,
     quoteConnected: Boolean(quoteWs && quoteWs.readyState === 1),
-    tradeConnected: Boolean(tradeWs && tradeWs.readyState === 1),
+    tradeConnected: false,
     lastMsgAgeMs: lastMsgAt ? Date.now() - lastMsgAt : -1,
     symbols: listEodhdWsSymbols(),
     external: false,
-    writerPid: isEodhdWsStandalone() ? process.pid : null,
+    writerPid: process.pid,
   };
 }
 
@@ -456,9 +412,7 @@ export function __resetEodhdWsClientForTests(): void {
   started = false;
   subscribed = new Set();
   quoteWs = null;
-  tradeWs = null;
   lastMsgAt = 0;
-  channelsOpen = 0;
   last422AlertAt = 0;
   registerEodhdWsRuntimeSnapshot(null);
   if (watchdogTimer) clearInterval(watchdogTimer);
@@ -469,4 +423,6 @@ export function __resetEodhdWsClientForTests(): void {
   statsTimer = null;
   if (subscribePollTimer) clearInterval(subscribePollTimer);
   subscribePollTimer = null;
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
 }

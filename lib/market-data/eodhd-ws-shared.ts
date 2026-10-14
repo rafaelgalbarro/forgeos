@@ -60,9 +60,9 @@ export function isEodhdWsStandalone(): boolean {
   return (process.env.EODHD_WS_ROLE ?? "").trim().toLowerCase() === "standalone";
 }
 
-/** Next.js must not open sockets when external mode is on. */
+/** Always false — only PM2 forgeos-eodhd-us-ws may open the socket. */
 export function shouldNextJsOwnEodhdWs(): boolean {
-  return !isEodhdWsExternal() && !isEodhdWsStandalone();
+  return false;
 }
 
 export function readEodhdWsSharedStore(): EodhdWsSharedStore | null {

@@ -1,6 +1,6 @@
 /**
  * Dedicated EODHD US WebSocket writer (PM2: forgeos-eodhd-us-ws).
- * Single connection per API key — publishes quotes to .forgeos/cache/eodhd-us-ws-store.json.
+ * Single /ws/us-quote connection per API key — publishes to .forgeos/cache/eodhd-us-ws-store.json.
  */
 
 import { isEodhdConfigured } from "@/lib/market-data/eodhd";
@@ -19,8 +19,8 @@ function tickStatus(): void {
     return;
   }
   console.log(
-    `[EODHD/WS/Engine] quote=${st.quoteConnected} trade=${st.tradeConnected} ` +
-      `subs=${st.subscribed} symbols=${st.symbols.length} lastMsgAgeMs=${st.lastMsgAgeMs}`,
+    `[EODHD/WS/Engine] us-quote=${st.quoteConnected} subs=${st.subscribed} ` +
+      `symbols=${st.symbols.length} lastMsgAgeMs=${st.lastMsgAgeMs}`,
   );
 }
 

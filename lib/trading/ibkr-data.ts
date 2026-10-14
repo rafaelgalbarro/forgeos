@@ -25,7 +25,9 @@ import {
 import {
   mustUseEodhdWsForUsEntry,
   resolveUsEquityLivePrice,
+  resolveUsRegularSessionPrice,
 } from "@/lib/trading/us-equity-live-price";
+import { isUsEodhdWsSession, isUsPremarketSession } from "@/lib/trading/exchange-hours";
 
 type AccountTag = { value?: string; currency?: string };
 type AccountMap = Record<string, Record<string, AccountTag>>;
@@ -274,17 +276,28 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     }
   }
 
-  // US regular / extended: EODHD WebSocket only for entry marks (never REST /real-time delay).
-  if (!euLocal && mustUseEodhdWsForUsEntry()) {
+  // US premarket: WebSocket only (engine also calls fetchPremarketUsPrice).
+  if (!euLocal && isUsEodhdWsSession() && isUsPremarketSession()) {
     const live = await resolveUsEquityLivePrice(symbol);
     if (live.ok) {
       console.log(
-        `[Universe] ${symbol} precio EODHD-WS $${live.snap.currentPrice.toFixed(2)} ` +
+        `[Universe] ${symbol} price-source=ws $${live.snap.currentPrice.toFixed(2)} ` +
           `bid=${live.snap.bid.toFixed(2)} ask=${live.snap.ask.toFixed(2)}`,
       );
       return live.snap;
     }
     quoteErrors.push(live.reason);
+  } else if (!euLocal && isUsEodhdWsSession()) {
+    const priced = await resolveUsRegularSessionPrice(symbol);
+    if (priced.ok) {
+      console.log(
+        `[Universe] ${symbol} price-source=${priced.source} $${priced.snap.currentPrice.toFixed(2)} ` +
+          `(${priced.snap.quoteRoute})`,
+      );
+      return priced.snap;
+    }
+    console.log(`[Universe] ${symbol} price-source=none — ${priced.reason}`);
+    quoteErrors.push(priced.reason);
   } else if (!shouldSkipEodhdQuote(symbol)) {
     const eod = await getEodhdQuote(symbol);
     if (eod != null && eod.price > 0) {
@@ -305,17 +318,19 @@ async function fetchTradingPriceLive(ticker: string): Promise<TradingPriceSnapsh
     throw new Error(`sin precio EU — skip (${quoteErrors.join("; ")}; IBKR quotes disabled for EU)`);
   }
 
-  try {
-    const ibkr = await getIbkrPrice(symbol);
-    if (ibkr != null && ibkr.price > 0) {
-      console.log(
-        `[Universe] ${symbol} precio IBKR fallback $${ibkr.price.toFixed(2)} via ${ibkr.exchange}/${ibkr.currency}`,
-      );
-      return snapshotFromIbkr(symbol, ibkr);
+  if (!isUsEodhdWsSession()) {
+    try {
+      const ibkr = await getIbkrPrice(symbol);
+      if (ibkr != null && ibkr.price > 0) {
+        console.log(
+          `[Universe] ${symbol} precio IBKR fallback $${ibkr.price.toFixed(2)} via ${ibkr.exchange}/${ibkr.currency}`,
+        );
+        return snapshotFromIbkr(symbol, ibkr);
+      }
+      quoteErrors.push("IBKR: no price");
+    } catch (err) {
+      quoteErrors.push(`IBKR: ${err instanceof Error ? err.message : "error"}`);
     }
-    quoteErrors.push("IBKR: no price");
-  } catch (err) {
-    quoteErrors.push(`IBKR: ${err instanceof Error ? err.message : "error"}`);
   }
 
   throw new Error(`sin precio — skip (${quoteErrors.join("; ")})`);

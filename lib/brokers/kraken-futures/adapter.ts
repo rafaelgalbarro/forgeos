@@ -94,6 +94,53 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Kraken /accounts returns `accounts` keyed by name (flex, cash, …), not an array. */
+export function parseKrakenFuturesAccountsPayload(
+  raw: Record<string, unknown>,
+): FuturesAccount {
+  const empty: FuturesAccount = {
+    currency: "EUR",
+    balanceValue: 0,
+    availableMargin: 0,
+    initialMargin: 0,
+    maintenanceMargin: 0,
+    pnl: 0,
+    unrealizedFunding: 0,
+    flexAccount: true,
+  };
+
+  const accountsRaw = raw.accounts;
+  let flex: Record<string, unknown> | undefined;
+
+  if (accountsRaw && typeof accountsRaw === "object" && !Array.isArray(accountsRaw)) {
+    const keyed = accountsRaw as Record<string, Record<string, unknown>>;
+    flex =
+      keyed.flex ??
+      Object.values(keyed).find((a) => a?.type === "multiCollateralMarginAccount") ??
+      Object.values(keyed).find((a) => String(a?.currency ?? "").toUpperCase() === "EUR") ??
+      Object.values(keyed)[0];
+  } else {
+    const accounts = (accountsRaw as Record<string, unknown>[]) ?? [];
+    flex =
+      accounts.find((a) => a.type === "multiCollateralMarginAccount") ??
+      accounts.find((a) => String(a.currency ?? "").toUpperCase() === "EUR") ??
+      accounts[0];
+  }
+
+  if (!flex) return empty;
+
+  return {
+    currency: String(flex.currency ?? "EUR"),
+    balanceValue: num(flex.balanceValue ?? flex.portfolioValue ?? flex.collateralValue),
+    availableMargin: num(flex.availableMargin ?? flex.availableBalance),
+    initialMargin: num(flex.initialMargin),
+    maintenanceMargin: num(flex.maintenanceMargin),
+    pnl: num(flex.pnl),
+    unrealizedFunding: num(flex.unrealizedFunding),
+    flexAccount: flex.type === "multiCollateralMarginAccount",
+  };
+}
+
 function apiPath(endpoint: string): string {
   const ep = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   return ep.startsWith("/api/") ? ep : `/api/v3${ep}`;
@@ -291,33 +338,7 @@ export class KrakenFuturesAdapter {
 
   async getAccount(): Promise<FuturesAccount> {
     const raw = await privateCall<Record<string, unknown>>("GET", "/accounts");
-    const accounts = (raw.accounts as Record<string, unknown>[]) ?? [];
-    const flex =
-      accounts.find((a) => a.type === "multiCollateralMarginAccount") ??
-      accounts.find((a) => String(a.currency ?? "").toUpperCase() === "EUR") ??
-      accounts[0];
-    if (!flex) {
-      return {
-        currency: "EUR",
-        balanceValue: 0,
-        availableMargin: 0,
-        initialMargin: 0,
-        maintenanceMargin: 0,
-        pnl: 0,
-        unrealizedFunding: 0,
-        flexAccount: true,
-      };
-    }
-    return {
-      currency: String(flex.currency ?? "EUR"),
-      balanceValue: num(flex.balanceValue ?? flex.portfolioValue ?? flex.collateralValue),
-      availableMargin: num(flex.availableMargin ?? flex.availableBalance),
-      initialMargin: num(flex.initialMargin),
-      maintenanceMargin: num(flex.maintenanceMargin),
-      pnl: num(flex.pnl),
-      unrealizedFunding: num(flex.unrealizedFunding),
-      flexAccount: flex.type === "multiCollateralMarginAccount",
-    };
+    return parseKrakenFuturesAccountsPayload(raw);
   }
 
   async getFees(): Promise<FuturesFeeSchedule> {

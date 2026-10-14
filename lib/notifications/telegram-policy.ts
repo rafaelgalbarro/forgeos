@@ -424,6 +424,37 @@ export async function sendImmediateTradeAlert(text: string): Promise<void> {
   console.log(`[Telegram] sendImmediateTradeAlert omitido (política silencio): ${text.slice(0, 80)}`);
 }
 
-export async function sendCriticalTelegramAlert(text: string): Promise<void> {
-  await sendTelegramMessage(text, undefined, { plain: true });
+const SYSTEM_ALERT_COOLDOWN_MS = 30 * 60_000;
+const systemAlertLastSent = new Map<string, number>();
+
+/** Test helper — reset system alert cooldown map. */
+export function __resetSystemTelegramAlertsForTests(): void {
+  systemAlertLastSent.clear();
+}
+
+/** System / infra alerts — max one message per alertType every 30 minutes. */
+export async function sendSystemTelegramAlert(
+  alertType: string,
+  text: string,
+  options?: { plain?: boolean },
+): Promise<void> {
+  const key = alertType.trim().toLowerCase();
+  if (!key) return;
+  const now = Date.now();
+  const prev = systemAlertLastSent.get(key) ?? 0;
+  if (now - prev < SYSTEM_ALERT_COOLDOWN_MS) {
+    console.log(
+      `[Telegram] system alert "${key}" suppressed (${SYSTEM_ALERT_COOLDOWN_MS / 60_000}m cooldown)`,
+    );
+    return;
+  }
+  systemAlertLastSent.set(key, now);
+  await sendTelegramMessage(text, undefined, options);
+}
+
+export async function sendCriticalTelegramAlert(
+  text: string,
+  alertType = "critical",
+): Promise<void> {
+  await sendSystemTelegramAlert(alertType, text, { plain: true });
 }

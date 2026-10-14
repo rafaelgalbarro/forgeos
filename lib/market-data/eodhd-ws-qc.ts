@@ -79,8 +79,11 @@ async function telegramQcAlert(symbol: string, line: string): Promise<void> {
   if (now - prev < TELEGRAM_COOLDOWN_MS) return;
   lastTelegramAt.set(symbol, now);
   try {
-    const { sendTelegramMessage } = await import("@/lib/notifications/telegram-bot");
-    await sendTelegramMessage(`⚠️ <b>EODHD WS QC</b> ${line}`).catch(() => undefined);
+    const { sendSystemTelegramAlert } = await import("@/lib/notifications/telegram-policy");
+    await sendSystemTelegramAlert(
+      "eodhd_ws_qc",
+      `⚠️ <b>EODHD WS QC</b> ${line}`,
+    ).catch(() => undefined);
   } catch {
     /* optional */
   }

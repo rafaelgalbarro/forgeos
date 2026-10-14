@@ -79,11 +79,10 @@ function quoteMid(bp: number, ap: number): number | undefined {
 }
 
 async function alertEodhd422(message: string): Promise<void> {
-  const now = Date.now();
-  if (now - last422AlertAt < 10 * 60_000) return;
-  last422AlertAt = now;
-  const { sendTelegramMessage } = await import("@/lib/notifications/telegram-bot");
-  await sendTelegramMessage(
+  last422AlertAt = Date.now();
+  const { sendSystemTelegramAlert } = await import("@/lib/notifications/telegram-policy");
+  await sendSystemTelegramAlert(
+    "eodhd_ws_422",
     `🚨 <b>EODHD WS</b> status 422 — ${message || "Symbols limit reached"}`,
   ).catch(() => undefined);
 }

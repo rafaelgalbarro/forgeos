@@ -346,7 +346,7 @@ export async function fetchPremarketUsPrice(ticker: string): Promise<TradingPric
       });
       if (check.ok) {
         console.log(
-          `[Premarket] ${symbol} EODHD-WS $${live.snap.currentPrice.toFixed(2)} ` +
+          `[Premarket] ${symbol} price-source=EODHD-WS-realtime $${live.snap.currentPrice.toFixed(2)} ` +
             `bid=${live.snap.bid.toFixed(2)} ask=${live.snap.ask.toFixed(2)}`,
         );
         return live.snap;
@@ -355,7 +355,7 @@ export async function fetchPremarketUsPrice(ticker: string): Promise<TradingPric
     } else {
       errors.push(live.reason);
     }
-    console.warn(`[Premarket] ${symbol} skip — ${errors.join("; ")}`);
+    console.log(`[Premarket] ${symbol} price-source=discarded — ${errors.join("; ")}`);
     return null;
   }
 

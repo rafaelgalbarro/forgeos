@@ -4,6 +4,7 @@
  *   pm2 start ecosystem.config.js
  *   pm2 start ecosystem.config.js --only forgeos-scheduler
  *   pm2 start ecosystem.config.js --only forgeos-crypto-engine
+ *   pm2 start ecosystem.config.js --only forgeos-eodhd-us-ws
  *   pm2 start ecosystem.config.js --only forgeos-watchdog
  *
  * Export IBKR_INTERNAL_API_KEY / Kraken keys in the host shell or .env.local
@@ -35,6 +36,8 @@ module.exports = {
         PORT: 3000,
         // Kraken WS/exits/analysis owned by forgeos-crypto-engine
         CRYPTO_ENGINE_EXTERNAL: "1",
+        // EODHD US WS owned by forgeos-eodhd-us-ws (single API-key connection)
+        EODHD_WS_EXTERNAL: "1",
       },
     },
     {
@@ -52,6 +55,27 @@ module.exports = {
         IBKR_INTERNAL_API_KEY: process.env.IBKR_INTERNAL_API_KEY || "",
         // Scheduler still POSTs /crypto; route returns heartbeat when external
         CRYPTO_ENGINE_EXTERNAL: "1",
+        EODHD_WS_EXTERNAL: "1",
+      },
+    },
+    {
+      name: "forgeos-eodhd-us-ws",
+      script: "./scripts/eodhd-us-ws.cjs",
+      cwd: ROOT,
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_restarts: 100,
+      min_uptime: "10s",
+      restart_delay: 5_000,
+      kill_timeout: 10_000,
+      out_file: path.join(LOG_DIR, "forgeos-eodhd-us-ws-out.log"),
+      error_file: path.join(LOG_DIR, "forgeos-eodhd-us-ws-error.log"),
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+      merge_logs: true,
+      env: {
+        NODE_ENV: "production",
+        EODHD_WS_ROLE: "standalone",
       },
     },
     {

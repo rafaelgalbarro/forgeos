@@ -6,12 +6,19 @@ import {
 } from "@/lib/market-data/eodhd-ws-client";
 
 describe("EODHD WS subscription cap", () => {
-  it("caps at 50 tickers with shadow pending first", () => {
+  it("caps at 45 US tickers with shadow pending first", () => {
     __resetEodhdWsClientForTests();
     const candidates = Array.from({ length: 80 }, (_, i) => `T${i}`);
     const picked = pickEodhdWsSubscriptionTickers(candidates, EODHD_WS_MAX_TICKERS);
-    expect(picked.length).toBe(50);
+    expect(picked.length).toBe(45);
     expect(picked[0]).toBe("T0");
-    expect(picked[49]).toBe("T49");
+    expect(picked[44]).toBe("T44");
+  });
+
+  it("excludes European EUR locals from WS subscription list", () => {
+    const picked = pickEodhdWsSubscriptionTickers(["IBE", "AAPL", "SAN"]);
+    expect(picked).toContain("AAPL");
+    expect(picked).not.toContain("IBE");
+    expect(picked).not.toContain("SAN");
   });
 });

@@ -31,6 +31,7 @@
     "investment:morning-briefing": "npx --yes tsx scripts/generate-morning-briefing.ts",
     "report:investment-daily": "npx --yes tsx scripts/generate-daily-investment-report.ts",
     "crypto:engine": "node scripts/crypto-engine.cjs",
+    "eodhd:ws": "node scripts/eodhd-us-ws.cjs",
     "architecture:check": "node scripts/architecture-check-6000.js && node scripts/architecture-check-6020.js && node scripts/architecture-check-6040.js && node scripts/architecture-check-6050.js && node scripts/architecture-check-6060.js && node scripts/architecture-check-6070.js",
     "architecture:check:6000": "node scripts/architecture-check-6000.js",
     "architecture:check:6020": "node scripts/architecture-check-6020.js",

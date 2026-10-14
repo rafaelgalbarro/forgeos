@@ -22,6 +22,39 @@ import {
   pickStockAccountCapitalFromMap,
   type StockAccountCapitalPick,
 } from "@/lib/trading/stock-account-capital";
+import { isForgeOsOpenedPosition } from "@/lib/trading/forgeos-owned";
+
+export type IbkrPositionRow = {
+  symbol?: string;
+  position?: number;
+  avgCost?: number;
+  marketValue?: number;
+  currency?: string;
+  account?: string;
+};
+
+/** Exposure = ForgeOS-owned positions only (market value), per account. */
+export function computeForgeOsExposureUsd(
+  positions: readonly IbkrPositionRow[],
+  accountId: string,
+  isOwned: (symbol: string) => boolean = isForgeOsOpenedPosition,
+): { exposureUSD: number; openTickers: string[] } {
+  const id = accountId.trim();
+  const openTickers: string[] = [];
+  let exposureUSD = 0;
+  for (const p of positions) {
+    if (id && p.account && p.account !== id) continue;
+    const qty = Math.abs(Number(p.position ?? 0));
+    if (!(qty > 0)) continue;
+    const symbol = String(p.symbol ?? "").trim().toUpperCase();
+    if (!symbol || !isOwned(symbol)) continue;
+    openTickers.push(symbol);
+    const mv = Math.abs(Number(p.marketValue ?? 0));
+    const avg = Number(p.avgCost ?? 0);
+    exposureUSD += mv > 0 ? mv : qty * (Number.isFinite(avg) ? avg : 0);
+  }
+  return { exposureUSD, openTickers: [...new Set(openTickers)] };
+}
 
 export type CapitalSnapshot = TradingAccountSnapshot & {
   cashEUR: number;
@@ -48,16 +81,7 @@ async function loadCapitalForAccountId(accountId: string): Promise<CapitalSnapsh
   const [base, account, positions] = await Promise.all([
     fetchTradingAccountSnapshot(),
     ibkrServiceFetch<AccountMap>("/api/ibkr/account").catch(() => ({}) as AccountMap),
-    ibkrServiceFetch<
-      Array<{
-        symbol?: string;
-        position?: number;
-        avgCost?: number;
-        marketValue?: number;
-        currency?: string;
-        account?: string;
-      }>
-    >("/api/ibkr/positions").catch(() => []),
+    ibkrServiceFetch<IbkrPositionRow[]>("/api/ibkr/positions").catch(() => []),
   ]);
 
   const tags = account[id];
@@ -69,19 +93,8 @@ async function loadCapitalForAccountId(accountId: string): Promise<CapitalSnapsh
   const grossPositionValue = num(tags, "GrossPositionValue");
   const navUSD = num(tags, "NetLiquidation") || base.navUSD;
 
-  const openTickers: string[] = [];
-  let exposureUSD = 0;
-  for (const p of Array.isArray(positions) ? positions : []) {
-    if (p.account && p.account !== id) continue;
-    const qty = Math.abs(Number(p.position ?? 0));
-    if (!(qty > 0)) continue;
-    const symbol = String(p.symbol ?? "").trim().toUpperCase();
-    if (!symbol) continue;
-    openTickers.push(symbol);
-    const mv = Math.abs(Number(p.marketValue ?? 0));
-    const avg = Number(p.avgCost ?? 0);
-    exposureUSD += mv > 0 ? mv : qty * (Number.isFinite(avg) ? avg : 0);
-  }
+  const posRows = Array.isArray(positions) ? positions : [];
+  const { exposureUSD, openTickers } = computeForgeOsExposureUsd(posRows, id);
 
   const tradingCash = cashUSD > 0 ? cashUSD : cashEUR > 0 ? cashEUR : 0;
 
@@ -102,16 +115,7 @@ async function loadCapitalLive(): Promise<CapitalSnapshot> {
   const [base, account, positions] = await Promise.all([
     fetchTradingAccountSnapshot(),
     ibkrServiceFetch<AccountMap>("/api/ibkr/account").catch(() => ({}) as AccountMap),
-    ibkrServiceFetch<
-      Array<{
-        symbol?: string;
-        position?: number;
-        avgCost?: number;
-        marketValue?: number;
-        currency?: string;
-        account?: string;
-      }>
-    >("/api/ibkr/positions").catch(() => []),
+    ibkrServiceFetch<IbkrPositionRow[]>("/api/ibkr/positions").catch(() => []),
   ]);
 
   const primary = (process.env.IBKR_ACCOUNT_ID ?? "").trim();
@@ -145,22 +149,12 @@ async function loadCapitalLive(): Promise<CapitalSnapshot> {
     num(tags, "AvailableFunds") || Math.max(cashUSD, cashEUR, base.cashUSD);
   const grossPositionValue = num(tags, "GrossPositionValue");
 
-  const openTickers: string[] = [];
-  let exposureUSD = 0;
-  for (const p of Array.isArray(positions) ? positions : []) {
-    if (primary && p.account && p.account !== primary) continue;
-    const qty = Math.abs(Number(p.position ?? 0));
-    if (!(qty > 0)) continue;
-    const symbol = String(p.symbol ?? "").trim().toUpperCase();
-    if (!symbol) continue;
-    openTickers.push(symbol);
-    const mv = Math.abs(Number(p.marketValue ?? 0));
-    const avg = Number(p.avgCost ?? 0);
-    exposureUSD += mv > 0 ? mv : qty * (Number.isFinite(avg) ? avg : 0);
-  }
-  if (!(exposureUSD > 0) && grossPositionValue > 0) {
-    exposureUSD = grossPositionValue;
-  }
+  const posRows = Array.isArray(positions) ? positions : [];
+  const acctForExposure = pickId || primary;
+  const { exposureUSD, openTickers } = computeForgeOsExposureUsd(
+    posRows,
+    acctForExposure,
+  );
 
   // Prefer explicit USD cash; if only EUR, keep cashUSD as 0 but availableFunds for sizing via EUR
   const tradingCash =

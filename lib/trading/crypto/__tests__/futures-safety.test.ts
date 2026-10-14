@@ -1,7 +1,15 @@
 /**
  * Kraken Futures safety — leverage cap, exchange stop, PnL, shadow at zero margin.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/trading/crypto/live-strategies", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/trading/crypto/live-strategies")>();
+  return {
+    ...actual,
+    readCryptoEnvLocal: () => undefined,
+  };
+});
 import {
   estimateFundingPct,
   netFuturesPnlPct,

@@ -1,26 +1,37 @@
 /**
  * EODHD All-in-One US WebSocket — quotes (/ws/us-quote) + trades (/ws/us).
- * 04:00–20:00 ET · max 50 simultaneous tickers · auto-reconnect.
+ * Production: single PM2 writer (forgeos-eodhd-us-ws); Next.js reads shared store.
  */
 
 import "server-only";
 
 import { isEodhdConfigured } from "@/lib/market-data/eodhd";
 import {
+  flushSharedStoreNow,
+  getEodhdWsQuote,
   listEodhdWsSymbols,
   patchEodhdWsQuote,
+  registerEodhdWsRuntimeSnapshot,
+  hydrateEodhdWsStoreFromFile,
   type EodhdWsMarketStatus,
 } from "@/lib/market-data/eodhd-ws-store";
 import {
-  isUsAfterHoursSession,
-  isUsEodhdWsSession,
-  isUsPremarketSession,
-  isUsRegularSession,
-} from "@/lib/trading/exchange-hours";
+  EODHD_WS_SUBSCRIBE_CAP,
+  isEodhdWsExternal,
+  isEodhdWsStandalone,
+  readEodhdWsHeartbeat,
+  readEodhdWsSharedStore,
+  readEodhdWsSubscribeRequest,
+  shouldNextJsOwnEodhdWs,
+  writeEodhdWsHeartbeat,
+  writeEodhdWsSubscribeRequest,
+} from "@/lib/market-data/eodhd-ws-shared";
+import { isUsEodhdWsSession, isUsRegularSession } from "@/lib/trading/exchange-hours";
 import { isEuropeanEurEquity } from "@/lib/trading/europe-equities";
 import { listPendingPremarketShadowTickers } from "@/lib/trading/us-premarket";
 
-export const EODHD_WS_MAX_TICKERS = 50;
+/** @deprecated use EODHD_WS_SUBSCRIBE_CAP — kept for tests */
+export const EODHD_WS_MAX_TICKERS = EODHD_WS_SUBSCRIBE_CAP;
 export const EODHD_WS_STALE_ALERT_MS = 2 * 60_000;
 
 type WsLike = {
@@ -43,7 +54,23 @@ let reconnectQuoteTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectTradeTimer: ReturnType<typeof setTimeout> | null = null;
 let watchdogTimer: ReturnType<typeof setInterval> | null = null;
 let qcTimer: ReturnType<typeof setInterval> | null = null;
+let statsTimer: ReturnType<typeof setInterval> | null = null;
+let subscribePollTimer: ReturnType<typeof setInterval> | null = null;
 let lastMsgAt = 0;
+let channelsOpen = 0;
+let last422AlertAt = 0;
+const startedAt = new Date().toISOString();
+
+function ownsWebSocketConnection(): boolean {
+  return isEodhdWsStandalone() || shouldNextJsOwnEodhdWs();
+}
+
+function logWsConnectedIfReady(): void {
+  if (channelsOpen >= 2) {
+    console.log("[EODHD/WS] connected — us-quote + us (2 channels)");
+  }
+}
+
 function apiKey(): string {
   return process.env.EODHD_API_KEY?.trim() ?? "";
 }
@@ -66,6 +93,16 @@ function parseMarketStatus(ms: unknown): EodhdWsMarketStatus | undefined {
   return undefined;
 }
 
+async function alertEodhd422(message: string): Promise<void> {
+  const now = Date.now();
+  if (now - last422AlertAt < 10 * 60_000) return;
+  last422AlertAt = now;
+  const { sendTelegramMessage } = await import("@/lib/notifications/telegram-bot");
+  await sendTelegramMessage(
+    `🚨 <b>EODHD WS</b> status 422 — ${message || "Symbols limit reached"}`,
+  ).catch(() => undefined);
+}
+
 function handlePayload(raw: string, channel: Channel): void {
   lastMsgAt = Date.now();
   let msg: Record<string, unknown>;
@@ -74,6 +111,17 @@ function handlePayload(raw: string, channel: Channel): void {
   } catch {
     return;
   }
+
+  if (msg.status_code != null) {
+    const code = Number(msg.status_code);
+    const message = String(msg.message ?? "");
+    console.log(`[EODHD/WS] response status_code=${code} message=${message}`);
+    if (code === 422) {
+      void alertEodhd422(message);
+    }
+    return;
+  }
+
   const symRaw = String(msg.s ?? msg.symbol ?? "").trim();
   if (!symRaw) return;
   const symbol = normalizeUsSymbol(symRaw);
@@ -109,11 +157,6 @@ function handlePayload(raw: string, channel: Channel): void {
     marketStatus: ms,
     extendedHours: extended,
   });
-}
-
-function isExtendedEtFromClock(at: Date): boolean {
-  if (!isUsEodhdWsSession(at)) return false;
-  return isUsPremarketSession(at) || isUsAfterHoursSession(at);
 }
 
 function isUsRegularFromClock(atMs: number): boolean {
@@ -174,7 +217,8 @@ function connectChannel(channel: Channel): void {
   else tradeWs = socket;
 
   socket.onopen = () => {
-    console.log(`[EODHD/WS] ${path} conectado — ${subscribed.size} símbolos`);
+    channelsOpen += 1;
+    logWsConnectedIfReady();
     lastMsgAt = Date.now();
     sendSubscribe(socket, [...subscribed]);
   };
@@ -185,6 +229,7 @@ function connectChannel(channel: Channel): void {
     console.warn(`[EODHD/WS] ${path} error`);
   };
   socket.onclose = () => {
+    channelsOpen = Math.max(0, channelsOpen - 1);
     console.warn(`[EODHD/WS] ${path} cerrado — reconectando en 3s`);
     if (channel === "quote") quoteWs = null;
     else tradeWs = null;
@@ -197,10 +242,10 @@ function connectChannel(channel: Channel): void {
   };
 }
 
-/** Priority: pending premarket shadow marks, then cycle universe — hard cap 50. */
+/** Priority: pending premarket shadow marks, then cycle universe — US only, cap 45. */
 export function pickEodhdWsSubscriptionTickers(
   candidates: readonly string[],
-  max: number = EODHD_WS_MAX_TICKERS,
+  max: number = EODHD_WS_SUBSCRIBE_CAP,
 ): string[] {
   const pending = listPendingPremarketShadowTickers();
   const seen = new Set<string>();
@@ -216,18 +261,21 @@ export function pickEodhdWsSubscriptionTickers(
 }
 
 export function updateEodhdWsSubscriptions(tickers: readonly string[]): string[] {
-  const picked = pickEodhdWsSubscriptionTickers(tickers, EODHD_WS_MAX_TICKERS);
+  const picked = pickEodhdWsSubscriptionTickers(tickers, EODHD_WS_SUBSCRIBE_CAP);
   const desired = new Set(picked);
   const prev = subscribed;
   subscribed = desired;
-  reconcileOnSocket(quoteWs, desired);
-  reconcileOnSocket(tradeWs, desired);
+  if (ownsWebSocketConnection()) {
+    reconcileOnSocket(quoteWs, desired);
+    reconcileOnSocket(tradeWs, desired);
+  }
   const dropped = [...prev].filter((s) => !desired.has(s)).length;
   const added = [...desired].filter((s) => !prev.has(s)).length;
-  if (added || dropped) {
-    console.log(
-      `[EODHD/WS] subs ${desired.size}/${EODHD_WS_MAX_TICKERS} (+${added} −${dropped})`,
-    );
+  console.log(
+    `[EODHD/WS] subscribe ${desired.size} tickers (cap ${EODHD_WS_SUBSCRIBE_CAP}, +${added} −${dropped})`,
+  );
+  if (isEodhdWsStandalone()) {
+    flushSharedStoreNow();
   }
   return picked;
 }
@@ -235,31 +283,101 @@ export function updateEodhdWsSubscriptions(tickers: readonly string[]): string[]
 export async function ensureEodhdUsWsForUniverse(tickers: readonly string[]): Promise<string[]> {
   if (!isEodhdConfigured()) return [];
   if (!isUsEodhdWsSession()) return [];
+
+  const picked = pickEodhdWsSubscriptionTickers(tickers, EODHD_WS_SUBSCRIBE_CAP);
+
+  if (isEodhdWsExternal() && !isEodhdWsStandalone()) {
+    writeEodhdWsSubscribeRequest(picked);
+    hydrateEodhdWsStoreFromFile(true);
+    console.log(
+      `[EODHD/WS] subscribe request ${picked.length} US tickers → PM2 writer (no local socket)`,
+    );
+    return picked;
+  }
+
   startEodhdUsMarketData();
   return updateEodhdWsSubscriptions(tickers);
 }
 
 export function startEodhdUsMarketData(): void {
   if (!isEodhdConfigured()) return;
+  if (!ownsWebSocketConnection()) {
+    if (isEodhdWsExternal()) {
+      console.log("[EODHD/WS] sockets owned by forgeos-eodhd-us-ws — reader only");
+    }
+    return;
+  }
   if (started) return;
   started = true;
+
+  registerEodhdWsRuntimeSnapshot(() => ({
+    subscribed: [...subscribed],
+    lastMsgAt,
+    quoteConnected: Boolean(quoteWs && quoteWs.readyState === 1),
+    tradeConnected: Boolean(tradeWs && tradeWs.readyState === 1),
+  }));
+
   connectChannel("quote");
   connectChannel("trade");
+
+  if (isEodhdWsStandalone() && !subscribePollTimer) {
+    subscribePollTimer = setInterval(() => {
+      void pollSubscribeRequestFile();
+    }, 4_000);
+    if (typeof subscribePollTimer === "object" && "unref" in subscribePollTimer) {
+      subscribePollTimer.unref?.();
+    }
+  }
+
   if (!watchdogTimer) {
     watchdogTimer = setInterval(() => {
       void staleWatchdogTick();
     }, 30_000);
-    if (typeof watchdogTimer === "object" && "unref" in watchdogTimer) {
-      watchdogTimer.unref?.();
-    }
+    watchdogTimer.unref?.();
   }
   if (!qcTimer) {
     qcTimer = setInterval(() => {
       void minuteQcTick();
     }, 60_000);
-    if (typeof qcTimer === "object" && "unref" in qcTimer) {
-      qcTimer.unref?.();
-    }
+    qcTimer.unref?.();
+  }
+  if (!statsTimer) {
+    statsTimer = setInterval(() => {
+      logFreshSymbolStats();
+    }, 60_000);
+    statsTimer.unref?.();
+  }
+}
+
+async function pollSubscribeRequestFile(): Promise<void> {
+  if (!isEodhdWsStandalone() || !isUsEodhdWsSession()) return;
+  const req = readEodhdWsSubscribeRequest();
+  if (!req?.tickers?.length) return;
+  updateEodhdWsSubscriptions(req.tickers);
+}
+
+function logFreshSymbolStats(): void {
+  if (!started || !isUsEodhdWsSession()) return;
+  const now = Date.now();
+  let fresh = 0;
+  for (const sym of subscribed) {
+    const q = getEodhdWsQuote(sym);
+    if (q && now - q.updatedAtMs <= 60_000) fresh += 1;
+  }
+  console.log(
+    `[EODHD/WS] fresh symbols last 1m: ${fresh}/${subscribed.size} subscribed`,
+  );
+  if (isEodhdWsStandalone()) {
+    writeEodhdWsHeartbeat({
+      role: "standalone",
+      startedAt,
+      subscribed: subscribed.size,
+      quoteConnected: Boolean(quoteWs && quoteWs.readyState === 1),
+      tradeConnected: Boolean(tradeWs && tradeWs.readyState === 1),
+      freshSymbolsLastMinute: fresh,
+      lastMsgAtMs: lastMsgAt,
+    });
+    flushSharedStoreNow();
   }
 }
 
@@ -270,6 +388,10 @@ async function minuteQcTick(): Promise<void> {
 }
 
 export function getEodhdWsSubscribedTickers(): string[] {
+  if (isEodhdWsExternal() && !isEodhdWsStandalone()) {
+    const snap = readEodhdWsSharedStore();
+    return snap?.subscribed ?? [];
+  }
   return [...subscribed];
 }
 
@@ -294,7 +416,29 @@ export function getEodhdWsStatus(): {
   tradeConnected: boolean;
   lastMsgAgeMs: number;
   symbols: string[];
+  external: boolean;
+  writerPid: number | null;
 } {
+  if (isEodhdWsExternal() && !isEodhdWsStandalone()) {
+    hydrateEodhdWsStoreFromFile(true);
+    const hb = readEodhdWsHeartbeat();
+    const snap = readEodhdWsSharedStore();
+    return {
+      started: Boolean(hb && Date.now() - Date.parse(hb.updatedAt) < 5 * 60_000),
+      subscribed: snap?.subscribed?.length ?? hb?.subscribed ?? 0,
+      quoteConnected: snap?.meta?.quoteConnected ?? hb?.quoteConnected ?? false,
+      tradeConnected: snap?.meta?.tradeConnected ?? hb?.tradeConnected ?? false,
+      lastMsgAgeMs: snap?.meta?.lastMsgAtMs
+        ? Date.now() - snap.meta.lastMsgAtMs
+        : hb?.lastMsgAtMs
+          ? Date.now() - hb.lastMsgAtMs
+          : -1,
+      symbols: listEodhdWsSymbols(),
+      external: true,
+      writerPid: hb?.pid ?? null,
+    };
+  }
+
   return {
     started,
     subscribed: subscribed.size,
@@ -302,6 +446,8 @@ export function getEodhdWsStatus(): {
     tradeConnected: Boolean(tradeWs && tradeWs.readyState === 1),
     lastMsgAgeMs: lastMsgAt ? Date.now() - lastMsgAt : -1,
     symbols: listEodhdWsSymbols(),
+    external: false,
+    writerPid: isEodhdWsStandalone() ? process.pid : null,
   };
 }
 
@@ -312,8 +458,15 @@ export function __resetEodhdWsClientForTests(): void {
   quoteWs = null;
   tradeWs = null;
   lastMsgAt = 0;
+  channelsOpen = 0;
+  last422AlertAt = 0;
+  registerEodhdWsRuntimeSnapshot(null);
   if (watchdogTimer) clearInterval(watchdogTimer);
   watchdogTimer = null;
   if (qcTimer) clearInterval(qcTimer);
   qcTimer = null;
+  if (statsTimer) clearInterval(statsTimer);
+  statsTimer = null;
+  if (subscribePollTimer) clearInterval(subscribePollTimer);
+  subscribePollTimer = null;
 }

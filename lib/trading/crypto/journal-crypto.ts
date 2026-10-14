@@ -56,6 +56,13 @@ export type CryptoJournalTrade = {
   takeProfit?: number | null;
   qty?: number | null;
   orderId?: string | null;
+  /** spot (default) | futures */
+  venue?: "spot" | "futures";
+  positionSide?: "long" | "short";
+  leverage?: number | null;
+  fundingPaidEur?: number | null;
+  pfSymbol?: string | null;
+  exchangeStopOrderId?: string | null;
 };
 
 export type StrategyPerf = {

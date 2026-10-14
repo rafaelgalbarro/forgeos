@@ -66,3 +66,6 @@ export function cryptoSellAggressiveDiscountPct(): number {
   const n = Number(process.env.CRYPTO_SELL_AGGRESSIVE_DISCOUNT_PCT ?? 0.005);
   return Number.isFinite(n) && n > 0 && n < 0.05 ? n : 0.005;
 }
+
+/** Kraken venue: spot (default) or futures — see futures-config.ts for FUTURES_* vars. */
+export { getCryptoVenue, isCryptoFuturesVenue } from "@/lib/trading/crypto/futures-config";

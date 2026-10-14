@@ -240,7 +240,14 @@ function passesCorrelationFilter(candidate: string, openPairs: string[]): boolea
 }
 
 export async function startKrakenEngine(): Promise<void> {
-  if (!isKrakenCryptoBroker() || !isKrakenConfigured()) return;
+  if (!isKrakenCryptoBroker()) return;
+  const { isCryptoFuturesVenue } = await import("@/lib/trading/crypto/futures-config");
+  if (isCryptoFuturesVenue()) {
+    const { startKrakenFuturesEngine } = await import("@/lib/trading/crypto/futures-engine");
+    await startKrakenFuturesEngine();
+    return;
+  }
+  if (!isKrakenConfigured()) return;
 
   // Next.js must not own WS/exits when PM2 forgeos-crypto-engine is the owner
   if (isCryptoEngineExternal() && !isCryptoEngineStandalone()) {
@@ -795,6 +802,13 @@ export async function runKrakenAnalysisCycle(): Promise<{
   shadow: string[];
   held: string[];
 }> {
+  const { isCryptoFuturesVenue } = await import("@/lib/trading/crypto/futures-config");
+  if (isCryptoFuturesVenue()) {
+    const { runKrakenFuturesAnalysisCycle } = await import(
+      "@/lib/trading/crypto/futures-engine"
+    );
+    return runKrakenFuturesAnalysisCycle();
+  }
   // Under external ownership, Next.js HTTP must not place orders / start loops
   if (isCryptoEngineExternal() && !isCryptoEngineStandalone()) {
     console.log(

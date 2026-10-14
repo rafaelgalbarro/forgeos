@@ -16,6 +16,16 @@ import {
 } from "@/lib/trading/crypto/engine-heartbeat";
 import { peekKrakenUniverse } from "@/lib/brokers/kraken/universe";
 import type { MarketRegime } from "@/lib/trading/crypto/regime";
+import {
+  futuresMaxLeverage,
+  futuresShadowMode,
+  getCryptoVenue,
+  parseFuturesLiveStrategiesList,
+} from "@/lib/trading/crypto/futures-config";
+import { getKrakenFuturesEngineStatus } from "@/lib/trading/crypto/futures-engine";
+import { getFuturesDailyRisk } from "@/lib/trading/crypto/futures-daily-risk";
+import { isKrakenFuturesConfigured } from "@/lib/brokers/kraken-futures";
+import { getFuturesWsStatus } from "@/lib/brokers/kraken-futures/ws-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -124,5 +134,15 @@ export async function GET() {
     strategies: diag.strategies,
     nearMisses: diag.nearMisses.slice(-40).reverse(),
     topDiscardReasons: topDiscardReasons(12),
+    futures: {
+      venue: getCryptoVenue(),
+      configured: isKrakenFuturesConfigured(),
+      shadowMode: futuresShadowMode(),
+      leverageCap: futuresMaxLeverage(),
+      liveStrategies: [...parseFuturesLiveStrategiesList()],
+      engine: getKrakenFuturesEngineStatus(),
+      dailyRisk: getFuturesDailyRisk(),
+      ws: getFuturesWsStatus(),
+    },
   });
 }

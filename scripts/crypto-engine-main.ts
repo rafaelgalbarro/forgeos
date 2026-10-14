@@ -16,7 +16,8 @@ import {
   writeCryptoEngineHeartbeat,
 } from "@/lib/trading/crypto/engine-heartbeat";
 import { isKrakenConfigured } from "@/lib/brokers/kraken";
-import { isKrakenCryptoBroker } from "@/lib/trading/crypto/config";
+import { isKrakenCryptoBroker, isCryptoFuturesVenue } from "@/lib/trading/crypto/config";
+import { isKrakenFuturesConfigured } from "@/lib/brokers/kraken-futures";
 
 const ANALYSIS_MS = Math.max(
   15_000,
@@ -83,17 +84,23 @@ async function main(): Promise<void> {
     );
     process.exit(1);
   }
-  if (!isKrakenConfigured()) {
+  if (isCryptoFuturesVenue()) {
+    if (!isKrakenFuturesConfigured()) {
+      console.error(
+        "[CryptoEngine] CRYPTO_VENUE=futures — faltan KRAKEN_FUTURES_* keys",
+      );
+      process.exit(1);
+    }
+  } else if (!isKrakenConfigured()) {
     console.error(
       "[CryptoEngine] Faltan KRAKEN_API_KEY / KRAKEN_API_SECRET — reintento en 30s",
     );
     await new Promise((r) => setTimeout(r, 30_000));
-    // Re-read via child restart is PM2's job; keep process alive briefly then exit for autorestart
     process.exit(1);
   }
 
   console.log(
-    `[CryptoEngine] arranque pid=${process.pid} analysis=${ANALYSIS_MS}ms exits=5s`,
+    `[CryptoEngine] arranque pid=${process.pid} venue=${isCryptoFuturesVenue() ? "futures" : "spot"} analysis=${ANALYSIS_MS}ms exits=5s`,
   );
   await startKrakenEngine();
   heartbeat();

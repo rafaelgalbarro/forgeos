@@ -6,15 +6,11 @@ import {
 import { __resetEodhdWsQcForTests } from "@/lib/market-data/eodhd-ws-qc";
 
 const evaluateMock = vi.fn();
+const readModeMock = vi.fn(() => "auto" as const);
 
-vi.mock("@/lib/trading/stocks-execution-gate", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/lib/trading/stocks-execution-gate")>();
-  return {
-    ...actual,
-    readEnvLocalKey: () => undefined,
-  };
-});
+vi.mock("@/lib/trading/stocks-execution-gate", () => ({
+  readEnvLocalKey: (key: string) => (key === "US_PRICE_SOURCE" ? readModeMock() : undefined),
+}));
 
 vi.mock("@/lib/market-data/eodhd-ws-qc", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/market-data/eodhd-ws-qc")>();

@@ -171,7 +171,7 @@ async function privateCall<T>(
       ? ""
       : new URLSearchParams(
           Object.fromEntries(
-            Object.entries({ nonce, ...params }).map(([k, v]) => [k, String(v)]),
+            Object.entries(params).map(([k, v]) => [k, String(v)]),
           ),
         ).toString();
   const headers = krakenFuturesAuthHeaders(endpointPath, postData, nonce);

@@ -62,6 +62,9 @@ yarn-error.log*
 pnpm-debug.log*
 *.log
 
+# IBKR TWS API bundle (install locally — see docs/ibkr-tws-pythonclient-install.md)
+services/ibkr-broker/tws-api/
+
 # env files
 .env
 .env.*

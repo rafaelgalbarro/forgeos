@@ -74,6 +74,14 @@ import {
   minConfidencePhaseForSession,
 } from '@/lib/trading/equity-strategy-session'
 import { recordSignalForTelegram } from '@/lib/notifications/telegram-handler'
+import {
+  applyInPlayShareCap,
+  gateStocksDynamicCategories,
+} from '@/lib/trading/stocks-in-play/cycle-hooks'
+import { inPlaySymbolSet } from '@/lib/trading/stocks-in-play/store'
+import { runnersSymbolSet } from '@/lib/trading/stocks-in-play/runners/store'
+import { resolveInPlayShadowMarks } from '@/lib/trading/stocks-in-play/shadow-journal'
+import { resolveRunnerShadowMarks } from '@/lib/trading/stocks-in-play/runners/shadow-journal'
 import { publishInvestmentEvent } from '@/lib/notifications/investment-events'
 import { expireStalePendingApprovals } from '@/lib/investment/order-approval-service'
 import { ensureIbkrBrokerConnected } from '@/lib/trading/ibkr-reconnect'
@@ -396,17 +404,38 @@ export function resolvePositionSize(
   let qty = Math.floor((deployable * confidenceMultiplier) / price)
 
   const stop = opts?.stopLossPrice
-  const stopOkForOneShare = (): boolean => {
+  const stopOkForQty = (shareQty: number): boolean => {
     if (!(stop != null && stop > 0 && stop < price && nav > 0)) return true
-    // loss on 1 share as fraction of NAV
-    const lossUsd = price - stop
+    const lossUsd = (price - stop) * Math.max(shareQty, 0)
     return lossUsd / nav <= 0.03
+  }
+
+  const fractionalEnabled = parseFractionalEnabled()
+  if (fractionalEnabled && cash * 0.95 >= 25) {
+    const cash95 = cash * 0.95
+    const fracNotional = Math.min(
+      cash95 - 1,
+      deployable > 0 ? deployable * confidenceMultiplier : cash95,
+    )
+    if (fracNotional >= 25 && stopOkForQty(fracNotional / price)) {
+      const fracQty = Math.round((fracNotional / price) * 1e6) / 1e6
+      if (fracQty > 0) {
+        return {
+          qty: fracQty,
+          deployable: fracNotional,
+          usableCash,
+          limitingRule: "none",
+          reason: `fracción IBKR ~$${fracNotional.toFixed(2)} (cash $${cash.toFixed(2)}, IBKR_FRACTIONAL_ENABLED)`,
+          fractional: true,
+        }
+      }
+    }
   }
 
   if (qty === 0) {
     const commission = estimateIbkrStockCommissionUsd(1, price)
     const cash95 = cash * 0.95
-    if (1 * price + commission <= cash95 && stopOkForOneShare()) {
+    if (1 * price + commission <= cash95 && stopOkForQty(1)) {
       return {
         qty: 1,
         deployable: price + commission,
@@ -415,17 +444,17 @@ export function resolvePositionSize(
         reason: "1 acción (fallback cash≥95% y stop≤3% NAV)",
       }
     }
-    if (parseFractionalEnabled() && cash95 >= 25) {
+    if (fractionalEnabled && cash95 >= 25) {
       const fracNotional = Math.min(cash95 - 1, deployable > 0 ? deployable : cash95)
       if (fracNotional >= 25) {
         const fracQty = fracNotional / price
-        if (fracQty > 0 && stopOkForOneShare()) {
+        if (fracQty > 0 && stopOkForQty(fracQty)) {
           return {
             qty: Math.round(fracQty * 1e6) / 1e6,
             deployable: fracNotional,
             usableCash,
             limitingRule: "none",
-            reason: `fracción IBKR ~$${fracNotional.toFixed(0)} (IBKR_FRACTIONAL_ENABLED)`,
+            reason: `fracción IBKR ~$${fracNotional.toFixed(2)} (cash $${cash.toFixed(2)}, IBKR_FRACTIONAL_ENABLED)`,
             fractional: true,
           }
         }
@@ -434,7 +463,7 @@ export function resolvePositionSize(
     const need = price + estimateIbkrStockCommissionUsd(1, price)
     let rule = limitingRule
     let detail = `utilizable $${usableCash.toFixed(2)} (reserva 20%); deployable $${deployable.toFixed(2)}`
-    if (!stopOkForOneShare()) {
+    if (!stopOkForQty(1)) {
       rule = "stop_nav"
       detail += `; stop 1 acción > 3% NAV`
     } else if (need > cash * 0.95) {
@@ -1069,7 +1098,13 @@ export class TradingEngine {
       // Resolve shadow MTM at open / near close for pending premarket signals only
       void (async () => {
         try {
-          const unique = listPendingPremarketShadowTickers().slice(0, 25)
+          const unique = [
+            ...new Set([
+              ...listPendingPremarketShadowTickers().slice(0, 25),
+              ...[...inPlaySymbolSet()].slice(0, 15),
+              ...[...runnersSymbolSet()].slice(0, 15),
+            ]),
+          ]
           if (unique.length === 0) return
           const marks = new Map<string, number>()
           for (const t of unique) {
@@ -1079,6 +1114,11 @@ export class TradingEngine {
             } catch {
               /* skip */
             }
+          }
+          const nRunners = resolveRunnerShadowMarks(marks)
+          const nInPlay = resolveInPlayShadowMarks(marks)
+          if (nRunners > 0 || nInPlay > 0) {
+            console.log(`[Dynamic/shadow] resolved runners=${nRunners} in-play=${nInPlay}`)
           }
           const nOpen = resolvePremarketShadowAtOpen(marks)
           const nClose = resolvePremarketShadowAtClose(marks)
@@ -3145,6 +3185,17 @@ export class TradingEngine {
     while (resolvedShares > 1 && resolvedShares * priceData.currentPrice > cashForSizing) {
       resolvedShares -= 1
     }
+    if (kind === 'stocks') {
+      const capped = applyInPlayShareCap({
+        ticker,
+        kind,
+        shares: resolvedShares,
+        price: priceData.currentPrice,
+        fractional: sized.fractional,
+      })
+      resolvedShares = capped.shares
+      sized.fractional = capped.fractional
+    }
     // IBKR crypto live: hard notional cap (CRYPTO_LIVE_MAX_NOTIONAL_USD, default $25)
     if (kind === 'crypto' && isIbkrCryptoEnabled() && priceData.currentPrice > 0) {
       const maxNotional = Math.min(cryptoLiveMaxNotionalUsd(), cashForSizing > 0 ? cashForSizing : cryptoLiveMaxNotionalUsd())
@@ -3161,7 +3212,9 @@ export class TradingEngine {
         available: stockCapital?.cash ?? cashForSizing,
         usableCash: sized.usableCash,
         limitingRule: sized.limitingRule,
-        detail: stockCapital?.detail ?? sized.reason,
+        detail:
+          (stockCapital?.detail ?? sized.reason) +
+          (sized.fractional ? "; IBKR_FRACTIONAL sizing" : "; whole-share sizing"),
         currency: sizingCurrency,
         accountId: stockAccountId,
         agents: agentsLabel,
@@ -3343,6 +3396,32 @@ export class TradingEngine {
 
     // Per-market switches (US/EU) — analyze OK, block BUY before enqueue
     if (cycleOpts?.cycleKind === 'stocks' && signal.direction === 'BUY') {
+      const dynamicGate = await gateStocksDynamicCategories({
+        ticker,
+        entry: priceData.currentPrice,
+        effectiveStopLoss,
+        effectiveTakeProfit,
+        resolvedShares,
+        bid: priceData.bid,
+        ask: priceData.ask,
+        primaryStrategy: signal.primaryStrategy,
+      })
+      if (dynamicGate && 'status' in dynamicGate) {
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: dynamicGate.reason,
+          signal: {
+            ...analysisSnap,
+            reasoning: `${analysisSnap.reasoning} ${dynamicGate.reasoningSuffix}`,
+          },
+          timestamp: new Date().toISOString(),
+          stopLoss: dynamicGate.stopLoss,
+          takeProfit: dynamicGate.takeProfit,
+        }
+      }
+
       const eu = isEuropeanEurEquity(ticker)
       if (eu && !isStocksExecutionEuEnabled()) {
         return {

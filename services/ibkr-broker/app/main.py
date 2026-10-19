@@ -42,6 +42,43 @@ from ibapi.order import Order
 from ibapi.scanner import ScannerSubscription
 from ibapi.wrapper import EWrapper
 
+MIN_FRACTIONAL_API_VERSION = 163
+
+
+def _resolve_ibapi_info() -> dict[str, Any]:
+    import ibapi
+
+    path = Path(getattr(ibapi, "__file__", "") or "").resolve()
+    server_version = 0
+    try:
+        from ibapi import client as ibapi_client
+
+        server_version = int(getattr(ibapi_client, "SERVER_VERSION", 0) or 0)
+    except Exception:
+        pass
+    official_root = Path(official_api_path).resolve() if official_api_path else None
+    from_official = bool(
+        official_root
+        and official_root.exists()
+        and str(path).startswith(str(official_root)),
+    )
+    return {
+        "path": str(path),
+        "server_version": server_version,
+        "fractional_orders_supported": server_version >= MIN_FRACTIONAL_API_VERSION,
+        "from_official_path": from_official,
+    }
+
+
+IBAPI_INFO = _resolve_ibapi_info()
+log.info(
+    "ibapi path=%s SERVER_VERSION=%s fractional_ok=%s official_path=%s",
+    IBAPI_INFO["path"],
+    IBAPI_INFO["server_version"],
+    IBAPI_INFO["fractional_orders_supported"],
+    IBAPI_INFO["from_official_path"],
+)
+
 try:
     from .order_ids import allocate_consecutive_order_ids
     from .order_send_brakes import assert_order_send_allowed, record_place_no_ack
@@ -1679,7 +1716,31 @@ class IBKRClient(EWrapper, EClient):
         return float(normalized)
 
     @staticmethod
+    def _is_fractional_share_qty(quantity: float) -> bool:
+        if quantity <= 0:
+            return False
+        if quantity < 1:
+            return True
+        return abs(quantity - round(quantity)) > 1e-6
+
+    @classmethod
+    def _assert_fractional_order_allowed(cls, quantity: float) -> None:
+        if not cls._is_fractional_share_qty(quantity):
+            return
+        if IBAPI_INFO.get("fractional_orders_supported"):
+            return
+        raise RuntimeError(
+            "Fractional share orders require the official IBKR TWS API pythonclient "
+            f"(SERVER_VERSION>={MIN_FRACTIONAL_API_VERSION}, "
+            f"current={IBAPI_INFO.get('server_version')}). "
+            "PyPI ibapi 9.81.x returns IBKR 10285. "
+            "Set IBKR_TWS_API_PYTHONPATH to the IBKR pythonclient directory "
+            "(see docs/ibkr-tws-pythonclient-install.md)."
+        )
+
+    @staticmethod
     def _normalize_quantity(quantity: float, details) -> float:
+        IBKRClient._assert_fractional_order_allowed(quantity)
         qty = Decimal(str(quantity))
         min_size = getattr(details, "minSize", None)
         size_increment = getattr(details, "sizeIncrement", None)
@@ -1812,7 +1873,11 @@ class IBKRClient(EWrapper, EClient):
                 normalized_qty = qty
                 normalized_price = price
             else:
-                normalized_qty = float(max(1, int(qty)))
+                if IBKRClient._is_fractional_share_qty(qty):
+                    IBKRClient._assert_fractional_order_allowed(qty)
+                    normalized_qty = float(qty)
+                else:
+                    normalized_qty = float(max(1, int(qty)))
                 normalized_price = round(price, 2)
         order = Order()
         order.action = proposal["side"]
@@ -2089,6 +2154,61 @@ class IBKRClient(EWrapper, EClient):
             "orderId": order_id,
             "whatIf": True,
             "errors": errors,
+        }
+
+    def probe_fractional_whatif(
+        self,
+        *,
+        account: str,
+        symbol: str = "AAPL",
+        quantity: float = 0.1,
+        limit_price: float | None = None,
+    ) -> dict[str, Any]:
+        """Fractional share what-if (transmit=False, whatIf=True) — never a live order."""
+        sym = (symbol or "AAPL").upper().strip()
+        qty = float(quantity)
+        self._assert_fractional_order_allowed(qty)
+        lmt = float(limit_price) if limit_price is not None and limit_price > 0 else 200.0
+        proposal = {
+            "symbol": sym,
+            "side": "BUY",
+            "quantity": qty,
+            "limit_price": lmt,
+            "sec_type": "STK",
+            "exchange": "SMART",
+            "currency": "USD",
+            "account": (account or "").strip(),
+        }
+        try:
+            order_id = self.place_limit_order_validated(proposal, transmit=False, what_if=True)
+        except Exception as exc:
+            return {
+                "ok": False,
+                "whatIf": True,
+                "transmit": False,
+                "connected": self.isConnected(),
+                "error": str(exc),
+                "symbol": sym,
+                "account": proposal["account"],
+                "quantity": qty,
+                "ibapi": IBAPI_INFO,
+            }
+        errors = self.place_ack_errors.get(order_id, [])
+        status = self.place_ack_status.get(order_id, "NO_ACK")
+        blocked_10285 = any(int(e.get("code") or 0) == 10285 for e in errors)
+        return {
+            "ok": status not in IBKR_REJECTED_STATUSES and not blocked_10285,
+            "whatIf": True,
+            "transmit": False,
+            "symbol": sym,
+            "account": proposal["account"],
+            "quantity": qty,
+            "limitPrice": lmt,
+            "orderId": order_id,
+            "ibkrStatus": status,
+            "errors": errors,
+            "ibapi": IBAPI_INFO,
+            "blocked10285": blocked_10285,
         }
 
     def probe_bracket_whatif(
@@ -2662,6 +2782,35 @@ class BracketWhatIfProbeRequest(BaseModel):
     limit_price: float | None = Field(default=None, gt=0)
     stop_loss: float | None = Field(default=None, gt=0)
     take_profit: float | None = Field(default=None, gt=0)
+
+
+class FractionalWhatIfProbeRequest(BaseModel):
+    account: str = Field(default="U24225949", min_length=1, max_length=32)
+    symbol: str = Field(default="AAPL", min_length=1, max_length=12)
+    quantity: float = Field(default=0.1, gt=0)
+    limit_price: float | None = Field(default=None, gt=0)
+
+
+@app.post("/api/ibkr/fractional-whatif-probe", dependencies=auth)
+def fractional_whatif_probe(body: FractionalWhatIfProbeRequest):
+    """What-if fractional BUY (default 0.1 AAPL) — transmit=False; skips if TWS offline."""
+    if not ibkr.isConnected():
+        return {
+            "ok": False,
+            "skipped": True,
+            "reason": "TWS not connected",
+            "whatIf": True,
+            "transmit": False,
+        }
+    try:
+        return ibkr.probe_fractional_whatif(
+            account=body.account.strip(),
+            symbol=body.symbol.strip().upper(),
+            quantity=float(body.quantity),
+            limit_price=body.limit_price,
+        )
+    except Exception as exc:
+        raise HTTPException(503, str(exc)) from exc
 
 
 @app.post("/api/ibkr/bracket-whatif-probe", dependencies=auth)

@@ -1262,6 +1262,7 @@ export async function evaluateProStrategies(
     (isEuropeOpen() && isEuropeFocusTicker(symbol) && strategySession.market === "US_LISTED");
 
   let euEvaluated: string[] = [];
+  let usEvaluated: string[] = [];
   if (europeSession && (strategySession.eligibleStrategyIds.length > 0 || euLocal)) {
     const eligible =
       euLocal && strategySession.eligibleStrategyIds.length === 0
@@ -1300,8 +1301,20 @@ export async function evaluateProStrategies(
     }
   }
 
-  // ─── USA OPEN (14:30–15:30) ───────────────────────────────────
+  const recordUsEvaluated = (ids: string[]) => {
+    for (const id of ids) {
+      if (!usEvaluated.includes(id)) usEvaluated.push(id);
+    }
+  };
+
+  // ─── USA OPEN (09:30–10:30 ET) ─────────────────────────────────
   if (phase === "USA_OPEN") {
+    recordUsEvaluated([
+      "USA_GAP_AND_GO",
+      "USA_MOMENTUM_PRIMERA_HORA",
+      "USA_VWAP_BOUNCE",
+      "USA_REVERSAL_OVERSOLD",
+    ]);
     const gapHeldOk =
       inputs?.premarketCandidate === true &&
       (inputs.gapHeldMs == null || inputs.gapHeldMs >= 5 * 60_000);
@@ -1383,6 +1396,16 @@ export async function evaluateProStrategies(
 
   // ─── USA REGULAR ──────────────────────────────────────────────
   if (phase === "USA_REGULAR" || (phase === "USA_OPEN" && hits.length === 0)) {
+    recordUsEvaluated([
+      "USA_EODHD_MOMENTUM",
+      "USA_BB_OVERSOLD",
+      "USA_MACD_CROSS",
+      "USA_TREND_FOLLOWING",
+      "USA_INVERSE_HS",
+      "USA_DOUBLE_BOTTOM",
+      "USA_EARNINGS_MOMENTUM",
+      "USA_NEWS_CATALYST",
+    ]);
     if (
       bars.length >= 200 &&
       change1d >= 1 &&
@@ -1494,6 +1517,7 @@ export async function evaluateProStrategies(
 
   // ─── AFTER-HOURS ──────────────────────────────────────────────
   if (phase === "USA_AFTERHOURS") {
+    recordUsEvaluated(["AH_EARNINGS"]);
     if (earningsBeatRecent(newsCtx) && change1d > 3 && relVol > 1.5) {
       hits.push(
         hit("AH_EARNINGS", `Earnings AH +${change1d.toFixed(1)}%`, {
@@ -1632,12 +1656,18 @@ export async function evaluateProStrategies(
         },
       };
     }
+    const evaluatedForLog =
+      usEvaluated.length > 0
+        ? usEvaluated
+        : euEvaluated.length
+          ? euEvaluated
+          : strategySession.eligibleStrategyIds;
     console.log(
-      `[ProStrategy] ${symbol}: ninguna señal (${phase}) evaluadas=[${(euEvaluated.length ? euEvaluated : strategySession.eligibleStrategyIds).join(",")}]`,
+      `[ProStrategy] ${symbol}: ninguna señal (${phase}) evaluadas=[${evaluatedForLog.join(",")}]`,
     );
     return hold(
       formatNoStrategyHoldReason(strategySession, phase, {
-        evaluatedStrategyIds: euEvaluated.length ? euEvaluated : strategySession.eligibleStrategyIds,
+        evaluatedStrategyIds: evaluatedForLog,
       }),
       rsiVal,
       fullMetrics(),

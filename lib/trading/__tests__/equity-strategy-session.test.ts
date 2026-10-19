@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dateAtLocal, isUsPremarketSession } from "@/lib/trading/exchange-hours";
 import { getCurrentTradingPhase } from "@/lib/trading/cycle-schedule";
 import {
+  formatNoStrategyHoldReason,
   getEquityStrategySession,
   isEuropeanEurEquityRegularSession,
   isEuPrimaryExchangeRegularSession,
@@ -38,6 +39,35 @@ describe("equity-strategy-session", () => {
     expect(aapl.usPhase).toBe("PRE_MARKET");
     expect(aapl.strategyPhase).toBe("USA_PREMARKET");
     expect(aapl.eligibleStrategyIds.some((id) => id.startsWith("EU_"))).toBe(false);
+  });
+
+  it("AAPL 10:27 ET Monday 2026-10-19 — NY RTH evaluates US strategies (not Madrid EUROPE skip)", () => {
+    const at = dateAtLocal("America/New_York", 2026, 10, 19, 10, 27);
+    const nvda = getEquityStrategySession("NVDA", at);
+    expect(nvda.market).toBe("US_LISTED");
+    expect(nvda.usPhase).toBe("REGULAR");
+    expect(nvda.strategyPhase).toBe("USA_OPEN");
+    expect(nvda.regularSessionOpen).toBe(true);
+    expect(nvda.eligibleStrategyIds.length).toBeGreaterThan(0);
+    expect(nvda.eligibleStrategyIds).toContain("USA_EODHD_MOMENTUM");
+  });
+
+  it("10:27 Madrid — US listing phase is NY premarket, not EUROPE empty eligibles", () => {
+    const at = dateAtLocal("Europe/Madrid", 2026, 10, 19, 10, 27);
+    const aapl = getEquityStrategySession("AAPL", at);
+    expect(aapl.strategyPhase).toBe("USA_PREMARKET");
+    expect(aapl.eligibleStrategyIds.length).toBeGreaterThan(0);
+  });
+
+  it("US RTH hold reason lists evaluated strategies, not Ninguna estrategia activa", () => {
+    const at = dateAtLocal("America/New_York", 2026, 10, 19, 10, 27);
+    const session = getEquityStrategySession("NVDA", at);
+    const msg = formatNoStrategyHoldReason(session, session.strategyPhase, {
+      evaluatedStrategyIds: ["USA_EODHD_MOMENTUM", "USA_MACD_CROSS"],
+    });
+    expect(msg).toMatch(/Sin señal BUY US/);
+    expect(msg).not.toMatch(/Ninguna estrategia activa/);
+    expect(msg).toContain("USA_EODHD_MOMENTUM");
   });
 
   it("AAPL 10:46 ET Wednesday — NY RTH opens all US equity strategies", () => {

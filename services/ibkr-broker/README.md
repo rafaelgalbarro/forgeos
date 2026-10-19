@@ -24,12 +24,13 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-**TWS API (recommended):** install the official IBKR `pythonclient` from the TWS API bundle and set `IBKR_TWS_API_PYTHONPATH` in `.env` (see `.env.example`). The PyPI `ibapi` package is an older snapshot; the official client adds `errorTime` on `error()` and current order fields (e.g. fractional trading). ForgeOS prepends that path before `pip install ibapi` when configured.
+**TWS API (required for fractional shares):** install the official IBKR `pythonclient` and set `IBKR_TWS_API_PYTHONPATH` in `.env` (see `.env.example`). Full steps for **Ubuntu production** and Windows: [`docs/ibkr-tws-pythonclient-install.md`](../../docs/ibkr-tws-pythonclient-install.md) or `./scripts/install-ibkr-tws-pythonclient.sh` on Linux. PyPI `ibapi` 9.81.x is rejected for fractional orders (IBKR 10285); the official client provides `errorTime` on `error()` and API version ≥ 163.
 
 Bracket what-if smoke (no transmit): from repo root with broker running and TWS connected:
 
 ```powershell
 npx tsx scripts/ibkr-bracket-whatif.ts --account U24225949 --symbol BAC
+npx tsx scripts/ibkr-fractional-whatif.ts --account U24225949 --symbol AAPL --quantity 0.1
 ```
 
 Genera dos secretos diferentes:

@@ -47,6 +47,22 @@ describe("resolvePositionSize low capital", () => {
     expect(r.qty * 131.26).toBeLessThanOrEqual(100 * 0.95);
   });
 
+  it("143$ cash @ 200$ → fractional ~143/200 when IBKR_FRACTIONAL_ENABLED", () => {
+    process.env.IBKR_FRACTIONAL_ENABLED = "true";
+    const r = resolvePositionSize(
+      { cashUSD: 143, availableFunds: 143, navUSD: 143 },
+      200,
+      0.75,
+      { stopLossPrice: 200 * 0.98 },
+    );
+    expect(r.fractional).toBe(true);
+    expect(r.qty).toBeGreaterThan(0.2);
+    expect(r.qty).toBeLessThan(1);
+    expect(r.qty * 200).toBeGreaterThanOrEqual(25);
+    expect(r.qty * 200).toBeLessThanOrEqual(143 * 0.95);
+    expect(r.reason).toMatch(/IBKR_FRACTIONAL|fracción/i);
+  });
+
   it("blocks 1-share fallback when stop loss > 3% NAV", () => {
     process.env.IBKR_FRACTIONAL_ENABLED = "false";
     const r = resolvePositionSize(

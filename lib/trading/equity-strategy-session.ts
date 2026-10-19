@@ -10,6 +10,8 @@ import {
 } from "@/lib/trading/europe-equities";
 import {
   getUsExchangeSession,
+  isUsAfterHoursSession,
+  isUsPremarketSession,
   isUsRegularSession,
   zonedClock,
   type ZonedClock,
@@ -106,20 +108,16 @@ function euStrategyPhase(clock: ZonedClock, open: boolean): ActiveTradingPhase {
   return "EUROPE";
 }
 
+/** US listing strategy phase — NY clock only (never Madrid EUROPE/STANDBY). */
 function usActivePhaseFromNy(at: Date): ActiveTradingPhase {
-  const us = getUsExchangeSession(at);
-  if (us.phase === "PRE_MARKET") return "USA_PREMARKET";
-  if (us.phase === "REGULAR" || isUsRegularSession(at)) {
-    const ny = us.clock;
+  if (isUsPremarketSession(at)) return "USA_PREMARKET";
+  if (isUsRegularSession(at)) {
+    const ny = zonedClock("America/New_York", at);
     if (inRange(ny.nowMinutes, 9, 30, 10, 30)) return "USA_OPEN";
     return "USA_REGULAR";
   }
-  const madrid = getActiveTradingPhase();
-  if (madrid === "USA_AFTERHOURS") return "USA_AFTERHOURS";
-  if (madrid === "USA_PREMARKET" || madrid === "USA_OPEN" || madrid === "USA_REGULAR") {
-    return madrid;
-  }
-  return madrid;
+  if (isUsAfterHoursSession(at)) return "USA_AFTERHOURS";
+  return "STANDBY_CRYPTO";
 }
 
 function listUsEligibleStrategyIds(phase: ActiveTradingPhase): string[] {
@@ -263,12 +261,22 @@ export function formatNoStrategyHoldReason(
       `fase=${globalPhase}) — condiciones técnicas no cumplidas`
     );
   }
+  if (session.regularSessionOpen && session.eligibleStrategyIds.length > 0) {
+    const evaluated =
+      opts?.evaluatedStrategyIds?.length
+        ? opts.evaluatedStrategyIds.join(", ")
+        : session.eligibleStrategyIds.join(", ");
+    return (
+      `Sin señal BUY US — evaluadas [${evaluated}] (${session.localTime} ${session.timeZone}; ` +
+      `fase=${globalPhase}; usPhase=${session.usPhase}) — condiciones técnicas no cumplidas`
+    );
+  }
   const eligible =
     session.eligibleStrategyIds.length > 0
       ? session.eligibleStrategyIds.join(", ")
       : "ninguna (sesión US/EU cerrada para este listing)";
   return (
-    `Ninguna estrategia activa en sesión — mercado=${session.market} local=${session.localTime} ${session.timeZone} ` +
+    `Fuera de sesión US — mercado=${session.market} local=${session.localTime} ${session.timeZone} ` +
     `open=${session.regularSessionOpen} fase=${globalPhase} elegibles=[${eligible}]`
   );
 }

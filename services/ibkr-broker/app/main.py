@@ -2296,6 +2296,7 @@ class IBKRClient(EWrapper, EClient):
         qty = float(quantity)
         self._assert_fractional_order_allowed(qty)
         lmt = float(limit_price) if limit_price is not None and limit_price > 0 else 200.0
+        notional = max(25.0, round(qty * lmt, 2))
         proposal = {
             "symbol": sym,
             "side": "BUY",
@@ -2305,6 +2306,9 @@ class IBKRClient(EWrapper, EClient):
             "exchange": "SMART",
             "currency": "USD",
             "account": (account or "").strip(),
+            "fractional": True,
+            "cash_qty_usd": notional,
+            "bracket": False,
         }
         try:
             order_id = self.place_limit_order_validated(proposal, transmit=False, what_if=True)

@@ -19,6 +19,7 @@ import {
 import { notifyOrderRejected } from "@/lib/notifications/telegram-bot";
 import { isUsListedEquityOrderWindow } from "@/lib/trading/cycle-schedule";
 import { isUsPremarketSession } from "@/lib/trading/exchange-hours";
+import { buildIbkrStockProposalOrderFields } from "@/lib/investment/ibkr-stock-order-fields";
 import {
   getEquityStrategySession,
   isEuropeanEurEquityRegularSession,
@@ -285,6 +286,8 @@ export async function submitSupervisedLiveLimitOrder(args: {
   readonly currency?: "USD" | "EUR";
   readonly exchange?: string;
   readonly primaryExchange?: string;
+  readonly fractional?: boolean;
+  readonly cashQtyUsd?: number;
 }): Promise<SupervisedSubmitResult> {
   const crypto = isIbkrCryptoTicker(args.symbol);
   const symbol = crypto
@@ -395,13 +398,27 @@ export async function submitSupervisedLiveLimitOrder(args: {
       `ccy=${currency} primary=${primaryExchange ?? "—"} account=${account ?? "default"})…`,
   );
 
+  const stockQtyFields =
+    !crypto && !eu
+      ? buildIbkrStockProposalOrderFields({
+          side: args.side,
+          quantity: Number(args.quantity),
+          limitPrice: args.limitPrice,
+          currency: currency as "USD" | "EUR",
+          fractional: args.fractional,
+          cashQtyUsd: args.cashQtyUsd,
+        })
+      : { quantity: Number(args.quantity) };
+
   const createProposal = () =>
     ibkrServiceFetch<ProposalResponse>("/api/proposals", {
       method: "POST",
       body: JSON.stringify({
         symbol,
         side: args.side,
-        quantity: Number(args.quantity),
+        quantity: stockQtyFields.quantity,
+        fractional: stockQtyFields.fractional ?? false,
+        cash_qty_usd: stockQtyFields.cash_qty_usd,
         order_type: "LMT",
         limit_price: args.limitPrice,
         sec_type: crypto ? IBKR_CRYPTO_SEC_TYPE : "STK",
@@ -418,6 +435,7 @@ export async function submitSupervisedLiveLimitOrder(args: {
         bracket: Boolean(
           args.side === "BUY" &&
             !crypto &&
+            !stockQtyFields.fractional &&
             args.stopLoss &&
             args.stopLoss > 0 &&
             args.takeProfit &&

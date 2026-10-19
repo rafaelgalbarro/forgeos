@@ -356,6 +356,8 @@ class ProposalCreate(BaseModel):
     stop_loss: float | None = None
     take_profit: float | None = None
     bracket: bool = False
+    fractional: bool = False
+    cash_qty_usd: float | None = Field(default=None, gt=0)
 
 
 class DecisionRequest(BaseModel):
@@ -1739,6 +1741,96 @@ class IBKRClient(EWrapper, EClient):
         )
 
     @staticmethod
+    def _normalize_fractional_quantity(quantity: float, details) -> float:
+        IBKRClient._assert_fractional_order_allowed(quantity)
+        qty = Decimal(str(quantity))
+        step = Decimal("0.0001")
+        size_increment = getattr(details, "sizeIncrement", None) if details else None
+        if size_increment not in (None, ""):
+            inc = Decimal(str(size_increment))
+            if inc > 0:
+                step = max(step, inc)
+        normalized = (qty / step).to_integral_value(rounding=ROUND_DOWN) * step
+        if normalized <= 0:
+            raise RuntimeError("Cantidad fraccional inválida tras normalización")
+        return float(normalized)
+
+    @staticmethod
+    def _contract_allows_fractional(details, proposal: dict[str, Any]) -> bool:
+        if not bool(proposal.get("fractional")):
+            return True
+        if details is None:
+            return True
+        min_size = getattr(details, "minSize", None)
+        size_increment = getattr(details, "sizeIncrement", None)
+        if min_size not in (None, ""):
+            try:
+                if float(min_size) < 1:
+                    return True
+            except (TypeError, ValueError):
+                pass
+        if size_increment not in (None, ""):
+            try:
+                if float(size_increment) < 1:
+                    return True
+            except (TypeError, ValueError):
+                pass
+        return True
+
+    @staticmethod
+    def _apply_us_stock_order_size(
+        order: Order,
+        proposal: dict[str, Any],
+        normalized_qty: float,
+        normalized_price: float,
+        *,
+        leg: str = "parent",
+    ) -> dict[str, Any]:
+        ccy = str(proposal.get("currency") or "USD").upper()
+        if ccy == "EUR":
+            order.totalQuantity = float(max(1, int(normalized_qty)))
+            order.cashQty = 0.0
+            return {"mode": "whole_eur", "totalQuantity": order.totalQuantity, "cashQty": None}
+
+        fractional = bool(proposal.get("fractional"))
+        is_frac_qty = IBKRClient._is_fractional_share_qty(normalized_qty)
+        if not fractional and not is_frac_qty:
+            order.totalQuantity = float(max(1, int(normalized_qty)))
+            order.cashQty = 0.0
+            return {"mode": "whole", "totalQuantity": order.totalQuantity, "cashQty": None}
+
+        IBKRClient._assert_fractional_order_allowed(normalized_qty)
+        cash_raw = proposal.get("cash_qty_usd")
+        notional = (
+            float(cash_raw)
+            if cash_raw is not None and float(cash_raw) >= 25
+            else normalized_qty * normalized_price
+        )
+        if notional < 25:
+            raise RuntimeError(f"Fractional mínimo $25 — notional ${notional:.2f}")
+
+        side = str(proposal.get("side") or "").upper()
+        use_bracket = bool(proposal.get("bracket"))
+        if leg == "parent" and side == "BUY" and not use_bracket:
+            order.cashQty = float(round(notional, 2))
+            order.totalQuantity = 0
+            return {
+                "mode": "cashQty",
+                "totalQuantity": 0,
+                "cashQty": order.cashQty,
+                "shareQty": normalized_qty,
+            }
+
+        order.totalQuantity = float(normalized_qty)
+        order.cashQty = 0.0
+        return {
+            "mode": "shareQty",
+            "totalQuantity": order.totalQuantity,
+            "cashQty": None,
+            "shareQty": normalized_qty,
+        }
+
+    @staticmethod
     def _normalize_quantity(quantity: float, details) -> float:
         IBKRClient._assert_fractional_order_allowed(quantity)
         qty = Decimal(str(quantity))
@@ -1857,7 +1949,12 @@ class IBKRClient(EWrapper, EClient):
             if qualified is not None:
                 contract = qualified
             market_rules = self._resolve_market_rules(getattr(details, "marketRuleIds", "") or "")
-            normalized_qty = self._normalize_quantity(float(proposal["quantity"]), details)
+            if bool(proposal.get("fractional")):
+                if not self._contract_allows_fractional(details, proposal):
+                    raise RuntimeError(f"{contract.symbol}: contrato no admite fracciones")
+                normalized_qty = self._normalize_fractional_quantity(float(proposal["quantity"]), details)
+            else:
+                normalized_qty = self._normalize_quantity(float(proposal["quantity"]), details)
             normalized_price = self._normalize_price(float(proposal["limit_price"]), details, market_rules)
         else:
             # Already qualified via cache/conId or basic contract
@@ -1873,7 +1970,7 @@ class IBKRClient(EWrapper, EClient):
                 normalized_qty = qty
                 normalized_price = price
             else:
-                if IBKRClient._is_fractional_share_qty(qty):
+                if bool(proposal.get("fractional")) or IBKRClient._is_fractional_share_qty(qty):
                     IBKRClient._assert_fractional_order_allowed(qty)
                     normalized_qty = float(qty)
                 else:
@@ -1882,8 +1979,19 @@ class IBKRClient(EWrapper, EClient):
         order = Order()
         order.action = proposal["side"]
         order.orderType = "LMT"
-        order.totalQuantity = normalized_qty
         order.lmtPrice = normalized_price
+        size_meta = (
+            self._apply_us_stock_order_size(order, proposal, normalized_qty, normalized_price, leg="parent")
+            if sec_type == "STK" and req_ccy != "EUR"
+            else {
+                "mode": "default",
+                "totalQuantity": normalized_qty,
+                "cashQty": None,
+            }
+        )
+        if sec_type != "STK" or req_ccy == "EUR":
+            order.totalQuantity = normalized_qty if sec_type == "CRYPTO" else float(max(1, int(normalized_qty)))
+            order.cashQty = 0.0
         order.tif = "DAY"
         crypto = sec_type == "CRYPTO"
         order.outsideRth = True if crypto else (bool(proposal.get("outside_rth")) and settings.allow_outside_rth)
@@ -1909,7 +2017,11 @@ class IBKRClient(EWrapper, EClient):
             order.whatIf = True
             order.transmit = False
 
-        notional = normalized_qty * normalized_price
+        notional = (
+            float(order.cashQty)
+            if getattr(order, "cashQty", 0) and float(getattr(order, "cashQty", 0) or 0) > 0
+            else normalized_qty * normalized_price
+        )
         # Serialize allocate+placeOrder so two threads never share the same order id (IBKR 103).
         with self._order_id_lock:
             tp_id = sl_id = 0
@@ -1919,9 +2031,20 @@ class IBKRClient(EWrapper, EClient):
             else:
                 order_id = self._allocate_order_id()
             log.info(
-                "PLACING ORDER id=%s %s %s qty=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s bracket=%s",
-                order_id, order.action, contract.symbol, normalized_qty,
-                normalized_price, notional, order.transmit, what_if, account, order.outsideRth, use_bracket,
+                "PLACING ORDER id=%s %s %s qty=%s cashQty=%s mode=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s bracket=%s",
+                order_id,
+                order.action,
+                contract.symbol,
+                order.totalQuantity,
+                getattr(order, "cashQty", None),
+                size_meta.get("mode"),
+                normalized_price,
+                notional,
+                order.transmit,
+                what_if,
+                account,
+                order.outsideRth,
+                use_bracket,
             )
             self._log_buying_power(account)
 
@@ -1943,7 +2066,9 @@ class IBKRClient(EWrapper, EClient):
                     tp = Order()
                     tp.action = "SELL"
                     tp.orderType = "LMT"
-                    tp.totalQuantity = normalized_qty
+                    tp_meta = self._apply_us_stock_order_size(
+                        tp, proposal, normalized_qty, normalized_price, leg="child",
+                    )
                     tp.lmtPrice = float(take_profit)
                     tp.parentId = parent_id
                     tp.tif = "GTC"
@@ -1957,7 +2082,9 @@ class IBKRClient(EWrapper, EClient):
                     sl = Order()
                     sl.action = "SELL"
                     sl.orderType = "STP"
-                    sl.totalQuantity = normalized_qty
+                    sl_meta = self._apply_us_stock_order_size(
+                        sl, proposal, normalized_qty, normalized_price, leg="child",
+                    )
                     sl.auxPrice = float(stop_loss)
                     sl.parentId = parent_id
                     sl.tif = "GTC"
@@ -2477,11 +2604,21 @@ def evaluate_risk(p: ProposalCreate) -> list[dict[str, Any]]:
     symbols = set() if settings.live_trading_enabled else settings.csv_set(settings.allowed_symbols)
     currencies = settings.csv_set(settings.allowed_currencies)
     exchanges = settings.csv_set(settings.allowed_exchanges)
-    notional = p.quantity * p.limit_price
+    notional = (
+        float(p.cash_qty_usd)
+        if p.fractional and p.cash_qty_usd is not None and p.cash_qty_usd > 0
+        else p.quantity * p.limit_price
+    )
+    qty_ok = p.fractional or p.quantity <= settings.max_order_quantity
     symbol_detail: Any = "disabled (live_trading_enabled)" if settings.live_trading_enabled else sorted(symbols)
     checks = [
-        {"name": "quantity_limit", "passed": p.quantity <= settings.max_order_quantity, "detail": f"máximo {settings.max_order_quantity}"},
+        {"name": "quantity_limit", "passed": qty_ok, "detail": f"máximo {settings.max_order_quantity}" + (" (fractional)" if p.fractional else "")},
         {"name": "notional_limit", "passed": notional <= settings.max_order_notional, "detail": f"nominal {notional:.2f}; máximo {settings.max_order_notional:.2f}"},
+        {
+            "name": "fractional_minimum",
+            "passed": (not p.fractional) or notional >= 25,
+            "detail": "fractional min $25" if p.fractional else "n/a",
+        },
         {"name": "symbol_allowlist", "passed": not symbols or p.symbol.upper() in symbols, "detail": symbol_detail},
         {"name": "currency_allowlist", "passed": p.currency.upper() in currencies, "detail": sorted(currencies)},
         {"name": "exchange_allowlist", "passed": p.exchange.upper() in exchanges or (

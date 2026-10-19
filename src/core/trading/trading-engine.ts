@@ -1566,6 +1566,8 @@ export class TradingEngine {
         ticker: approved.ticker,
         direction: approved.direction,
         shares: approved.shares,
+        fractional: approved.fractional,
+        cashQtyUsd: approved.cashQtyUsd,
         orderType: approved.orderType,
         limitPrice: approved.limitPrice,
         outsideRth: approved.outsideRth,
@@ -3453,6 +3455,8 @@ export class TradingEngine {
       ticker,
       direction: signal.direction,
       shares: resolvedShares,
+      fractional: sized.fractional,
+      cashQtyUsd: sized.fractional ? sized.deployable : undefined,
       orderType: signal.suggestedOrderType || 'LMT',
       limitPrice,
       orderValueUSD,
@@ -3816,6 +3820,8 @@ export class TradingEngine {
     ticker: string
     direction: string
     shares: number
+    fractional?: boolean
+    cashQtyUsd?: number
     orderType: string
     limitPrice?: number
     outsideRth?: boolean
@@ -3916,8 +3922,10 @@ export class TradingEngine {
         outsideRth: isIbkrCryptoTicker(params.ticker) ? true : params.outsideRth ?? true,
         rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
         account,
-        stopLoss: side === 'BUY' ? params.stopLoss : undefined,
-        takeProfit: side === 'BUY' ? params.takeProfit : undefined,
+        fractional: params.fractional,
+        cashQtyUsd: params.cashQtyUsd,
+        stopLoss: side === 'BUY' && !params.fractional ? params.stopLoss : undefined,
+        takeProfit: side === 'BUY' && !params.fractional ? params.takeProfit : undefined,
         tif: side === 'BUY' && !isIbkrCryptoTicker(params.ticker) ? 'GTC' : 'DAY',
       })
       console.log(

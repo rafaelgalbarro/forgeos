@@ -43,6 +43,9 @@ export type PendingOrderRecord = {
   ticker: string
   direction: "BUY" | "SELL"
   shares: number
+  /** US fractional IBKR transmit (official TWS API >= 163). */
+  fractional?: boolean
+  cashQtyUsd?: number
   orderType: string
   limitPrice?: number
   orderValueUSD: number

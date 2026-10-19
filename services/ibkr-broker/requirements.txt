@@ -2,4 +2,7 @@ fastapi==0.116.1
 uvicorn[standard]==0.35.0
 pydantic==2.11.7
 pydantic-settings==2.10.1
+# PyPI ibapi is stale (9.81.x). Prefer official TWS API pythonclient:
+#   set IBKR_TWS_API_PYTHONPATH to e.g. C:\TWS API\source\pythonclient
+#   (download from IBKR Account Management → API). Broker error() accepts errorTime.
 ibapi==9.81.1.post1

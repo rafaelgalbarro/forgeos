@@ -24,6 +24,14 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
+**TWS API (recommended):** install the official IBKR `pythonclient` from the TWS API bundle and set `IBKR_TWS_API_PYTHONPATH` in `.env` (see `.env.example`). The PyPI `ibapi` package is an older snapshot; the official client adds `errorTime` on `error()` and current order fields (e.g. fractional trading). ForgeOS prepends that path before `pip install ibapi` when configured.
+
+Bracket what-if smoke (no transmit): from repo root with broker running and TWS connected:
+
+```powershell
+npx tsx scripts/ibkr-bracket-whatif.ts --account U24225949 --symbol BAC
+```
+
 Genera dos secretos diferentes:
 
 ```powershell

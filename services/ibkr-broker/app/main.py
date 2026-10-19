@@ -41,6 +41,13 @@ from ibapi.contract import Contract
 from ibapi.order import Order
 from ibapi.scanner import ScannerSubscription
 from ibapi.wrapper import EWrapper
+
+try:
+    from .order_ids import allocate_consecutive_order_ids
+    from .order_send_brakes import assert_order_send_allowed, record_place_no_ack
+except ImportError:  # pragma: no cover — uvicorn without package root
+    from order_ids import allocate_consecutive_order_ids
+    from order_send_brakes import assert_order_send_allowed, record_place_no_ack
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -112,15 +119,15 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def apply_whatif_legacy_attr_compat(order: Order) -> None:
-    """Scope-limited compat for FX What-If on legacy TWS/API combos.
-
-    Keeps legacy optional attrs effectively omitted on this specific order
-    path without patching global ibapi encoder behavior.
-    """
-    order.eTradeOnly = ""
-    order.firmQuoteOnly = ""
+def apply_order_legacy_attr_compat(order: Order) -> None:
+    """IBKR 10268: empty strings for eTradeOnly/firmQuoteOnly are rejected — use False."""
+    order.eTradeOnly = False
+    order.firmQuoteOnly = False
     order.nbboPriceCap = ""
+
+
+# Back-compat alias
+apply_whatif_legacy_attr_compat = apply_order_legacy_attr_compat
 
 
 def utcnow() -> datetime:
@@ -398,8 +405,30 @@ class IBKRClient(EWrapper, EClient):
         configured = settings.configured_account_ids()
         self.accounts = list(dict.fromkeys([*from_tws, *configured]))
 
-    def error(self, reqId, errorCode, errorString, advancedOrderRejectJson="") -> None:
-        entry = {"reqId": reqId, "code": errorCode, "message": errorString, "advanced": advancedOrderRejectJson}
+    def error(self, reqId, *args) -> None:
+        """PyPI ibapi (reqId, code, msg) vs official TWS API (reqId, errorTime, code, msg, advanced)."""
+        advancedOrderRejectJson = ""
+        errorTime: int | None = None
+        if len(args) >= 3 and isinstance(args[0], int) and isinstance(args[1], int) and isinstance(args[2], str):
+            errorTime = args[0]
+            errorCode = args[1]
+            errorString = args[2]
+            if len(args) >= 4:
+                advancedOrderRejectJson = str(args[3] or "")
+        elif len(args) >= 2:
+            errorCode = args[0]
+            errorString = args[1]
+            if len(args) >= 3:
+                advancedOrderRejectJson = str(args[2] or "")
+        else:
+            return
+        entry = {
+            "reqId": reqId,
+            "code": errorCode,
+            "message": errorString,
+            "advanced": advancedOrderRejectJson,
+            "errorTime": errorTime,
+        }
         self.errors.append(entry)
         code = int(errorCode) if errorCode is not None else 0
         # Always log order-related errors loudly
@@ -1718,6 +1747,11 @@ class IBKRClient(EWrapper, EClient):
     ) -> int:
         self._ensure_connected_for_contract_details()
         proposal = self._resolve_order_currency(proposal)
+        assert_order_send_allowed(
+            symbol=str(proposal.get("symbol") or ""),
+            transmit=transmit,
+            what_if=what_if,
+        )
         sec_type = str(proposal.get("sec_type") or "STK").upper().strip() or "STK"
         req_ccy = str(proposal.get("currency") or "").upper()
         is_eu = req_ccy == "EUR" and (
@@ -1803,14 +1837,22 @@ class IBKRClient(EWrapper, EClient):
         stop_loss = proposal.get("stop_loss")
         take_profit = proposal.get("take_profit")
         use_bracket = bool(proposal.get("bracket")) and stop_loss and take_profit and str(order.action).upper() == "BUY"
-        # Parent must not transmit until children attached
+        # Parent must not transmit until children attached (live only).
         if use_bracket and transmit and not what_if:
+            order.transmit = False
+        if use_bracket and what_if:
+            order.whatIf = True
             order.transmit = False
 
         notional = normalized_qty * normalized_price
         # Serialize allocate+placeOrder so two threads never share the same order id (IBKR 103).
         with self._order_id_lock:
-            order_id = self._allocate_order_id()
+            tp_id = sl_id = 0
+            if use_bracket:
+                parent_id, tp_id, sl_id = allocate_consecutive_order_ids(self, 3)
+                order_id = parent_id
+            else:
+                order_id = self._allocate_order_id()
             log.info(
                 "PLACING ORDER id=%s %s %s qty=%s lmt=%s notional=%.2f transmit=%s whatIf=%s acct=%s outsideRth=%s bracket=%s",
                 order_id, order.action, contract.symbol, normalized_qty,
@@ -1831,25 +1873,8 @@ class IBKRClient(EWrapper, EClient):
             }
             try:
                 self.placeOrder(order_id, contract, order)
-                if use_bracket and not what_if:
+                if use_bracket:
                     parent_id = order_id
-                    # Stop loss child (SELL STP)
-                    sl_id = self._allocate_order_id()
-                    sl = Order()
-                    sl.action = "SELL"
-                    sl.orderType = "STP"
-                    sl.totalQuantity = normalized_qty
-                    sl.auxPrice = float(stop_loss)
-                    sl.parentId = parent_id
-                    sl.tif = "GTC"
-                    # Premarket / extended: stop must be able to trigger outside RTH
-                    sl.outsideRth = bool(order.outsideRth)
-                    sl.transmit = False
-                    if account:
-                        sl.account = account
-                    self.placeOrder(sl_id, contract, sl)
-                    # Take profit child (SELL LMT) — transmits bracket
-                    tp_id = self._allocate_order_id()
                     tp = Order()
                     tp.action = "SELL"
                     tp.orderType = "LMT"
@@ -1858,13 +1883,39 @@ class IBKRClient(EWrapper, EClient):
                     tp.parentId = parent_id
                     tp.tif = "GTC"
                     tp.outsideRth = bool(order.outsideRth)
-                    tp.transmit = bool(transmit)
+                    tp.transmit = False
+                    tp.whatIf = what_if
                     if account:
                         tp.account = account
+                    apply_order_legacy_attr_compat(tp)
                     self.placeOrder(tp_id, contract, tp)
+                    sl = Order()
+                    sl.action = "SELL"
+                    sl.orderType = "STP"
+                    sl.totalQuantity = normalized_qty
+                    sl.auxPrice = float(stop_loss)
+                    sl.parentId = parent_id
+                    sl.tif = "GTC"
+                    sl.outsideRth = bool(order.outsideRth)
+                    sl.transmit = bool(transmit) and not what_if
+                    sl.whatIf = what_if
+                    if account:
+                        sl.account = account
+                    apply_order_legacy_attr_compat(sl)
+                    self.placeOrder(sl_id, contract, sl)
+                    self._last_bracket_ids = {
+                        "parent": parent_id,
+                        "takeProfit": tp_id,
+                        "stopLoss": sl_id,
+                    }
                     log.info(
-                        "BRACKET attached parent=%s SL=%s@%.4f TP=%s@%.4f",
-                        parent_id, sl_id, float(stop_loss), tp_id, float(take_profit),
+                        "BRACKET attached parent=%s TP=%s@%.4f SL=%s@%.4f transmit_last=%s",
+                        parent_id,
+                        tp_id,
+                        float(take_profit),
+                        sl_id,
+                        float(stop_loss),
+                        sl.transmit,
                     )
             except Exception as exc:
                 raise ConnectionError(f"placeOrder failed (socket): {exc}") from exc
@@ -1882,6 +1933,18 @@ class IBKRClient(EWrapper, EClient):
             raise ConnectionError(
                 f"IBKR disconnected during placeOrder: {errors[-1]['code']} {errors[-1]['message']}"
             )
+
+        if (
+            not what_if
+            and transmit
+            and status in IBKR_REJECTED_STATUSES
+            and str(status).upper() == "NO_ACK"
+        ):
+            record_place_no_ack(str(proposal.get("symbol") or contract.symbol))
+
+        if what_if:
+            self.order_context.pop(order_id, None)
+            return order_id
 
         # Reject codes + NO_ACK / Inactive / Cancelled — never return as success
         assert_place_ack_accepted(self, order_id)
@@ -2028,6 +2091,65 @@ class IBKRClient(EWrapper, EClient):
             "errors": errors,
         }
 
+    def probe_bracket_whatif(
+        self,
+        *,
+        account: str,
+        symbol: str,
+        quantity: float = 1.0,
+        limit_price: float | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+    ) -> dict[str, Any]:
+        """Bracket what-if (no transmit) — validates three distinct order ids + IBKR response."""
+        sym = (symbol or "BAC").upper().strip()
+        lmt = float(limit_price) if limit_price is not None else 40.0
+        sl = float(stop_loss) if stop_loss is not None else round(lmt * 0.98, 2)
+        tp = float(take_profit) if take_profit is not None else round(lmt * 1.06, 2)
+        proposal = {
+            "symbol": sym,
+            "side": "BUY",
+            "quantity": float(quantity),
+            "limit_price": lmt,
+            "sec_type": "STK",
+            "exchange": "SMART",
+            "currency": "USD",
+            "account": (account or "").strip(),
+            "bracket": True,
+            "stop_loss": sl,
+            "take_profit": tp,
+        }
+        try:
+            parent_id = self.place_limit_order_validated(proposal, transmit=False, what_if=True)
+        except Exception as exc:
+            return {
+                "ok": False,
+                "connected": self.isConnected(),
+                "error": str(exc),
+                "symbol": sym,
+                "account": proposal["account"],
+                "whatIf": True,
+            }
+        errors = self.place_ack_errors.get(parent_id, [])
+        status = self.place_ack_status.get(parent_id, "NO_ACK")
+        order_ids = getattr(self, "_last_bracket_ids", None) or {
+            "parent": parent_id,
+            "takeProfit": parent_id + 1,
+            "stopLoss": parent_id + 2,
+        }
+        id_vals = list(order_ids.values())
+        return {
+            "ok": True,
+            "whatIf": True,
+            "symbol": sym,
+            "account": proposal["account"],
+            "orderIds": order_ids,
+            "distinctIds": len(set(id_vals)) == 3,
+            "ibkrStatus": status,
+            "errors": errors,
+            "parentOrderId": parent_id,
+        }
+
     def place_forex_limit_order(
         self,
         pair: dict[str, Any],
@@ -2045,6 +2167,7 @@ class IBKRClient(EWrapper, EClient):
             from forex_pairs import build_cash_contract  # type: ignore
 
         self.ensure_connected()
+        assert_order_send_allowed(symbol=str(pair.get("symbol") or ""), transmit=transmit, what_if=False)
 
         contract = build_cash_contract(pair)
         details = None
@@ -2126,6 +2249,9 @@ class IBKRClient(EWrapper, EClient):
         log.info("FOREX PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))
         for err in errors:
             log.warning("  err code=%s: %s", err.get("code"), err.get("message"))
+
+        if transmit and status in IBKR_REJECTED_STATUSES and str(status).upper() == "NO_ACK":
+            record_place_no_ack(str(pair.get("symbol") or contract.symbol))
 
         assert_place_ack_accepted(self, order_id)
 
@@ -2526,6 +2652,38 @@ def crypto_permission_probe(body: CryptoPermissionProbeRequest):
         return result
     except Exception as exc:
         audit("CRYPTO_PERMISSION_PROBE_FAILED", body.account, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
+class BracketWhatIfProbeRequest(BaseModel):
+    account: str = Field(default="U24225949", min_length=1, max_length=32)
+    symbol: str = Field(default="BAC", min_length=1, max_length=12)
+    quantity: float = Field(default=1.0, gt=0)
+    limit_price: float | None = Field(default=None, gt=0)
+    stop_loss: float | None = Field(default=None, gt=0)
+    take_profit: float | None = Field(default=None, gt=0)
+
+
+@app.post("/api/ibkr/bracket-whatif-probe", dependencies=auth)
+def bracket_whatif_probe(body: BracketWhatIfProbeRequest):
+    """What-if bracket (BAC default) — never transmits; skips if TWS offline."""
+    if not ibkr.isConnected():
+        return {
+            "ok": False,
+            "skipped": True,
+            "reason": "TWS not connected",
+            "whatIf": True,
+        }
+    try:
+        return ibkr.probe_bracket_whatif(
+            account=body.account.strip(),
+            symbol=body.symbol.strip().upper(),
+            quantity=float(body.quantity),
+            limit_price=body.limit_price,
+            stop_loss=body.stop_loss,
+            take_profit=body.take_profit,
+        )
+    except Exception as exc:
         raise HTTPException(503, str(exc)) from exc
 
 

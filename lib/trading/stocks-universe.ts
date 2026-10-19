@@ -32,6 +32,8 @@ import {
   isEuropeanEurEquity,
 } from "@/lib/trading/europe-equities";
 import { loadStocksOpportunityScan } from "@/lib/trading/stocks/scan-store";
+import { inPlaySymbolSet } from "@/lib/trading/stocks-in-play/store";
+import { runnersSymbolSet } from "@/lib/trading/stocks-in-play/runners/store";
 
 /** Final tickers analyzed per stocks cycle. */
 export const MAX_STOCKS_CYCLE_TICKERS = 50;
@@ -190,6 +192,18 @@ export async function resolveStocksCycleUniverse(at: Date = new Date()): Promise
 
   const union = new Set<string>(seed.filter(isUsStockTicker));
   if (plan.includeUsRegular || plan.includeUsPremarketAnalysis) {
+    for (const sym of inPlaySymbolSet(at)) {
+      if (isUsStockTicker(sym) && !isEuropeanEurEquity(sym)) {
+        union.add(sym);
+        if (!changeBySymbol.has(sym)) changeBySymbol.set(sym, 0);
+      }
+    }
+    for (const sym of runnersSymbolSet(at)) {
+      if (isUsStockTicker(sym) && !isEuropeanEurEquity(sym)) {
+        union.add(sym);
+        if (!changeBySymbol.has(sym)) changeBySymbol.set(sym, 0);
+      }
+    }
     for (const row of screener) {
       if (isUsStockTicker(row.symbol) && !isEuropeanEurEquity(row.symbol)) {
         union.add(row.symbol);
@@ -201,7 +215,17 @@ export async function resolveStocksCycleUniverse(at: Date = new Date()): Promise
     if (!changeBySymbol.has(t)) changeBySymbol.set(t, 0);
   }
 
+  const inPlayN =
+    plan.includeUsRegular || plan.includeUsPremarketAnalysis
+      ? inPlaySymbolSet(at).size
+      : 0;
+  const runnersN =
+    plan.includeUsRegular || plan.includeUsPremarketAnalysis
+      ? runnersSymbolSet(at).size
+      : 0;
   const sourceParts = [
+    runnersN > 0 ? `runners-${runnersN}` : null,
+    inPlayN > 0 ? `in-play-${inPlayN}` : null,
     scanFresh ? "opp-scan" : null,
     euOpen ? "eu-eur" : null,
     plan.includeUsPremarketAnalysis ? "us-premarket" : null,
@@ -215,7 +239,11 @@ export async function resolveStocksCycleUniverse(at: Date = new Date()): Promise
     sourceParts.join("+") || `phase-${phase.toLowerCase()}`,
     screener.length + (scanFresh ? scan?.analyzed ?? 0 : 0),
     changeBySymbol,
-    scanPrefer.length ? scanPrefer : seed,
+    scanPrefer.length
+      ? scanPrefer
+      : inPlayN > 0 || runnersN > 0
+        ? [...inPlaySymbolSet(at), ...runnersSymbolSet(at), ...seed]
+        : seed,
   );
   return { ...result, universePlan: plan.label };
 }

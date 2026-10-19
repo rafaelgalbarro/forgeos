@@ -146,6 +146,58 @@ function equityScanWindowOpen() {
 let lastStocksScanAt = 0;
 const STOCKS_SCAN_INTERVAL_MS = 15 * 60 * 1000;
 
+let lastInPlayScanAt = 0;
+const IN_PLAY_SCAN_INTERVAL_MS = 30 * 60 * 1000;
+let lastInPlayMorningDay = "";
+
+function usEodhdWsWindowOpen() {
+  const ny = zonedMinutes("America/New_York");
+  if (ny.weekend) return false;
+  return ny.nowMinutes >= 4 * 60 && ny.nowMinutes < 20 * 60;
+}
+
+async function maybeRunStocksInPlayScan() {
+  if (!API_KEY) return;
+  const mad = madridParts();
+  if (mad.weekend) return;
+
+  const morningSlot =
+    mad.hour === 9 && mad.minute >= 30 && mad.minute < 35;
+  const dayKey = `${mad.weekday}-${new Date().toISOString().slice(0, 10)}`;
+  if (morningSlot && lastInPlayMorningDay !== dayKey) {
+    lastInPlayMorningDay = dayKey;
+    lastInPlayScanAt = Date.now();
+  } else if (!usEodhdWsWindowOpen()) {
+    return;
+  } else {
+    const now = Date.now();
+    if (now - lastInPlayScanAt < IN_PLAY_SCAN_INTERVAL_MS - 5_000) return;
+    lastInPlayScanAt = now;
+  }
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/trading/stocks/in-play`, {
+      method: "POST",
+      headers: {
+        "x-internal-api-key": API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ notifyTelegram: true }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const body = await res.text().catch(() => "");
+    console.log(
+      `[Scheduler] stocks/in-play HTTP ${res.status}:`,
+      body.slice(0, 180) || "ok",
+    );
+  } catch (err) {
+    console.warn(
+      "[Scheduler] stocks/in-play error:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
 async function maybeRunStocksOpportunityScan() {
   if (!API_KEY || !equityScanWindowOpen()) return;
   const now = Date.now();
@@ -169,6 +221,35 @@ async function maybeRunStocksOpportunityScan() {
   } catch (err) {
     console.warn(
       "[Scheduler] stocks/scan error:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+/** RUNNERS weekly simulation digest — Monday ~18:00 Madrid */
+let lastRunnersWeeklyKey = "";
+async function maybeSendRunnersWeeklyDigest() {
+  if (!API_KEY) return;
+  const { weekday, hour, minute, weekend } = madridParts();
+  if (weekend || weekday !== "mon") return;
+  if (!(hour === 18 && minute >= 0 && minute < 10)) return;
+  const weekKey = new Date().toISOString().slice(0, 10);
+  if (lastRunnersWeeklyKey === weekKey) return;
+  lastRunnersWeeklyKey = weekKey;
+  try {
+    const res = await fetch(`${BASE_URL}/api/trading/stocks/in-play`, {
+      method: "POST",
+      headers: {
+        "x-internal-api-key": API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ weeklyRunners: true }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    console.log(`[Scheduler] runners weekly HTTP ${res.status}`);
+  } catch (err) {
+    console.warn(
+      "[Scheduler] runners weekly error:",
       err instanceof Error ? err.message : String(err),
     );
   }
@@ -211,6 +292,8 @@ async function runCycle() {
     return;
   }
   try {
+    await maybeRunStocksInPlayScan();
+    await maybeSendRunnersWeeklyDigest();
     await maybeRunStocksOpportunityScan();
     await maybeSendStocksDigest();
 

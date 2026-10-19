@@ -26,6 +26,10 @@ import {
 import { isUsEodhdWsSession, isUsRegularSession } from "@/lib/trading/exchange-hours";
 import { isEuropeanEurEquity } from "@/lib/trading/europe-equities";
 import { listPendingPremarketShadowTickers } from "@/lib/trading/us-premarket";
+import { USA_EXECUTABLE_EQUITIES } from "@/lib/trading/usa-sectors";
+import { loadStocksInPlayList } from "@/lib/trading/stocks-in-play/store";
+import { loadStocksRunnersList } from "@/lib/trading/stocks-in-play/runners/store";
+import { composeEodhdWsSubscriptionList } from "@/lib/trading/stocks-in-play/ws-subscriptions";
 
 /** @deprecated use EODHD_WS_SUBSCRIBE_CAP — kept for tests */
 export const EODHD_WS_MAX_TICKERS = EODHD_WS_SUBSCRIBE_CAP;
@@ -291,22 +295,23 @@ function connectUsQuote(): void {
   };
 }
 
-/** Priority: pending premarket shadow marks, then cycle universe — US only, cap 45. */
+/** Priority: premarket pending → fixed US universe → in-play → cycle — US only, cap 45. */
 export function pickEodhdWsSubscriptionTickers(
   candidates: readonly string[],
   max: number = EODHD_WS_SUBSCRIBE_CAP,
 ): string[] {
-  const pending = listPendingPremarketShadowTickers();
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of [...pending, ...candidates]) {
-    const symbol = normalizeUsSymbol(raw);
-    if (!symbol || seen.has(symbol) || isEuropeanEurEquity(symbol)) continue;
-    seen.add(symbol);
-    out.push(symbol);
-    if (out.length >= max) break;
-  }
-  return out;
+  const inPlay =
+    loadStocksInPlayList()?.symbols.map((s) => s.symbol) ?? [];
+  const runners =
+    loadStocksRunnersList()?.symbols.map((s) => s.symbol) ?? [];
+  return composeEodhdWsSubscriptionList({
+    pendingPremarket: listPendingPremarketShadowTickers(),
+    fixedUniverse: USA_EXECUTABLE_EQUITIES,
+    inPlay,
+    cycleCandidates: candidates,
+    runners,
+    max,
+  });
 }
 
 export function updateEodhdWsSubscriptions(tickers: readonly string[]): string[] {

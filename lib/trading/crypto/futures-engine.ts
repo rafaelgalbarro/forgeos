@@ -84,7 +84,7 @@ let futuresStartedAt: string | null = null;
 let futuresLastCycle: string | null = null;
 let lastAvailableMargin = 0;
 let lastBalanceValue = 0;
-let lastMarginCurrency = "EUR";
+let lastMarginCurrency = "USD";
 let lastMarginFetchAt: string | null = null;
 let lastMarginAuthErrorAt: string | null = null;
 let marginEverFetched = false;
@@ -159,7 +159,12 @@ export async function startKrakenFuturesEngine(): Promise<void> {
     marginTimer = setInterval(() => {
       void refreshFuturesFlexMargin()
         .then(() => publishFuturesEngineState({ lastCycle: readFuturesEngineState()?.lastCycle ?? null }))
-        .catch(() => undefined);
+        .catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          if (isKrakenFuturesAuthError(message)) {
+            console.warn("[Kraken/Futures] auth error — periodic margin refresh failed:", message);
+          }
+        });
     }, 60_000);
     marginTimer.unref?.();
   }
@@ -422,6 +427,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     const message = err instanceof Error ? err.message : String(err);
     if (isKrakenFuturesAuthError(message)) {
       held.push("margin_auth_error");
+      console.warn("[Kraken/Futures] auth error — cycle margin unavailable:", message);
     }
   }
   const acct = {

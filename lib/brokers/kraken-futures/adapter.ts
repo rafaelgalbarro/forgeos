@@ -85,13 +85,37 @@ export type FuturesFeeSchedule = {
 
 const DEFAULT_MAKER = 0.0002;
 const DEFAULT_TAKER = 0.0005;
+const KRAKEN_SPOT_PUBLIC = "https://api.kraken.com";
+const DEFAULT_EUR_USD = 1.08;
 
 let instrumentCache: Map<string, FuturesInstrumentMeta> | null = null;
 let feeCache: FuturesFeeSchedule | null = null;
+let eurUsdCache: { rate: number; at: number } | null = null;
 
 function num(v: unknown): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Kraken private REST often returns `{ result: "success", accounts: {...}, serverTime }`
+ * with payload siblings of `result`, not inside it.
+ */
+export function unwrapKrakenFuturesPrivatePayload<T>(
+  body: ApiEnvelope<T> & Record<string, unknown>,
+): T {
+  const result = body.result;
+  if (result != null && typeof result === "object" && !Array.isArray(result)) {
+    return result as T;
+  }
+  const payload: Record<string, unknown> = { ...body };
+  delete payload.error;
+  delete payload.errors;
+  delete payload.serverTime;
+  if (typeof payload.result === "string" || payload.result == null) {
+    delete payload.result;
+  }
+  return payload as T;
 }
 
 /** Kraken /accounts returns `accounts` keyed by name (flex, cash, …), not an array. */
@@ -99,14 +123,14 @@ export function parseKrakenFuturesAccountsPayload(
   raw: Record<string, unknown>,
 ): FuturesAccount {
   const empty: FuturesAccount = {
-    currency: "EUR",
+    currency: "USD",
     balanceValue: 0,
     availableMargin: 0,
     initialMargin: 0,
     maintenanceMargin: 0,
     pnl: 0,
     unrealizedFunding: 0,
-    flexAccount: true,
+    flexAccount: false,
   };
 
   const accountsRaw = raw.accounts;
@@ -116,28 +140,24 @@ export function parseKrakenFuturesAccountsPayload(
     const keyed = accountsRaw as Record<string, Record<string, unknown>>;
     flex =
       keyed.flex ??
-      Object.values(keyed).find((a) => a?.type === "multiCollateralMarginAccount") ??
-      Object.values(keyed).find((a) => String(a?.currency ?? "").toUpperCase() === "EUR") ??
-      Object.values(keyed)[0];
-  } else {
-    const accounts = (accountsRaw as Record<string, unknown>[]) ?? [];
-    flex =
-      accounts.find((a) => a.type === "multiCollateralMarginAccount") ??
-      accounts.find((a) => String(a.currency ?? "").toUpperCase() === "EUR") ??
-      accounts[0];
+      Object.values(keyed).find((a) => a?.type === "multiCollateralMarginAccount");
+  } else if (Array.isArray(accountsRaw)) {
+    flex = accountsRaw.find(
+      (a) => (a as Record<string, unknown>).type === "multiCollateralMarginAccount",
+    ) as Record<string, unknown> | undefined;
   }
 
-  if (!flex) return empty;
+  if (!flex || flex.type !== "multiCollateralMarginAccount") return empty;
 
   return {
-    currency: String(flex.currency ?? "EUR"),
+    currency: "USD",
     balanceValue: num(flex.balanceValue ?? flex.portfolioValue ?? flex.collateralValue),
-    availableMargin: num(flex.availableMargin ?? flex.availableBalance),
+    availableMargin: num(flex.availableMargin),
     initialMargin: num(flex.initialMargin),
     maintenanceMargin: num(flex.maintenanceMargin),
     pnl: num(flex.pnl),
     unrealizedFunding: num(flex.unrealizedFunding),
-    flexAccount: flex.type === "multiCollateralMarginAccount",
+    flexAccount: true,
   };
 }
 
@@ -208,7 +228,7 @@ async function privateCall<T>(
     const msg = body.errors.map((e) => e.message ?? "error").join("; ");
     throw new Error(`Kraken Futures: ${msg}`);
   }
-  return (body.result ?? body) as T;
+  return unwrapKrakenFuturesPrivatePayload(body);
 }
 
 function parseInstrument(row: Record<string, unknown>): FuturesInstrumentMeta {
@@ -504,12 +524,44 @@ export class KrakenFuturesAdapter {
     await privateCall("POST", "/cancelallorders", p);
   }
 
-  /** Size in contracts for target notional (EUR treated ≈ USD for sizing). */
+  /** Spot EUR/USD mid for flex (USD) notional caps. */
+  async getEurUsdRate(): Promise<number> {
+    if (eurUsdCache && Date.now() - eurUsdCache.at < 60_000) {
+      return eurUsdCache.rate;
+    }
+    const envFx = Number(process.env.STOCKS_EUR_USD_FX ?? NaN);
+    let rate = Number.isFinite(envFx) && envFx > 0 ? envFx : DEFAULT_EUR_USD;
+    try {
+      const res = await fetch(
+        `${KRAKEN_SPOT_PUBLIC}/0/public/Ticker?pair=EURUSD`,
+        { cache: "no-store" },
+      );
+      if (res.ok) {
+        const json = (await res.json()) as {
+          result?: Record<string, { c?: string[]; a?: string[]; b?: string[] }>;
+        };
+        const row = json.result ? Object.values(json.result)[0] : undefined;
+        const bid = row?.b?.[0] ? Number(row.b[0]) : NaN;
+        const ask = row?.a?.[0] ? Number(row.a[0]) : NaN;
+        const last = row?.c?.[0] ? Number(row.c[0]) : NaN;
+        const mid =
+          bid > 0 && ask > 0 ? (bid + ask) / 2 : last > 0 ? last : bid > 0 ? bid : ask;
+        if (mid > 0) rate = mid;
+      }
+    } catch {
+      /* keep env/default */
+    }
+    eurUsdCache = { rate, at: Date.now() };
+    return rate;
+  }
+
+  /** Size in contracts for EUR notional cap (converted to USD at spot EUR/USD). */
   async sizeForNotionalEur(
     spotOrPf: string,
     notionalEur: number,
     price?: number,
   ): Promise<{ symbol: string; size: number; price: number } | null> {
+    const notionalUsd = notionalEur * (await this.getEurUsdRate());
     const pf =
       spotOrPf.toUpperCase().startsWith("PF_")
         ? spotOrPf.toUpperCase()
@@ -519,7 +571,7 @@ export class KrakenFuturesAdapter {
     if (!meta?.tradeable) return null;
     const px = price ?? (await this.getQuote(pf)).mid;
     if (!(px > 0)) return null;
-    const rawSize = notionalEur / (px * meta.contractSize);
+    const rawSize = notionalUsd / (px * meta.contractSize);
     const size = quantizeFuturesSize(rawSize, meta);
     if (!(size > 0)) return null;
     return { symbol: pf, size, price: px };

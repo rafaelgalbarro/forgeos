@@ -51,27 +51,44 @@ vi.mock("@/lib/trading/crypto/futures-config", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/trading/crypto/futures-backtest-gate", () => ({
+  futuresLiveGateForStrategy: () => ({ ok: true }),
+}));
+
+const mockSignal = {
+  strategyId: "RS_VS_BTC_1H" as const,
+  direction: "BUY" as const,
+  confidence: 0.8,
+  entry: 95_000,
+  stopLoss: 93_000,
+  takeProfit: 98_000,
+  expectedMovePct: 2,
+  maxHoldMs: 3600_000,
+  atr: 100,
+  stopLossPct: 0.02,
+  riskR: 100,
+  reasoning: "test",
+  candleTime: 1,
+};
+
+vi.mock("@/lib/trading/crypto/futures-strategy-eval", () => ({
+  evaluateFuturesStrategiesForPair: () => [mockSignal],
+}));
+
 vi.mock("@/lib/trading/crypto/strategies", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/lib/trading/crypto/strategies")>();
   return {
     ...actual,
-    evaluateAllStrategiesForPair: () => [
-      {
-        strategyId: "RS_VS_BTC_1H",
-        direction: "BUY" as const,
-        confidence: 0.8,
+    rankSignals: (sigs: Array<typeof mockSignal & { pair?: string }>) =>
+      sigs.map((s) => ({
+        ...s,
+        pair: s.pair ?? "XBTEUR",
         score: 90,
-        entry: 95_000,
-        stopLoss: 93_000,
-        takeProfit: 98_000,
-        expectedMovePct: 2,
         shadow: false,
+        spreadPct: 0.0005,
         signalKey: "XBTEUR|RS",
-        reasoning: "test",
-      },
-    ],
-    rankSignals: (sigs: unknown[]) => sigs,
+      })),
     strategyReliabilityMap: () => new Map(),
   };
 });

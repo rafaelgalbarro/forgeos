@@ -33,6 +33,24 @@ export const FAST_CRYPTO_STRATEGY_IDS = [
 
 export type FastCryptoStrategyId = (typeof FAST_CRYPTO_STRATEGY_IDS)[number];
 
+/** Native Kraken Futures short legs (not geometric mirror of longs). */
+export const FUTURES_SHORT_STRATEGY_IDS = [
+  "VWAP_BOUNCE_5M_SHORT",
+  "TREND_PULLBACK_1H_SHORT",
+  "LIQUIDITY_SWEEP_15M_SHORT",
+  "RS_VS_BTC_1H_SHORT",
+] as const;
+
+export type FuturesShortStrategyId = (typeof FUTURES_SHORT_STRATEGY_IDS)[number];
+
+export const FUTURES_SHORT_STRATEGY_SET: ReadonlySet<string> = new Set(
+  FUTURES_SHORT_STRATEGY_IDS,
+);
+
+export function isFuturesShortStrategy(id: string): boolean {
+  return FUTURES_SHORT_STRATEGY_SET.has(id);
+}
+
 export const FAST_CRYPTO_STRATEGY_SET: ReadonlySet<string> = new Set(
   FAST_CRYPTO_STRATEGY_IDS,
 );

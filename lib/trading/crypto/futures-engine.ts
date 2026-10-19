@@ -33,11 +33,10 @@ import {
 } from "@/lib/trading/crypto/journal-crypto";
 import { accrueFundingEur } from "@/lib/trading/crypto/futures-funding";
 import { getMarketRegime } from "@/lib/trading/crypto/regime";
-import {
-  evaluateAllStrategiesForPair,
-  rankSignals,
-  type RankedSignal,
-} from "@/lib/trading/crypto/strategies";
+import { rankSignals, type RankedSignal } from "@/lib/trading/crypto/strategies";
+import { evaluateFuturesStrategiesForPair } from "@/lib/trading/crypto/futures-strategy-eval";
+import { futuresLiveGateForStrategy } from "@/lib/trading/crypto/futures-backtest-gate";
+import { recordFuturesCycleMeta } from "@/lib/trading/crypto/futures-diagnostics";
 import { shadowSimQty } from "@/lib/trading/crypto/signal-guards";
 import { maxHoldMsForStrategy } from "@/lib/trading/crypto/reconcile";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
@@ -92,26 +91,6 @@ let exitTimer: ReturnType<typeof setInterval> | null = null;
 let backfillTimer: ReturnType<typeof setInterval> | null = null;
 let marginTimer: ReturnType<typeof setInterval> | null = null;
 let cycleBusy = false;
-
-function mirrorShortFromLong(sig: RankedSignal): RankedSignal | null {
-  if (!(sig.entry > 0) || !(sig.stopLoss > 0) || !(sig.takeProfit > 0)) return null;
-  const riskUp = sig.stopLoss - sig.entry;
-  const rewardDown = sig.entry - sig.takeProfit;
-  if (!(riskUp > 0) || !(rewardDown > 0)) return null;
-  const entry = sig.entry;
-  const stopLoss = entry + riskUp;
-  const takeProfit = entry - rewardDown;
-  return {
-    ...sig,
-    direction: "SELL",
-    entry,
-    stopLoss,
-    takeProfit,
-    strategyId: sig.strategyId,
-    signalKey: `${sig.signalKey ?? sig.pair}|SHORT`,
-    reasoning: `mirror short: ${sig.reasoning}`,
-  };
-}
 
 function liquidationDistancePct(
   side: "long" | "short",
@@ -444,20 +423,19 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   if (needBars.length) {
     await backfillFuturesUniverse(needBars, { delayMs: 120 }).catch(() => undefined);
   }
+  const feeRow = await adapter.getFees().catch(() => ({
+    makerPct: 0.0002,
+    takerPct: 0.0005,
+    source: "default" as const,
+  }));
   const collected: RankedSignal[] = [];
   for (const pair of pairs) {
-    const raw = evaluateAllStrategiesForPair(pair, {
+    const raw = evaluateFuturesStrategiesForPair(pair, {
       openGridLevels: 0,
-      isTop3Rs: false,
+      allPairs: pairs,
+      fees: { makerPct: feeRow.makerPct, takerPct: feeRow.takerPct },
     }).map((s) => ({ ...s, pair }));
-    const sigs = rankSignals(raw, strategyReliabilityMap());
-    collected.push(...sigs);
-    for (const s of sigs) {
-      if (s.direction === "BUY") {
-        const m = mirrorShortFromLong(s);
-        if (m) collected.push(m);
-      }
-    }
+    collected.push(...rankSignals(raw, strategyReliabilityMap()));
   }
 
   const bestByKey = new Map<string, RankedSignal>();
@@ -474,11 +452,6 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     (t) => t.venue === "futures" && t.open,
   ).length;
   const risk = canOpenFuturesPosition();
-  const fees = await adapter.getFees().catch(() => ({
-    makerPct: 0.0002,
-    takerPct: 0.0005,
-    source: "default" as const,
-  }));
   const shadowOn = futuresShadowMode() || acct.availableMargin <= 0;
 
   for (const sig of ranked.slice(0, 8)) {
@@ -487,11 +460,17 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
       held.push(`${sig.pair}:no_pf`);
       continue;
     }
+    const legDir = sig.direction === "SELL" ? "short" : "long";
+    const gate = futuresLiveGateForStrategy(sig.strategyId, legDir);
     const live =
       !shadowOn &&
       isFuturesStrategyLive(sig.strategyId) &&
+      gate.ok &&
       risk.ok &&
       openCount + executed.length < maxPos;
+    if (!shadowOn && isFuturesStrategyLive(sig.strategyId) && !gate.ok) {
+      held.push(`${sig.pair}:${sig.strategyId}:gate:${gate.reason ?? "blocked"}`);
+    }
 
     const notional = cryptoLiveMaxNotionalEur();
     const sizing = await adapter.sizeForNotionalEur(pf, notional, sig.entry);
@@ -517,7 +496,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
         exit: null,
         exitReason: null,
         grossPnlEur: null,
-        feesEur: notional * (fees.makerPct + fees.takerPct),
+        feesEur: notional * (feeRow.makerPct + feeRow.takerPct),
         netPnlEur: null,
         durationMs: null,
         mfePct: null,
@@ -564,7 +543,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
         exit: null,
         exitReason: null,
         grossPnlEur: null,
-        feesEur: notional * fees.makerPct,
+        feesEur: notional * feeRow.makerPct,
         netPnlEur: null,
         durationMs: null,
         mfePct: null,
@@ -606,6 +585,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     shadow: shadow.length,
   };
   publishFuturesEngineState({ lastCycle: lastCycleMeta });
+  recordFuturesCycleMeta({ signals: ranked.length });
   const authNote = lastMarginAuthErrorAt ? " auth error" : "";
   console.log(
     `[Kraken/Futures] cycle ${formatFuturesCycleMarginLog()} symbols=${pairs.length} ${dataAgeLog} signals=${ranked.length} orders=${executed.length} shadow=${shadow.length}${authNote}`,

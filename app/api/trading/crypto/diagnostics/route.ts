@@ -27,6 +27,15 @@ import { getFuturesDailyRisk } from "@/lib/trading/crypto/futures-daily-risk";
 import { isKrakenFuturesConfigured } from "@/lib/brokers/kraken-futures";
 import { checkFuturesEngineCycleAlarm } from "@/lib/trading/crypto/alarms";
 import { FUTURES_ENGINE_STATE_FILE } from "@/lib/trading/crypto/futures-engine-state";
+import {
+  FUTURES_DIAGNOSTICS_FILE,
+  futuresTopDiscardReasons,
+  loadFuturesDiagnostics,
+} from "@/lib/trading/crypto/futures-diagnostics";
+import {
+  futuresBacktestReportPath,
+  loadLatestFuturesBacktestReport,
+} from "@/lib/trading/crypto/futures-backtest-gate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -146,6 +155,11 @@ export async function GET() {
       stateFile: FUTURES_ENGINE_STATE_FILE,
       dailyRisk: getFuturesDailyRisk(),
       ws: getKrakenFuturesEngineStatus().ws,
+      diagnosticsFile: FUTURES_DIAGNOSTICS_FILE,
+      diagnostics: loadFuturesDiagnostics(),
+      topDiscardReasons: futuresTopDiscardReasons(16),
+      backtestReportPath: futuresBacktestReportPath(),
+      backtestReport: loadLatestFuturesBacktestReport(),
     },
   });
 }

@@ -36,6 +36,7 @@ import { applyStopDistanceCap } from "@/lib/trading/crypto/signal-guards";
 import {
   cryptoSignalKey,
   isFastCryptoStrategy,
+  isFuturesShortStrategy,
   strategyCostFilterMode,
   type CryptoStrategyId,
   type CryptoStrategySignal,
@@ -69,6 +70,13 @@ export {
 } from "./momentum-ignition-1m";
 export { evaluateCapitulationReversal1m } from "./capitulation-reversal-1m";
 export { evaluateVwapBounce5m } from "./vwap-bounce-5m";
+export {
+  bottomRsPairsVsBtc,
+  evaluateLiquiditySweep15mShort,
+  evaluateRsVsBtc1hShort,
+  evaluateTrendPullback1hShort,
+  evaluateVwapBounce5mShort,
+} from "./futures-short-strategies";
 
 /**
  * Round-trip cost fraction for cost filter.
@@ -76,16 +84,28 @@ export { evaluateVwapBounce5m } from "./vwap-bounce-5m";
  * - maker_taker (stop/time primary): maker+taker+spread → ~1.20% + spread
  * Live rates from TradeVolume cache (default 0.40%/0.80%).
  */
+export type CostFilterOpts = {
+  makerPct?: number;
+  takerPct?: number;
+  /** Allow native futures short (SELL) signals. */
+  allowFuturesShort?: boolean;
+};
+
 export function estimateRoundTripCostPct(
   spreadPct: number,
   strategyId?: string,
+  feeOpts?: Pick<CostFilterOpts, "makerPct" | "takerPct">,
 ): number {
-  const maker = getMakerFeePct();
-  const taker = getTakerFeePct();
+  const maker = feeOpts?.makerPct ?? getMakerFeePct();
+  const taker = feeOpts?.takerPct ?? getTakerFeePct();
   const spread = Math.max(0, spreadPct);
-  const mode = strategyId
-    ? strategyCostFilterMode(strategyId)
-    : "maker_taker";
+  const sid = strategyId ?? "";
+  const mode =
+    isFuturesShortStrategy(sid) && sid.startsWith("VWAP_BOUNCE")
+      ? "maker_maker"
+      : strategyId
+        ? strategyCostFilterMode(strategyId)
+        : "maker_taker";
   if (mode === "maker_maker") {
     return maker + maker + spread;
   }
@@ -106,15 +126,25 @@ export const FAST_MAX_SPREAD_PCT = 0.001; // 0.1%
 export function passesCostFilter(
   signal: CryptoStrategySignal,
   spreadPct: number,
+  opts?: CostFilterOpts,
 ): boolean {
-  if (signal.direction !== "BUY") return false;
-  if (isFastCryptoStrategy(signal.strategyId)) {
+  const shortOk =
+    opts?.allowFuturesShort &&
+    signal.direction === "SELL" &&
+    isFuturesShortStrategy(signal.strategyId);
+  if (signal.direction !== "BUY" && !shortOk) return false;
+  const feeOpts = { makerPct: opts?.makerPct, takerPct: opts?.takerPct };
+  const fastLike =
+    isFastCryptoStrategy(signal.strategyId) ||
+    (isFuturesShortStrategy(signal.strategyId) &&
+      signal.strategyId.startsWith("VWAP_BOUNCE"));
+  if (fastLike) {
     // Spread is a hard gate; fee RT uses live maker+maker.
     if (spreadPct >= FAST_MAX_SPREAD_PCT) return false;
-    const feeCost = estimateFastRoundTripCostPct(0);
+    const feeCost = estimateRoundTripCostPct(0, signal.strategyId, feeOpts);
     return signal.expectedMovePct + 1e-12 >= feeCost * 3;
   }
-  const cost = estimateRoundTripCostPct(spreadPct, signal.strategyId);
+  const cost = estimateRoundTripCostPct(spreadPct, signal.strategyId, feeOpts);
   return signal.expectedMovePct + 1e-12 >= cost * 3;
 }
 

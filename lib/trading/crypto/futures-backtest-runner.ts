@@ -1,6 +1,6 @@
 /**
  * Full Kraken Futures backtest — all strategies + mirrored shorts.
- * Exit params tuned on IS (20d), validated OOS (10d). Futures fees + funding.
+ * Exit params tuned on IS (50d), validated OOS (25d). PF_XBTUSD + PF_ETHUSD.
  */
 
 import type { Bar } from "@/lib/brokers/kraken/market-store";
@@ -28,8 +28,27 @@ import {
 } from "@/lib/trading/crypto/strategies/momentum-ignition-1m";
 import { evaluateCapitulationReversal1m } from "@/lib/trading/crypto/strategies/capitulation-reversal-1m";
 import { evaluateVwapBounce5m } from "@/lib/trading/crypto/strategies/vwap-bounce-5m";
+import {
+  bottomRsPairsVsBtc,
+  evaluateLiquiditySweep15mShort,
+  evaluateRsVsBtc1hShort,
+  evaluateTrendPullback1hShort,
+  evaluateVwapBounce5mShort,
+} from "@/lib/trading/crypto/strategies/futures-short-strategies";
 import { applyStopDistanceCap } from "@/lib/trading/crypto/signal-guards";
 import { passesCostFilter } from "@/lib/trading/crypto/strategies/index";
+import {
+  FUTURES_SHORT_STRATEGY_IDS,
+  isFuturesShortStrategy,
+} from "@/lib/trading/crypto/strategies/types";
+import {
+  evaluateOosLiveEligibility,
+  gateKey,
+  persistFuturesBacktestReport,
+  profitFactorFromNetPcts,
+  type FuturesBacktestGateRow,
+  type FuturesBacktestReport,
+} from "@/lib/trading/crypto/futures-backtest-gate";
 import {
   compoundMaxDrawdownPct,
   findLimitBuyFill,
@@ -60,8 +79,13 @@ export type FuturesBtTrade = {
 
 export type ExitTune = { stopMult: number; tpMult: number };
 
-const IS_DAYS = 20;
-const TOTAL_DAYS = 30;
+/** IS tuning window — OOS is held out (no param optimization on OOS). */
+export const FUTURES_BT_IS_DAYS = 50;
+export const FUTURES_BT_TOTAL_DAYS = 75;
+const IS_DAYS = FUTURES_BT_IS_DAYS;
+const TOTAL_DAYS = FUTURES_BT_TOTAL_DAYS;
+
+export const FUTURES_BT_SPOT_PAIRS = ["XBTEUR", "ETHEUR"] as const;
 const EXIT_GRID: ExitTune[] = [];
 for (const stopMult of [0.85, 1, 1.15]) {
   for (const tpMult of [0.9, 1, 1.25]) {
@@ -147,18 +171,20 @@ function applyExitTune(
   };
 }
 
-function mirrorShort(sig: CryptoStrategySignal): CryptoStrategySignal | null {
-  if (!(sig.entry > 0) || !(sig.stopLoss > 0) || !(sig.takeProfit > 0)) return null;
-  const up = sig.stopLoss - sig.entry;
-  const down = sig.entry - sig.takeProfit;
-  if (!(up > 0) || !(down > 0)) return null;
-  return {
-    ...sig,
-    direction: "SELL",
-    stopLoss: sig.entry + up,
-    takeProfit: sig.entry - down,
-    reasoning: `mirror: ${sig.reasoning}`,
-  };
+function evalShortSignals(
+  w15: Bar[],
+  w5: Bar[],
+  w1h: Bar[],
+  wBtc: Bar[],
+  bottomRs: boolean,
+  regime: "ALCISTA" | "LATERAL" | "BAJISTA",
+): CryptoStrategySignal[] {
+  return [
+    evaluateVwapBounce5mShort(w5.length ? w5 : w15, w1h),
+    evaluateTrendPullback1hShort(w1h),
+    evaluateLiquiditySweep15mShort(w15),
+    evaluateRsVsBtc1hShort(w15, w1h, wBtc, regime, { isBottom3Rs: bottomRs }),
+  ];
 }
 
 function sampleForIndex(i: number, start: number, end: number): "IS" | "OOS" {
@@ -271,8 +297,9 @@ function runBarFutures(params: {
   taker: number;
   fundingSeries: { time: number; rate: number }[];
   signals: CryptoStrategySignal[];
-  mirrorShorts: boolean;
   sampleOverride?: "IS" | "OOS";
+  feeMaker: number;
+  feeTaker: number;
 }): FuturesBtTrade[] {
   const out: FuturesBtTrade[] = [];
   const liq = liquidityBucket(params.volEur);
@@ -283,15 +310,22 @@ function runBarFutures(params: {
     const legs: Array<{ sig: CryptoStrategySignal; direction: "long" | "short" }> = [];
     if (sig.direction === "BUY") {
       legs.push({ sig, direction: "long" });
-      if (params.mirrorShorts) {
-        const m = mirrorShort(sig);
-        if (m) legs.push({ sig: m, direction: "short" });
-      }
+    } else if (sig.direction === "SELL" && isFuturesShortStrategy(sig.strategyId)) {
+      legs.push({ sig, direction: "short" });
     } else continue;
 
+    const spread = params.barMinutes <= 1 ? 0.0005 : 0.001;
     for (const leg of legs) {
       if (applyStopDistanceCap(leg.sig) === null) continue;
-      if (!passesCostFilter(leg.sig, params.barMinutes <= 1 ? 0.0005 : 0.001)) continue;
+      const costOk =
+        leg.direction === "long"
+          ? passesCostFilter(leg.sig, spread)
+          : passesCostFilter(leg.sig, spread, {
+              allowFuturesShort: true,
+              makerPct: params.feeMaker,
+              takerPct: params.feeTaker,
+            });
+      if (!costOk) continue;
 
       let entryBarIndex: number;
       let entryPrice: number;
@@ -371,12 +405,14 @@ export async function optimizeExitTunes(
   >,
   btc1h: Bar[],
   topRs: Set<string>,
+  bottomRs: Set<string>,
   top5: Set<string>,
   maker: number,
   taker: number,
 ): Promise<Record<string, ExitTune>> {
   const tunes: Record<string, ExitTune> = {};
-  for (const id of ALL_CRYPTO_STRATEGY_IDS) {
+  const tuneIds = [...ALL_CRYPTO_STRATEGY_IDS, ...FUTURES_SHORT_STRATEGY_IDS];
+  for (const id of tuneIds) {
     let best: ExitTune = { stopMult: 1, tpMult: 1 };
     let bestScore = -Infinity;
     for (const tune of EXIT_GRID) {
@@ -386,14 +422,23 @@ export async function optimizeExitTunes(
         for (let i = start15; i < data.b15.length - 3; i++) {
           if (sampleForIndex(i, start15, data.b15.length) !== "IS") continue;
           const t15 = data.b15[i]!.time;
-          const sigs = evalSignals(
+          const sigs15 = evalSignals(
             pair,
             sliceBars(data.b15, i, 150),
             windowEndingAt(data.b5, t15, 80),
             windowEndingAt(data.b1h, t15, 220),
             windowEndingAt(btc1h, t15, 220),
             topRs.has(pair),
-          ).filter((s) => s.strategyId === id);
+          );
+          const shortSigs = evalShortSignals(
+            sliceBars(data.b15, i, 150),
+            windowEndingAt(data.b5, t15, 80),
+            windowEndingAt(data.b1h, t15, 220),
+            windowEndingAt(btc1h, t15, 220),
+            bottomRs.has(pair),
+            "LATERAL",
+          );
+          const sigs = [...sigs15, ...shortSigs].filter((s) => s.strategyId === id);
           trades.push(
             ...runBarFutures({
               pair,
@@ -409,7 +454,8 @@ export async function optimizeExitTunes(
               taker,
               fundingSeries: data.funding,
               signals: sigs,
-              mirrorShorts: true,
+              feeMaker: maker,
+              feeTaker: taker,
               sampleOverride: "IS",
             }),
           );
@@ -439,7 +485,8 @@ export async function optimizeExitTunes(
               taker,
               fundingSeries: data.funding,
               signals: sigs,
-              mirrorShorts: true,
+              feeMaker: maker,
+              feeTaker: taker,
               sampleOverride: "IS",
             }),
           );
@@ -463,22 +510,15 @@ export async function runFullFuturesBacktest(): Promise<{
   maker: number;
   taker: number;
   markdown: string;
+  report: FuturesBacktestReport;
+  reportPath: string;
 }> {
   const adapter = getKrakenFuturesAdapter();
   const feeRow = await adapter.getFees().catch(() => null);
   const maker = getFuturesBacktestMakerFee(feeRow?.makerPct);
   const taker = getFuturesBacktestTakerFee(feeRow?.takerPct);
 
-  const pairs = [
-    "XBTEUR",
-    "ETHEUR",
-    "SOLEUR",
-    "ADAEUR",
-    "DOTEUR",
-    "LINKEUR",
-    "AVAXEUR",
-    "LTCEUR",
-  ];
+  const pairs = [...FUTURES_BT_SPOT_PAIRS];
   const btc1h = await fetchKrakenSpotOhlc("XBTEUR", 60);
   const pairData = new Map<
     string,
@@ -502,11 +542,22 @@ export async function runFullFuturesBacktest(): Promise<{
   const topRs = new Set(
     topRsPairsVsBtc([...pairData.keys()], (p) => pairData.get(p)!.b1h, btc1h, 3),
   );
+  const bottomRs = new Set(
+    bottomRsPairsVsBtc([...pairData.keys()], (p) => pairData.get(p)!.b1h, btc1h, 3),
+  );
   const top5 = new Set(
     topGainerPairs1h([...pairData.keys()], (p) => pairData.get(p)!.b1h, 5),
   );
 
-  const tunes = await optimizeExitTunes(pairData, btc1h, topRs, top5, maker, taker);
+  const tunes = await optimizeExitTunes(
+    pairData,
+    btc1h,
+    topRs,
+    bottomRs,
+    top5,
+    maker,
+    taker,
+  );
   const trades: FuturesBtTrade[] = [];
 
   for (const [pair, data] of pairData) {
@@ -514,14 +565,24 @@ export async function runFullFuturesBacktest(): Promise<{
     const start15 = Math.max(120, data.b15.length - TOTAL_DAYS * 96);
     for (let i = start15; i < data.b15.length - 3; i++) {
       const t15 = data.b15[i]!.time;
-      const sigs = evalSignals(
-        pair,
-        sliceBars(data.b15, i, 150),
-        windowEndingAt(data.b5, t15, 80),
-        windowEndingAt(data.b1h, t15, 220),
-        windowEndingAt(btc1h, t15, 220),
-        topRs.has(pair),
-      );
+      const sigs = [
+        ...evalSignals(
+          pair,
+          sliceBars(data.b15, i, 150),
+          windowEndingAt(data.b5, t15, 80),
+          windowEndingAt(data.b1h, t15, 220),
+          windowEndingAt(btc1h, t15, 220),
+          topRs.has(pair),
+        ),
+        ...evalShortSignals(
+          sliceBars(data.b15, i, 150),
+          windowEndingAt(data.b5, t15, 80),
+          windowEndingAt(data.b1h, t15, 220),
+          windowEndingAt(btc1h, t15, 220),
+          bottomRs.has(pair),
+          "LATERAL",
+        ),
+      ];
       for (const sig of sigs) {
         const tune = tunes[sig.strategyId] ?? tuneDefault;
         trades.push(
@@ -539,7 +600,8 @@ export async function runFullFuturesBacktest(): Promise<{
             taker,
             fundingSeries: data.funding,
             signals: [sig],
-            mirrorShorts: true,
+            feeMaker: maker,
+            feeTaker: taker,
           }),
         );
       }
@@ -570,7 +632,8 @@ export async function runFullFuturesBacktest(): Promise<{
             taker,
             fundingSeries: data.funding,
             signals: [sig],
-            mirrorShorts: true,
+            feeMaker: maker,
+            feeTaker: taker,
           }),
         );
       }
@@ -621,10 +684,100 @@ export async function runFullFuturesBacktest(): Promise<{
   }
 
   lines.push("", "## Exit params chosen (IS)", "");
-  for (const id of ALL_CRYPTO_STRATEGY_IDS) {
+  for (const id of [...ALL_CRYPTO_STRATEGY_IDS, ...FUTURES_SHORT_STRATEGY_IDS]) {
     const t = tunes[id] ?? { stopMult: 1, tpMult: 1 };
     lines.push(`- ${id}: stop×${t.stopMult} tp×${t.tpMult}`);
   }
+
+  const gateRows: FuturesBacktestGateRow[] = [];
+  const gates: FuturesBacktestReport["gates"] = {};
+  for (const pair of pairs) {
+    const pf = spotPairToPfSymbol(pair) ?? pair;
+    for (const direction of ["long", "short"] as const) {
+      const ids =
+        direction === "long"
+          ? [...ALL_CRYPTO_STRATEGY_IDS]
+          : [...FUTURES_SHORT_STRATEGY_IDS];
+      for (const strategyId of ids) {
+        const oosTrades = trades.filter(
+          (t) =>
+            t.pair === pair &&
+            t.sample === "OOS" &&
+            t.direction === direction &&
+            t.strategy === strategyId,
+        );
+        const nets = oosTrades.map((t) => t.netPct);
+        const meanNetPct =
+          nets.length > 0 ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
+        const pfVal = profitFactorFromNetPcts(nets);
+        const elig = evaluateOosLiveEligibility({
+          oosTrades: nets.length,
+          meanNetPct,
+          profitFactor: pfVal,
+        });
+        gateRows.push({
+          strategyId,
+          direction,
+          pair: pf,
+          oosTrades: nets.length,
+          meanNetPct,
+          profitFactor: pfVal,
+          zeroReason: nets.length === 0 ? "no_trades_oos" : undefined,
+          liveEligible: elig.eligible,
+          ineligibleReason: elig.eligible ? undefined : elig.reason,
+        });
+      }
+    }
+  }
+  for (const direction of ["long", "short"] as const) {
+    const ids =
+      direction === "long"
+        ? [...ALL_CRYPTO_STRATEGY_IDS]
+        : [...FUTURES_SHORT_STRATEGY_IDS];
+    for (const strategyId of ids) {
+      const nets = trades
+        .filter(
+          (t) =>
+            t.sample === "OOS" &&
+            t.direction === direction &&
+            t.strategy === strategyId,
+        )
+        .map((t) => t.netPct);
+      const meanNetPct =
+        nets.length > 0 ? nets.reduce((a, b) => a + b, 0) / nets.length : 0;
+      const pfVal = profitFactorFromNetPcts(nets);
+      const elig = evaluateOosLiveEligibility({
+        oosTrades: nets.length,
+        meanNetPct,
+        profitFactor: pfVal,
+      });
+      gates[gateKey(strategyId, direction)] = {
+        eligible: elig.eligible,
+        reason: elig.reason,
+      };
+    }
+  }
+
+  lines.push("", "## OOS live gate (≥20 trades, mean net > 0, PF > 1.2)", "");
+  lines.push("| PF | Strategy | Dir | OOS N | Mean net% | PF | Eligible | Reason |");
+  lines.push("| --- | --- | --- | ---: | ---: | ---: | --- | --- |");
+  for (const row of gateRows) {
+    lines.push(
+      `| ${row.pair} | ${row.strategyId} | ${row.direction} | ${row.oosTrades} | ${row.meanNetPct.toFixed(3)} | ${row.profitFactor.toFixed(2)} | ${row.liveEligible ? "yes" : "no"} | ${row.ineligibleReason ?? row.zeroReason ?? "—"} |`,
+    );
+  }
+
+  const report: FuturesBacktestReport = {
+    generatedAt: new Date().toISOString(),
+    isDays: IS_DAYS,
+    oosDays: TOTAL_DAYS - IS_DAYS,
+    pairs: pairs.map((p) => spotPairToPfSymbol(p) ?? p),
+    fees: { makerPct: maker, takerPct: taker },
+    rows: gateRows,
+    gates,
+  };
+  const reportPath = persistFuturesBacktestReport(report);
+  lines.push("", `Persisted gate report: ${reportPath}`);
 
   return {
     trades,
@@ -632,5 +785,7 @@ export async function runFullFuturesBacktest(): Promise<{
     maker,
     taker,
     markdown: lines.join("\n"),
+    report,
+    reportPath,
   };
 }

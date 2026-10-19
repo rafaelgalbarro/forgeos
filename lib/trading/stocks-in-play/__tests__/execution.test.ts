@@ -10,6 +10,10 @@ vi.mock("@/lib/trading/journal/trades", () => ({
   readJournalTrades: () => [],
 }));
 
+vi.mock("@/lib/trading/stocks-in-play/runners/store", () => ({
+  isStocksRunnerTicker: () => false,
+}));
+
 vi.mock("@/lib/trading/stocks-in-play/config", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@/lib/trading/stocks-in-play/config")>();
   return {
@@ -28,19 +32,26 @@ describe("in-play execution caps", () => {
 
   it("cost filter requires 3× round-trip coverage", () => {
     const ok = passesInPlayCostFilter({
-      entry: 20,
-      target: 21.5,
+      entry: 100,
+      target: 107,
       qty: 1,
       spreadPct: 0.1,
     });
     expect(ok.ok).toBe(true);
+    const tight = passesInPlayCostFilter({
+      entry: 100,
+      target: 105,
+      qty: 1,
+      spreadPct: 0.1,
+    });
+    expect(tight.ok).toBe(false);
   });
 
   it("shadow mode never returns live_ok", () => {
     const d = decideInPlayOrder({
       ticker: "PLAY",
       entry: 20,
-      target: 24,
+      target: 27,
       stopLoss: 19,
       shares: 1,
       spreadPct: 0.1,

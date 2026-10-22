@@ -269,7 +269,13 @@ def _init_loop():
         print("init=%s err=%s" % (ok, STATE["last_error"]), flush=True)
         if ok:
             break
-        time.sleep(30)
+        # A failed initialize can leave a terminal64.exe behind; never let them pile up.
+        try:
+            mt5.shutdown()
+            os.system("taskkill /F /IM terminal64.exe >NUL 2>&1")
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(90)
 
 
 if __name__ == "__main__":

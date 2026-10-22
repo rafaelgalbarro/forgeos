@@ -1,0 +1,36 @@
+
+=== KRAKEN FUTURES: diagnóstico de estrategias ===
+venue= futures shadow= False apalancamiento= 1 estrategias live= ['RS_VS_BTC_1H_SHORT', 'TREND_PULLBACK_1H_SHORT']
+margen= 56.1045 último ciclo= 2026-10-22T10:21:40.743Z lastCycle= None
+riesgo diario= {'dayKey': '2026-10-22', 'dayStartCapital': 56.1655, 'dayPnl': -0.06099999999999994, 'exitsOnly': False, 'dailyLimitHit': False}
+diagnóstico actualizado= 2026-10-22T10:21:40.744Z último ciclo= 2026-10-22T10:21:40.744Z
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=46978  señales=0    casi=46978 | 30147×insuficientes barras; 16170×sin sweep de liquidez arriba; 661×vol n/a<1.5x
+  RS_VS_BTC_1H_SHORT           short intentos=46978  señales=3265 casi=43713 | 36224×no bottom-3 RS vs BTC; 5542×RS no negativo 1h+4h; 1125×insuficientes barras
+  TREND_PULLBACK_1H_SHORT      short intentos=46978  señales=0    casi=46978 | 42807×insuficientes barras 1h; 3481×EMA20>=EMA50 1h; 659×no en EMA20
+  VWAP_BOUNCE_5M_SHORT         short intentos=46978  señales=0    casi=46978 | 34840×insuficientes barras; 11448×1h no bajista; 672×sin touch+reject VWAP arriba
+puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
+
+=== KRAKEN FUTURES: /instruments (público) ===
+result= success filas= 231 claves= ['result', 'instruments', 'serverTime']
+PF_* = 209 ejemplos de símbolo: ['PF_XBTUSD', 'PF_ETHUSD', 'PF_ADAUSD', 'PF_XRPUSD', 'PF_SOLUSD']
+PF_ETHUSD {'symbol': 'PF_ETHUSD', 'tradeable': True, 'tickSize': 0.1, 'contractSize': 1, 'contractValueTradePrecision': 3, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contractSize': 1, 'contractValueTradePrecision': 2, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+
+=== KRAKEN FUTURES: últimas líneas del motor ===
+2026-10-22 10:19:59 +00:00: [Kraken/Futures] cycle margin=56.1095 symbols=16 dataAge 5m=2s px=2s btc60=2s btcPx=2s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:below_min_contract(min=0.01 ≈ 11.18€ > cap 10.00€) | PF_ZROUSD:RS_VS_BTC_1H_SHORT:ERR(Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:19:59.336Z"}) | PF_LTCUSD:RS_VS_BTC_1H_SHORT:ERR(Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:19:59.462Z"})]
+2026-10-22 10:20:59 +00:00: [Kraken/Futures] cycle margin=56.1075 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:below_min_contract(min=0.01 ≈ 11.19€ > cap 10.00€) | PF_ZROUSD:RS_VS_BTC_1H_SHORT:ERR(Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:20:59.402Z"}) | PF_LTCUSD:RS_VS_BTC_1H_SHORT:ERR(Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:20:59.555Z"})]
+2026-10-22 10:21:40 +00:00: [Kraken/Futures] cycle margin=56.1045 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=1 shadow=2
+--- errores de órdenes
+2026-10-22 10:17:59 +00:00: [Kraken/Futures] order error PF_ZROUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:17:59.297Z"}
+2026-10-22 10:17:59 +00:00: [Kraken/Futures] order error PF_LTCUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:17:59.415Z"}
+2026-10-22 10:18:59 +00:00: [Kraken/Futures] order error PF_ZROUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:18:59.3Z"}
+2026-10-22 10:18:59 +00:00: [Kraken/Futures] order error PF_LTCUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:18:59.405Z"}
+2026-10-22 10:19:59 +00:00: [Kraken/Futures] order error PF_ZROUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:19:59.336Z"}
+2026-10-22 10:19:59 +00:00: [Kraken/Futures] order error PF_LTCUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:19:59.462Z"}
+2026-10-22 10:20:59 +00:00: [Kraken/Futures] order error PF_ZROUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:20:59.402Z"}
+2026-10-22 10:20:59 +00:00: [Kraken/Futures] order error PF_LTCUSD RS_VS_BTC_1H_SHORT: Kraken Futures private HTTP 404: {"status":"NOT_FOUND","result":"error","errors":[{"code":0,"message":"404 NOT_FOUND"}],"serverTime":"2026-10-22T10:20:59.555Z"}
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

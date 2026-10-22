@@ -6,23 +6,25 @@ C=mt5
 until docker inspect -f '{{.State.Running}}' "$C" 2>/dev/null | grep -q true; do echo "esperando contenedor $C…"; sleep 10; done
 U="$(docker exec "$C" stat -c %u /config/.wine 2>/dev/null || echo 0)"
 dx() { docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" "$C" "$@"; }
-find_py64() {
-  dx sh -c 'find /config/.wine/drive_c -iname python.exe 2>/dev/null | grep -vi -e scripts -e "(x86)" -e "-32" -e venv | head -1'
-}
-PY="$(find_py64)"
-if [ -z "$PY" ]; then
-  echo "instalando Python 3.9 de 64 bits en Wine…"
-  dx sh -c 'cd /tmp && curl -sSLo py64.exe https://www.python.org/ftp/python/3.9.13/python-3.9.13-amd64.exe && wine py64.exe /quiet InstallAllUsers=1 PrependPath=0 Include_test=0 TargetDir="C:\\Python39-64"' || true
-  sleep 5
-  PY="$(find_py64)"
-fi
-if [ -z "$PY" ]; then echo "python.exe 64 bits de Wine no encontrado"; sleep 60; exit 1; fi
 # pm2 restart only kills the `docker exec` client: kill bridges left running inside the container.
 # Also kill stray terminal64.exe instances (each failed initialize may spawn one); the bridge starts a fresh one.
 # (host-level pkill: the container shares the kernel and may lack procps)
 pkill -f "mt5_bridge.py"; pkill -f "terminal64.exe"; sleep 3; pkill -9 -f "mt5_bridge.py"; pkill -9 -f "terminal64.exe"
+find_py64() {
+  # Latest MetaTrader5 wheels need a recent Python (old 3.9 wheels speak an outdated IPC protocol).
+  dx sh -c 'ls /config/.wine/drive_c/Python312-64/python.exe 2>/dev/null'
+}
+PY="$(find_py64)"
+if [ -z "$PY" ]; then
+  echo "instalando Python 3.12 de 64 bits en Wine…"
+  dx sh -c 'cd /tmp && curl -sSLo py312.exe https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe && wine py312.exe /quiet InstallAllUsers=1 PrependPath=0 Include_test=0 TargetDir="C:\\Python312-64"; wineserver -w' || true
+  sleep 5
+  PY="$(find_py64)"
+fi
+if [ -z "$PY" ]; then echo "python.exe 64 bits de Wine no encontrado"; sleep 60; exit 1; fi
 WINPY="Z:${PY//\//\\}"
 echo "bridge: $WINPY (uid $U)"
+echo "MetaTrader5 py: $(dx wine "$WINPY" -c "import MetaTrader5 as m; print(m.__version__)" 2>/dev/null)"
 if ! dx wine "$WINPY" -c "import MetaTrader5" >/dev/null 2>&1; then
   echo "instalando paquete MetaTrader5…"
   dx wine "$WINPY" -m pip install --upgrade --no-warn-script-location pip MetaTrader5 2>&1 | tail -3

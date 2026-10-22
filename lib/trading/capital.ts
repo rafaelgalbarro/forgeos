@@ -56,12 +56,49 @@ export function computeForgeOsExposureUsd(
   return { exposureUSD, openTickers: [...new Set(openTickers)] };
 }
 
+/**
+ * Every symbol held in `accountId` (or any account when empty), ForgeOS-opened or not.
+ * Used to avoid buying a ticker twice when the ownership registry missed a fill.
+ */
+export function heldTickersFromPositions(
+  positions: readonly IbkrPositionRow[],
+  accountId = "",
+): string[] {
+  const id = accountId.trim();
+  const out = new Set<string>();
+  for (const p of positions) {
+    if (id && p.account && p.account !== id) continue;
+    if (!(Math.abs(Number(p.position ?? 0)) > 0)) continue;
+    const sym = String(p.symbol ?? "").trim().toUpperCase();
+    if (sym) out.add(sym);
+  }
+  return [...out];
+}
+
+/** Symbols with a working BUY order (Submitted / PreSubmitted / PendingSubmit) in IBKR. */
+export async function fetchPendingBuyTickers(): Promise<string[]> {
+  const rows = await ibkrServiceFetch<Array<Record<string, unknown>>>("/api/ibkr/orders").catch(
+    () => [] as Array<Record<string, unknown>>,
+  );
+  const live = new Set(["SUBMITTED", "PRESUBMITTED", "PENDINGSUBMIT", "APIPENDING"]);
+  const out = new Set<string>();
+  for (const o of Array.isArray(rows) ? rows : []) {
+    if (String(o.action ?? "").toUpperCase() !== "BUY") continue;
+    if (!live.has(String(o.status ?? "").toUpperCase())) continue;
+    const sym = String(o.symbol ?? "").trim().toUpperCase();
+    if (sym) out.add(sym);
+  }
+  return [...out];
+}
+
 export type CapitalSnapshot = TradingAccountSnapshot & {
   cashEUR: number;
   availableFunds: number;
   grossPositionValue: number;
   exposureUSD: number;
   openTickers: string[];
+  /** All symbols held in the account (not only ForgeOS-opened). */
+  heldTickers?: string[];
 };
 
 type AccountTag = { value?: string; currency?: string };
@@ -107,6 +144,7 @@ async function loadCapitalForAccountId(accountId: string): Promise<CapitalSnapsh
     grossPositionValue,
     exposureUSD,
     openTickers: [...new Set(openTickers)],
+    heldTickers: heldTickersFromPositions(posRows, id),
     primaryAccountId: id,
   };
 }
@@ -168,6 +206,7 @@ async function loadCapitalLive(): Promise<CapitalSnapshot> {
     grossPositionValue,
     exposureUSD,
     openTickers: [...new Set(openTickers)],
+    heldTickers: heldTickersFromPositions(posRows, acctForExposure),
   };
 }
 

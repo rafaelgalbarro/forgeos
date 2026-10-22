@@ -383,6 +383,30 @@ print("desbloqueados:", removed, "| siguen bloqueados:", sorted(d.get("entries",
 PY
 }
 
+do_orders() {
+  sec "ÓRDENES ABIERTAS EN IBKR"
+  curl -s --max-time 25 http://localhost:8002/api/ibkr/orders -H "X-Internal-API-Key: $API_KEY" | python3 -c '
+import sys, json
+try: rows = json.load(sys.stdin)
+except Exception as e: print("sin respuesta:", e); sys.exit()
+if isinstance(rows, dict): rows = rows.get("orders") or rows.get("data") or []
+for o in rows or []:
+    print("id=%s padre=%s %s %s %s %s qty=%s lmt=%s aux=%s estado=%s cuenta=%s tif=%s" % (
+        o.get("orderId"), o.get("parentId"), o.get("action"), o.get("symbol"), o.get("orderType"),
+        o.get("currency"), o.get("quantity"), o.get("limitPrice"), o.get("auxPrice"),
+        o.get("status"), o.get("account"), o.get("tif")))
+print("total:", len(rows or []))'
+}
+
+do_cancel_order() {
+  local id="$1"
+  case "$id" in ""|*[!0-9]*) echo "id de orden inválido: '$id'"; exit 2;; esac
+  sec "CANCELAR ORDEN $id"
+  curl -s --max-time 25 -X DELETE "http://localhost:8002/api/orders/$id" -H "X-Internal-API-Key: $API_KEY"; echo
+  sleep 4
+  do_orders
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -404,6 +428,8 @@ case "$ACTION" in
   fractional-on) do_fractional_on ;;
   fractional-off) do_fractional_off ;;
   unblock-eu) do_unblock_eu ;;
+  orders) do_orders ;;
+  cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \
       && bash -n /tmp/forgeos-remote.new && install -m 700 /tmp/forgeos-remote.new /usr/local/bin/forgeos-remote \

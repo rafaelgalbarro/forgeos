@@ -28,6 +28,7 @@ import {
 import {
   fetchCapitalSnapshot,
   fetchCapitalSnapshotForAccount,
+  fetchPendingBuyTickers,
   requiresUsdBalance,
   type CapitalSnapshot,
 } from "@/lib/trading/capital";
@@ -572,8 +573,12 @@ export async function runPreOrderRiskCheck(input: {
 
   if (!(price > 0)) return reject("precio inválido");
 
-  if (capital.openTickers.includes(ticker)) {
+  if (capital.openTickers.includes(ticker) || (capital.heldTickers ?? []).includes(ticker)) {
     return reject(`posición duplicada en ${ticker}`);
+  }
+  // A working BUY (not yet filled) must also block a second entry.
+  if ((await fetchPendingBuyTickers().catch(() => [] as string[])).includes(ticker)) {
+    return reject(`orden de compra pendiente en ${ticker}`);
   }
 
   const nav = capital.navUSD > 0 ? capital.navUSD : available;

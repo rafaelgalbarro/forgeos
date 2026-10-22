@@ -42,3 +42,15 @@ describe("AA: broker NO_ACK symbol brake visible to the cycle", () => {
     expect(brokerBrakedSymbolsToday("/nonexistent/x.json").size).toBe(0);
   });
 });
+
+describe("AA: no duplicate entry when the ownership registry misses a fill", () => {
+  it("heldTickersFromPositions lists every held symbol of the account", async () => {
+    const { heldTickersFromPositions } = await import("@/lib/trading/capital");
+    const rows = [
+      { account: "U15513057", symbol: "TEF", position: 42 },
+      { account: "U24225949", symbol: "HYDC", position: 2 },
+      { account: "U15513057", symbol: "SAN", position: 0 },
+    ];
+    expect(heldTickersFromPositions(rows as never, "U15513057")).toEqual(["TEF"]);
+  });
+});

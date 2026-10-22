@@ -1,35 +1,34 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 4ca32a9 mt5: ajustar propietario de cualquier fichero nuevo
+Desplegando e8073ad mt5 bridge: servir HTTP durante el login, registrar errores; logs del terminal en mt5-status
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-134441
-Updating a589d06..4ca32a9
+estado copiado en /root/forgeos-state-20261022-145201
+Updating 4ca32a9..e8073ad
 Fast-forward
- deploy/remote/forgeos-remote.sh   | 17 +++++++++++++++++
- deploy/remote/mt5-bridge-run.sh   | 26 +++++++++++++++++++++-----
- services/mt5-bridge/mt5_bridge.py |  3 ++-
- 3 files changed, 40 insertions(+), 6 deletions(-)
+ deploy/remote/forgeos-remote.sh   |  3 ++-
+ services/mt5-bridge/mt5_bridge.py | 23 +++++++++++++++++------
+ 2 files changed, 19 insertions(+), 7 deletions(-)
 script remoto actualizado
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.39s
+19 passed in 0.62s
 
 === BUILD ===
 
 up to date in 1s
-   Generating static pages (153/204) 
- ✓ Generating static pages (204/204)
 
-=== REINICIO ===
-reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
-reiniciado: forgeos-forex-bot
-forgeos online
-forgeos-scheduler online
-ibkr-broker online
-forgeos-crypto-engine online
+> forgeos-app-factory@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.19
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+Killed
+ABORTADO: el build ha fallado — NO se reinicia nada.
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0
+codigo_salida=4

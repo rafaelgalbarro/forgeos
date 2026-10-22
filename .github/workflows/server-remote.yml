@@ -15,7 +15,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order, futures]
+        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order, futures, set-flag, gateway-info]
 
 concurrency:
   group: forgeos-server
@@ -66,7 +66,7 @@ jobs:
           ARG: ${{ inputs.arg }}
         run: |
           set +e
-          ARG="$(printf '%s' "$ARG" | tr -cd 'A-Z0-9.-' | cut -c1-12)"
+          ARG="$(printf '%s' "$ARG" | tr -cd 'A-Z0-9._:-' | cut -c1-60)"
           ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 \
             "root@$SSH_HOST" "$ACTION $ARG" > remote-output.txt 2>&1
           rc=$?

@@ -1,0 +1,93 @@
+
+=== RESÚMENES DE CICLO DE ACCIONES (últimos) ===
+[Cycle/stocks] fase=PRE_MARKET analizados=50 señales=0 BUY=0 enviadas=0 sin_capital=0 rechazadas=0 | euSess SAN:14:05✓[3] IBE:14:05✓[3] SAP:14:05✓[3]
+[Cycle/stocks] fase=PRE_MARKET analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=0 rechazadas=1 | euSess SAN:14:08✓[3] IBE:14:08✓[3] SAP:14:08✓[3]
+[Cycle/stocks] fase=PRE_MARKET analizados=50 señales=0 BUY=0 enviadas=0 sin_capital=0 rechazadas=0 | euSess SAN:14:12✓[3] IBE:14:12✓[3] SAP:14:12✓[3]
+[Cycle/stocks] fase=PRE_MARKET analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=0 rechazadas=1 | euSess SAN:14:15✓[3] IBE:14:15✓[3] SAP:14:15✓[3]
+[Cycle/stocks] fase=PRE_MARKET analizados=50 señales=0 BUY=0 enviadas=0 sin_capital=0 rechazadas=0 | euSess SAN:14:20✓[3] IBE:14:20✓[3] SAP:14:20✓[3]
+[Cycle/stocks] fase=PRE_MARKET analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=0 rechazadas=1 | euSess SAN:14:23✓[3] IBE:14:23✓[3] SAP:14:23✓[3]
+[Cycle/stocks] fase=PRE_MARKET analizados=50 señales=0 BUY=0 enviadas=0 sin_capital=0 rechazadas=0 | euSess SAN:14:27✓[3] IBE:14:27✓[3] SAP:14:27✓[3]
+[Cycle/stocks] fase=PRE_MARKET analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=0 rechazadas=1 | euSess SAN:14:30✓[3] IBE:14:30✓[3] SAP:14:30✓[3]
+
+=== SEÑALES BUY Y SU DESTINO (hoy, agrupado) ===
+     24 [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+     23 [Signal] MSTR BUY agents=MOMENTUM+SECTOR conf=N%
+     23 [AutoExecute] MSTR → Premarket SHADOW @$N (shadow only: N/N improved (need ≥N closed + majority improve))
+     20 [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=N%
+     19 [Signal] TXN BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=N%
+     19 [AutoExecute] TXN → Premarket SHADOW @$N (shadow only: N/N improved (need ≥N closed + majority improve))
+     19 [AutoExecute] HOOD → skip (timeout IBKR)
+     18 [Signal] TEF: BUY status=REJECTED_RISK conf=N% reason=posición duplicada en TEF
+     18 [Signal] GS BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=N%
+     18 [AutoExecute] MRVL → skip (timeout IBKR)
+     18 [AutoExecute] GS → Premarket SHADOW @$N (shadow only: N/N improved (need ≥N closed + majority improve))
+     18   ❌ RECHAZADO: posición duplicada en TEF
+     17 [ProStrategy] SMCI: skip (ya subió N% > N%)
+     16 [AutoExecute] SOFI → skip (timeout IBKR)
+     15 [AutoExecute] GS → skip (timeout IBKR)
+     14 [AutoExecute] LLY → skip (timeout IBKR)
+     14 [AutoExecute] KLAC → skip (timeout IBKR)
+     13 [AutoExecute] UNH → skip (timeout IBKR)
+     12 [AutoExecute] LRCX → skip (timeout IBKR)
+     12 [AutoExecute] JPM → skip (timeout IBKR)
+     12 [AutoExecute] BLK → skip (timeout IBKR)
+     11 [AutoExecute] BAC → skip (timeout IBKR)
+     10 [Signal] REP: BUY status=ERROR conf=N% reason=Execute failed after APPROVED: BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta 
+     10 [AutoExecute] V → skip (timeout IBKR)
+      9 [AutoExecute] XYZ → skip (timeout IBKR)
+      9 [AutoExecute] PYPL → skip (timeout IBKR)
+      9 [AutoExecute] ABBV → skip (timeout IBKR)
+      8 [Signal] REP: BUY status=PENDING_APPROVAL conf=N% reason=Pullback EMAN EU RSI=N + vela [EU-N Pullback EMAN]
+      8 [AutoExecute] MA → skip (timeout IBKR)
+      8 [AutoExecute] JNJ → skip (timeout IBKR)
+      8 [AutoExecute] C → skip (timeout IBKR)
+      8 [AutoExecute] AXP → skip (timeout IBKR)
+      8 [AutoExecute] AMAT → skip (timeout IBKR)
+      7 [AutoExecute] MRK → skip (timeout IBKR)
+      5 [Signal] INGA: BUY status=HOLD conf=N% reason=PRETRADE HOLD — spread: Spread N% ≥ N%
+      5 [Signal] INGA BUY agents=MOMENTUM conf=N%
+      5 [AutoExecute] SCHW → skip (timeout IBKR)
+      5 [AutoExecute] ARM → skip (timeout IBKR)
+      4 [AutoExecute] WFC → skip (timeout IBKR)
+      3 [Signal] NVDA BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=N%
+
+=== ÚLTIMAS 30 SEÑALES BUY CON DETALLE ===
+[Signal] MSTR BUY agents=MOMENTUM+SECTOR conf=70%
+[AutoExecute] MSTR → Premarket SHADOW @$144.72 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] GS BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=70%
+[AutoExecute] GS → Premarket SHADOW @$891.00 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+  ❌ RECHAZADO: posición duplicada en TEF
+[Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+[Signal] TXN BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=70%
+[AutoExecute] TXN → Premarket SHADOW @$282.38 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] MSTR BUY agents=MOMENTUM+SECTOR conf=70%
+[AutoExecute] MSTR → Premarket SHADOW @$145.23 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+  ❌ RECHAZADO: posición duplicada en TEF
+[Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+[Signal] TXN BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=70%
+[AutoExecute] TXN → Premarket SHADOW @$282.87 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] MSTR BUY agents=MOMENTUM+SECTOR conf=70%
+[AutoExecute] MSTR → Premarket SHADOW @$145.26 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] GS BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=70%
+[AutoExecute] GS → Premarket SHADOW @$891.00 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+  ❌ RECHAZADO: posición duplicada en TEF
+[Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+[Signal] TXN BUY agents=MOMENTUM+TECHNICAL+SECTOR conf=70%
+[AutoExecute] TXN → Premarket SHADOW @$282.44 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] MSTR BUY agents=MOMENTUM+SECTOR conf=70%
+[AutoExecute] MSTR → Premarket SHADOW @$145.19 (shadow only: 0/0 improved (need ≥20 closed + majority improve))
+[Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+  ❌ RECHAZADO: posición duplicada en TEF
+[Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+
+=== MOTIVOS DE «ninguna señal» (estrategias, agrupado) ===
+    777 ninguna señal (EUROPE)
+    670 ninguna señal (USA_PREMARKET)
+    413 ninguna señal (EUROPE_OPEN)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

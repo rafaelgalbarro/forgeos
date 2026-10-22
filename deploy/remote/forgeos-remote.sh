@@ -19,7 +19,7 @@ BRANCH=feature/ibkr-live-supervised-v1
 RAW="${SSH_ORIGINAL_COMMAND:-${*:-}}"
 ACTION="$(echo "$RAW" | awk '{print $1}' | tr -cd 'a-z-')"
 # Argumento opcional (p. ej. un ticker): solo mayúsculas, dígitos, punto y guion.
-ARG="$(echo "$RAW" | awk '{print $2}' | tr -cd 'A-Z0-9.-' | cut -c1-12)"
+ARG="$(echo "$RAW" | awk '{print $2}' | tr -cd 'A-Z0-9._:-' | cut -c1-60)"
 
 cd "$APP" || { echo "No existe $APP"; exit 1; }
 API_KEY="$(grep -E '^IBKR_INTERNAL_API_KEY=' .env.local 2>/dev/null | head -1 | cut -d= -f2-)"
@@ -475,6 +475,36 @@ PY
   grep -vE "Kraken/Futures\] cycle|CryptoEngine\] analysis|ExperimentalWarning|trace-warnings" logs/forgeos-crypto-engine-out.log | tail -15 | cut -c1-400
 }
 
+# set-flag CLAVE:VALOR — solo claves de la lista y valores numéricos / true / false.
+do_set_flag() {
+  local key="${1%%:*}" val="${1#*:}"
+  case "$key" in
+    CRYPTO_LIVE_MAX_NOTIONAL_EUR|CRYPTO_LIVE_MAX_POSITIONS|FUTURES_MAX_LEVERAGE|STOCKS_EXECUTION_ENABLED|STOCKS_EXECUTION_US|STOCKS_EXECUTION_EU|STOCKS_EXECUTION_PREMARKET|STOCKS_MAX_POSITIONS_PER_ACCOUNT) ;;
+    *) echo "clave no permitida: $key"; exit 2;;
+  esac
+  case "$val" in true|false) ;; *[!0-9.]*|"") echo "valor no permitido: $val"; exit 2;; esac
+  if [ "$key" = "FUTURES_MAX_LEVERAGE" ] && [ "${val%%.*}" -gt 1 ] 2>/dev/null; then echo "FUTURES_MAX_LEVERAGE > 1 no permitido por esta vía"; exit 2; fi
+  sec "AJUSTE $key"
+  echo "antes: $(grep -E "^$key=" .env.local | cut -d= -f2)"
+  set_env_flag "$key" "$val"
+  case "$key" in
+    CRYPTO_*|FUTURES_*) pm2 restart forgeos-crypto-engine --update-env >/dev/null && echo "forgeos-crypto-engine reiniciado";;
+    *) pm2 restart forgeos forgeos-scheduler --update-env >/dev/null && echo "forgeos y scheduler reiniciados";;
+  esac
+}
+
+do_gateway_info() {
+  sec "IB GATEWAY (Docker)"
+  docker ps --format '{{.ID}} {{.Image}} {{.Names}} {{.Status}} {{.Ports}}' 2>&1 | head
+  local c; c="$(docker ps --format '{{.Names}} {{.Image}}' | grep -iE 'ib|gateway|tws' | head -1 | awk '{print $1}')"
+  [ -n "$c" ] || { echo "no encuentro el contenedor del gateway"; return; }
+  echo "contenedor: $c"
+  docker inspect "$c" --format 'imagen={{.Config.Image}} creado={{.Created}} restart={{.HostConfig.RestartPolicy.Name}}' 2>&1
+  echo "variables (solo nombres):"; docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1 | tr '\n' ' '; echo
+  echo "TWS_VERSION / IB_GATEWAY_VERSION:"; docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E '^(TWS_|IB_GATEWAY_VERSION|IBC_VERSION|TRADING_MODE|TWOFA|EXISTING_SESSION|AUTO_RESTART|RELOGIN)' | grep -viE 'PASSWORD|USERID|PASS' 
+  echo "compose:"; docker inspect "$c" --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}} {{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>&1
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -498,6 +528,8 @@ case "$ACTION" in
   unblock-eu) do_unblock_eu ;;
   orders) do_orders ;;
   futures) do_futures ;;
+  set-flag) do_set_flag "$ARG" ;;
+  gateway-info) do_gateway_info ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

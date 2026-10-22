@@ -5,7 +5,7 @@ set -u
 C=mt5
 until docker inspect -f '{{.State.Running}}' "$C" 2>/dev/null | grep -q true; do echo "esperando contenedor $C…"; sleep 10; done
 U="$(docker exec "$C" stat -c %u /config/.wine 2>/dev/null || echo 0)"
-dx() { docker exec -u "$U" -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all "$C" "$@"; }
+dx() { docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all "$C" "$@"; }
 find_py64() {
   dx sh -c 'find /config/.wine/drive_c -iname python.exe 2>/dev/null | grep -vi -e scripts -e "(x86)" -e "-32" -e venv | head -1'
 }
@@ -18,11 +18,12 @@ if [ -z "$PY" ]; then
 fi
 if [ -z "$PY" ]; then echo "python.exe 64 bits de Wine no encontrado"; sleep 60; exit 1; fi
 # pm2 restart only kills the `docker exec` client: kill bridges left running inside the container.
-docker exec "$C" sh -c 'pkill -f "mt5_bridge.py" ; sleep 2; pkill -9 -f "mt5_bridge.py"' >/dev/null 2>&1 || true
+# Also kill stray terminal64.exe instances (each failed initialize may spawn one); the bridge starts a fresh one.
+docker exec "$C" sh -c 'pkill -f "mt5_bridge.py"; pkill -f "terminal64.exe"; sleep 3; pkill -9 -f "mt5_bridge.py"; pkill -9 -f "terminal64.exe"' >/dev/null 2>&1 || true
 WINPY="Z:${PY//\//\\}"
 echo "bridge: $WINPY (uid $U)"
 if ! dx wine "$WINPY" -c "import MetaTrader5" >/dev/null 2>&1; then
   echo "instalando paquete MetaTrader5…"
   dx wine "$WINPY" -m pip install --upgrade --no-warn-script-location pip MetaTrader5 2>&1 | tail -3
 fi
-exec docker exec -u "$U" -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'
+exec docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'

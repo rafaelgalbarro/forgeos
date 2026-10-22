@@ -296,12 +296,14 @@ do_install_twsapi() {
   sec "DESCARGA TWS API (Mac/Unix, versión estable)"
   command -v unzip >/dev/null || apt-get install -y -q unzip >/dev/null
   local page url tmp
-  page="$(curl -sL --max-time 30 https://interactivebrokers.github.io/)"
+  local base="https://download2.interactivebrokers.com/installers/tws-api"
+  page="$(curl -sL --max-time 30 "$base/index.html")"
+  [ -n "$page" ] || page="$(curl -sL --max-time 30 https://interactivebrokers.github.io/)"
   echo "página: $(printf '%s' "$page" | wc -c) bytes"
   # Enlaces candidatos (zip / macunix) tal como aparecen en la página
   printf '%s' "$page" | grep -oiE '(href|src)="[^"]*(zip|unix|download)[^"]*"' | sort -u | head -20
   url="$(printf '%s' "$page" | grep -oiE '[^"'"'"' =]*twsapi_macunix[^"'"'"' ]*\.zip' | sort -u | head -1)"
-  case "$url" in http*) ;; "") echo "No se encontró el enlace de descarga"; exit 5;; *) url="https://interactivebrokers.github.io/${url#/}";; esac
+  case "$url" in http*) ;; "") echo "No se encontró el enlace de descarga"; exit 5;; /*) url="https://download2.interactivebrokers.com$url";; *) url="$base/${url#./}";; esac
   echo "url: $url"
   tmp="$(mktemp -d)"
   curl -sSL --max-time 180 -o "$tmp/twsapi.zip" "$url" || { echo "descarga fallida"; exit 5; }

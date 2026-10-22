@@ -107,17 +107,17 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 {
   "dayKey": "2026-10-22",
   "dayStartCapital": 56.1655,
-  "dayPnl": -0.09799999999999898,
+  "dayPnl": -0.11599999999999966,
   "exitsOnly": false,
   "dailyLimitHit": false
 }
 
 === PRE-MERCADO: preparación para operar en real ===
-señales registradas=37 cerradas=0 mejoraron=0 → listo=False (requiere ≥20 cerradas y mayoría mejorando)
+señales registradas=41 cerradas=0 mejoraron=0 → listo=False (requiere ≥20 cerradas y mayoría mejorando)
 
 === CUENTAS IBKR (efectivo y posiciones) ===
-U15513057 base= EUR NAV= 395.16 Disponible= 252.97 USD= None EUR= None
-U24225949 base= EUR NAV= 183.29 Disponible= 145.25 USD= None EUR= None
+U15513057 base= EUR NAV= 395.31 Disponible= 252.98 USD= None EUR= None
+U24225949 base= EUR NAV= 183.37 Disponible= 145.31 USD= None EUR= None
    U15513057 TEF 42.0 EUR coste= 3.50742855
    U24225949 HYDC 2.0 USD coste= 2.0243
    U15513057 GNLN 0.25 USD coste= 42.696
@@ -131,8 +131,6 @@ U24225949 base= EUR NAV= 183.29 Disponible= 145.25 USD= None EUR= None
 === BROKER: último error de Python (Traceback) ===
 
 === ACCIONES: decisiones recientes del ciclo ===
-11|forgeos | [AutoExecute] ABBV → skip (timeout IBKR)
-11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
 11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
 11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
 11|forgeos | [AutoExecute] SIE → skip (timeout IBKR)
@@ -171,52 +169,54 @@ U24225949 base= EUR NAV= 183.29 Disponible= 145.25 USD= None EUR= None
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
 11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
 11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [ProStrategy] SMCI: skip (ya subió 5.9% > 5%)
 
 === ACCIONES: resumen de ciclos ===
-11|forgeos | [ProStrategy] ASML: EU_LOCAL Amsterdam/AEB 12:59 Europe/Amsterdam open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] INGA: EU_LOCAL Amsterdam/AEB 12:59 Europe/Amsterdam open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] ADYEN: EU_LOCAL Amsterdam/AEB 12:59 Europe/Amsterdam open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] PHIA: EU_LOCAL Amsterdam/AEB 12:59 Europe/Amsterdam open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] MC: EU_LOCAL Paris/SBF 12:59 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] OR: EU_LOCAL Paris/SBF 12:59 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TTE: EU_LOCAL Paris/SBF 12:59 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] BNP: EU_LOCAL Paris/SBF 12:59 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] AIR: EU_LOCAL Paris/SBF 12:59 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [Cycle/stocks] ✅ 30 results, pending=0 phase=PRE_MARKET
+11|forgeos | [ProStrategy] BLK: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] AXP: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] V: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] HOOD: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] SOFI: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] UNH: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] MRK: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] JNJ: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] ABBV: US_LISTED 07:03 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [Cycle/stocks] ✅ 50 results, pending=0 phase=PRE_MARKET
 
 === SCHEDULER ===
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T10:38:56.406Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T10:42:24.848Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Iniciando ciclos typed cada 3min + stocks scan 15min en ventana… key=set(len=64)
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T10:48:55.110Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T10:52:10.181Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T10:56:29.416Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T10:59:39.921Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
 
 === CRIPTO: motor ===
-2026-10-22 10:52:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=0 715ms
-2026-10-22 10:53:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=3 orders=0 held=0 812ms
-2026-10-22 10:54:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=0 763ms
-2026-10-22 10:55:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=3 orders=0 held=0 752ms
 2026-10-22 10:56:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=0 726ms
 2026-10-22 10:57:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=0 892ms
 2026-10-22 10:58:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=0 793ms
 2026-10-22 10:59:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=0 684ms
 2026-10-22 11:00:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 held=0 648ms
 2026-10-22 11:01:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 556ms
-2026-10-22 10:39:18 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
-2026-10-22 10:39:35 +00:00: (node:1779098) ExperimentalWarning: SQLite is an experimental feature and might change at any time
-2026-10-22 10:39:35 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-22 11:02:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 614ms
+2026-10-22 11:03:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 687ms
+2026-10-22 11:04:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 603ms
+2026-10-22 11:05:14 +00:00: [CryptoEngine] arranque pid=1783443 venue=futures analysis=60000ms exits=5s
 2026-10-22 10:44:49 +00:00: (node:1780079) ExperimentalWarning: SQLite is an experimental feature and might change at any time
 2026-10-22 10:44:49 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-22 11:05:14 +00:00: (node:1783443) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-22 11:05:14 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-22 11:05:21 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

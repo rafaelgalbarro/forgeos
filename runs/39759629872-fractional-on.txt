@@ -1,8 +1,0 @@
-
-=== PRUEBA whatIf DE FRACCIÓN (no envía orden real) ===
-{"ok":false,"whatIf":true,"transmit":false,"symbol":"AAPL","account":"U24225949","quantity":0.1,"limitPrice":200.0,"orderId":2259,"ibkrStatus":"NO_ACK","errors":[{"reqId":2259,"code":10243,"message":"Fractional-sized order cannot be placed via API. Please use desktop version to place this order.","advanced":"","errorTime":1792663159933}],"ibapi":{"path":"/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient/ibapi/__init__.py","server_version":226,"fractional_orders_supported":true,"from_official_path":true},"blocked10285":false}
-ABORTADO: la prueba de fracciones no ha pasado; IBKR_FRACTIONAL_ENABLED sin cambios
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=7

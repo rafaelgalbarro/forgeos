@@ -586,6 +586,16 @@ do_gateway_rollback() {
   find /root/gateway-backups/Jts-old-$ts -maxdepth 2 -type f \( -name '*.xml' -o -name '*.ini' \) 2>/dev/null | head -10
 }
 
+do_gateway_logs() {
+  sec "CONTENEDORES"
+  docker ps -a --format '{{.Names}} {{.Image}} {{.Status}}' | grep -i gateway
+  sec "LOG ib-gateway (últimas líneas, sin credenciales)"
+  docker logs --tail 60 ib-gateway 2>&1 | grep -viE 'password|userid' | cut -c1-220 | tail -40
+  sec "RECONEXIÓN DEL BROKER"
+  curl -s --max-time 30 -X POST http://localhost:8002/api/ibkr/reconnect -H "X-Internal-API-Key: $API_KEY" | cut -c1-300; echo
+  wait_broker_connected || true
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -614,6 +624,7 @@ case "$ACTION" in
   gateway-check) do_gateway_check ;;
   gateway-upgrade) do_gateway_upgrade "$ARG" ;;
   gateway-rollback) do_gateway_rollback ;;
+  gateway-logs) do_gateway_logs ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

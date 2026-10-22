@@ -1,8 +1,0 @@
-
-=== TRAZA PFLTCUSD en forgeos (últimas 6000 líneas) ===
-
-=== TRAZA PFLTCUSD en broker ===
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=1

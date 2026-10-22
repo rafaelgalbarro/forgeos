@@ -1,0 +1,12 @@
+
+=== PROTEGER TEF (U15513057) qty=42 SL=3.371 TP=3.645 ===
+{"ok":true,"oca":"PROTECT-TEF-1792668079","orders":[{"orderId":2246,"type":"LMT","price":3.645,"status":"Submitted","errors":[]},{"orderId":2247,"type":"STP","price":3.371,"status":"PreSubmitted","errors":[]}]}
+
+=== ÓRDENES ABIERTAS EN IBKR ===
+id=2247 padre=0 SELL TEF STP EUR qty=42.0 lmt=None aux=3.371 estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2246 padre=0 SELL TEF LMT EUR qty=42.0 lmt=3.645 aux=None estado=Submitted cuenta=U15513057 tif=GTC
+total: 2
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

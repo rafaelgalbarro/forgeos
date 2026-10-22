@@ -1,22 +1,26 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando e136f31 Broker: la limpieza de órdenes atascadas ya no cancela stops/objetivos (solo entradas BUY); endpoint protect-position y acción remota protect
+Desplegando b63201c Telegram: antispam central (mismo mensaje como máximo 1 vez/hora, salvo operaciones y alertas críticas) y vista previa en el log; acción remota screenshot
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-111712
-Updating c662a1b..e136f31
+estado copiado en /root/forgeos-state-20261022-112820
+Updating e136f31..b63201c
 Fast-forward
- .github/workflows/server-remote.yml                |   2 +-
- deploy/remote/forgeos-remote.sh                    |  41 +++++++++
- services/ibkr-broker/app/main.py                   | 101 ++++++++++++++++++++-
- .../tests/test_stale_cancel_protection.py          |  26 ++++++
- 4 files changed, 166 insertions(+), 4 deletions(-)
- create mode 100644 services/ibkr-broker/tests/test_stale_cancel_protection.py
+ .github/workflows/server-remote.yml              |  2 +-
+ deploy/remote/forgeos-remote.sh                  | 42 +++++++++++++++++++
+ deploy/remote/page-shot.cjs                      | 27 ++++++++++++
+ lib/notifications/telegram-bot.ts                | 10 ++++-
+ lib/notifications/telegram-dedupe.ts             | 52 ++++++++++++++++++++++++
+ lib/trading/__tests__/aa-telegram-dedupe.test.ts | 23 +++++++++++
+ 6 files changed, 154 insertions(+), 2 deletions(-)
+ create mode 100644 deploy/remote/page-shot.cjs
+ create mode 100644 lib/notifications/telegram-dedupe.ts
+ create mode 100644 lib/trading/__tests__/aa-telegram-dedupe.test.ts
 script remoto actualizado
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.43s
+19 passed in 0.40s
 
 === BUILD ===
 

@@ -1,0 +1,40 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando b63201c Telegram: antispam central (mismo mensaje como máximo 1 vez/hora, salvo operaciones y alertas críticas) y vista previa en el log; acción remota screenshot
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-112820
+Updating e136f31..b63201c
+Fast-forward
+ .github/workflows/server-remote.yml              |  2 +-
+ deploy/remote/forgeos-remote.sh                  | 42 +++++++++++++++++++
+ deploy/remote/page-shot.cjs                      | 27 ++++++++++++
+ lib/notifications/telegram-bot.ts                | 10 ++++-
+ lib/notifications/telegram-dedupe.ts             | 52 ++++++++++++++++++++++++
+ lib/trading/__tests__/aa-telegram-dedupe.test.ts | 23 +++++++++++
+ 6 files changed, 154 insertions(+), 2 deletions(-)
+ create mode 100644 deploy/remote/page-shot.cjs
+ create mode 100644 lib/notifications/telegram-dedupe.ts
+ create mode 100644 lib/trading/__tests__/aa-telegram-dedupe.test.ts
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.40s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

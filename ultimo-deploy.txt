@@ -1,18 +1,23 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando ab01ff0 Broker: fracciones con cantidad de acciones (IBKR rechaza cashQty en LMT de acciones, 10244)
+Desplegando a04cbed Evita compras duplicadas (posición real u orden BUY pendiente); órdenes abiertas con padre/stop; acciones remotas orders y cancel-order
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-095643
-Updating 56b2f46..ab01ff0
+estado copiado en /root/forgeos-state-20261022-100250
+Updating ab01ff0..a04cbed
 Fast-forward
- services/ibkr-broker/app/main.py                           | 14 ++------------
- services/ibkr-broker/tests/test_fractional_order_fields.py | 10 +++++-----
- 2 files changed, 7 insertions(+), 17 deletions(-)
+ .github/workflows/server-remote.yml             |  2 +-
+ deploy/remote/forgeos-remote.sh                 | 26 +++++++++++++++++
+ lib/trading/__tests__/aa-routing-brakes.test.ts | 12 ++++++++
+ lib/trading/agents.ts                           |  7 ++++-
+ lib/trading/capital.ts                          | 39 +++++++++++++++++++++++++
+ services/ibkr-broker/app/main.py                |  4 +++
+ 6 files changed, 88 insertions(+), 2 deletions(-)
+script remoto actualizado
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.45s
+18 passed in 0.44s
 
 === BUILD ===
 

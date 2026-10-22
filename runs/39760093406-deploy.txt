@@ -1,0 +1,37 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando a04cbed Evita compras duplicadas (posición real u orden BUY pendiente); órdenes abiertas con padre/stop; acciones remotas orders y cancel-order
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-100250
+Updating ab01ff0..a04cbed
+Fast-forward
+ .github/workflows/server-remote.yml             |  2 +-
+ deploy/remote/forgeos-remote.sh                 | 26 +++++++++++++++++
+ lib/trading/__tests__/aa-routing-brakes.test.ts | 12 ++++++++
+ lib/trading/agents.ts                           |  7 ++++-
+ lib/trading/capital.ts                          | 39 +++++++++++++++++++++++++
+ services/ibkr-broker/app/main.py                |  4 +++
+ 6 files changed, 88 insertions(+), 2 deletions(-)
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+..................                                                       [100%]
+18 passed in 0.44s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

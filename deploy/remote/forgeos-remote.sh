@@ -470,7 +470,9 @@ PY
   sec "KRAKEN FUTURES: últimas líneas del motor"
   grep -E "Kraken/Futures\] cycle" logs/forgeos-crypto-engine-out.log | tail -3 | cut -c1-900
   echo "--- errores de órdenes"
-  grep -hE "order error|sendorder|private HTTP|setLeverage|leverage" logs/forgeos-crypto-engine-out.log logs/forgeos-crypto-engine-error.log 2>/dev/null | tail -8 | cut -c1-600
+  grep -hE "order error|sendorder|private HTTP|setLeverage|leverage|TP en exchange|sin stop|Exit|exit" logs/forgeos-crypto-engine-out.log logs/forgeos-crypto-engine-error.log 2>/dev/null | tail -8 | cut -c1-600
+  echo "--- últimas 15 líneas del motor (sin ciclos)"
+  grep -vE "Kraken/Futures\] cycle|CryptoEngine\] analysis|ExperimentalWarning|trace-warnings" logs/forgeos-crypto-engine-out.log | tail -15 | cut -c1-400
 }
 
 do_patches() {

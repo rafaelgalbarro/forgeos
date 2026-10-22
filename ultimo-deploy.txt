@@ -1,14 +1,22 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando c662a1b Kraken Futures: una sola posición por contrato y TP que cubre todo el tamaño de la posición
+Desplegando e136f31 Broker: la limpieza de órdenes atascadas ya no cancela stops/objetivos (solo entradas BUY); endpoint protect-position y acción remota protect
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-110309
-Already up to date.
+estado copiado en /root/forgeos-state-20261022-111712
+Updating c662a1b..e136f31
+Fast-forward
+ .github/workflows/server-remote.yml                |   2 +-
+ deploy/remote/forgeos-remote.sh                    |  41 +++++++++
+ services/ibkr-broker/app/main.py                   | 101 ++++++++++++++++++++-
+ .../tests/test_stale_cancel_protection.py          |  26 ++++++
+ 4 files changed, 166 insertions(+), 4 deletions(-)
+ create mode 100644 services/ibkr-broker/tests/test_stale_cancel_protection.py
+script remoto actualizado
 
 === TESTS DEL BROKER ===
-..................                                                       [100%]
-18 passed in 0.37s
+...................                                                      [100%]
+19 passed in 0.43s
 
 === BUILD ===
 

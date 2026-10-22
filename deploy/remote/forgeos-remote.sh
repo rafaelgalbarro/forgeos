@@ -320,12 +320,12 @@ do_install_twsapi() {
   cat "$(dirname "$(dirname "$pyc")")"/../API_VersionNum.txt 2>/dev/null | head -2
 
   sec "COMPROBACIÓN DE IMPORTACIÓN"
-  if ! (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); import ibapi.client as c; print('SERVER_VERSION', c.SERVER_VERSION if hasattr(c,'SERVER_VERSION') else '?')" 2>&1); then
+  if ! (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); import ibapi.client; from ibapi import server_versions as v; print('MAX_CLIENT_VER', v.MAX_CLIENT_VER)" 2>&1); then
     echo "falta alguna dependencia; instalando protobuf…"
     "$PY" -m pip install -q --break-system-packages protobuf 2>&1 | tail -2
-    (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); import ibapi.client as c; print('SERVER_VERSION', c.SERVER_VERSION)") || { echo "ABORTADO: no importa"; rm -rf "$DEST.new"; exit 5; }
+    (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); import ibapi.client; from ibapi import server_versions as v; print('MAX_CLIENT_VER', v.MAX_CLIENT_VER)") || { echo "ABORTADO: no importa"; rm -rf "$DEST.new"; exit 5; }
   fi
-  (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); from ibapi import server_versions as v; print('MIN_SERVER_VER_FRACTIONAL_POSITIONS', getattr(v,'MIN_SERVER_VER_FRACTIONAL_POSITIONS','?'))" 2>&1 | tail -1)
+  (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); from ibapi import server_versions as v; print('MIN_SERVER_VER_FRACTIONAL_SIZE_SUPPORT', getattr(v,'MIN_SERVER_VER_FRACTIONAL_SIZE_SUPPORT','?'))" 2>&1 | tail -1)
 
   sec "TESTS DEL BROKER CON LA LIBRERÍA OFICIAL"
   (cd services/ibkr-broker && IBKR_TWS_API_PYTHONPATH="$DEST.new" "$PY" -m pytest -q tests 2>&1 | tail -3)

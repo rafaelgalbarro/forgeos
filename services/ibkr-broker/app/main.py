@@ -61,6 +61,14 @@ def _resolve_ibapi_info() -> dict[str, Any]:
         server_version = int(getattr(ibapi_client, "SERVER_VERSION", 0) or 0)
     except Exception:
         pass
+    if not server_version:
+        # ibapi has no client.SERVER_VERSION; the highest API version it speaks is MAX_CLIENT_VER.
+        try:
+            from ibapi import server_versions as ibapi_sv
+
+            server_version = int(getattr(ibapi_sv, "MAX_CLIENT_VER", 0) or 0)
+        except Exception:
+            pass
     official_root = Path(official_api_path).resolve() if official_api_path else None
     from_official = bool(
         official_root

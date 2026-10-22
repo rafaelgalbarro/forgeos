@@ -568,6 +568,24 @@ do_gateway_upgrade() {
   echo "el contenedor anterior queda parado como ib-gateway-old (borrar cuando todo vaya bien)"
 }
 
+do_gateway_rollback() {
+  sec "VOLVER AL IB GATEWAY ANTERIOR"
+  docker inspect ib-gateway-old >/dev/null 2>&1 || { echo "no existe ib-gateway-old"; exit 2; }
+  mkdir -p /root/gateway-backups
+  local ts; ts="$(date +%Y%m%d-%H%M%S)"
+  # Guardar la configuración de ambos para hacer bien la actualización después.
+  docker cp ib-gateway-old:/home/ibgateway/Jts "/root/gateway-backups/Jts-old-$ts" 2>/dev/null && echo "copia Jts antiguo: /root/gateway-backups/Jts-old-$ts"
+  docker cp ib-gateway:/home/ibgateway/Jts "/root/gateway-backups/Jts-new-$ts" 2>/dev/null && echo "copia Jts nuevo: /root/gateway-backups/Jts-new-$ts"
+  docker stop ib-gateway >/dev/null; docker rm -f ib-gateway-1050 >/dev/null 2>&1; docker rename ib-gateway ib-gateway-1050
+  docker rename ib-gateway-old ib-gateway && docker start ib-gateway >/dev/null && echo "ib-gateway anterior arrancado"
+  sleep 45
+  pm2 restart ibkr-broker --update-env >/dev/null && echo "ibkr-broker reiniciado"
+  wait_broker_connected
+  sec "DIFERENCIAS DE CONFIGURACIÓN (jts.ini y ajustes API)"
+  diff <(cat /root/gateway-backups/Jts-old-$ts/jts.ini 2>/dev/null) <(cat /root/gateway-backups/Jts-new-$ts/jts.ini 2>/dev/null) | grep -viE 'password|user' | head -30
+  find /root/gateway-backups/Jts-old-$ts -maxdepth 2 -type f \( -name '*.xml' -o -name '*.ini' \) 2>/dev/null | head -10
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -595,6 +613,7 @@ case "$ACTION" in
   gateway-info) do_gateway_info ;;
   gateway-check) do_gateway_check ;;
   gateway-upgrade) do_gateway_upgrade "$ARG" ;;
+  gateway-rollback) do_gateway_rollback ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

@@ -1,6 +1,6 @@
 
 === PRUEBA whatIf DE FRACCIÓN (no envía orden real) ===
-{"ok":false,"whatIf":true,"transmit":false,"symbol":"AAPL","account":"U24225949","quantity":0.1,"limitPrice":200.0,"orderId":2255,"ibkrStatus":"NO_ACK","errors":[{"reqId":2255,"code":321,"message":"Error validating request.-'v' : cause - What-If order should have transmit flag set to TRUE.","advanced":"","errorTime":1792662770730}],"ibapi":{"path":"/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient/ibapi/__init__.py","server_version":226,"fractional_orders_supported":true,"from_official_path":true},"blocked10285":false}
+{"ok":false,"whatIf":true,"transmit":false,"symbol":"AAPL","account":"U24225949","quantity":0.1,"limitPrice":200.0,"orderId":2255,"ibkrStatus":"NO_ACK","errors":[{"reqId":2255,"code":10244,"message":"Cash Quantity cannot be used for this order","advanced":"","errorTime":1792662969641}],"ibapi":{"path":"/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient/ibapi/__init__.py","server_version":226,"fractional_orders_supported":true,"from_official_path":true},"blocked10285":false}
 ABORTADO: la prueba de fracciones no ha pasado; IBKR_FRACTIONAL_ENABLED sin cambios
 --- preparación ---
 líneas clave: 7

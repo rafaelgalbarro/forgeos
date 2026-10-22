@@ -1,0 +1,55 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 92c5985 forex-bot: estrategias específicas por par (30 reglas a corto plazo, elección IS + validación OOS con historia real de OANDA)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-190758
+Updating 084c766..92c5985
+Fast-forward
+ .github/workflows/server-remote.yml                |   2 +-
+ deploy/remote/forgeos-remote.sh                    |   7 +
+ lib/forex-bot/engine.ts                            |  55 +++-
+ lib/forex-bot/journal.ts                           |  19 ++
+ lib/forex-bot/pair-strategies.ts                   | 350 +++++++++++++++++++++
+ lib/forex-bot/sessions.ts                          |   6 +-
+ lib/forex-bot/types.ts                             |   7 +-
+ .../__tests__/forex-pair-strategies.test.ts        |  51 +++
+ scripts/forex-bot.cjs                              |   3 +-
+ scripts/forex-optimize.ts                          |  72 +++++
+ 10 files changed, 559 insertions(+), 13 deletions(-)
+ create mode 100644 lib/forex-bot/pair-strategies.ts
+ create mode 100644 lib/trading/__tests__/forex-pair-strategies.test.ts
+ create mode 100644 scripts/forex-optimize.ts
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.56s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        2479        1988           8        3593        5266
+Swap:           4095        1146        2949
+     0 MB COMMAND
+   397 MB java
+   394 MB next-server
+   180 MB node
+   177 MB node
+   113 MB node
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

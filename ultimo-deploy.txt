@@ -1,33 +1,43 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 084c766 mt5: usar el terminal de OANDA TMS
+Desplegando 92c5985 forex-bot: estrategias específicas por par (30 reglas a corto plazo, elección IS + validación OOS con historia real de OANDA)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-184450
-Updating 0139ca6..084c766
+estado copiado en /root/forgeos-state-20261022-190758
+Updating 084c766..92c5985
 Fast-forward
- .github/workflows/server-remote.yml |  2 +-
- deploy/remote/forgeos-remote.sh     | 17 ++++++++++++++++-
- deploy/remote/mt5-bridge-run.sh     |  9 ++++++++-
- services/mt5-bridge/mt5_bridge.py   |  3 ++-
- 4 files changed, 27 insertions(+), 4 deletions(-)
+ .github/workflows/server-remote.yml                |   2 +-
+ deploy/remote/forgeos-remote.sh                    |   7 +
+ lib/forex-bot/engine.ts                            |  55 +++-
+ lib/forex-bot/journal.ts                           |  19 ++
+ lib/forex-bot/pair-strategies.ts                   | 350 +++++++++++++++++++++
+ lib/forex-bot/sessions.ts                          |   6 +-
+ lib/forex-bot/types.ts                             |   7 +-
+ .../__tests__/forex-pair-strategies.test.ts        |  51 +++
+ scripts/forex-bot.cjs                              |   3 +-
+ scripts/forex-optimize.ts                          |  72 +++++
+ 10 files changed, 559 insertions(+), 13 deletions(-)
+ create mode 100644 lib/forex-bot/pair-strategies.ts
+ create mode 100644 lib/trading/__tests__/forex-pair-strategies.test.ts
+ create mode 100644 scripts/forex-optimize.ts
+script remoto actualizado
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.51s
+19 passed in 0.56s
 
 === BUILD ===
-procesos MT5 antes: terminal=2 puente=0 wine=3
-Mem:            7746        2480        2096           5        3481        5265
-Swap:           4095        1150        2945
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        2479        1988           8        3593        5266
+Swap:           4095        1146        2949
      0 MB COMMAND
-   396 MB java
+   397 MB java
    394 MB next-server
-   184 MB node
-   178 MB node
-   117 MB python3
+   180 MB node
+   177 MB node
+   113 MB node
 
-up to date in 1s
+up to date in 2s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

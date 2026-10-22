@@ -1,0 +1,8 @@
+wine-staging disponible: 11.10~bookworm-1
+wine-11.10 (Staging)
+versión Windows: 22000
+puente reiniciado
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

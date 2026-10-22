@@ -1,30 +1,31 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 029d373 mt5: Python 3.12 + MetaTrader5 actual para el terminal build 6281
+Desplegando 0139ca6 mt5: iniciar sesión al arrancar con start.ini (sin diálogo de login) y adjuntar el puente sin credenciales
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-181716
-Updating a09ceff..029d373
+estado copiado en /root/forgeos-state-20261022-182547
+Updating 029d373..0139ca6
 Fast-forward
- deploy/remote/mt5-bridge-run.sh | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ deploy/remote/mt5-bridge-run.sh   | 18 +++++++++++++++++-
+ services/mt5-bridge/mt5_bridge.py | 11 +++++++++++
+ 2 files changed, 28 insertions(+), 1 deletion(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.59s
+19 passed in 0.54s
 
 === BUILD ===
 procesos MT5 antes: terminal=1 puente=1 wine=5
-Mem:            7746        2508        2344           5        3205        5237
-Swap:           4095        1150        2945
+Mem:            7746        2501        2100           8        3459        5244
+Swap:           4095        1147        2948
      0 MB COMMAND
-   445 MB next-server
-   394 MB java
-   178 MB node
-   158 MB node
-   114 MB node
+   439 MB next-server
+   395 MB java
+   174 MB node
+   171 MB node
+   113 MB node
 
-up to date in 1s
+up to date in 2s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

@@ -302,13 +302,22 @@ do_install_twsapi() {
   echo "página: $(printf '%s' "$page" | wc -c) bytes"
   # Enlaces candidatos (zip / macunix) tal como aparecen en la página
   printf '%s' "$page" | grep -oiE '(href|src)="[^"]*(zip|unix|download)[^"]*"' | sort -u | head -20
-  url="$(printf '%s' "$page" | grep -oiE '[^"'"'"' =]*twsapi_macunix[^"'"'"' ]*\.zip' | sort -u | head -1)"
-  case "$url" in http*) ;; "") echo "No se encontró el enlace de descarga"; exit 5;; /*) url="https://download2.interactivebrokers.com$url";; *) url="$base/${url#./}";; esac
+  url="$base/stable/tws-api-stable-linux-x64.sh"
   echo "url: $url"
   tmp="$(mktemp -d)"
-  curl -sSL --max-time 180 -o "$tmp/twsapi.zip" "$url" || { echo "descarga fallida"; exit 5; }
-  ls -la "$tmp/twsapi.zip"
-  IBKR_TWS_API_ZIP="$tmp/twsapi.zip" IBKR_TWS_API_INSTALL_DIR="$DEST.new" bash scripts/install-ibkr-tws-pythonclient.sh | tail -3
+  curl -sSL --max-time 300 -o "$tmp/twsapi.sh" "$url" || { echo "descarga fallida"; exit 5; }
+  ls -la "$tmp/twsapi.sh"; head -c 400 "$tmp/twsapi.sh" | tr -cd '[:print:]\n' | head -5
+  # Instalador desatendido (install4j: -q silencioso, -dir destino)
+  (cd "$tmp" && timeout 600 sh twsapi.sh -q -dir "$tmp/inst" 2>&1 | tail -5)
+  local pyc
+  pyc="$(find "$tmp/inst" -type d -path '*source/pythonclient' 2>/dev/null | head -1)"
+  if [ -z "$pyc" ]; then
+    echo "No se encontró source/pythonclient tras instalar. Contenido:"; find "$tmp/inst" -maxdepth 3 | head -30
+    exit 5
+  fi
+  echo "pythonclient: $pyc"
+  rm -rf "$DEST.new"; mkdir -p "$(dirname "$DEST")"; cp -a "$pyc" "$DEST.new"
+  cat "$(dirname "$(dirname "$pyc")")"/../API_VersionNum.txt 2>/dev/null | head -2
 
   sec "COMPROBACIÓN DE IMPORTACIÓN"
   if ! (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); import ibapi.client as c; print('SERVER_VERSION', c.SERVER_VERSION if hasattr(c,'SERVER_VERSION') else '?')" 2>&1); then

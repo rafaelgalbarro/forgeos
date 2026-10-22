@@ -5,12 +5,17 @@ name: Servidor ForgeOS (acciones remotas)
 on:
   workflow_dispatch:
     inputs:
+      arg:
+        description: "Argumento opcional (p. ej. ticker para trace)"
+        required: false
+        default: ""
+        type: string
       action:
         description: "Acción en el servidor"
         required: true
         default: status
         type: choice
-        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script]
+        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace]
 
 concurrency:
   group: forgeos-server
@@ -58,10 +63,12 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.FORGEOS_SSH_HOST }}
           ACTION: ${{ inputs.action }}
+          ARG: ${{ inputs.arg }}
         run: |
           set +e
+          ARG="$(printf '%s' "$ARG" | tr -cd 'A-Z0-9.-' | cut -c1-12)"
           ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 \
-            "root@$SSH_HOST" "$ACTION" > remote-output.txt 2>&1
+            "root@$SSH_HOST" "$ACTION $ARG" > remote-output.txt 2>&1
           rc=$?
           if [ $rc -eq 255 ]; then
             echo "--- diagnóstico SSH (código 255) ---" >> remote-output.txt

@@ -16,8 +16,10 @@ set -uo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 APP=/var/www/forgeos
 BRANCH=feature/ibkr-live-supervised-v1
-ACTION="${SSH_ORIGINAL_COMMAND:-${1:-}}"
-ACTION="$(echo "$ACTION" | tr -cd 'a-z-')"
+RAW="${SSH_ORIGINAL_COMMAND:-${*:-}}"
+ACTION="$(echo "$RAW" | awk '{print $1}' | tr -cd 'a-z-')"
+# Argumento opcional (p. ej. un ticker): solo mayúsculas, dígitos, punto y guion.
+ARG="$(echo "$RAW" | awk '{print $2}' | tr -cd 'A-Z0-9.-' | cut -c1-12)"
 
 cd "$APP" || { echo "No existe $APP"; exit 1; }
 API_KEY="$(grep -E '^IBKR_INTERNAL_API_KEY=' .env.local 2>/dev/null | head -1 | cut -d= -f2-)"
@@ -244,6 +246,22 @@ for r in rows or []:
   tail -5 logs/forgeos-crypto-engine-error.log 2>/dev/null | cut -c1-230
 }
 
+do_trace() {
+  local sym="$1"
+  [ -n "$sym" ] || { echo "falta el ticker (ej.: trace NVDA)"; exit 2; }
+  sec "TRAZA $sym en forgeos (últimas 6000 líneas)"
+  pm2 logs forgeos --lines 6000 --nostream 2>&1 | grep -E "(\b|\[)$sym(\b|\])" | cut -c1-260 | tail -60
+  sec "TRAZA $sym en broker"
+  pm2 logs ibkr-broker --lines 3000 --nostream 2>&1 | grep -E "\b$sym\b" | cut -c1-260 | tail -20
+}
+
+do_cycle_trace() {
+  sec "ÚLTIMO CICLO DE ACCIONES COMPLETO (forgeos, últimas 900 líneas sin ruido)"
+  pm2 logs forgeos --lines 900 --nostream 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\s*$" | cut -c1-240 | tail -250
+  sec "BROKER: final del último Traceback"
+  pm2 logs ibkr-broker --lines 3000 --nostream 2>&1 | awk '/Traceback/{buf=""; c=60} c>0{buf=buf $0 "\n"; c--} END{printf "%s", buf}' | grep -vE "site-packages|dist-packages|\^\^\^" | cut -c1-240 | tail -25
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -259,9 +277,11 @@ case "$ACTION" in
   diff) do_diff ;;
   align) do_align ;;
   readiness) do_readiness ;;
+  trace) do_trace "$ARG" ;;
+  cycle-trace) do_cycle_trace ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \
       && bash -n /tmp/forgeos-remote.new && install -m 700 /tmp/forgeos-remote.new /usr/local/bin/forgeos-remote \
       && echo "script remoto actualizado a $(git log -1 --format=%h "origin/$BRANCH")" ;;
-  *) echo "Acción no permitida: '$ACTION' (status | deploy | patches | broker-proposals | diff | align | readiness | update-script)"; exit 2 ;;
+  *) echo "Acción no permitida: '$ACTION' (status | deploy | patches | broker-proposals | diff | align | readiness | update-script | trace TICKER | cycle-trace)"; exit 2 ;;
 esac

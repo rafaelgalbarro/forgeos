@@ -843,6 +843,7 @@ case "$ACTION" in
     # MT5 recent builds show "A debugger has been found" under Wine ≥10: pin Wine 9.0 inside the container.
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
     docker exec mt5 sh -c '. /etc/os-release; echo "$PRETTY_NAME"; apt-get update -qq >/dev/null 2>&1; apt-cache madison winehq-stable | head -5'
+    docker exec mt5 sh -c 'dpkg -l | grep -i wine | awk "{print \$2, \$3}"; ls /etc/apt/sources.list.d/; cat /etc/apt/sources.list.d/* 2>/dev/null | head -5; apt-cache madison wine wine64 winehq-devel winehq-staging 2>/dev/null | head -12'
     V="$(docker exec mt5 sh -c 'apt-cache madison winehq-stable | awk "{print \$3}" | grep "^9\.0" | head -1')"
     echo "versión 9.0 disponible: ${V:-ninguna}"
     if [ -n "$V" ]; then

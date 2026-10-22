@@ -1,17 +1,14 @@
 
 === MT5 ===
 mt5 Up 4 hours
-puente: online reinicios: 106
-puente sin respuesta
-puente reiniciado; esperando 90 s…
+puente: online reinicios: 107
 --- diagnóstico contenedor
 drwxr-xr-x 4 abc abc 4096 Oct 22 18:05 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  17971       01:25 C:\Program Files\MetaTrader 5\terminal64.exe
-  18007       00:46 start.exe /exec Z:\config\.wine\drive_c\Python39-64\python.exe
-  18014       00:45 Z:\config\.wine\drive_c\Python39-64\python.exe Z:\config\forgeos\mt5_bridge.py
+  18007       02:11 start.exe /exec Z:\config\.wine\drive_c\Python39-64\python.exe
+  18014       02:10 Z:\config\.wine\drive_c\Python39-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program
 ## Files/MetaTrader

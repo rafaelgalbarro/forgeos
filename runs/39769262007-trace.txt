@@ -1,0 +1,85 @@
+
+=== TRAZA TEF en forgeos (últimas 6000 líneas) ===
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.44 Δ0.73% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.44 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 12:24 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] TEF EUR → U15513057 utilizable €221.30 (cuenta U15513057 | EUR cash €221.30 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] TEF BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.44 Δ0.70% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.44 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 12:32 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] TEF EUR → U15513057 utilizable €221.30 (cuenta U15513057 | EUR cash €221.30 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] TEF BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.44 Δ0.82% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.44 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 12:42 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] TEF EUR → U15513057 utilizable €221.30 (cuenta U15513057 | EUR cash €221.30 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] TEF BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.44 Δ0.76% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.44 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 12:52 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] TEF EUR → U15513057 utilizable €221.30 (cuenta U15513057 | EUR cash €221.30 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] TEF BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.44 Δ0.88% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.44 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 12:59 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] TEF EUR → U15513057 utilizable €221.30 (cuenta U15513057 | EUR cash €221.30 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] TEF BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.44 Δ0.88% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.44 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:14 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] TEF EUR → U15513057 utilizable €221.30 (cuenta U15513057 | EUR cash €221.30 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] TEF BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+
+=== TRAZA TEF en broker ===
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br | 11:14:46 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 123150153002832: ConId: 30314159, Symbol: TEF, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: BM, PrimaryExchange: , Currency: EUR, LocalSym
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br | 11:15:26 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 123150153002832: ConId: 30314159, Symbol: TEF, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: BM, PrimaryExchange: , Currency: EUR, LocalSym
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

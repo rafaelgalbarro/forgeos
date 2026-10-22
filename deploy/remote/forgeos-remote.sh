@@ -142,6 +142,13 @@ do_deploy() {
   (cd services/ibkr-broker && "$(broker_python)" -m pytest -q tests 2>&1 | tail -3) || true
 
   sec "BUILD"
+  # MT5 (Wine) + PM2 apps leave little RAM for next build: make sure a 4 GB swap file exists.
+  if [ "$(swapon --show --noheadings | wc -l)" = 0 ]; then
+    [ -f /swapfile ] || { fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null; }
+    swapon /swapfile && grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    echo "swap activado: $(swapon --show --noheadings)"
+  fi
+  free -m | sed -n 2,3p
   npm install --no-audit --no-fund 2>&1 | tail -2
   if ! npm run build > /tmp/forgeos-build.log 2>&1; then
     tail -30 /tmp/forgeos-build.log

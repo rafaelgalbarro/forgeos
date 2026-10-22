@@ -697,6 +697,68 @@ for x in t[-12:]:
 PY
 }
 
+MT5_DIR=/root/mt5-config
+
+mt5_key() { cat "$MT5_DIR/forgeos/bridge-key.txt" 2>/dev/null; }
+
+do_mt5_setup() {
+  sec "RECURSOS"
+  df -h / | tail -1; free -m | sed -n '1,2p'
+  sec "CONTENEDOR MT5"
+  mkdir -p "$MT5_DIR/forgeos" && chmod 700 "$MT5_DIR" "$MT5_DIR/forgeos"
+  if [ ! -s "$MT5_DIR/forgeos/bridge-key.txt" ]; then
+    head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40 > "$MT5_DIR/forgeos/bridge-key.txt"; chmod 600 "$MT5_DIR/forgeos/bridge-key.txt"
+  fi
+  cp services/mt5-bridge/mt5_bridge.py "$MT5_DIR/forgeos/mt5_bridge.py"
+  if ! docker inspect mt5 >/dev/null 2>&1; then
+    docker pull -q gmag11/metatrader5_vnc:latest >/dev/null && echo "imagen descargada"
+    local vncpass; vncpass="$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20)"
+    echo "$vncpass" > "$MT5_DIR/forgeos/vnc-pass.txt"; chmod 600 "$MT5_DIR/forgeos/vnc-pass.txt"
+    docker run -d --name mt5 --restart always \
+      -e CUSTOM_USER=forgeos -e PASSWORD="$vncpass" \
+      -p 127.0.0.1:3100:3000 -p 127.0.0.1:8004:8004 \
+      -v "$MT5_DIR":/config gmag11/metatrader5_vnc:latest >/dev/null && echo "contenedor mt5 creado (solo accesible desde el propio servidor)"
+  else
+    docker start mt5 >/dev/null 2>&1; echo "contenedor mt5 ya existía"
+  fi
+  echo "esperando la primera instalación de MT5 + Python (hasta 15 min)…"
+  local i
+  for i in $(seq 1 90); do
+    if docker exec mt5 sh -c 'ls /config/.wine/drive_c/Program\ Files/MetaTrader\ 5/terminal64.exe >/dev/null 2>&1 && find /config/.wine/drive_c -iname python.exe 2>/dev/null | grep -q .'; then
+      echo "MT5 y Python instalados (tras $((i*10)) s)"; break
+    fi
+    sleep 10
+  done
+  docker logs --tail 15 mt5 2>&1 | cut -c1-200
+  sec "ENTORNO"
+  if ! grep -q '^MT5_BRIDGE_KEY=' .env.local; then echo "MT5_BRIDGE_KEY=$(mt5_key)" >> .env.local; echo "MT5_BRIDGE_KEY añadido a .env.local"; fi
+  grep -q '^MT5_BRIDGE_URL=' .env.local || echo "MT5_BRIDGE_URL=http://127.0.0.1:8004" >> .env.local
+  sec "PUENTE"
+  if pm2 describe forgeos-mt5-bridge >/dev/null 2>&1; then pm2 restart forgeos-mt5-bridge >/dev/null; else pm2 start ecosystem.config.js --only forgeos-mt5-bridge >/dev/null; pm2 save >/dev/null 2>&1; fi
+  sleep 20
+  tail -5 logs/forgeos-mt5-bridge-out.log 2>/dev/null; tail -5 logs/forgeos-mt5-bridge-error.log 2>/dev/null
+  echo "credenciales: $( [ -s "$MT5_DIR/forgeos/mt5-credentials.json" ] && echo guardadas || echo 'PENDIENTES (comando oculto)')"
+}
+
+do_mt5_status() {
+  sec "MT5"
+  docker ps --format '{{.Names}} {{.Status}}' | grep -E '^mt5 ' || echo "contenedor mt5 no está en marcha"
+  pm2 jlist 2>/dev/null | python3 -c '
+import sys, json
+for p in json.load(sys.stdin):
+    if p.get("name") == "forgeos-mt5-bridge": print("puente:", p["pm2_env"]["status"], "reinicios:", p["pm2_env"]["restart_time"])'
+  local K; K="$(mt5_key)"
+  for path in "/health" "/resolve?base=EUR_USD"; do
+    echo "--- $path"; curl -s --max-time 90 "http://127.0.0.1:8004$path" -H "X-Bridge-Key: $K" | cut -c1-900; echo
+  done
+  local S; S="$(curl -s --max-time 30 "http://127.0.0.1:8004/resolve?base=EUR_USD" -H "X-Bridge-Key: $K" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("symbol") or "")' 2>/dev/null)"
+  if [ -n "$S" ]; then
+    echo "--- /symbol $S"; curl -s --max-time 30 "http://127.0.0.1:8004/symbol?symbol=$S" -H "X-Bridge-Key: $K" | cut -c1-900; echo
+    echo "--- velas M15 (últimas 2)"; curl -s --max-time 30 "http://127.0.0.1:8004/rates?symbol=$S&tf=M15&count=2" -H "X-Bridge-Key: $K" | cut -c1-400; echo
+  fi
+  tail -6 logs/forgeos-mt5-bridge-out.log 2>/dev/null | cut -c1-300; tail -6 logs/forgeos-mt5-bridge-error.log 2>/dev/null | cut -c1-300
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -732,6 +794,8 @@ case "$ACTION" in
   signals) do_signals ;;
   forex-backtest) do_forex_backtest "$ARG" ;;
   forex-bot) do_forex_bot ;;
+  mt5-setup) do_mt5_setup ;;
+  mt5-status) do_mt5_status ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

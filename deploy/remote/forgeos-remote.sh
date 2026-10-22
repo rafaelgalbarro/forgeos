@@ -846,6 +846,14 @@ case "$ACTION" in
     docker exec mt5 sh -c 'dpkg -l | grep -i wine | awk "{print \$2, \$3}"; ls /etc/apt/sources.list.d/; cat /etc/apt/sources.list.d/* 2>/dev/null | head -5; apt-cache madison wine wine64 winehq-devel winehq-staging 2>/dev/null | head -12'
     V="$(docker exec mt5 sh -c 'apt-cache madison winehq-stable | awk "{print \$3}" | grep "^9\.0" | head -1')"
     echo "versión 9.0 disponible: ${V:-ninguna}"
+    if [ -z "$V" ]; then
+      echo "instalando Wine 9.0 desde el pool de WineHQ…"
+      docker exec mt5 sh -c 'set -e; cd /tmp; P=https://dl.winehq.org/wine-builds/debian/pool/main/w/wine; V=9.0.0.0~bookworm-1
+        for f in wine-stable-amd64_${V}_amd64 wine-stable-i386_${V}_i386 wine-stable_${V}_amd64 winehq-stable_${V}_amd64; do
+          curl -sSfLo "$f.deb" "$P/$f.deb" || { echo "no se pudo descargar $f"; exit 1; }; done
+        DEBIAN_FRONTEND=noninteractive dpkg -i wine-stable-amd64_*.deb wine-stable-i386_*.deb wine-stable_*.deb winehq-stable_*.deb 2>&1 | tail -3
+        apt-mark hold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386 >/dev/null; wine --version' 2>&1 | tail -6
+    fi
     if [ -n "$V" ]; then
       docker exec mt5 sh -c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --allow-downgrades winehq-stable=$V wine-stable=$V wine-stable-amd64=$V wine-stable-i386=$V >/tmp/wine9.log 2>&1; tail -3 /tmp/wine9.log; apt-mark hold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386 >/dev/null"
       docker exec mt5 wine --version

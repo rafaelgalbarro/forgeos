@@ -1,0 +1,17 @@
+
+=== BOT FOREX ===
+proceso: online reinicios: 18
+modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
+--- últimos ciclos
+2026-10-22 20:21:32 +00:00: [ForexBot] boot pid=1893570 entry=forex-bot-main.ts mode=shadow
+2026-10-22 20:21:32 +00:00: [ForexBot] arranque intervalo=60000ms
+2026-10-22 20:21:37 +00:00: 2026-10-22T20:21:32.545Z [ForexBot] modo=shadow broker=— datos=— pares=21 nav=500.00 EUR abiertas=1 entradas=0 pnlHoy=0.00 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD intraday HTTP
+2026-10-22 20:21:50 +00:00: [ForexBot] boot pid=1893717 entry=forex-bot-main.ts mode=live
+2026-10-22 20:21:50 +00:00: [ForexBot] arranque intervalo=60000ms
+2026-10-22 20:22:09 +00:00: 2026-10-22T20:21:50.705Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=98.72 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | sin órdenes reales: cuenta MT5 sin permiso de trading (OANDA) | fuera de ventana de entradas
+--- operaciones
+shadow GBP_JPY short 4000 entrada 210.131 SL 210.46261 TP 209.5341 | cierre abierta None P&L None
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

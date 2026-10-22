@@ -621,6 +621,9 @@ do_telegram_stats() {
     tail -n 200000 "$f" | grep -B3 "sendMessage intento" | grep -vE "sendMessage|^--$" \
       | sed -E 's/^[0-9: +-]+: //; s/^[0-9]+\|[a-z-]+ *\| //; s/[0-9]+(\.[0-9]+)?/N/g' | cut -c1-90 | sort | uniq -c | sort -rn | head -15
   done
+  sec "TELEGRAM: mensajes enviados recientes (vista previa)"
+  grep -hoE "sendMessage intento.*«.*»" /root/.pm2/logs/forgeos-out.log logs/forgeos-crypto-engine-out.log 2>/dev/null | sed -E 's/.*«(.*)»/\1/; s/[0-9]+([.,][0-9]+)?/N/g' | sort | uniq -c | sort -rn | head -25
+  echo "duplicados omitidos: $(grep -hc 'duplicado omitido' /root/.pm2/logs/forgeos-out.log logs/forgeos-crypto-engine-out.log 2>/dev/null | paste -sd+ | bc 2>/dev/null)"
   sec "PROCESOS PM2 QUE PUEDEN ENVIAR A TELEGRAM"
   pm2 jlist 2>/dev/null | python3 -c '
 import sys, json

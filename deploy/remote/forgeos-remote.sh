@@ -753,7 +753,7 @@ for p in json.load(sys.stdin):
     if ! cmp -s services/mt5-bridge/mt5_bridge.py /root/mt5-config/forgeos/mt5_bridge.py; then
       cp services/mt5-bridge/mt5_bridge.py /root/mt5-config/forgeos/mt5_bridge.py; echo "puente actualizado"; MT5_RESTART=1
     fi
-    if [ "$(stat -c %u /root/mt5-config/forgeos)" != "$WU" ]; then
+    if [ -n "$(find /root/mt5-config/forgeos ! -uid "$WU" 2>/dev/null | head -1)" ]; then
       chown -R "$WU" /root/mt5-config/forgeos; echo "permisos ajustados a uid $WU"; MT5_RESTART=1
     fi
     if [ "${MT5_RESTART:-0}" = 1 ] || [ "$(pm2 jlist 2>/dev/null | grep -c '"name":"forgeos-mt5-bridge".*errored')" != 0 ]; then

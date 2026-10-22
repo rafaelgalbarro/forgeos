@@ -96,6 +96,7 @@ const DEFAULT_TAKER = 0.0005;
 const KRAKEN_SPOT_PUBLIC = "https://api.kraken.com";
 const DEFAULT_EUR_USD = 1.08;
 
+let instrumentCacheAt = 0;
 let instrumentCache: Map<string, FuturesInstrumentMeta> | null = null;
 let feeCache: FuturesFeeSchedule | null = null;
 let eurUsdCache: { rate: number; at: number } | null = null;
@@ -239,10 +240,12 @@ async function privateCall<T>(
   return unwrapKrakenFuturesPrivatePayload(body);
 }
 
-function parseInstrument(row: Record<string, unknown>): FuturesInstrumentMeta {
-  const precision = num(row.contractValueTradePrecision) || 2;
+export function parseInstrument(row: Record<string, unknown>): FuturesInstrumentMeta {
+  // contractValueTradePrecision may legitimately be 0 or negative (whole / tens of contracts).
+  const rawPrecision = Number(row.contractValueTradePrecision);
+  const precision = Number.isFinite(rawPrecision) ? rawPrecision : 2;
   return {
-    symbol: String(row.symbol ?? ""),
+    symbol: String(row.symbol ?? "").toUpperCase(),
     tickSize: num(row.tickSize) || 0.01,
     contractSize: num(row.contractSize) || 1,
     contractValueTradePrecision: precision,
@@ -255,7 +258,14 @@ function parseInstrument(row: Record<string, unknown>): FuturesInstrumentMeta {
 
 export class KrakenFuturesAdapter {
   async loadInstruments(force = false): Promise<Map<string, FuturesInstrumentMeta>> {
-    if (instrumentCache && !force) return instrumentCache;
+    if (
+      instrumentCache &&
+      instrumentCache.size > 0 &&
+      !force &&
+      Date.now() - instrumentCacheAt < 6 * 3600_000
+    ) {
+      return instrumentCache;
+    }
     const raw = await publicGet<{ instruments?: Record<string, unknown>[] }>("/instruments");
     const list = Array.isArray(raw.instruments)
       ? raw.instruments
@@ -267,13 +277,26 @@ export class KrakenFuturesAdapter {
       const meta = parseInstrument(row as Record<string, unknown>);
       if (meta.symbol.startsWith("PF_")) map.set(meta.symbol, meta);
     }
+    if (map.size === 0) {
+      // Never cache an empty/invalid response: every later lookup would be "instrument_unknown".
+      console.warn(
+        `[Kraken/Futures] /instruments sin contratos PF_* (filas=${list.length}) — no se cachea`,
+      );
+      return instrumentCache ?? map;
+    }
     instrumentCache = map;
+    instrumentCacheAt = Date.now();
     return map;
   }
 
   async getInstrument(symbol: string): Promise<FuturesInstrumentMeta | null> {
-    const map = await this.loadInstruments();
-    return map.get(symbol.toUpperCase()) ?? null;
+    const key = symbol.toUpperCase();
+    let map = await this.loadInstruments();
+    if (!map.has(key)) {
+      // Unknown in cache → refresh once (new listing or stale/partial cache).
+      map = await this.loadInstruments(true).catch(() => map);
+    }
+    return map.get(key) ?? null;
   }
 
   async getInstrumentForSpotPair(spotPair: string): Promise<FuturesInstrumentMeta | null> {

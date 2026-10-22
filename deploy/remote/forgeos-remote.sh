@@ -428,6 +428,24 @@ for name, dirs in sorted((diag.get("strategies") or {}).items()):
         print("  %-28s %-5s intentos=%-6s señales=%-4s casi=%-3s | %s" % (name, side, r.get("attempts"), r.get("signals", r.get("buys")), r.get("nearMisses"), "; ".join("%s×%s" % (n, k) for k, n in top)))
 bt = f.get("backtestReport") or {}
 print("puerta backtest:", json.dumps(bt)[:600])'
+  sec "KRAKEN FUTURES: /instruments (público)"
+  python3 - <<'PY'
+import json, urllib.request
+try:
+    d = json.load(urllib.request.urlopen("https://futures.kraken.com/derivatives/api/v3/instruments", timeout=20))
+except Exception as e:
+    print("error:", e); raise SystemExit
+rows = d.get("instruments") or []
+print("result=", d.get("result"), "filas=", len(rows), "claves=", list(d.keys())[:6])
+pf = [r for r in rows if str(r.get("symbol", "")).upper().startswith("PF_")]
+print("PF_* =", len(pf), "ejemplos de símbolo:", [r.get("symbol") for r in pf[:5]])
+for want in ("PF_ETHUSD", "PF_LTCUSD", "PF_XBTUSD"):
+    r = next((x for x in rows if str(x.get("symbol", "")).upper() == want), None)
+    if r:
+        print(want, {k: r.get(k) for k in ("symbol", "tradeable", "tickSize", "contractSize", "contractValueTradePrecision", "type", "postOnly", "minimumOrderSize")})
+    else:
+        print(want, "NO ENCONTRADO")
+PY
   sec "KRAKEN FUTURES: últimas líneas del motor"
   grep -E "Kraken/Futures\] (cycle|order)|held=\[" logs/forgeos-crypto-engine-out.log | tail -5 | cut -c1-300
 }

@@ -606,6 +606,29 @@ do_protect() {
   sleep 3; do_orders
 }
 
+do_telegram_stats() {
+  sec "TELEGRAM: envíos por proceso (logs actuales de PM2)"
+  local f n
+  for f in /root/.pm2/logs/*-out.log logs/*-out.log; do
+    [ -f "$f" ] || continue
+    n=$(grep -cE "sendMessage OK|Telegram.*enviado|telegram sent|sendDocument OK" "$f" 2>/dev/null)
+    [ "${n:-0}" -gt 0 ] && echo "$n  $(basename "$f")  (desde $(head -c 25 "$f" | tr -d '\n'))"
+  done
+  sec "TELEGRAM: qué se envía (línea anterior a cada envío, agrupado)"
+  for f in /root/.pm2/logs/forgeos-out.log /root/.pm2/logs/forgeos-scheduler-out.log logs/forgeos-crypto-engine-out.log /root/.pm2/logs/forgeos-alerts-out.log /root/.pm2/logs/forgeos-scanner-out.log /root/.pm2/logs/forgeos-reports-out.log; do
+    [ -f "$f" ] || continue
+    echo "--- $(basename "$f")"
+    tail -n 200000 "$f" | grep -B3 "sendMessage intento" | grep -vE "sendMessage|^--$" \
+      | sed -E 's/^[0-9: +-]+: //; s/^[0-9]+\|[a-z-]+ *\| //; s/[0-9]+(\.[0-9]+)?/N/g' | cut -c1-90 | sort | uniq -c | sort -rn | head -15
+  done
+  sec "PROCESOS PM2 QUE PUEDEN ENVIAR A TELEGRAM"
+  pm2 jlist 2>/dev/null | python3 -c '
+import sys, json
+for p in json.load(sys.stdin):
+    e = p.get("pm2_env", {})
+    print("%-26s %-8s script=%s" % (p.get("name"), e.get("status"), e.get("pm_exec_path")))'
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -636,6 +659,7 @@ case "$ACTION" in
   gateway-rollback) do_gateway_rollback ;;
   gateway-logs) do_gateway_logs ;;
   protect) do_protect "$ARG" ;;
+  telegram-stats) do_telegram_stats ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

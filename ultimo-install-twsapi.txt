@@ -14,7 +14,40 @@ href="https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api
 href="https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-macosx-x64.dmg"
 href="https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-windows-x64.exe"
 href="https://ibkrcampus.com/ibkr-api-page/twsapi-doc/#unix-install"
-No se encontró el enlace de descarga
+url: https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-linux-x64.sh
+-rw-r--r-- 1 root root 61566217 Oct 22 09:48 /tmp/tmp.u4B9btSuPI/twsapi.sh
+#!/bin/sh
+
+# Uncomment the following line to override the JVM search sequence
+# INSTALL4J_JAVA_HOME_OVERRIDE=
+# Uncomment the following line to add additional VM parameters
+Unpacking JRE ...
+Starting Installer ...
+The installation directory has been set to /tmp/tmp.u4B9btSuPI/inst.
+Extracting files ...
+Finishing installation ...
+pythonclient: /tmp/tmp.u4B9btSuPI/inst/source/pythonclient
+
+=== COMPROBACIÓN DE IMPORTACIÓN ===
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys; sys.path.insert(0, '/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient.new'); import ibapi.client as c; print('SERVER_VERSION', c.SERVER_VERSION if hasattr(c,'SERVER_VERSION') else '?')
+                                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient.new/ibapi/client.py", line 25, in <module>
+    from ibapi import decoder, reader, comm
+  File "/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient.new/ibapi/decoder.py", line 21, in <module>
+    from ibapi.utils import getEnumTypeFromString
+  File "/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient.new/ibapi/utils.py", line 27, in <module>
+    from google.protobuf import text_format
+ModuleNotFoundError: No module named 'google'
+falta alguna dependencia; instalando protobuf…
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys; sys.path.insert(0, '/var/www/forgeos/services/ibkr-broker/tws-api/pythonclient.new'); import ibapi.client as c; print('SERVER_VERSION', c.SERVER_VERSION)
+                                                                                                                                                        ^^^^^^^^^^^^^^^^
+AttributeError: module 'ibapi.client' has no attribute 'SERVER_VERSION'
+ABORTADO: no importa
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

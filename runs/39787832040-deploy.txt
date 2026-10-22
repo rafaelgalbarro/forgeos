@@ -1,0 +1,39 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 4b4a412 MT5: puente HTTP propio (Python de Windows dentro del contenedor MetaTrader 5), proceso PM2 y acciones remotas mt5-setup / mt5-status
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-133317
+Updating 0c03038..4b4a412
+Fast-forward
+ .github/workflows/server-remote.yml |   2 +-
+ deploy/remote/forgeos-remote.sh     |  64 +++++++++
+ deploy/remote/mt5-bridge-run.sh     |  10 ++
+ ecosystem.config.js                 |  13 ++
+ services/mt5-bridge/mt5_bridge.py   | 267 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 355 insertions(+), 1 deletion(-)
+ create mode 100755 deploy/remote/mt5-bridge-run.sh
+ create mode 100644 services/mt5-bridge/mt5_bridge.py
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.39s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

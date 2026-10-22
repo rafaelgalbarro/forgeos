@@ -177,7 +177,7 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
       }).length;
       if (total > 0 && zeroBars / total > 0.5) {
         const now = Date.now();
-        if (now - lastForexZeroBarsAlertAt >= 2 * 60 * 60_000) {
+        if (now - lastForexZeroBarsAlertAt >= 24 * 60 * 60_000) {
           lastForexZeroBarsAlertAt = now;
           void sendTelegramMessage(
             `⚠️ <b>FOREX</b>: ${zeroBars}/${total} tickers sin barras / no analizado ` +

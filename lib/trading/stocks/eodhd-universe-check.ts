@@ -2,6 +2,8 @@
  * Startup validation: every executable equity has an EODHD price.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { getQuote } from "@/lib/market-data/eodhd";
 import { sendTelegramMessage } from "@/lib/notifications/telegram-bot";
 import { europeEurSeedSymbols, getEuropeanEurEquity } from "@/lib/trading/europe-equities";
@@ -38,10 +40,20 @@ export async function validateExecutableUniverseEodhd(): Promise<string[]> {
 }
 
 /** Once per Madrid day on startup — Telegram if any ticker lacks EODHD price. */
+const EODHD_CHECK_DAY_FILE = path.join(process.cwd(), ".forgeos", "cache", "eodhd-universe-check-day.txt");
+
 export async function runStartupEodhdUniverseCheck(): Promise<void> {
   const day = todayMadrid();
   if (validatedDay === day) return;
   validatedDay = day;
+  // Persisted: restarts/deploys during the day must not re-send the same Telegram.
+  try {
+    if (fs.existsSync(EODHD_CHECK_DAY_FILE) && fs.readFileSync(EODHD_CHECK_DAY_FILE, "utf8").trim() === day) return;
+    fs.mkdirSync(path.dirname(EODHD_CHECK_DAY_FILE), { recursive: true });
+    fs.writeFileSync(EODHD_CHECK_DAY_FILE, day, "utf8");
+  } catch {
+    /* best effort */
+  }
   const missing = await validateExecutableUniverseEodhd();
   if (!missing.length) {
     console.log(`[EODHD/Universe] ok (${todayMadrid()})`);

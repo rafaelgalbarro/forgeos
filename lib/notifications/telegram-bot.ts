@@ -272,6 +272,15 @@ export async function notifyTypedCycleComplete(params: {
   const executed = params.result.orders.filter((o) => o.status === "EXECUTED");
   const holds = params.result.orders.filter((o) => o.status === "HOLD").length;
 
+  // Anti-spam: a summary every 3 min per market flooded the chat. Executions already send
+  // their own instant alert, so the summary is only useful when something awaits approval.
+  if (pending.length === 0) {
+    console.log(
+      `[Telegram] resumen ${label} omitido (sin pendientes) analizados=${params.tickers.length} BUY=${buySignals.length} ejecutados=${executed.length}`,
+    );
+    return;
+  }
+
   const highlights = buySignals
     .slice(0, 5)
     .map(

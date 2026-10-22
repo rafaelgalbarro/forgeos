@@ -1,0 +1,11 @@
+wine-staging disponible: 11.10~bookworm-1
+Setting up libgtk-3-bin (3.24.38-2~deb12u3) ...
+Setting up at-spi2-core (2.46.0-5) ...
+Processing triggers for libc-bin (2.36-9+deb12u13) ...
+wine-11.10 (Staging)
+versión Windows: 22000
+puente reiniciado
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

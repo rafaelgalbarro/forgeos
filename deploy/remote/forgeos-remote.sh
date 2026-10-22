@@ -9,7 +9,7 @@
 #   restrict,command="/usr/local/bin/forgeos-remote" ssh-ed25519 AAAA... forgeos-github-actions
 #
 # La clave SOLO puede ejecutar este script; la acción llega en SSH_ORIGINAL_COMMAND.
-# Acciones: status | deploy | patches | broker-proposals | diff | align
+# Acciones: status | deploy | patches | broker-proposals | diff | align | readiness
 # Nunca imprime secretos (.env.local no se muestra).
 
 set -uo pipefail
@@ -181,6 +181,69 @@ do_align() {
   do_deploy
 }
 
+show_env_file() {
+  # Solo claves de configuración; cualquier clave con KEY/SECRET/TOKEN/PASS se muestra como "definida".
+  local f="$1"
+  [ -f "$f" ] || { echo "(no existe $f)"; return; }
+  grep -E '^[A-Z0-9_]+=' "$f" | while IFS='=' read -r k v; do
+    case "$k" in
+      *KEY*|*SECRET*|*TOKEN*|*PASS*|*PASSWORD*|*WEBHOOK*|*CHAT_ID*) echo "$k=(definida)";;
+      STOCKS_*|CRYPTO_*|FUTURES_*|LIVE_*|IBKR_*|US_*|EU_*|TRADING_*|PAPER_*|MAX_*|ALLOW*|KRAKEN_*|FOREX_*|PREMARKET*|IN_PLAY*|RUNNERS*|EODHD_WS*|RISK_*|DAILY_*) echo "$k=$v";;
+    esac
+  done
+}
+
+do_readiness() {
+  sec "CONFIGURACIÓN .env.local (sin secretos)"
+  show_env_file .env.local
+  sec "CONFIGURACIÓN broker services/ibkr-broker/.env (sin secretos)"
+  show_env_file services/ibkr-broker/.env
+  sec "FRENOS Y BLOQUEOS"
+  for f in ibkr-stocks-execution-pause.json ibkr-broker-no-ack-symbol-day.json ibkr-non-tradable.json kraken-futures-daily-risk.json; do
+    echo "--- $f"; head -c 1500 ".forgeos/cache/$f" 2>/dev/null || echo "(no existe)"; echo
+  done
+  sec "PRE-MERCADO: preparación para operar en real"
+  python3 - <<'PY'
+import json
+try:
+    d = json.load(open(".forgeos/cache/us-premarket-shadow.json"))
+except Exception as e:
+    print("sin archivo de sombra:", e); raise SystemExit
+sig = d.get("signals", [])
+closed = [s for s in sig if s.get("closePrice") is not None and s.get("improved") is not None]
+imp = sum(1 for s in closed if s.get("improved") is True)
+print(f"señales registradas={len(sig)} cerradas={len(closed)} mejoraron={imp} → listo={len(closed) >= 20 and imp > len(closed)/2} (requiere ≥20 cerradas y mayoría mejorando)")
+PY
+  sec "CUENTAS IBKR (efectivo y posiciones)"
+  curl -s --max-time 20 http://localhost:8002/api/ibkr/account -H "X-Internal-API-Key: $API_KEY" | python3 -c '
+import sys, json
+try: d = json.load(sys.stdin)
+except Exception as e: print("sin respuesta:", e); sys.exit()
+for acct, tags in (d or {}).items():
+    if not isinstance(tags, dict): continue
+    g = lambda k: (tags.get(k) or {}).get("value")
+    c = lambda k: (tags.get(k) or {}).get("currency")
+    print(acct, "base=", c("NetLiquidation"), "NAV=", g("NetLiquidation"), "Disponible=", g("AvailableFunds"), "USD=", g("CashBalance_USD"), "EUR=", g("CashBalance_EUR"))'
+  curl -s --max-time 20 http://localhost:8002/api/ibkr/positions -H "X-Internal-API-Key: $API_KEY" | python3 -c '
+import sys, json
+try: rows = json.load(sys.stdin)
+except Exception as e: print("sin respuesta:", e); sys.exit()
+for r in rows or []:
+    print("  ", r.get("account"), r.get("symbol"), r.get("position"), r.get("currency"), "coste=", r.get("avgCost"))'
+  sec "BROKER: último error de Python (Traceback)"
+  pm2 logs ibkr-broker --lines 3000 --nostream 2>&1 | grep -n "Traceback" | tail -3
+  pm2 logs ibkr-broker --lines 3000 --nostream 2>&1 | awk '/Traceback/{buf=""; c=25} c>0{buf=buf $0 "\n"; c--} END{printf "%s", buf}' | cut -c1-220
+  sec "ACCIONES: decisiones recientes del ciclo"
+  pm2 logs forgeos --lines 4000 --nostream 2>&1 | grep -E "RECHAZADO|APROBADO|orden enviada|ORDER_REJECTED|Live IBKR submit blocked|premarket live not ready|Ninguna estrategia|fuera de sesión|capital insuficiente|STOCKS_EXECUTION|BROKER_NO_ACK|skip \(" | cut -c1-230 | tail -40
+  sec "ACCIONES: resumen de ciclos"
+  pm2 logs forgeos --lines 4000 --nostream 2>&1 | grep -iE "cycle (stocks|complete)|\[Cycle\]|phase=|session=" | cut -c1-200 | tail -10
+  sec "SCHEDULER"
+  pm2 logs forgeos-scheduler --lines 400 --nostream 2>&1 | grep -vE "^\s*$" | cut -c1-200 | tail -15
+  sec "CRIPTO: motor"
+  grep -E "venue=|held=|order error|ERROR|spot" logs/forgeos-crypto-engine-out.log 2>/dev/null | cut -c1-230 | tail -10
+  tail -5 logs/forgeos-crypto-engine-error.log 2>/dev/null | cut -c1-230
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -195,5 +258,10 @@ case "$ACTION" in
   broker-proposals) do_broker_proposals 40 ;;
   diff) do_diff ;;
   align) do_align ;;
-  *) echo "Acción no permitida: '$ACTION' (status | deploy | patches | broker-proposals | diff | align)"; exit 2 ;;
+  readiness) do_readiness ;;
+  update-script)
+    git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \
+      && bash -n /tmp/forgeos-remote.new && install -m 700 /tmp/forgeos-remote.new /usr/local/bin/forgeos-remote \
+      && echo "script remoto actualizado a $(git log -1 --format=%h "origin/$BRANCH")" ;;
+  *) echo "Acción no permitida: '$ACTION' (status | deploy | patches | broker-proposals | diff | align | readiness | update-script)"; exit 2 ;;
 esac

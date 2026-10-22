@@ -1,27 +1,30 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 7400af8 forex-bot: dinero real solo en pares confirmados (bloqueados)
+Desplegando 9962c42 forex-bot: aceptar el lote mínimo hasta un 3 % de riesgo (FOREX_BOT_MIN_LOT_MAX_RISK_PCT)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-201818
-Updating cab7eab..7400af8
+estado copiado en /root/forgeos-state-20261022-202839
+Updating 7400af8..9962c42
 Fast-forward
- lib/forex-bot/engine.ts | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ lib/forex-bot/config.ts                 |  6 ++++++
+ lib/forex-bot/engine.ts                 |  4 +++-
+ lib/forex-bot/risk.ts                   | 11 ++++++++++-
+ lib/trading/__tests__/forex-bot.test.ts | 17 +++++++++++++++++
+ 4 files changed, 36 insertions(+), 2 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.50s
+19 passed in 0.44s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2177        1045           4        4834        5568
-Swap:           4095        1460        2635
+Mem:            7746        2275         741           5        5041        5470
+Swap:           4095        1422        2673
      0 MB COMMAND
-   358 MB next-server
-   243 MB java
-   169 MB node
-   161 MB node
+   402 MB next-server
+   247 MB java
+   204 MB node
+   163 MB node
    119 MB node
 
 up to date in 1s

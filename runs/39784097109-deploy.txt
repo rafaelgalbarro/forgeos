@@ -1,0 +1,64 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 0c03038 Bot de forex intradía (OANDA v20): estrategias pullback de tendencia M15 y ruptura de Londres, riesgo por operación con tope de apalancamiento, freno diario, SL/TP en el broker, cierre antes del fin de semana, modos sombra/demo/real, backtest con puerta y proceso PM2
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-130732
+Updating 98121b2..0c03038
+Fast-forward
+ .github/workflows/server-remote.yml     |   2 +-
+ deploy/remote/forgeos-remote.sh         |  51 ++++++
+ ecosystem.config.js                     |  20 +++
+ lib/forex-bot/backtest.ts               | 141 ++++++++++++++++
+ lib/forex-bot/config.ts                 |  97 +++++++++++
+ lib/forex-bot/data.ts                   |  57 +++++++
+ lib/forex-bot/engine.ts                 | 285 ++++++++++++++++++++++++++++++++
+ lib/forex-bot/indicators.ts             |  89 ++++++++++
+ lib/forex-bot/journal.ts                |  66 ++++++++
+ lib/forex-bot/oanda.ts                  | 222 +++++++++++++++++++++++++
+ lib/forex-bot/risk.ts                   |  80 +++++++++
+ lib/forex-bot/sessions.ts               |  60 +++++++
+ lib/forex-bot/strategies.ts             | 154 +++++++++++++++++
+ lib/forex-bot/types.ts                  |  59 +++++++
+ lib/trading/__tests__/forex-bot.test.ts |  89 ++++++++++
+ scripts/forex-backtest.ts               |  68 ++++++++
+ scripts/forex-bot-main.ts               |  26 +++
+ scripts/forex-bot.cjs                   | 104 ++++++++++++
+ 18 files changed, 1669 insertions(+), 1 deletion(-)
+ create mode 100644 lib/forex-bot/backtest.ts
+ create mode 100644 lib/forex-bot/config.ts
+ create mode 100644 lib/forex-bot/data.ts
+ create mode 100644 lib/forex-bot/engine.ts
+ create mode 100644 lib/forex-bot/indicators.ts
+ create mode 100644 lib/forex-bot/journal.ts
+ create mode 100644 lib/forex-bot/oanda.ts
+ create mode 100644 lib/forex-bot/risk.ts
+ create mode 100644 lib/forex-bot/sessions.ts
+ create mode 100644 lib/forex-bot/strategies.ts
+ create mode 100644 lib/forex-bot/types.ts
+ create mode 100644 lib/trading/__tests__/forex-bot.test.ts
+ create mode 100644 scripts/forex-backtest.ts
+ create mode 100644 scripts/forex-bot-main.ts
+ create mode 100644 scripts/forex-bot.cjs
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.38s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

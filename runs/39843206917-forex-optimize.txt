@@ -1,0 +1,57 @@
+
+=== ESTRATEGIAS POR PAR (historia de OANDA vía MT5, marcos H1:H4) ===
+[ForexBot] boot pid=1888887 entry=forex-optimize.ts mode=shadow
+[FX optimize] EUR_USD: H1:30000 H4:8000 → H4_BB_REVERT_A1.5_R1 (oos_PF=0.91<1.15; oos_media=-0.040R<0.05)
+[FX optimize] GBP_USD: H1:30000 H4:8000 → H1_EMA_CROSS_fast20_slow50_A1.5_R2 (oos_PF=0.81<1.15; oos_media=-0.133R<0.05)
+[FX optimize] USD_JPY: H1:30000 H4:8000 → H1_DONCHIAN_BREAK_n20_A2_R2 (oos_PF=0.89<1.15; oos_media=-0.072R<0.05)
+[FX optimize] AUD_USD: H1:30000 H4:8000 → H1_MACD_TREND_A2_R2 (oos_PF=0.94<1.15; oos_media=-0.034R<0.05)
+[FX optimize] USD_CAD: H1:30000 H4:8000 → H1_MACD_TREND_A1.5_R2 (oos_PF=1.02<1.15; oos_media=0.016R<0.05)
+[FX optimize] USD_CHF: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n20_A2_R1.5 (oos_PF=1.00<1.15; oos_media=-0.002R<0.05)
+[FX optimize] NZD_USD: H1:30000 H4:8000 → H1_EMA_CROSS_fast20_slow50_A2_R2 (oos_PF=0.82<1.15; oos_media=-0.118R<0.05)
+[FX optimize] EUR_GBP: H1:30000 H4:8000 → H1_EMA_CROSS_fast20_slow50_A1.5_R1.5 (oos_PF=0.68<1.15; oos_media=-0.218R<0.05)
+[FX optimize] EUR_JPY: H1:30000 H4:8000 → H1_DONCHIAN_BREAK_n55_A1.5_R1.5 (oos_PF=0.84<1.15; oos_media=-0.100R<0.05)
+[FX optimize] GBP_JPY: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R2 (oos_PF=0.84<1.15; oos_media=-0.096R<0.05)
+[FX optimize] EUR_CHF: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R1.5 (oos_PF=0.53<1.15; oos_media=-0.303R<0.05)
+[FX optimize] EUR_AUD: H1:30000 H4:8000 → H4_BB_REVERT_A1.5_R1.5 (oos_PF=0.90<1.15; oos_media=-0.051R<0.05)
+[FX optimize] EUR_CAD: H1:30000 H4:8000 → H4_RSI_REVERT_lo25_hi75_A1.5_R1.5 (oos_PF=0.69<1.15; oos_media=-0.203R<0.05)
+[FX optimize] GBP_CHF: H1:30000 H4:8000 → H4_EMA_CROSS_fast12_slow26_A1.5_R1.5 (oos_PF=0.98<1.15; oos_media=-0.008R<0.05)
+[FX optimize] GBP_AUD: H1:30000 H4:8000 → H4_RSI_REVERT_lo25_hi75_A1.5_R1 (oos_PF=1.14<1.15)
+[FX optimize] AUD_JPY: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n20_A1.5_R1.5 (oos_PF=0.80<1.15; oos_media=-0.111R<0.05)
+[FX optimize] AUD_NZD: H1:30000 H4:8000 → H4_EMA_CROSS_fast12_slow26_A1.5_R2 APTA
+[FX optimize] AUD_CAD: H1:30000 H4:8000 → H4_RSI_REVERT_lo30_hi70_A1.5_R1.5 APTA
+[FX optimize] CAD_JPY: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R2 (oos_PF=0.64<1.15; oos_media=-0.232R<0.05)
+[FX optimize] CHF_JPY: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R1.5 (oos_PF=0.84<1.15; oos_media=-0.086R<0.05)
+[FX optimize] NZD_JPY: H1:30000 H4:8000 → H4_EMA_CROSS_fast12_slow26_A1.5_R2 (oos_PF=0.96<1.15; oos_media=-0.022R<0.05)
+# Estrategias por par — 2026-10-22
+
+Datos: MT5 (OANDA) · H1 + H4 · 60 reglas candidatas por par · spread típico cobrado.
+Elección con los primeros 2/3 de la historia; validación con el último 1/3 (OOS).
+Apta para real: ≥15 ops OOS, PF ≥ 1.15, media ≥ 0.05 R.
+
+| Par | Estrategia | Periodo | Ops IS | PF IS | Ops OOS | Acierto OOS | PF OOS | Media OOS | ¿Real? |
+|---|---|---|---|---|---|---|---|---|---|
+| EUR_USD | H4: vuelta dentro de Bollinger(20,2) (reversión) · SL 1.5×ATR · TP 1R · máx 2.5 d | 2021-11-03→2026-10-22 | 236 | 1.20 | 120 | 48% | 0.91 | -0.040 R | no (oos_PF=0.91<1.15; oos_media=-0.040R<0.05) |
+| GBP_USD | H1: cruce EMA20/EMA50 a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 3 d | 2021-12-28→2026-10-22 | 185 | 1.21 | 101 | 31% | 0.81 | -0.133 R | no (oos_PF=0.81<1.15; oos_media=-0.133R<0.05) |
+| USD_JPY | H1: ruptura del máximo/mínimo de 20 velas a favor de EMA200 · SL 2×ATR · TP 2R · máx 3 d | 2021-12-28→2026-10-22 | 580 | 1.20 | 308 | 33% | 0.89 | -0.072 R | no (oos_PF=0.89<1.15; oos_media=-0.072R<0.05) |
+| AUD_USD | H1: cruce MACD(12,26,9) a favor de EMA200 · SL 2×ATR · TP 2R · máx 3 d | 2021-12-28→2026-10-22 | 227 | 1.12 | 108 | 37% | 0.94 | -0.034 R | no (oos_PF=0.94<1.15; oos_media=-0.034R<0.05) |
+| USD_CAD | H1: cruce MACD(12,26,9) a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 3 d | 2021-12-28→2026-10-22 | 224 | 1.20 | 126 | 36% | 1.02 | 0.016 R | no (oos_PF=1.02<1.15; oos_media=0.016R<0.05) |
+| USD_CHF | H4: ruptura del máximo/mínimo de 20 velas a favor de EMA200 · SL 2×ATR · TP 1.5R · máx 5 d | 2021-11-03→2026-10-22 | 181 | 1.30 | 85 | 45% | 1.00 | -0.002 R | no (oos_PF=1.00<1.15; oos_media=-0.002R<0.05) |
+| NZD_USD | H1: cruce EMA20/EMA50 a favor de EMA200 · SL 2×ATR · TP 2R · máx 3 d | 2021-12-27→2026-10-22 | 174 | 1.45 | 94 | 32% | 0.82 | -0.118 R | no (oos_PF=0.82<1.15; oos_media=-0.118R<0.05) |
+| EUR_GBP | H1: cruce EMA20/EMA50 a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 3 d | 2020-01-16→2026-10-22 | 172 | 1.10 | 153 | 35% | 0.68 | -0.218 R | no (oos_PF=0.68<1.15; oos_media=-0.218R<0.05) |
+| EUR_JPY | H1: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 3 d | 2021-12-28→2026-10-22 | 543 | 1.15 | 253 | 38% | 0.84 | -0.100 R | no (oos_PF=0.84<1.15; oos_media=-0.100R<0.05) |
+| GBP_JPY | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 139 | 1.39 | 64 | 34% | 0.84 | -0.096 R | no (oos_PF=0.84<1.15; oos_media=-0.096R<0.05) |
+| EUR_CHF | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-11-02→2026-10-22 | 134 | 1.25 | 63 | 35% | 0.53 | -0.303 R | no (oos_PF=0.53<1.15; oos_media=-0.303R<0.05) |
+| EUR_AUD | H4: vuelta dentro de Bollinger(20,2) (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-03→2026-10-22 | 234 | 1.23 | 111 | 44% | 0.90 | -0.051 R | no (oos_PF=0.90<1.15; oos_media=-0.051R<0.05) |
+| EUR_CAD | H4: RSI(14) sale de 25/75 (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-02→2026-10-22 | 56 | 1.30 | 17 | 35% | 0.69 | -0.203 R | no (oos_PF=0.69<1.15; oos_media=-0.203R<0.05) |
+| GBP_CHF | H4: cruce EMA12/EMA26 a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-10-25→2026-10-22 | 78 | 1.45 | 43 | 44% | 0.98 | -0.008 R | no (oos_PF=0.98<1.15; oos_media=-0.008R<0.05) |
+| GBP_AUD | H4: RSI(14) sale de 25/75 (reversión) · SL 1.5×ATR · TP 1R · máx 2.5 d | 2021-10-29→2026-10-22 | 50 | 1.33 | 18 | 56% | 1.14 | 0.056 R | no (oos_PF=1.14<1.15) |
+| AUD_JPY | H4: ruptura del máximo/mínimo de 20 velas a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-11-03→2026-10-22 | 212 | 1.18 | 113 | 39% | 0.80 | -0.111 R | no (oos_PF=0.80<1.15; oos_media=-0.111R<0.05) |
+| AUD_NZD | H4: cruce EMA12/EMA26 a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 78 | 1.16 | 40 | 43% | 1.28 | 0.132 R | sí |
+| AUD_CAD | H4: RSI(14) sale de 30/70 (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-02→2026-10-22 | 104 | 1.46 | 40 | 55% | 1.26 | 0.105 R | sí |
+| CAD_JPY | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 139 | 1.17 | 74 | 31% | 0.64 | -0.232 R | no (oos_PF=0.64<1.15; oos_media=-0.232R<0.05) |
+| CHF_JPY | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-10-21→2026-10-22 | 148 | 1.27 | 75 | 39% | 0.84 | -0.086 R | no (oos_PF=0.84<1.15; oos_media=-0.086R<0.05) |
+| NZD_JPY | H4: cruce EMA12/EMA26 a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-01→2026-10-22 | 78 | 1.31 | 42 | 43% | 0.96 | -0.022 R | no (oos_PF=0.96<1.15; oos_media=-0.022R<0.05) |
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

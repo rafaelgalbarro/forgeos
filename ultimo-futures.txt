@@ -1,13 +1,13 @@
 
 === KRAKEN FUTURES: diagnóstico de estrategias ===
 venue= futures shadow= False apalancamiento= 1 estrategias live= ['RS_VS_BTC_1H_SHORT', 'TREND_PULLBACK_1H_SHORT']
-margen= 56.114 último ciclo= 2026-10-22T10:13:40.609Z lastCycle= None
-riesgo diario= {'dayKey': '2026-10-22', 'dayStartCapital': 56.1655, 'dayPnl': -0.05150000000000432, 'exitsOnly': False, 'dailyLimitHit': False}
-diagnóstico actualizado= 2026-10-22T10:13:40.610Z último ciclo= 2026-10-22T10:13:40.610Z
-  LIQUIDITY_SWEEP_15M_SHORT    short intentos=46834  señales=0    casi=46834 | 30147×insuficientes barras; 16026×sin sweep de liquidez arriba; 661×vol n/a<1.5x
-  RS_VS_BTC_1H_SHORT           short intentos=46834  señales=3238 casi=43596 | 36107×no bottom-3 RS vs BTC; 5542×RS no negativo 1h+4h; 1125×insuficientes barras
-  TREND_PULLBACK_1H_SHORT      short intentos=46834  señales=0    casi=46834 | 42807×insuficientes barras 1h; 3436×EMA20>=EMA50 1h; 578×no en EMA20
-  VWAP_BOUNCE_5M_SHORT         short intentos=46834  señales=0    casi=46834 | 34840×insuficientes barras; 11403×1h no bajista; 573×sin touch+reject VWAP arriba
+margen= 56.117 último ciclo= 2026-10-22T10:16:58.663Z lastCycle= None
+riesgo diario= {'dayKey': '2026-10-22', 'dayStartCapital': 56.1655, 'dayPnl': -0.048500000000004206, 'exitsOnly': False, 'dailyLimitHit': False}
+diagnóstico actualizado= 2026-10-22T10:16:58.665Z último ciclo= 2026-10-22T10:16:58.665Z
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=46898  señales=0    casi=46898 | 30147×insuficientes barras; 16090×sin sweep de liquidez arriba; 661×vol n/a<1.5x
+  RS_VS_BTC_1H_SHORT           short intentos=46898  señales=3250 casi=43648 | 36159×no bottom-3 RS vs BTC; 5542×RS no negativo 1h+4h; 1125×insuficientes barras
+  TREND_PULLBACK_1H_SHORT      short intentos=46898  señales=0    casi=46898 | 42807×insuficientes barras 1h; 3456×EMA20>=EMA50 1h; 614×no en EMA20
+  VWAP_BOUNCE_5M_SHORT         short intentos=46898  señales=0    casi=46898 | 34840×insuficientes barras; 11423×1h no bajista; 617×sin touch+reject VWAP arriba
 puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
 
 === KRAKEN FUTURES: /instruments (público) ===
@@ -18,11 +18,11 @@ PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contract
 PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
 
 === KRAKEN FUTURES: últimas líneas del motor ===
-2026-10-22 10:10:13 +00:00: [Kraken/Futures] cycle margin=56.0915 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
-2026-10-22 10:11:13 +00:00: [Kraken/Futures] cycle margin=56.0950 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
-2026-10-22 10:12:14 +00:00: [Kraken/Futures] cycle margin=56.1055 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
-2026-10-22 10:13:13 +00:00: [Kraken/Futures] cycle margin=56.1120 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
 2026-10-22 10:13:40 +00:00: [Kraken/Futures] cycle margin=56.1140 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:14:42 +00:00: [Kraken/Futures] cycle margin=56.1160 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:15:42 +00:00: [Kraken/Futures] cycle margin=56.1170 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:16:42 +00:00: [Kraken/Futures] cycle margin=56.1175 symbols=16 dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:16:58 +00:00: [Kraken/Futures] cycle margin=56.1170 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:below_min_contract(min=0.01 ≈ 11.14€ > cap 10.00€) | PF_ZROUSD:RS_VS_BTC_1H_SHORT:ERR(Kraken Futures private HTTP 40
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

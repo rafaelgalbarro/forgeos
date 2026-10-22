@@ -18,7 +18,8 @@ export type FxSide = "long" | "short";
 export type FxStrategyId = "FX_TREND_PULLBACK_M15" | "FX_LONDON_BREAKOUT";
 
 export type FxSignal = {
-  strategy: FxStrategyId;
+  /** FxStrategyId or a per-pair spec id (pair-strategies.ts) */
+  strategy: string;
   instrument: string;
   side: FxSide;
   entry: number;
@@ -40,7 +41,9 @@ export function isFxSignal(e: FxEvaluation): e is FxSignal {
 
 export type FxTrade = {
   id: string;
-  strategy: FxStrategyId;
+  strategy: string;
+  /** time exit (minutes) for per-pair specs */
+  maxHoldMin?: number | null;
   instrument: string;
   side: FxSide;
   units: number;

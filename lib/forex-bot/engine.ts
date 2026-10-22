@@ -30,7 +30,8 @@ import {
 } from "./config";
 import { fxCandles } from "./data";
 import { pipSize } from "./indicators";
-import { fxEligibleStrategies, loadFxState, loadFxTrades, saveFxState, saveFxTrades } from "./journal";
+import { fxEligibleStrategies, loadFxState, loadFxTrades, loadPairChoices, saveFxState, saveFxTrades } from "./journal";
+import { computeIndicators, signalAt, type PairChoice } from "./pair-strategies";
 import {
   oandaAccount,
   oandaCloseTrade,
@@ -44,7 +45,7 @@ import { mt5Account, mt5Close, mt5Closed, mt5Configured, mt5Order, mt5Positions,
 import { convert, fxPnlAccount, sizeFxLots, sizeFxPosition, type FxRates } from "./risk";
 import { isFxEntryWindow, isWeekendFlattenTime, londonDayKey } from "./sessions";
 import { evaluateLondonBreakout, evaluateTrendPullback } from "./strategies";
-import { isFxSignal, type FxCandle, type FxTrade } from "./types";
+import { isFxSignal, type FxCandle, type FxEvaluation, type FxTrade } from "./types";
 
 const candleCache = new Map<string, { bucket: number; m15: FxCandle[]; h1: FxCandle[]; source: string }>();
 
@@ -163,6 +164,10 @@ export async function runForexBotCycle(): Promise<string> {
         exit = rates[t.instrument]!;
         reason = "WEEKEND";
       }
+      if (exit == null && timeUp(t, now) && rates[t.instrument]) {
+        exit = rates[t.instrument]!;
+        reason = "TIME";
+      }
       if (exit != null) closeLocal(t, exit, reason, accountCurrency, rates);
     }
   } else if (useMt5) {
@@ -171,11 +176,12 @@ export async function runForexBotCycle(): Promise<string> {
       const still = live.find((x) => String(x.ticket) === t.brokerTradeId);
       if (still) {
         if (!(still.sl > 0) || !(still.tp > 0)) notes.push(`⚠ ${t.instrument} posición ${still.ticket} sin SL/TP en MT5`);
-        if (isWeekendFlattenTime(now)) {
+        const wk = isWeekendFlattenTime(now);
+        if (wk || timeUp(t, now)) {
           const r = await mt5Close(String(still.ticket)).catch(() => null);
           if (r) {
             const c = await mt5Closed(String(still.ticket)).catch(() => null);
-            closeLocal(t, r.price, "WEEKEND", accountCurrency, rates, c?.pnl ?? null);
+            closeLocal(t, r.price, wk ? "WEEKEND" : "TIME", accountCurrency, rates, c?.pnl ?? null);
           }
         }
         continue;
@@ -225,6 +231,9 @@ export async function runForexBotCycle(): Promise<string> {
   const stillOpen = trades.filter((t) => !t.closedAt && t.mode === mode);
   let entries = 0;
   const eligible = fxEligibleStrategies();
+  const pairChoices = new Map<string, PairChoice>(
+    (loadPairChoices()?.choices ?? []).filter((c) => c.spec).map((c) => [c.instrument, c]),
+  );
   if (state.haltedDay === day) {
     notes.push("freno diario activo");
   } else if (!isFxEntryWindow(now)) {
@@ -240,9 +249,36 @@ export async function runForexBotCycle(): Promise<string> {
       // Never stack exposure on the same currency.
       const [b, q] = ccys(p);
       if (stillOpen.some((t) => { const [tb, tq] = ccys(t.instrument); return [tb, tq].includes(b) || [tb, tq].includes(q); })) continue;
-      for (const s of strategies) {
-        if (mode === "live" && !eligible.has(s)) continue;
-        const ev = s === "FX_TREND_PULLBACK_M15" ? evaluateTrendPullback(p, d.m15, d.h1) : evaluateLondonBreakout(p, d.m15, d.h1, now);
+      // Per-pair strategy (forex-optimize) when available; otherwise the generic strategies.
+      const evals: Array<{ s: string; ev: FxEvaluation; maxHoldMin: number | null }> = [];
+      const choice = pairChoices.get(p);
+      if (choice?.spec) {
+        if (mode === "live" && !choice.liveEligible) continue;
+        const ind = computeIndicators(d.m15);
+        const i = d.m15.length - 1;
+        const side = signalAt(choice.spec, ind, i);
+        const a = ind.atr14[i];
+        if (side && a && a > 0) {
+          const risk = choice.spec.atrMult * a;
+          const dir = side === "long" ? 1 : -1;
+          evals.push({
+            s: choice.spec.id,
+            maxHoldMin: choice.spec.maxBars * 15,
+            ev: {
+              strategy: choice.spec.id, instrument: p, side, entry: lastBar.close,
+              stop: lastBar.close - dir * risk, takeProfit: lastBar.close + dir * choice.spec.rr * risk,
+              risk, reason: choice.description, candleTime: lastBar.time,
+            },
+          });
+        }
+      } else {
+        for (const s of strategies) {
+          if (mode === "live" && !eligible.has(s)) continue;
+          const ev = s === "FX_TREND_PULLBACK_M15" ? evaluateTrendPullback(p, d.m15, d.h1) : evaluateLondonBreakout(p, d.m15, d.h1, now);
+          evals.push({ s, ev, maxHoldMin: null });
+        }
+      }
+      for (const { s, ev, maxHoldMin } of evals) {
         if (!isFxSignal(ev)) continue;
         // Spread filter (OANDA live quote) — skip when the spread eats >25% of the stop.
         const quote = pricing.get(p);
@@ -277,6 +313,7 @@ export async function runForexBotCycle(): Promise<string> {
           side: ev.side,
           units: size.units,
           lots: size.lots,
+          maxHoldMin,
           broker: mode === "shadow" ? "shadow" : broker,
           entry: ev.entry,
           stop: ev.stop,
@@ -337,6 +374,10 @@ export async function runForexBotCycle(): Promise<string> {
     `abiertas=${openNow} entradas=${entries} pnlHoy=${todayPnl.toFixed(2)}` + (notes.length ? ` | ${notes.slice(0, 6).join(" | ")}` : "");
   saveFxState(state);
   return state.lastSummary;
+}
+
+function timeUp(t: FxTrade, now: Date): boolean {
+  return Boolean(t.maxHoldMin && now.getTime() - Date.parse(t.openedAt) >= t.maxHoldMin * 60_000);
 }
 
 function closeLocal(

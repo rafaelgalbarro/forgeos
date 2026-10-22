@@ -1,7 +1,9 @@
 /** London-time session windows for intraday FX (pure). */
 
+let FMT: Intl.DateTimeFormat | null = null;
+
 function londonParts(at: Date): { weekday: number; minutes: number; ymd: string } {
-  const fmt = new Intl.DateTimeFormat("en-GB", {
+  const fmt = FMT ?? (FMT = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London",
     weekday: "short",
     hour: "2-digit",
@@ -10,7 +12,7 @@ function londonParts(at: Date): { weekday: number; minutes: number; ymd: string 
     month: "2-digit",
     day: "2-digit",
     hour12: false,
-  });
+  }));
   const parts = Object.fromEntries(fmt.formatToParts(at).map((p) => [p.type, p.value]));
   const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(parts.weekday ?? "");
   const h = Number(parts.hour) % 24;

@@ -686,6 +686,12 @@ do_forex_backtest() {
   timeout 900 node scripts/forex-bot.cjs backtest "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -45
 }
 
+do_forex_optimize() {
+  local n; n="$(echo "${1:-25000}" | tr -cd '0-9')"; [ -n "$n" ] || n=25000
+  sec "ESTRATEGIAS POR PAR (historia M15 de OANDA vía MT5, $n velas)"
+  timeout 1500 node scripts/forex-bot.cjs optimize "$n" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -60
+}
+
 do_forex_bot() {
   sec "BOT FOREX"
   if ! pm2 describe forgeos-forex-bot >/dev/null 2>&1; then
@@ -837,6 +843,7 @@ case "$ACTION" in
   signals) do_signals ;;
   forex-backtest) do_forex_backtest "$ARG" ;;
   forex-bot) do_forex_bot ;;
+  forex-optimize) do_forex_optimize "$ARG" ;;
   mt5-setup) do_mt5_setup ;;
   mt5-status) do_mt5_status ;;
   mt5-wine9)

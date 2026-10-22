@@ -83,7 +83,8 @@ process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || root;
 process.chdir(root);
 
 const stub = path.join(__dirname, "stub-server-only.cjs");
-const mainTs = path.join(__dirname, process.argv[2] === "backtest" ? "forex-backtest.ts" : "forex-bot-main.ts");
+const ENTRIES = { backtest: "forex-backtest.ts", optimize: "forex-optimize.ts" };
+const mainTs = path.join(__dirname, ENTRIES[process.argv[2]] || "forex-bot-main.ts");
 console.log(`[ForexBot] boot pid=${process.pid} entry=${path.basename(mainTs)} mode=${process.env.FOREX_BOT_MODE || "shadow"}`);
 
 const child = spawn(process.execPath, ["--require", stub, "--import", "tsx", mainTs, ...process.argv.slice(3)], {

@@ -64,3 +64,22 @@ export function fxEligibleStrategies(): Set<string> {
     return new Set();
   }
 }
+
+/** Per-pair strategy choices written by scripts/forex-optimize.ts. */
+export type StoredPairChoices = {
+  generatedAt: string;
+  source: string;
+  choices: import("./pair-strategies").PairChoice[];
+};
+
+export function loadPairChoices(): StoredPairChoices | null {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(fxBotDir(), "pair-strategies.json"), "utf8")) as StoredPairChoices;
+  } catch {
+    return null;
+  }
+}
+
+export function savePairChoices(c: StoredPairChoices): void {
+  fs.writeFileSync(path.join(fxBotDir(), "pair-strategies.json"), JSON.stringify(c, null, 2), "utf8");
+}

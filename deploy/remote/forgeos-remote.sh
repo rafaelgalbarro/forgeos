@@ -447,7 +447,9 @@ for want in ("PF_ETHUSD", "PF_LTCUSD", "PF_XBTUSD"):
         print(want, "NO ENCONTRADO")
 PY
   sec "KRAKEN FUTURES: últimas líneas del motor"
-  grep -E "Kraken/Futures\] (cycle|order)|held=\[" logs/forgeos-crypto-engine-out.log | tail -5 | cut -c1-300
+  grep -E "Kraken/Futures\] cycle" logs/forgeos-crypto-engine-out.log | tail -3 | cut -c1-900
+  echo "--- errores de órdenes"
+  grep -hE "order error|sendorder|private HTTP|setLeverage|leverage" logs/forgeos-crypto-engine-out.log logs/forgeos-crypto-engine-error.log 2>/dev/null | tail -8 | cut -c1-600
 }
 
 do_patches() {

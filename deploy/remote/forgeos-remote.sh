@@ -862,6 +862,26 @@ case "$ACTION" in
     WU="$(stat -c %u /root/mt5-config/.wine)"
     docker exec -u "$WU" -e HOME=/config -e WINEPREFIX=/config/.wine -e DISPLAY=:1 mt5 sh -c 'wineserver -k 2>/dev/null; WINEDLLOVERRIDES="mscoree=d;mshtml=d" wineboot -u >/dev/null 2>&1; wineserver -w; echo "prefijo actualizado"'
     pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado" ;;
+  mt5-wine-staging)
+    # MetaQuotes forum: wine-staging ≥11.3 + Windows 11 mode carries a patch for the false "debugger found".
+    pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
+    docker exec mt5 sh -c '
+      set -e; cd /tmp; P=https://dl.winehq.org/wine-builds/debian/pool/main/w/wine-staging
+      V=$(curl -sSf "$P/" | grep -o "wine-staging_[0-9.]*~bookworm-[0-9]*_amd64.deb" | sed "s/wine-staging_//; s/_amd64.deb//" | sort -V | tail -1)
+      echo "wine-staging disponible: $V"; [ -n "$V" ]
+      for f in wine-staging-amd64_${V}_amd64 wine-staging-i386_${V}_i386 wine-staging_${V}_amd64 winehq-staging_${V}_amd64; do
+        curl -sSfLo "$f.deb" "$P/$f.deb"; done
+      apt-mark unhold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386 >/dev/null 2>&1 || true
+      dpkg -r winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 >/dev/null 2>&1 || true
+      apt-get update -qq >/dev/null 2>&1 || true
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ./wine-staging-amd64_*.deb ./wine-staging-i386_*.deb ./wine-staging_*.deb ./winehq-staging_*.deb 2>&1 | tail -3
+      wine --version' 2>&1 | tail -8
+    WU="$(stat -c %u /root/mt5-config/.wine)"
+    docker exec -u "$WU" -e HOME=/config -e WINEPREFIX=/config/.wine -e DISPLAY=:1 -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" mt5 sh -c '
+      wineserver -k 2>/dev/null; wineboot -u >/dev/null 2>&1; wineserver -w
+      wine winecfg /v win11 >/dev/null 2>&1; wineserver -w
+      echo "versión Windows: $(wine reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion" /v CurrentBuild 2>/dev/null | grep -o "[0-9]\{5\}")"'
+    pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado" ;;
   mt5-shot)
     docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
     if false; then :

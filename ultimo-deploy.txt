@@ -1,20 +1,19 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 20ec0d3 Kraken Futures: leveragepreferences con PUT (POST daba 404) y sin bloquear la entrada; nunca nocional > margen × apalancamiento
+Desplegando fa2c7ce Kraken Futures: TP reduce-only en el exchange para cada posición viva; lado de la posición según 'side' de Kraken (antes un corto se leía como largo)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-101929
-Updating a94fc78..20ec0d3
+estado copiado en /root/forgeos-state-20261022-102417
+Updating 20ec0d3..fa2c7ce
 Fast-forward
- deploy/remote/forgeos-remote.sh                    |  4 +++-
- lib/brokers/kraken-futures/adapter.ts              | 28 ++++++++++++++++------
- .../crypto/__tests__/futures-engine-e2e.test.ts    |  4 ++--
- lib/trading/crypto/futures-engine.ts               |  6 +++++
- 4 files changed, 32 insertions(+), 10 deletions(-)
+ deploy/remote/forgeos-remote.sh       | 21 ++++++++++++++++++
+ lib/brokers/kraken-futures/adapter.ts | 42 +++++++++++++++++++++++++++++++++--
+ lib/trading/crypto/futures-engine.ts  | 23 ++++++++++++++++++-
+ 3 files changed, 83 insertions(+), 3 deletions(-)
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.38s
+18 passed in 0.42s
 
 === BUILD ===
 

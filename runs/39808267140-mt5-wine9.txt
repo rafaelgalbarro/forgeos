@@ -1,0 +1,30 @@
+Debian GNU/Linux 12 (bookworm)
+wine-stable 9.0.0.0~bookworm-1
+wine-stable-amd64 9.0.0.0~bookworm-1
+wine-stable-i386:i386 9.0.0.0~bookworm-1
+winehq-stable 9.0.0.0~bookworm-1
+docker.list
+nodesource.list
+winehq-bookworm.sources
+deb [arch=amd64 signed-by=/usr/share/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable
+deb [arch=amd64 signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main
+Types: deb
+URIs: https://dl.winehq.org/wine-builds/debian
+Suites: bookworm
+      wine | 8.0~repack-4 | http://deb.debian.org/debian bookworm/main amd64 Packages
+      wine | 8.0~repack-4 | http://deb.debian.org/debian bookworm/main i386 Packages
+      wine | 8.0~repack-4 | http://deb.debian.org/debian bookworm/main Sources
+    wine64 | 8.0~repack-4 | http://deb.debian.org/debian bookworm/main amd64 Packages
+      wine | 8.0~repack-4 | http://deb.debian.org/debian bookworm/main Sources
+versión 9.0 disponible: ninguna
+instalando Wine 9.0 desde el pool de WineHQ…
+Setting up wine-stable (9.0.0.0~bookworm-1) ...
+Setting up winehq-stable (9.0.0.0~bookworm-1) ...
+Processing triggers for man-db (2.11.2-2) ...
+wine-9.0
+prefijo actualizado
+puente reiniciado
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

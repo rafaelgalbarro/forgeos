@@ -1,8 +1,8 @@
 Debian GNU/Linux 12 (bookworm)
-wine-stable 10.0.0.0~bookworm-1
-wine-stable-amd64 10.0.0.0~bookworm-1
-wine-stable-i386:i386 10.0.0.0~bookworm-1
-winehq-stable 10.0.0.0~bookworm-1
+wine-stable 9.0.0.0~bookworm-1
+wine-stable-amd64 9.0.0.0~bookworm-1
+wine-stable-i386:i386 9.0.0.0~bookworm-1
+winehq-stable 9.0.0.0~bookworm-1
 docker.list
 nodesource.list
 winehq-bookworm.sources
@@ -22,6 +22,7 @@ Setting up wine-stable (9.0.0.0~bookworm-1) ...
 Setting up winehq-stable (9.0.0.0~bookworm-1) ...
 Processing triggers for man-db (2.11.2-2) ...
 wine-9.0
+prefijo actualizado
 puente reiniciado
 --- preparación ---
 líneas clave: 7

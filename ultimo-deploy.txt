@@ -1,37 +1,35 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 6bf5aef forex-bot: sesión 24h (dom 23:00 → vie 19:00 Londres, sin rollover) y 21 pares
+Desplegando 6dcd579 deploy: swap de 4 GB si no hay (build sin OOM con MT5)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-150047
-Updating e8073ad..6bf5aef
+estado copiado en /root/forgeos-state-20261022-150219
+Updating 6bf5aef..6dcd579
 Fast-forward
- lib/forex-bot/backtest.ts               | 11 +++++------
- lib/forex-bot/config.ts                 | 29 ++++++++++++++++++++++++++++-
- lib/forex-bot/engine.ts                 |  2 +-
- lib/forex-bot/sessions.ts               | 28 +++++++++++++++++++++++-----
- lib/trading/__tests__/forex-bot.test.ts |  4 ++++
- scripts/forex-backtest.ts               |  5 +++--
- 6 files changed, 64 insertions(+), 15 deletions(-)
+ deploy/remote/forgeos-remote.sh | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 1.16s
+19 passed in 0.80s
 
 === BUILD ===
+swap activado: /swapfile file 4G 1.5M -1
+Mem:            7746        7490         213         485         833         255
+Swap:           4095           3        4092
 
-up to date in 5s
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
 
-> forgeos-app-factory@0.1.0 build
-> next build
-
-   ▲ Next.js 15.5.19
-   - Environments: .env.local
-
-   Creating an optimized production build ...
-Killed
-ABORTADO: el build ha fallado — NO se reinicia nada.
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=4
+codigo_salida=0

@@ -1,0 +1,35 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 6dcd579 deploy: swap de 4 GB si no hay (build sin OOM con MT5)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-150219
+Updating 6bf5aef..6dcd579
+Fast-forward
+ deploy/remote/forgeos-remote.sh | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.80s
+
+=== BUILD ===
+swap activado: /swapfile file 4G 1.5M -1
+Mem:            7746        7490         213         485         833         255
+Swap:           4095           3        4092
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

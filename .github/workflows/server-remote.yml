@@ -10,7 +10,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, deploy, patches, broker-proposals]
+        options: [status, deploy, patches, broker-proposals, diff, align]
 
 concurrency:
   group: forgeos-server

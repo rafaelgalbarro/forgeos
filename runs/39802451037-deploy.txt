@@ -1,0 +1,50 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando fb10e6a mt5-status: reiniciar el puente si no responde
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-151131
+Updating 6dcd579..fb10e6a
+Fast-forward
+ deploy/remote/forgeos-remote.sh | 3 ++-
+ deploy/remote/mt5-bridge-run.sh | 2 ++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.40s
+
+=== BUILD ===
+Mem:            7746        6484         239          12        1399        1261
+Swap:           4095        3056        1039
+
+up to date in 1s
+
+> forgeos-app-factory@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.19
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 90s
+   Skipping validation of types
+   Linting ...
+   Collecting page data ...
+(node:1829800) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1829799) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1829807) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[ForgeOS build] app/investment/layout.tsx registered — /investment route active
+[ForgeOS build] app/investment/layout.tsx registered — /investment route active
+[ForgeOS build] app/investment/layout.tsx registered — /investment route active
+   Generating static pages (0/204) ...
+Killed
+ABORTADO: el build ha fallado — NO se reinicia nada.
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=4

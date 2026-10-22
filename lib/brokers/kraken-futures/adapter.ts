@@ -182,7 +182,10 @@ async function publicGet<T>(endpoint: string, query?: Record<string, string>): P
   if (!res.ok) throw new Error(`Kraken Futures public HTTP ${res.status}`);
   const body = (await res.json()) as ApiEnvelope<T> & T;
   if (body.error) throw new Error(`Kraken Futures: ${body.error}`);
-  return (body.result ?? body) as T;
+  // Kraken Futures v3 answers {"result":"success","instruments":[…]}: `result` is a status
+  // string, not the payload — returning it made every lookup "instrument_unknown".
+  const result = (body as { result?: unknown }).result;
+  return (result && typeof result === "object" ? result : body) as T;
 }
 
 async function privateCall<T>(

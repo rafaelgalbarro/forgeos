@@ -1,7 +1,7 @@
 
-=== AJUSTE CRYPTO_LIVE_MAX_NOTIONAL_EUR ===
-antes: 10
-CRYPTO_LIVE_MAX_NOTIONAL_EUR=15
+=== AJUSTE CRYPTO_LIVE_MAX_POSITIONS ===
+antes: 1
+CRYPTO_LIVE_MAX_POSITIONS=2
 forgeos-crypto-engine reiniciado
 --- preparación ---
 líneas clave: 7

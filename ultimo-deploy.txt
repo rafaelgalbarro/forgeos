@@ -1,31 +1,33 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 0139ca6 mt5: iniciar sesión al arrancar con start.ini (sin diálogo de login) y adjuntar el puente sin credenciales
+Desplegando 084c766 mt5: usar el terminal de OANDA TMS
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-182547
-Updating 029d373..0139ca6
+estado copiado en /root/forgeos-state-20261022-184450
+Updating 0139ca6..084c766
 Fast-forward
- deploy/remote/mt5-bridge-run.sh   | 18 +++++++++++++++++-
- services/mt5-bridge/mt5_bridge.py | 11 +++++++++++
- 2 files changed, 28 insertions(+), 1 deletion(-)
+ .github/workflows/server-remote.yml |  2 +-
+ deploy/remote/forgeos-remote.sh     | 17 ++++++++++++++++-
+ deploy/remote/mt5-bridge-run.sh     |  9 ++++++++-
+ services/mt5-bridge/mt5_bridge.py   |  3 ++-
+ 4 files changed, 27 insertions(+), 4 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.54s
+19 passed in 0.51s
 
 === BUILD ===
-procesos MT5 antes: terminal=1 puente=1 wine=5
-Mem:            7746        2501        2100           8        3459        5244
-Swap:           4095        1147        2948
+procesos MT5 antes: terminal=2 puente=0 wine=3
+Mem:            7746        2480        2096           5        3481        5265
+Swap:           4095        1150        2945
      0 MB COMMAND
-   439 MB next-server
-   395 MB java
-   174 MB node
-   171 MB node
-   113 MB node
+   396 MB java
+   394 MB next-server
+   184 MB node
+   178 MB node
+   117 MB python3
 
-up to date in 2s
+up to date in 1s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

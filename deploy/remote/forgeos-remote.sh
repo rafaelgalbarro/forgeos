@@ -505,6 +505,69 @@ do_gateway_info() {
   echo "compose:"; docker inspect "$c" --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}} {{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>&1
 }
 
+GW_IMAGE_REPO="ghcr.io/gnzsnz/ib-gateway"
+
+do_gateway_check() {
+  sec "VERSIONES DISPONIBLES DE IB GATEWAY (solo descarga, no toca el contenedor)"
+  local cur; cur="$(docker inspect ib-gateway --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^IB_GATEWAY_VERSION=' | cut -d= -f2)"
+  echo "en uso: $cur"
+  for tag in stable latest; do
+    docker pull -q "$GW_IMAGE_REPO:$tag" >/dev/null 2>&1 || { echo "$tag: no se pudo descargar"; continue; }
+    echo "$tag: $(docker inspect "$GW_IMAGE_REPO:$tag" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^IB_GATEWAY_VERSION=' | cut -d= -f2)"
+  done
+}
+
+# gateway-upgrade TAG — recrea el contenedor con la misma configuración y la imagen TAG
+# (stable|latest). Si el broker no vuelve a conectar en 6 min, vuelve al contenedor anterior.
+do_gateway_upgrade() {
+  local tag="${1:-stable}"; tag="$(echo "$tag" | tr 'A-Z' 'a-z')"
+  case "$tag" in stable|latest) ;; *) echo "tag no permitido: $tag"; exit 2;; esac
+  local img="$GW_IMAGE_REPO:$tag"
+  sec "ACTUALIZAR IB GATEWAY → $img"
+  docker pull -q "$img" >/dev/null || { echo "no se pudo descargar $img"; exit 8; }
+  local newv curv
+  newv="$(docker inspect "$img" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^IB_GATEWAY_VERSION=' | cut -d= -f2)"
+  curv="$(docker inspect ib-gateway --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^IB_GATEWAY_VERSION=' | cut -d= -f2)"
+  echo "actual=$curv nueva=$newv"
+  if [ "$newv" = "$curv" ]; then echo "ya está en esa versión"; return 0; fi
+
+  local envf; envf="$(mktemp)"; chmod 600 "$envf"
+  # Solo variables propias (credenciales y ajustes); las de la imagen las pone la imagen nueva.
+  docker inspect ib-gateway --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -E '^(TWS_USERID|TWS_PASSWORD|TRADING_MODE|CUSTOM_CONFIG|READ_ONLY_API|TWOFA_|EXISTING_SESSION|AUTO_RESTART|RELOGIN|TIME_ZONE|TZ=|VNC_|JAVA_HEAP|TWS_ACCEPT_INCOMING|BYPASS_WARNING|ALLOW_BLIND|SAVE_TWS|TWS_SETTINGS_PATH|TWS_COLD_RESTART|TWS_PASSWORD_FILE|TWS_USERID_PAPER|TWS_PASSWORD_PAPER)' > "$envf"
+  local mounts ports
+  mounts="$(docker inspect ib-gateway --format '{{range .Mounts}}-v {{.Source}}:{{.Destination}} {{end}}')"
+  ports="$(docker inspect ib-gateway --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}-p {{.HostIp}}{{if .HostIp}}:{{end}}{{.HostPort}}:{{$p}} {{end}}{{end}}' | sed 's#/tcp##g')"
+  echo "puertos: $ports"; echo "volúmenes: ${mounts:-ninguno}"; echo "variables trasladadas: $(cut -d= -f1 "$envf" | tr '\n' ' ')"
+
+  docker rm -f ib-gateway-old >/dev/null 2>&1
+  docker stop ib-gateway >/dev/null && docker rename ib-gateway ib-gateway-old
+  # shellcheck disable=SC2086
+  if ! docker run -d --name ib-gateway --restart always --env-file "$envf" $ports $mounts "$img" >/dev/null; then
+    rm -f "$envf"; echo "docker run falló → vuelvo al anterior"
+    docker rm -f ib-gateway >/dev/null 2>&1; docker rename ib-gateway-old ib-gateway && docker start ib-gateway >/dev/null; exit 8
+  fi
+  rm -f "$envf"
+  echo "contenedor nuevo arrancado; esperando login (si IBKR pide 2FA, apruébalo en el móvil)…"
+  local i ok=1
+  for i in $(seq 1 36); do
+    sleep 10
+    curl -s --max-time 8 -X POST http://localhost:8002/api/ibkr/reconnect -H "X-Internal-API-Key: $API_KEY" >/dev/null 2>&1
+    if curl -s --max-time 5 http://localhost:8002/api/ibkr/status -H "X-Internal-API-Key: $API_KEY" | grep -q '"connected":true'; then
+      echo "broker conectado al gateway nuevo tras $((i*10)) s"; ok=0; break
+    fi
+  done
+  if [ $ok -ne 0 ]; then
+    echo "ROLLBACK: sin conexión en 6 min"
+    docker logs --tail 30 ib-gateway 2>&1 | grep -viE 'password|userid' | tail -15
+    docker rm -f ib-gateway >/dev/null; docker rename ib-gateway-old ib-gateway && docker start ib-gateway >/dev/null
+    sleep 60; curl -s --max-time 8 -X POST http://localhost:8002/api/ibkr/reconnect -H "X-Internal-API-Key: $API_KEY" >/dev/null
+    wait_broker_connected; exit 9
+  fi
+  curl -s --max-time 10 http://localhost:8002/api/ibkr/status -H "X-Internal-API-Key: $API_KEY" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("estado:", d.get("state"), [e.get("code") for e in d.get("recentErrors", [])][-6:])'
+  echo "el contenedor anterior queda parado como ib-gateway-old (borrar cuando todo vaya bien)"
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -530,6 +593,8 @@ case "$ACTION" in
   futures) do_futures ;;
   set-flag) do_set_flag "$ARG" ;;
   gateway-info) do_gateway_info ;;
+  gateway-check) do_gateway_check ;;
+  gateway-upgrade) do_gateway_upgrade "$ARG" ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

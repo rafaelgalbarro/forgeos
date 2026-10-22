@@ -497,16 +497,23 @@ PY
 do_set_flag() {
   local key="${1%%:*}" val="${1#*:}"
   case "$key" in
-    CRYPTO_LIVE_MAX_NOTIONAL_EUR|CRYPTO_LIVE_MAX_POSITIONS|FUTURES_MAX_LEVERAGE|STOCKS_EXECUTION_ENABLED|STOCKS_EXECUTION_US|STOCKS_EXECUTION_EU|STOCKS_EXECUTION_PREMARKET|STOCKS_MAX_POSITIONS_PER_ACCOUNT) ;;
+    CRYPTO_LIVE_MAX_NOTIONAL_EUR|CRYPTO_LIVE_MAX_POSITIONS|FUTURES_MAX_LEVERAGE|STOCKS_EXECUTION_ENABLED|STOCKS_EXECUTION_US|STOCKS_EXECUTION_EU|STOCKS_EXECUTION_PREMARKET|STOCKS_MAX_POSITIONS_PER_ACCOUNT|FOREX_BOT_MODE|FOREX_BOT_LIVE_CONFIRM|FOREX_BOT_RISK_PCT|FOREX_BOT_MAX_POSITIONS) ;;
     *) echo "clave no permitida: $key"; exit 2;;
   esac
-  case "$val" in true|false) ;; *[!0-9.]*|"") echo "valor no permitido: $val"; exit 2;; esac
+  if [ "$key" = FOREX_BOT_MODE ]; then
+    val="$(echo "$val" | tr 'A-Z' 'a-z')"
+    case "$val" in shadow|live) ;; *) echo "valor no permitido: $val (shadow|live)"; exit 2;; esac
+  else
+    val="$(echo "$val" | sed 's/^TRUE$/true/; s/^FALSE$/false/')"
+    case "$val" in true|false) ;; *[!0-9.]*|"") echo "valor no permitido: $val"; exit 2;; esac
+  fi
   if [ "$key" = "FUTURES_MAX_LEVERAGE" ] && [ "${val%%.*}" -gt 1 ] 2>/dev/null; then echo "FUTURES_MAX_LEVERAGE > 1 no permitido por esta vía"; exit 2; fi
   sec "AJUSTE $key"
   echo "antes: $(grep -E "^$key=" .env.local | cut -d= -f2)"
   set_env_flag "$key" "$val"
   case "$key" in
     CRYPTO_*|FUTURES_*) pm2 restart forgeos-crypto-engine --update-env >/dev/null && echo "forgeos-crypto-engine reiniciado";;
+    FOREX_*) pm2 restart forgeos-forex-bot --update-env >/dev/null && echo "forgeos-forex-bot reiniciado";;
     *) pm2 restart forgeos forgeos-scheduler --update-env >/dev/null && echo "forgeos y scheduler reiniciados";;
   esac
 }

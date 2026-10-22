@@ -44,6 +44,8 @@ export type FxTrade = {
   strategy: string;
   /** time exit (minutes) for per-pair specs */
   maxHoldMin?: number | null;
+  /** D1 swing trades keep SL/TP over the weekend instead of flattening */
+  holdWeekend?: boolean;
   instrument: string;
   side: FxSide;
   units: number;

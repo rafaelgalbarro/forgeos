@@ -9,12 +9,12 @@ import path from "node:path";
 import { fxPairs, TYPICAL_SPREAD_PIPS } from "@/lib/forex-bot/config";
 import { eodhdIntraday5m } from "@/lib/forex-bot/data";
 import { aggregate } from "@/lib/forex-bot/indicators";
-import { fxBotDir, savePairChoices } from "@/lib/forex-bot/journal";
+import { fxBotDir, loadPairChoices, savePairChoices } from "@/lib/forex-bot/journal";
 import { mt5Candles, mt5Configured } from "@/lib/forex-bot/mt5";
 import { choosePairStrategy, PAIR_GATE, type FxTf, type PairChoice } from "@/lib/forex-bot/pair-strategies";
 import type { FxCandle } from "@/lib/forex-bot/types";
 
-const COUNTS: Record<FxTf, number> = { M15: 25000, H1: 30000, H4: 8000 };
+const COUNTS: Record<FxTf, number> = { M15: 25000, H1: 30000, H4: 8000, D1: 2600 };
 
 async function history(pair: string, tf: FxTf): Promise<{ bars: FxCandle[]; source: string }> {
   const count = COUNTS[tf];
@@ -38,11 +38,22 @@ async function history(pair: string, tf: FxTf): Promise<{ bars: FxCandle[]; sour
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 async function main(): Promise<void> {
-  const tfs = String(process.argv[2] ?? "H1:H4").toUpperCase().split(/[,:]/).filter((t): t is FxTf => t === "M15" || t === "H1" || t === "H4");
+  const args = String(process.argv[2] ?? "H1:H4").toUpperCase().split(/[,:]/);
+  const tfs = args.filter((t): t is FxTf => t === "M15" || t === "H1" || t === "H4" || t === "D1");
   if (!tfs.length) tfs.push("H1", "H4");
+  // KEEP: pairs that already passed validation keep (and lock) their strategy; only the rest is searched.
+  const keep = args.includes("KEEP");
+  const prev = loadPairChoices();
+  const locked = new Map<string, PairChoice>();
+  for (const c of prev?.choices ?? []) {
+    if (c.spec && (c.locked || (keep && c.liveEligible))) locked.set(c.instrument, { ...c, locked: true });
+  }
+  if (locked.size) console.log(`[FX optimize] estrategias confirmadas (se mantienen): ${[...locked.keys()].join(", ")}`);
   const choices: PairChoice[] = [];
   const sources = new Set<string>();
   for (const p of fxPairs()) {
+    const lk = locked.get(p);
+    if (lk) { choices.push(lk); console.log(`[FX optimize] ${p}: confirmada → ${lk.spec?.id}`); continue; }
     try {
       const data: Partial<Record<FxTf, FxCandle[]>> = {};
       const got: string[] = [];
@@ -74,7 +85,7 @@ async function main(): Promise<void> {
     `| Par | Estrategia | Periodo | Ops IS | PF IS | Ops OOS | Acierto OOS | PF OOS | Media OOS | ¿Real? |`,
     `|---|---|---|---|---|---|---|---|---|---|`,
     ...choices.map((c) =>
-      `| ${c.instrument} | ${c.spec ? c.description : "—"} | ${d(c.from)}→${d(c.to)} | ${c.is?.trades ?? 0} | ${(c.is?.pf ?? 0).toFixed(2)} | ${c.oos?.trades ?? 0} | ${pct(c.oos?.winRate ?? 0)} | ${(c.oos?.pf ?? 0).toFixed(2)} | ${(c.oos?.meanR ?? 0).toFixed(3)} R | ${c.liveEligible ? "sí" : `no (${c.reason})`} |`),
+      `| ${c.instrument}${c.locked ? " 🔒" : ""} | ${c.spec ? c.description : "—"} | ${d(c.from)}→${d(c.to)} | ${c.is?.trades ?? 0} | ${(c.is?.pf ?? 0).toFixed(2)} | ${c.oos?.trades ?? 0} | ${pct(c.oos?.winRate ?? 0)} | ${(c.oos?.pf ?? 0).toFixed(2)} | ${(c.oos?.meanR ?? 0).toFixed(3)} R | ${c.liveEligible ? "sí" : `no (${c.reason})`} |`),
   ];
   fs.writeFileSync(path.join(fxBotDir(), `pair-strategies-${generatedAt.slice(0, 10)}.md`), lines.join("\n"));
   console.log(lines.join("\n"));

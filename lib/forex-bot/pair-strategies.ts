@@ -18,18 +18,28 @@
  */
 
 import { pipSize } from "./indicators";
-import { isFxEntryWindow, isWeekendFlattenTime } from "./sessions";
+import { isFxEntryWindow, isWeekendFlattenTime, londonMinutes } from "./sessions";
 import type { FxCandle, FxSide } from "./types";
 
-export type FxFamily = "EMA_CROSS" | "MACD_TREND" | "DONCHIAN_BREAK" | "RSI_REVERT" | "BB_REVERT";
+export type FxFamily = "EMA_CROSS" | "MACD_TREND" | "DONCHIAN_BREAK" | "RSI_REVERT" | "BB_REVERT" | "PULLBACK";
 
-export type FxTf = "M15" | "H1" | "H4";
-export const TF_SEC: Record<FxTf, number> = { M15: 900, H1: 3600, H4: 14400 };
+/** Entry session (London clock at the signal bar close). */
+export type FxSession = "all" | "asia" | "london" | "ny";
+const SESSION_MIN: Record<Exclude<FxSession, "all">, [number, number]> = {
+  asia: [0, 8 * 60],
+  london: [7 * 60, 16 * 60],
+  ny: [12 * 60, 21 * 60],
+};
+
+export type FxTf = "M15" | "H1" | "H4" | "D1";
+export const TF_SEC: Record<FxTf, number> = { M15: 900, H1: 3600, H4: 14400, D1: 86400 };
 
 export type FxSpec = {
   id: string;
   /** candle timeframe the rule runs on */
   tf: FxTf;
+  /** entries only in this session (default all) */
+  session?: FxSession;
   family: FxFamily;
   /** family parameters: fast/slow, n, lo/hi … */
   p: Record<string, number>;
@@ -43,25 +53,35 @@ const MAX_BARS: Record<FxTf, { trend: number; revert: number }> = {
   M15: { trend: 96, revert: 48 }, // 24 h / 12 h
   H1: { trend: 72, revert: 36 }, // 3 d / 1.5 d
   H4: { trend: 30, revert: 15 }, // 5 d / 2.5 d
+  D1: { trend: 20, revert: 8 }, // 4 weeks / 8 days (held over weekends)
 };
 
-function spec(tf: FxTf, family: FxFamily, p: Record<string, number>, atrMult: number, rr: number): FxSpec {
+function spec(tf: FxTf, family: FxFamily, p: Record<string, number>, atrMult: number, rr: number, session: FxSession = "all"): FxSpec {
   const ps = Object.entries(p).map(([k, v]) => `${k}${v}`).join("_");
   const revert = family === "RSI_REVERT" || family === "BB_REVERT";
   const maxBars = MAX_BARS[tf][revert ? "revert" : "trend"];
-  return { id: `${tf}_${family}${ps ? `_${ps}` : ""}_A${atrMult}_R${rr}`, tf, family, p, atrMult, rr, maxBars };
+  const ss = session === "all" ? "" : `_S${session}`;
+  return { id: `${tf}_${family}${ps ? `_${ps}` : ""}_A${atrMult}_R${rr}${ss}`, tf, family, p, atrMult, rr, maxBars, session };
 }
 
 /** Parameter grid (kept small on purpose: fewer specs → less curve fitting). */
-export function specGrid(tf: FxTf = "M15"): FxSpec[] {
-  const out: FxSpec[] = [];
+/**
+ * Parameter grid per timeframe. Intraday frames (M15/H1) also get session variants
+ * (Asia / London / New York), so each pair can trade only when it moves best.
+ */
+export function specGrid(tf: FxTf = "M15", withSessions = tf === "M15" || tf === "H1"): FxSpec[] {
+  const base: Array<[FxFamily, Record<string, number>, number, number]> = [];
   for (const [fast, slow] of [[9, 21], [20, 50], [12, 26]] as const) {
-    for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec(tf, "EMA_CROSS", { fast, slow }, a, r));
+    for (const a of [1.5, 2]) for (const r of [1.5, 2]) base.push(["EMA_CROSS", { fast, slow }, a, r]);
   }
-  for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec(tf, "MACD_TREND", {}, a, r));
-  for (const n of [20, 55]) for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec(tf, "DONCHIAN_BREAK", { n }, a, r));
-  for (const [lo, hi] of [[30, 70], [25, 75]] as const) for (const r of [1, 1.5]) out.push(spec(tf, "RSI_REVERT", { lo, hi }, 1.5, r));
-  for (const r of [1, 1.5]) out.push(spec(tf, "BB_REVERT", {}, 1.5, r));
+  for (const a of [1.5, 2]) for (const r of [1.5, 2]) base.push(["MACD_TREND", {}, a, r]);
+  for (const n of [20, 55]) for (const a of [1.5, 2]) for (const r of [1.5, 2]) base.push(["DONCHIAN_BREAK", { n }, a, r]);
+  for (const a of [1.5, 2]) for (const r of [1.5, 2]) base.push(["PULLBACK", {}, a, r]);
+  for (const [lo, hi] of [[30, 70], [25, 75]] as const) for (const r of [1, 1.5]) base.push(["RSI_REVERT", { lo, hi }, 1.5, r]);
+  for (const r of [1, 1.5]) base.push(["BB_REVERT", {}, 1.5, r]);
+  const sessions: FxSession[] = withSessions ? ["all", "asia", "london", "ny"] : ["all"];
+  const out: FxSpec[] = [];
+  for (const ss of sessions) for (const [f, p, a, r] of base) out.push(spec(tf, f, p, a, r, ss));
   return out;
 }
 
@@ -134,6 +154,8 @@ export type FxIndicators = {
   /** per bar (by bar close time): entries allowed (24h window) / weekend flatten */
   entryOk: boolean[];
   weekend: boolean[];
+  /** London minutes-of-day at each bar close */
+  lonMin: number[];
 };
 
 export function computeIndicators(bars: readonly FxCandle[], barSec = 900): FxIndicators {
@@ -182,14 +204,16 @@ export function computeIndicators(bars: readonly FxCandle[], barSec = 900): FxIn
   };
   const entryOk: boolean[] = [];
   const weekend: boolean[] = [];
+  const lonMin: number[] = [];
   for (const b of bars) {
     // London clock evaluated once per bar, at the bar close.
     const end = new Date((b.time + barSec) * 1000);
     entryOk.push(isFxEntryWindow(end, "24h"));
     weekend.push(isWeekendFlattenTime(end));
+    lonMin.push(londonMinutes(end));
   }
   return {
-    entryOk, weekend,
+    entryOk, weekend, lonMin,
     bars, close, ema, rsi14: rsiArr(close), atr14: atrArr(bars), macd, macdSig, bbMid, bbSd,
     donHi: (n) => don(n, true), donLo: (n) => don(n, false),
   };
@@ -198,6 +222,11 @@ export function computeIndicators(bars: readonly FxCandle[], barSec = 900): FxIn
 /** Signal on the close of bar i (null = no signal). */
 export function signalAt(s: FxSpec, ind: FxIndicators, i: number): FxSide | null {
   if (i < 1) return null;
+  if (s.session && s.session !== "all") {
+    const [a, b] = SESSION_MIN[s.session];
+    const m = ind.lonMin[i];
+    if (m == null || m < a || m >= b) return null;
+  }
   const c = ind.close;
   const t200 = ind.ema(200)[i];
   const trendUp = t200 != null && c[i]! > t200;
@@ -226,6 +255,15 @@ export function signalAt(s: FxSpec, ind: FxIndicators, i: number): FxSide | null
       if (c[i]! < lo && c[i - 1]! >= lo && trendDn) return "short";
       return null;
     }
+    case "PULLBACK": {
+      // trend (EMA50 vs EMA200), bar dipped to EMA20 and closed back in trend direction
+      const e20 = ind.ema(20)[i]; const e50 = ind.ema(50)[i];
+      if (e20 == null || e50 == null || t200 == null) return null;
+      const b = ind.bars[i]!;
+      if (e50 > t200 && c[i]! > e50 && b.low <= e20 && c[i]! > e20 && c[i]! > b.open) return "long";
+      if (e50 < t200 && c[i]! < e50 && b.high >= e20 && c[i]! < e20 && c[i]! < b.open) return "short";
+      return null;
+    }
     case "RSI_REVERT": {
       const r = ind.rsi14;
       if (r[i] == null || r[i - 1] == null) return null;
@@ -251,10 +289,12 @@ export function describeSpec(s: FxSpec): string {
     s.family === "EMA_CROSS" ? `cruce EMA${p.fast}/EMA${p.slow} a favor de EMA200`
       : s.family === "MACD_TREND" ? "cruce MACD(12,26,9) a favor de EMA200"
         : s.family === "DONCHIAN_BREAK" ? `ruptura del máximo/mínimo de ${p.n} velas a favor de EMA200`
+          : s.family === "PULLBACK" ? "retroceso a EMA20 en tendencia (EMA50 vs EMA200)"
           : s.family === "RSI_REVERT" ? `RSI(14) sale de ${p.lo}/${p.hi} (reversión)`
             : "vuelta dentro de Bollinger(20,2) (reversión)";
   const h = (s.maxBars * TF_SEC[s.tf]) / 3600;
-  return `${s.tf}: ${base} · SL ${s.atrMult}×ATR · TP ${s.rr}R · máx ${h >= 48 ? `${h / 24} d` : `${h} h`}`;
+  const ses = s.session && s.session !== "all" ? ` · solo sesión ${s.session === "asia" ? "Asia" : s.session === "london" ? "Londres" : "Nueva York"}` : "";
+  return `${s.tf}: ${base}${ses} · SL ${s.atrMult}×ATR · TP ${s.rr}R · máx ${h >= 48 ? `${h / 24} d` : `${h} h`}`;
 }
 
 // ── Backtest ────────────────────────────────────────────────────────────────
@@ -288,7 +328,7 @@ export function backtestSpec(s: FxSpec, ind: FxIndicators, instrument: string, s
       const hitTp = side === "long" ? b.high >= tp : b.low <= tp;
       if (hitSl) { exit = stop - (dir * spread) / 2; reason = "SL"; break; }
       if (hitTp) { exit = tp - (dir * spread) / 2; reason = "TP"; break; }
-      if (ind.weekend[j]) { exit = b.close - (dir * spread) / 2; reason = "WEEKEND"; break; }
+      if (ind.weekend[j] && s.tf !== "D1") { exit = b.close - (dir * spread) / 2; reason = "WEEKEND"; break; }
       if (j - i >= s.maxBars) { exit = b.close - (dir * spread) / 2; reason = "TIME"; break; }
     }
     if (j >= bars.length) break; // still open at the end of the data: ignore
@@ -321,6 +361,8 @@ export const PAIR_GATE = { minIsTrades: 40, minOosTrades: 15, minOosPF: 1.15, mi
 
 export type PairChoice = {
   instrument: string;
+  /** confirmed strategy: kept as-is by later optimizations */
+  locked?: boolean;
   spec: FxSpec | null;
   description: string;
   is: SpecStats | null;

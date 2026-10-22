@@ -144,26 +144,41 @@ export async function runForexBotCycle(): Promise<string> {
   // ── Account ───────────────────────────────────────────────────────────────
   let nav = Number(process.env.FOREX_BOT_SHADOW_NAV ?? 500);
   let accountCurrency = (process.env.FOREX_BOT_SHADOW_CCY ?? "EUR").toUpperCase();
-  if (mode !== "shadow") {
-    if (useMt5) {
-      const acct = await mt5Account();
-      if (mode === "live" && acct.demo) return "[ForexBot] modo live pero la cuenta MT5 es demo — no se opera";
-      if (mode === "practice" && !acct.demo) return "[ForexBot] modo practice pero la cuenta MT5 es REAL — no se opera";
-      if (!acct.trade_allowed) return "[ForexBot] cuenta MT5 sin permiso de trading — no se opera";
-      if (acct.terminal_trade_allowed === false) return "[ForexBot] MT5: activa 'Algo Trading' en el terminal — no se opera";
-      nav = acct.equity;
-      accountCurrency = acct.currency.toUpperCase();
-    } else {
-      const acct = await oandaAccount();
-      nav = acct.nav;
-      accountCurrency = acct.currency.toUpperCase();
+  const liveMode = mode !== "shadow";
+  /** Why real orders are not possible this cycle (shadow simulation keeps running). */
+  let brokerBlock: string | null = null;
+  let brokerReachable = false;
+  if (liveMode) {
+    try {
+      if (useMt5) {
+        const acct = await mt5Account();
+        brokerReachable = true;
+        nav = acct.equity;
+        accountCurrency = acct.currency.toUpperCase();
+        if (mode === "live" && acct.demo) brokerBlock = "modo live pero la cuenta MT5 es demo";
+        else if (mode === "practice" && !acct.demo) brokerBlock = "modo practice pero la cuenta MT5 es REAL";
+        else if (!acct.trade_allowed) brokerBlock = "cuenta MT5 sin permiso de trading (OANDA)";
+        else if (acct.terminal_trade_allowed === false) brokerBlock = "MT5: 'Algo Trading' desactivado";
+      } else {
+        const acct = await oandaAccount();
+        brokerReachable = true;
+        nav = acct.nav;
+        accountCurrency = acct.currency.toUpperCase();
+      }
+    } catch (err) {
+      brokerBlock = `broker no disponible: ${err instanceof Error ? err.message.slice(0, 80) : err}`;
     }
+    if (brokerBlock) notes.push(`sin órdenes reales: ${brokerBlock}`);
   }
+  const shadowNav = Number(process.env.FOREX_BOT_SHADOW_NAV ?? (liveMode && nav > 0 ? nav : 500));
+  /** Shadow trades only message Telegram when the whole bot is in shadow mode. */
+  const shadowQuiet = liveMode;
 
   // ── Manage open trades ───────────────────────────────────────────────────
-  const open = trades.filter((t) => !t.closedAt && t.mode === mode);
-  if (mode === "shadow") {
-    for (const t of open) {
+  const openShadow = trades.filter((t) => !t.closedAt && t.mode === "shadow");
+  const open = liveMode ? trades.filter((t) => !t.closedAt && t.mode === mode) : [];
+  {
+    for (const t of openShadow) {
       const bars = (data.get(t.instrument)?.m15 ?? []).filter((b) => b.time * 1000 >= Date.parse(t.openedAt));
       let exit: number | null = null;
       let reason: FxTrade["exitReason"] = null;
@@ -173,7 +188,7 @@ export async function runForexBotCycle(): Promise<string> {
         if (hitSl) { exit = t.stop; reason = "SL"; break; }
         if (hitTp) { exit = t.takeProfit; reason = "TP"; break; }
       }
-      if (exit == null && isWeekendFlattenTime(now) && rates[t.instrument]) {
+      if (exit == null && !t.holdWeekend && isWeekendFlattenTime(now) && rates[t.instrument]) {
         exit = rates[t.instrument]!;
         reason = "WEEKEND";
       }
@@ -181,15 +196,18 @@ export async function runForexBotCycle(): Promise<string> {
         exit = rates[t.instrument]!;
         reason = "TIME";
       }
-      if (exit != null) closeLocal(t, exit, reason, accountCurrency, rates);
+      if (exit != null) closeLocal(t, exit, reason, accountCurrency, rates, null, shadowQuiet);
     }
+  }
+  if (!liveMode || !brokerReachable || open.length === 0) {
+    /* nothing real to manage */
   } else if (useMt5) {
     const live = await mt5Positions();
     for (const t of open) {
       const still = live.find((x) => String(x.ticket) === t.brokerTradeId);
       if (still) {
         if (!(still.sl > 0) || !(still.tp > 0)) notes.push(`⚠ ${t.instrument} posición ${still.ticket} sin SL/TP en MT5`);
-        const wk = isWeekendFlattenTime(now);
+        const wk = !t.holdWeekend && isWeekendFlattenTime(now);
         if (wk || timeUp(t, now)) {
           const r = await mt5Close(String(still.ticket)).catch(() => null);
           if (r) {
@@ -233,6 +251,7 @@ export async function runForexBotCycle(): Promise<string> {
   // ── Daily loss limit ─────────────────────────────────────────────────────
   const todayPnl = trades
     .filter((t) => t.closedAt && t.mode === mode && londonDayKey(new Date(t.closedAt)) === day)
+
     .reduce((s, t) => s + (t.pnl ?? 0), 0);
   const lossLimit = -(nav * fxDailyLossPct()) / 100;
   if (todayPnl <= lossLimit && state.haltedDay !== day) {
@@ -241,7 +260,8 @@ export async function runForexBotCycle(): Promise<string> {
   }
 
   // ── Entries ───────────────────────────────────────────────────────────────
-  const stillOpen = trades.filter((t) => !t.closedAt && t.mode === mode);
+  const stillOpen = trades.filter((t) => !t.closedAt && (t.mode === mode || t.mode === "shadow"));
+  const SHADOW_MAX = 8;
   let entries = 0;
   const eligible = fxEligibleStrategies();
   const pairChoices = new Map<string, PairChoice>(
@@ -253,20 +273,23 @@ export async function runForexBotCycle(): Promise<string> {
     notes.push("fuera de ventana de entradas");
   } else {
     for (const p of pairs) {
-      if (stillOpen.length >= fxMaxPositions()) break;
       const d = data.get(p);
       if (!d || d.m15.length < 60) continue;
       const lastBar = d.m15[d.m15.length - 1]!;
       if (state.lastCandleByPair[p] === lastBar.time) continue; // one decision per closed bar
       state.lastCandleByPair[p] = lastBar.time;
-      // Never stack exposure on the same currency.
-      const [b, q] = ccys(p);
-      if (stillOpen.some((t) => { const [tb, tq] = ccys(t.instrument); return [tb, tq].includes(b) || [tb, tq].includes(q); })) continue;
       // Per-pair strategy (forex-optimize) when available; otherwise the generic strategies.
-      const evals: Array<{ s: string; ev: FxEvaluation; maxHoldMin: number | null }> = [];
+      const evals: Array<{ s: string; ev: FxEvaluation; maxHoldMin: number | null; holdWeekend: boolean }> = [];
       const choice = pairChoices.get(p);
+      // Real money only for validated pairs; everything else is simulated (shadow).
+      const tradeMode: FxTrade["mode"] =
+        liveMode && !brokerBlock && (mode !== "live" || choice?.liveEligible) ? mode : "shadow";
+      const sameMode = stillOpen.filter((t) => t.mode === tradeMode);
+      if (sameMode.length >= (tradeMode === "shadow" ? SHADOW_MAX : fxMaxPositions())) continue;
+      // Never stack exposure on the same currency (within real or within shadow).
+      const [b, q] = ccys(p);
+      if (sameMode.some((t) => { const [tb, tq] = ccys(t.instrument); return [tb, tq].includes(b) || [tb, tq].includes(q); })) continue;
       if (choice?.spec) {
-        if (mode === "live" && !choice.liveEligible) continue;
         const tf: FxTf = choice.spec.tf ?? "M15";
         let bars: FxCandle[] = d.m15;
         if (tf !== "M15") {
@@ -287,6 +310,7 @@ export async function runForexBotCycle(): Promise<string> {
           const dir = side === "long" ? 1 : -1;
           evals.push({
             s: choice.spec.id,
+            holdWeekend: tf === "D1",
             maxHoldMin: (choice.spec.maxBars * TF_SEC[tf]) / 60,
             ev: {
               strategy: choice.spec.id, instrument: p, side, entry: lastBar.close,
@@ -299,20 +323,20 @@ export async function runForexBotCycle(): Promise<string> {
         for (const s of strategies) {
           if (mode === "live" && !eligible.has(s)) continue;
           const ev = s === "FX_TREND_PULLBACK_M15" ? evaluateTrendPullback(p, d.m15, d.h1) : evaluateLondonBreakout(p, d.m15, d.h1, now);
-          evals.push({ s, ev, maxHoldMin: null });
+          evals.push({ s, ev, maxHoldMin: null, holdWeekend: false });
         }
       }
-      for (const { s, ev, maxHoldMin } of evals) {
+      for (const { s, ev, maxHoldMin, holdWeekend } of evals) {
         if (!isFxSignal(ev)) continue;
         // Spread filter (OANDA live quote) — skip when the spread eats >25% of the stop.
         const quote = pricing.get(p);
         const info = mt5Info.get(p);
-        if (useMt5 && mode !== "shadow" && !(info?.bid && info?.ask)) { notes.push(`${p}: sin cotización MT5`); continue; }
+        if (useMt5 && tradeMode !== "shadow" && !(info?.bid && info?.ask)) { notes.push(`${p}: sin cotización MT5`); continue; }
         const spread = info?.bid && info?.ask ? info.ask - info.bid
           : quote ? quote.ask - quote.bid : (TYPICAL_SPREAD_PIPS[p] ?? 2.5) * pipSize(p);
         if (spread > 0.25 * ev.risk) { notes.push(`${p}: spread alto`); continue; }
         let size: { ok: true; units: number; lots: number | null; riskAccount: number; leverage: number } | { ok: false; reason: string };
-        if (info && useMt5) {
+        if (info && useMt5 && tradeMode !== "shadow") {
           if (info.stops_level > 0 && ev.risk < info.stops_level * info.point * 1.2) { notes.push(`${p}: stop < nivel mínimo del broker`); continue; }
           const r = sizeFxLots({
             nav, riskPct: fxRiskPct(), stopDistance: ev.risk, tickSize: info.tick_size,
@@ -324,7 +348,7 @@ export async function runForexBotCycle(): Promise<string> {
         } else {
           const q2a = quote ? (ev.side === "long" ? quote.quoteHomeLong : quote.quoteHomeShort) : null;
           const r = sizeFxPosition({
-            instrument: p, accountCurrency, nav, riskPct: fxRiskPct(), stopDistance: ev.risk,
+            instrument: p, accountCurrency, nav: tradeMode === "shadow" ? shadowNav : nav, riskPct: fxRiskPct(), stopDistance: ev.risk,
             price: ev.entry, rates, maxLeverage: fxMaxLeverage(), quoteToAccount: q2a,
           });
           size = r.ok ? { ...r, lots: null } : r;
@@ -338,15 +362,16 @@ export async function runForexBotCycle(): Promise<string> {
           units: size.units,
           lots: size.lots,
           maxHoldMin,
-          broker: mode === "shadow" ? "shadow" : broker,
+          holdWeekend,
+          broker: tradeMode === "shadow" ? "shadow" : broker,
           entry: ev.entry,
           stop: ev.stop,
           takeProfit: ev.takeProfit,
           openedAt: new Date().toISOString(),
-          mode,
+          mode: tradeMode,
           brokerTradeId: null,
         };
-        if (mode !== "shadow") {
+        if (tradeMode !== "shadow") {
           try {
             // Re-anchor SL/TP distances to the actual executable price.
             const bidAsk = info?.bid && info?.ask ? { bid: info.bid, ask: info.ask } : quote;
@@ -379,8 +404,8 @@ export async function runForexBotCycle(): Promise<string> {
         trades.push(trade);
         stillOpen.push(trade);
         entries += 1;
-        tg(
-          `💱 <b>FX ${ev.side === "long" ? "compra" : "venta"} ${p}</b> (${modeLabel(mode)})\n` +
+        if (tradeMode !== "shadow" || !shadowQuiet) tg(
+          `💱 <b>FX ${ev.side === "long" ? "compra" : "venta"} ${p}</b> (${modeLabel(tradeMode)})\n` +
             `${size.lots != null ? `${size.lots} lotes (${size.units} uds)` : `${size.units} uds`} @ ${trade.entry} · SL ${trade.stop.toFixed(5)} · TP ${trade.takeProfit.toFixed(5)}\n` +
             `riesgo ≈ ${size.riskAccount.toFixed(2)} ${accountCurrency} (${fxRiskPct()}%) · apal. ${size.leverage.toFixed(1)}x · ${s}\n${ev.reason}`,
         );
@@ -393,9 +418,10 @@ export async function runForexBotCycle(): Promise<string> {
   state.lastCycleAt = new Date().toISOString();
   state.dataSource = source;
   const openNow = trades.filter((t) => !t.closedAt && t.mode === mode).length;
+  const openSim = liveMode ? trades.filter((t) => !t.closedAt && t.mode === "shadow").length : 0;
   state.lastSummary =
     `[ForexBot] modo=${mode} broker=${mode === "shadow" ? "—" : broker} datos=${source || "—"} pares=${pairs.length} nav=${nav.toFixed(2)} ${accountCurrency} ` +
-    `abiertas=${openNow} entradas=${entries} pnlHoy=${todayPnl.toFixed(2)}` + (notes.length ? ` | ${notes.slice(0, 6).join(" | ")}` : "");
+    `abiertas=${openNow}${liveMode ? ` simuladas=${openSim}` : ""} entradas=${entries} pnlHoy=${todayPnl.toFixed(2)}` + (notes.length ? ` | ${notes.slice(0, 6).join(" | ")}` : "");
   saveFxState(state);
   return state.lastSummary;
 }
@@ -411,6 +437,7 @@ function closeLocal(
   accountCurrency: string,
   rates: FxRates,
   brokerPnl?: number | null,
+  quiet = false,
 ): void {
   t.closedAt = new Date().toISOString();
   t.exit = exit;
@@ -424,6 +451,7 @@ function closeLocal(
   const risk = Math.abs(t.entry - t.stop);
   t.rMultiple = risk > 0 ? ((t.side === "long" ? exit - t.entry : t.entry - exit) / risk) : null;
   const icon = (t.pnl ?? 0) >= 0 ? "🟢" : "🔴";
+  if (quiet) return;
   tg(
     `${icon} <b>FX cerrada ${t.instrument}</b> (${modeLabel(t.mode)}) ${reason}\n` +
       `${t.side === "long" ? "compra" : "venta"} ${t.units} uds ${t.entry} → ${exit} · ` +

@@ -1,0 +1,45 @@
+
+=== INTÉRPRETE DEL BROKER ===
+intérprete=none script=/usr/bin/bash cwd=/var/www/forgeos/services/ibkr-broker
+python usado: /usr/bin/python3 (Python 3.14.4)
+
+=== DESCARGA TWS API (Mac/Unix, versión estable) ===
+página: 20099 bytes
+href="https://download2.interactivebrokers.com/installers/tws-api/latest/tws-api-latest-linux-x64.sh"
+href="https://download2.interactivebrokers.com/installers/tws-api/latest/tws-api-latest-macos-arm.dmg"
+href="https://download2.interactivebrokers.com/installers/tws-api/latest/tws-api-latest-macosx-x64.dmg"
+href="https://download2.interactivebrokers.com/installers/tws-api/latest/tws-api-latest-windows-x64.exe"
+href="https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-linux-x64.sh"
+href="https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-macos-arm.dmg"
+href="https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-macosx-x64.dmg"
+href="https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-windows-x64.exe"
+href="https://ibkrcampus.com/ibkr-api-page/twsapi-doc/#unix-install"
+url: https://download2.interactivebrokers.com/installers/tws-api/stable/tws-api-stable-linux-x64.sh
+-rw-r--r-- 1 root root 61566217 Oct 22 09:51 /tmp/tmp.tc6hkq6Bbr/twsapi.sh
+#!/bin/sh
+
+# Uncomment the following line to override the JVM search sequence
+# INSTALL4J_JAVA_HOME_OVERRIDE=
+# Uncomment the following line to add additional VM parameters
+Unpacking JRE ...
+Starting Installer ...
+The installation directory has been set to /tmp/tmp.tc6hkq6Bbr/inst.
+Extracting files ...
+Finishing installation ...
+pythonclient: /tmp/tmp.tc6hkq6Bbr/inst/source/pythonclient
+
+=== COMPROBACIÓN DE IMPORTACIÓN ===
+MAX_CLIENT_VER 226
+MIN_SERVER_VER_FRACTIONAL_SIZE_SUPPORT 163
+
+=== TESTS DEL BROKER CON LA LIBRERÍA OFICIAL ===
+..................                                                       [100%]
+18 passed in 0.40s
+
+=== ACTIVACIÓN ===
+ibkr-broker reiniciado
+broker conectado (tras 12 s)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=1

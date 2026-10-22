@@ -297,8 +297,10 @@ do_install_twsapi() {
   command -v unzip >/dev/null || apt-get install -y -q unzip >/dev/null
   local page url tmp
   page="$(curl -sL --max-time 30 https://interactivebrokers.github.io/)"
-  url="$(printf '%s' "$page" | grep -oE 'https?://[^"'"'"' ]*twsapi_macunix\.[0-9]+\.[0-9]+\.zip' | sort -t. -k2,2n -k3,3n -u | head -1)"
-  [ -n "$url" ] || url="$(printf '%s' "$page" | grep -oE '[^"'"'"' ]*twsapi_macunix\.[0-9]+\.[0-9]+\.zip' | head -1)"
+  echo "página: $(printf '%s' "$page" | wc -c) bytes"
+  # Enlaces candidatos (zip / macunix) tal como aparecen en la página
+  printf '%s' "$page" | grep -oiE '(href|src)="[^"]*(zip|unix|download)[^"]*"' | sort -u | head -20
+  url="$(printf '%s' "$page" | grep -oiE '[^"'"'"' =]*twsapi_macunix[^"'"'"' ]*\.zip' | sort -u | head -1)"
   case "$url" in http*) ;; "") echo "No se encontró el enlace de descarga"; exit 5;; *) url="https://interactivebrokers.github.io/${url#/}";; esac
   echo "url: $url"
   tmp="$(mktemp -d)"

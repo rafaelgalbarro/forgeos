@@ -2131,6 +2131,19 @@ class IBKRClient(EWrapper, EClient):
         apply_whatif_legacy_attr_compat(order)
 
         use_bracket = bool(proposal.get("bracket")) and stop_loss and take_profit and str(order.action).upper() == "BUY"
+        # Regla dura: ninguna compra de acciones en real sin stop loss y take profit (bracket).
+        if (
+            sec_type == "STK"
+            and str(order.action).upper() == "BUY"
+            and transmit
+            and not what_if
+            and not use_bracket
+        ):
+            raise OrderRejectedError(
+                None,
+                "BUY STK sin bracket (stop loss + take profit) — rechazada por regla de seguridad",
+                ibkr_status="NO_BRACKET",
+            )
         # Parent must not transmit until children attached (live only).
         if use_bracket and transmit and not what_if:
             order.transmit = False

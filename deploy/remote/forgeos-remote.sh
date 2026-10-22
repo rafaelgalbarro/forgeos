@@ -407,6 +407,31 @@ do_cancel_order() {
   do_orders
 }
 
+do_futures() {
+  sec "KRAKEN FUTURES: diagnóstico de estrategias"
+  curl -s --max-time 30 http://localhost:3000/api/trading/crypto/diagnostics -H "X-Internal-API-Key: $API_KEY" | python3 -c '
+import sys, json
+try: d = json.load(sys.stdin)
+except Exception as e: print("sin respuesta:", e); sys.exit()
+f = d.get("futures") or {}
+e = f.get("engine") or {}
+print("venue=", f.get("venue"), "shadow=", f.get("shadowMode"), "apalancamiento=", f.get("leverageCap"), "estrategias live=", f.get("liveStrategies"))
+print("margen=", e.get("availableMargin"), "último ciclo=", e.get("lastCycleAt"), "lastCycle=", e.get("lastCycle"))
+print("riesgo diario=", f.get("dailyRisk"))
+diag = f.get("diagnostics") or {}
+print("diagnóstico actualizado=", diag.get("updatedAt"), "último ciclo=", diag.get("lastCycleAt"))
+for name, dirs in sorted((diag.get("strategies") or {}).items()):
+    for side in ("long", "short"):
+        r = (dirs or {}).get(side) or {}
+        if not r.get("attempts"): continue
+        top = sorted((r.get("discardReasons") or {}).items(), key=lambda x: -x[1])[:3]
+        print("  %-28s %-5s intentos=%-6s señales=%-4s casi=%-3s | %s" % (name, side, r.get("attempts"), r.get("signals", r.get("buys")), r.get("nearMisses"), "; ".join("%s×%s" % (n, k) for k, n in top)))
+bt = f.get("backtestReport") or {}
+print("puerta backtest:", json.dumps(bt)[:600])'
+  sec "KRAKEN FUTURES: últimas líneas del motor"
+  grep -E "Kraken/Futures\] (cycle|order)|held=\[" logs/forgeos-crypto-engine-out.log | tail -5 | cut -c1-300
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -429,6 +454,7 @@ case "$ACTION" in
   fractional-off) do_fractional_off ;;
   unblock-eu) do_unblock_eu ;;
   orders) do_orders ;;
+  futures) do_futures ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

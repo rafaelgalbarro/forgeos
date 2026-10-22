@@ -400,6 +400,17 @@ export async function submitSupervisedLiveLimitOrder(args: {
       `ccy=${currency} primary=${primaryExchange ?? "—"} account=${account ?? "default"})…`,
   );
 
+  // Regla dura: toda compra de acciones lleva stop loss y take profit en IBKR (bracket).
+  if (
+    !crypto &&
+    args.side === "BUY" &&
+    !(args.stopLoss && args.stopLoss > 0 && args.takeProfit && args.takeProfit > 0 && args.stopLoss < args.limitPrice && args.takeProfit > args.limitPrice)
+  ) {
+    throw new Error(
+      `${symbol}: compra sin stop loss/take profit válidos (SL=${args.stopLoss ?? "—"} TP=${args.takeProfit ?? "—"}) — no se envía`,
+    );
+  }
+
   const stockQtyFields =
     !crypto && !eu
       ? buildIbkrStockProposalOrderFields({

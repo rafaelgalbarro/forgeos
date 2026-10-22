@@ -68,9 +68,21 @@ function emptyState(): FuturesDiagnosticsState {
 }
 
 let memory: FuturesDiagnosticsState | null = null;
+let memoryMtimeMs = 0;
+
+function fileMtimeMs(): number {
+  try {
+    return fs.statSync(FUTURES_DIAGNOSTICS_FILE).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
 
 export function loadFuturesDiagnostics(): FuturesDiagnosticsState {
-  if (memory) return memory;
+  // The crypto engine (other process) writes the file: re-read when it changed,
+  // otherwise the web process keeps serving a stale snapshot forever.
+  if (memory && fileMtimeMs() <= memoryMtimeMs) return memory;
+  memoryMtimeMs = fileMtimeMs();
   try {
     if (!fs.existsSync(FUTURES_DIAGNOSTICS_FILE)) {
       memory = emptyState();
@@ -100,6 +112,7 @@ export function saveFuturesDiagnostics(
     fs.mkdirSync(path.dirname(FUTURES_DIAGNOSTICS_FILE), { recursive: true });
     fs.writeFileSync(FUTURES_DIAGNOSTICS_FILE, JSON.stringify(state, null, 2), "utf8");
     memory = state;
+    memoryMtimeMs = fileMtimeMs();
   } catch (err) {
     console.warn(
       "[FuturesDiag] save failed:",

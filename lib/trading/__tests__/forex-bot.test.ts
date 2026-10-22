@@ -87,3 +87,27 @@ describe("forex bot: strategy & sessions", () => {
     expect(typeof rows[0]!.liveEligible).toBe("boolean");
   });
 });
+
+describe("forex bot: MT5 lot sizing", () => {
+  it("2% of 500€, 20-pip stop on EURUSD (tick 0.00001 = 0.86€/lot) → 0.05 lots", async () => {
+    const { sizeFxLots } = await import("@/lib/forex-bot/risk");
+    const s = sizeFxLots({
+      nav: 500, riskPct: 2, stopDistance: 0.002, tickSize: 0.00001, tickValueLoss: 0.86,
+      contractSize: 100000, volumeMin: 0.01, volumeStep: 0.01, volumeMax: 100, baseToAccount: 1, maxLeverage: 10,
+    });
+    expect(s.ok).toBe(true);
+    if (s.ok) {
+      expect(s.lots).toBe(0.05); // 10€ / (200 ticks × 0.86€) = 0.058 → 0.05
+      expect(s.riskAccount).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("rejects when even the minimum lot risks too much", async () => {
+    const { sizeFxLots } = await import("@/lib/forex-bot/risk");
+    const s = sizeFxLots({
+      nav: 50, riskPct: 2, stopDistance: 0.003, tickSize: 0.00001, tickValueLoss: 0.86,
+      contractSize: 100000, volumeMin: 0.01, volumeStep: 0.01, volumeMax: 100, baseToAccount: 1, maxLeverage: 10,
+    });
+    expect(s.ok).toBe(false);
+  });
+});

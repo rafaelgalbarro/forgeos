@@ -44,6 +44,9 @@ export type FxTrade = {
   instrument: string;
   side: FxSide;
   units: number;
+  /** MT5 volume in lots (units = lots × contract size) */
+  lots?: number | null;
+  broker?: "mt5" | "oanda" | "shadow";
   entry: number;
   stop: number;
   takeProfit: number;

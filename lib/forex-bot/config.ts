@@ -95,3 +95,10 @@ export function oandaConfigured(): boolean {
 export function oandaEnv(): "practice" | "live" {
   return (process.env.OANDA_ENV ?? "practice").trim().toLowerCase() === "live" ? "live" : "practice";
 }
+
+/** Execution broker: FOREX_BOT_BROKER=mt5|oanda (default mt5 when the MT5 bridge is configured). */
+export function fxBroker(): "mt5" | "oanda" {
+  const b = (process.env.FOREX_BOT_BROKER ?? "").trim().toLowerCase();
+  if (b === "mt5" || b === "oanda") return b;
+  return (process.env.MT5_BRIDGE_KEY ?? "").trim() ? "mt5" : "oanda";
+}

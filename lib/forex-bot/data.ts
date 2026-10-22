@@ -4,7 +4,8 @@
 
 import "server-only";
 
-import { oandaConfigured } from "./config";
+import { fxBroker, oandaConfigured } from "./config";
+import { mt5Candles, mt5Configured } from "./mt5";
 import { aggregate } from "./indicators";
 import { oandaCandles } from "./oanda";
 import type { FxCandle } from "./types";
@@ -42,7 +43,14 @@ export async function eodhdIntraday5m(instrument: string, days: number): Promise
 /** Closed M15 candles (≥ `count`) and H1 candles derived the same way. */
 export async function fxCandles(instrument: string, count = 400): Promise<{ m15: FxCandle[]; h1: FxCandle[]; source: string }> {
   const nowSec = Math.floor(Date.now() / 1000);
-  if (oandaConfigured()) {
+  if (fxBroker() === "mt5" && mt5Configured()) {
+    try {
+      const [m15, h1] = await Promise.all([mt5Candles(instrument, "M15", count), mt5Candles(instrument, "H1", 200)]);
+      if (m15.length >= 60) return { m15, h1, source: "MT5" };
+    } catch {
+      /* bridge down → fall back to EODHD below */
+    }
+  } else if (oandaConfigured()) {
     const [m15, h1] = await Promise.all([
       oandaCandles(instrument, "M15", count),
       oandaCandles(instrument, "H1", 200),

@@ -78,3 +78,48 @@ export function fxPnlAccount(args: {
   const move = args.side === "long" ? args.exit - args.entry : args.entry - args.exit;
   return move * args.units * q2a;
 }
+
+export type FxLotSizing =
+  | { ok: true; lots: number; riskAccount: number; notionalAccount: number; leverage: number }
+  | { ok: false; reason: string };
+
+/**
+ * MT5 sizing in lots using the broker's own tick value (account currency per tick per lot),
+ * rounded down to volume_step, capped by notional ≤ maxLeverage × NAV.
+ */
+export function sizeFxLots(args: {
+  nav: number;
+  riskPct: number;
+  stopDistance: number;
+  tickSize: number;
+  tickValueLoss: number;
+  contractSize: number;
+  volumeMin: number;
+  volumeStep: number;
+  volumeMax: number;
+  baseToAccount: number | null;
+  maxLeverage: number;
+}): FxLotSizing {
+  if (!(args.nav > 0)) return { ok: false, reason: "NAV 0" };
+  if (!(args.stopDistance > 0) || !(args.tickSize > 0) || !(args.tickValueLoss > 0)) {
+    return { ok: false, reason: "datos de tick incompletos" };
+  }
+  const riskAccount = (args.nav * args.riskPct) / 100;
+  const lossPerLot = (args.stopDistance / args.tickSize) * args.tickValueLoss;
+  let lots = riskAccount / lossPerLot;
+  if (args.baseToAccount && args.baseToAccount > 0 && args.contractSize > 0) {
+    const maxLots = (args.nav * args.maxLeverage) / (args.contractSize * args.baseToAccount);
+    lots = Math.min(lots, maxLots);
+  }
+  lots = Math.min(lots, args.volumeMax || lots);
+  const step = args.volumeStep > 0 ? args.volumeStep : 0.01;
+  lots = Math.floor(lots / step + 1e-9) * step;
+  const decimals = Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+  lots = Number(lots.toFixed(decimals));
+  if (lots < args.volumeMin) {
+    const minRisk = args.volumeMin * lossPerLot;
+    return { ok: false, reason: `lote mínimo ${args.volumeMin} arriesga ${minRisk.toFixed(2)} > ${riskAccount.toFixed(2)}` };
+  }
+  const notionalAccount = lots * args.contractSize * (args.baseToAccount ?? 1);
+  return { ok: true, lots, riskAccount: lots * lossPerLot, notionalAccount, leverage: notionalAccount / args.nav };
+}

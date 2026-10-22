@@ -16,6 +16,9 @@ concurrency:
   group: forgeos-server
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   remote:
     runs-on: ubuntu-latest
@@ -42,14 +45,38 @@ jobs:
           SSH_HOST: ${{ secrets.FORGEOS_SSH_HOST }}
           ACTION: ${{ inputs.action }}
         run: |
+          set +e
           ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 \
-            "root@$SSH_HOST" "$ACTION" 2>&1 | tee remote-output.txt
-          exit "${PIPESTATUS[0]}"
+            "root@$SSH_HOST" "$ACTION" > remote-output.txt 2>&1
+          rc=$?
+          if [ $rc -eq 255 ]; then
+            echo "--- diagnóstico SSH (código 255) ---" >> remote-output.txt
+            ssh -v -o BatchMode=yes -o ConnectTimeout=20 "root@$SSH_HOST" status 2>&1 \
+              | grep -E "Connecting|Connection|Authenticat|Offering|Server accepts|denied|Host key|REMOTE HOST|refused|timed out" \
+              | head -20 >> remote-output.txt
+          fi
+          echo "codigo_salida=$rc" >> remote-output.txt
+          cat remote-output.txt
+          echo "$rc" > rc.txt
 
-      - name: Guardar salida
+      - name: Publicar salida en la rama server-output
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: salida-${{ inputs.action }}-${{ github.run_id }}
-          path: remote-output.txt
-          retention-days: 7
+        env:
+          RUN_ID: ${{ github.run_id }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          [ -f remote-output.txt ] || echo "sin salida" > remote-output.txt
+          git init -q out && cd out
+          git config user.name "forgeos-actions"; git config user.email "actions@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git fetch -q --depth=1 origin server-output 2>/dev/null && git checkout -q FETCH_HEAD || true
+          git checkout -q -B server-output
+          mkdir -p runs
+          cp ../remote-output.txt "runs/${RUN_ID}-${ACTION}.txt"
+          cp ../remote-output.txt "ultimo-${ACTION}.txt"
+          ls runs | sort -r | tail -n +51 | sed 's#^#runs/#' | xargs -r git rm -q --ignore-unmatch || true
+          git add -A && git commit -q -m "salida ${ACTION} run ${RUN_ID}" && git push -q origin server-output
+
+      - name: Resultado
+        if: always()
+        run: exit "$(cat rc.txt 2>/dev/null || echo 1)"

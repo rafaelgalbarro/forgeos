@@ -49,7 +49,8 @@ def ensure_init():
         return False
     creds = json.loads(creds_raw)
     mt5.shutdown()
-    ok = mt5.initialize(login=int(creds["login"]), password=str(creds["password"]), server=str(creds["server"]), timeout=60000)
+    term = creds.get("path") or r"C:\Program Files\MetaTrader 5\terminal64.exe"
+    ok = mt5.initialize(path=term, login=int(creds["login"]), password=str(creds["password"]), server=str(creds["server"]), timeout=90000)
     if not ok:
         STATE["initialized"] = False
         STATE["last_error"] = "initialize: %s" % (mt5.last_error(),)

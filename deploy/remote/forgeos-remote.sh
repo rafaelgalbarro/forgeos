@@ -747,6 +747,23 @@ do_mt5_status() {
 import sys, json
 for p in json.load(sys.stdin):
     if p.get("name") == "forgeos-mt5-bridge": print("puente:", p["pm2_env"]["status"], "reinicios:", p["pm2_env"]["restart_time"])'
+  # Sync bridge code + ownership (the Wine user inside the container must read /config/forgeos).
+  if [ -d /root/mt5-config/forgeos ]; then
+    local WU; WU="$(stat -c %u /root/mt5-config/.wine 2>/dev/null || echo 0)"
+    if ! cmp -s services/mt5-bridge/mt5_bridge.py /root/mt5-config/forgeos/mt5_bridge.py; then
+      cp services/mt5-bridge/mt5_bridge.py /root/mt5-config/forgeos/mt5_bridge.py; echo "puente actualizado"; MT5_RESTART=1
+    fi
+    if [ "$(stat -c %u /root/mt5-config/forgeos)" != "$WU" ]; then
+      chown -R "$WU" /root/mt5-config/forgeos; echo "permisos ajustados a uid $WU"; MT5_RESTART=1
+    fi
+    if [ "${MT5_RESTART:-0}" = 1 ] || [ "$(pm2 jlist 2>/dev/null | grep -c '"name":"forgeos-mt5-bridge".*errored')" != 0 ]; then
+      pm2 restart forgeos-mt5-bridge --update-env >/dev/null 2>&1 || pm2 start ecosystem.config.js --only forgeos-mt5-bridge >/dev/null 2>&1
+      echo "puente reiniciado; esperando 120 s (instalación de Python 64 bits la primera vez)…"; sleep 120
+    fi
+  fi
+  echo "--- diagnóstico contenedor"
+  docker exec mt5 sh -c 'ls -ld /config/.wine; ls "/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe" 2>&1; find /config/.wine/drive_c -iname python.exe 2>/dev/null | grep -vi scripts' 2>&1 | head -8
+  docker logs --tail 8 mt5 2>&1 | cut -c1-200
   local K; K="$(mt5_key)"
   for path in "/health" "/resolve?base=EUR_USD"; do
     echo "--- $path"; curl -s --max-time 90 "http://127.0.0.1:8004$path" -H "X-Bridge-Key: $K" | cut -c1-900; echo

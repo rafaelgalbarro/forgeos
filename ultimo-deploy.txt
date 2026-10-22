@@ -1,31 +1,31 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando a9d2677 mt5: arrancar el terminal en el display antes del puente; versión de wine
+Desplegando 3b55eb0 mt5: sin diálogos de Mono/Gecko; actualizar prefijo tras cambiar Wine
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-153046
-Updating b695154..a9d2677
+estado copiado en /root/forgeos-state-20261022-154457
+Updating a9d2677..3b55eb0
 Fast-forward
  .github/workflows/server-remote.yml |  2 +-
- deploy/remote/forgeos-remote.sh     | 27 ++++++++++++++++++++++++++-
- deploy/remote/mt5-bridge-run.sh     |  5 +++++
- services/mt5-bridge/mt5_bridge.py   |  8 +++++++-
- 4 files changed, 39 insertions(+), 3 deletions(-)
+ deploy/remote/forgeos-remote.sh     | 23 +++++++++++++++++++++++
+ deploy/remote/mt5-bridge-run.sh     |  6 +++---
+ 3 files changed, 27 insertions(+), 4 deletions(-)
+script remoto actualizado
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.54s
+19 passed in 0.60s
 
 === BUILD ===
-procesos MT5 antes: terminal=3 puente=1 wine=5
-Mem:            7746        2726        3922           8        1486        5019
-Swap:           4095         752        3343
+procesos MT5 antes: terminal=1 puente=0 wine=8
+Mem:            7746        2830         372           9        5057        4915
+Swap:           4095         933        3162
      0 MB COMMAND
-   576 MB java
-   432 MB next-server
-   175 MB node
-   134 MB node
-   111 MB node
+   501 MB java
+   438 MB next-server
+   173 MB node
+   171 MB node
+   114 MB python3
 
 up to date in 1s
    Generating static pages (153/204) 

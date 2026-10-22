@@ -1,0 +1,45 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 3b55eb0 mt5: sin diálogos de Mono/Gecko; actualizar prefijo tras cambiar Wine
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-154457
+Updating a9d2677..3b55eb0
+Fast-forward
+ .github/workflows/server-remote.yml |  2 +-
+ deploy/remote/forgeos-remote.sh     | 23 +++++++++++++++++++++++
+ deploy/remote/mt5-bridge-run.sh     |  6 +++---
+ 3 files changed, 27 insertions(+), 4 deletions(-)
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.60s
+
+=== BUILD ===
+procesos MT5 antes: terminal=1 puente=0 wine=8
+Mem:            7746        2830         372           9        5057        4915
+Swap:           4095         933        3162
+     0 MB COMMAND
+   501 MB java
+   438 MB next-server
+   173 MB node
+   171 MB node
+   114 MB python3
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

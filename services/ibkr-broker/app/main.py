@@ -2115,7 +2115,9 @@ class IBKRClient(EWrapper, EClient):
         crypto = sec_type == "CRYPTO"
         order.outsideRth = True if crypto else (bool(proposal.get("outside_rth")) and settings.allow_outside_rth)
         order.whatIf = what_if
-        order.transmit = transmit
+        # IBKR API ≥10.x rejects what-if with transmit=False (321 "What-If order should have
+        # transmit flag set to TRUE"). What-if orders are never executed, so transmit=True is safe.
+        order.transmit = True if what_if else transmit
         tif = str(proposal.get("tif") or "").upper()
         if tif in {"DAY", "GTC"}:
             order.tif = tif
@@ -2139,8 +2141,10 @@ class IBKRClient(EWrapper, EClient):
         if use_bracket and transmit and not what_if:
             order.transmit = False
         if use_bracket and what_if:
+            # What-if margins only for the parent; children are not sent in what-if mode.
             order.whatIf = True
-            order.transmit = False
+            order.transmit = True
+            use_bracket = False
 
         notional = (
             float(order.cashQty)
@@ -2346,7 +2350,7 @@ class IBKRClient(EWrapper, EClient):
         order.tif = "DAY"
         order.outsideRth = True
         order.whatIf = True
-        order.transmit = False
+        order.transmit = True  # what-if only; API ≥10.x requires transmit=True (error 321)
         if proposal["account"]:
             order.account = proposal["account"]
         apply_whatif_legacy_attr_compat(order)

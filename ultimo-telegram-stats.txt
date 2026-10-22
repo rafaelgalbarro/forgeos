@@ -1,25 +1,25 @@
 
 === TELEGRAM: envíos por proceso (logs actuales de PM2) ===
-258  forgeos-out.log  (desde [BrokerCalls] positions=1)
+275  forgeos-out.log  (desde [BrokerCalls] positions=1)
 19  forgeos-crypto-engine-out.log  (desde 2026-10-22 00:00:52 +00:0)
-7  forgeos-eodhd-us-ws-out.log  (desde 2026-10-22 00:00:01 +00:0)
+8  forgeos-eodhd-us-ws-out.log  (desde 2026-10-22 00:00:01 +00:0)
 
 === TELEGRAM: qué se envía (línea anterior a cada envío, agrupado) ===
 --- forgeos-out.log
-    148 [ProStrategy] Ciclo fin: N tickers | señales BUY=N | auto-ejecutadas=N | fallidas=N | ski
-     85 [AutoExecute] USDCAD → precio EODHD (forex)…
+    153 [ProStrategy] Ciclo fin: N tickers | señales BUY=N | auto-ejecutadas=N | fallidas=N | ski
+     87 [AutoExecute] USDCAD → precio EODHD (forex)…
      79 [AutoExecute] USDCAD → skip: precio EODHD forex no disponible
-     49 [PositionMonitor] Monitoreando N posiciones
-     48 [Cycle/stocks] fase=PRE_MARKET analizados=N señales=N BUY=N enviadas=N sin_capital=N rech
-     33 [ProStrategy] Ciclo fin: N tickers | señales BUY=N | auto-ejecutadas=N | fallidas=N
-     32 [AutoExecute] USDCAD → EODHD $N (EODHD)
+     53 [Cycle/stocks] fase=PRE_MARKET analizados=N señales=N BUY=N enviadas=N sin_capital=N rech
+     50 [PositionMonitor] Monitoreando N posiciones
+     38 [ProStrategy] Ciclo fin: N tickers | señales BUY=N | auto-ejecutadas=N | fallidas=N
+     37 [AutoExecute] USDCAD → EODHD $N (EODHD)
      23 [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
-     20 [BrokerCalls] positions=N account=N connect=N
+     23 [BrokerCalls] positions=N account=N connect=N
      19 [Cycle/stocks] fase=EUROPA analizados=N señales=N BUY=N enviadas=N sin_capital=N rechazad
-     16 [ProStrategy] AIR: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMAN_PULLBAC
+     17 [ProStrategy] AIR: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMAN_PULLBAC
      15 [ProStrategy] AIR: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMAN_PU
-     12 [ForgeOS build] app/investment/layout.tsx registered — /investment route active
-     10 [TelegramPoll] ▶ Polling activo
+     13 [ForgeOS build] app/investment/layout.tsx registered — /investment route active
+     11 [TelegramPoll] ▶ Polling activo
       9 [AutoExecute] REP → ejecutando orden IBKR…
 --- forgeos-scheduler-out.log
 --- forgeos-crypto-engine-out.log
@@ -35,6 +35,14 @@
 --- forgeos-alerts-out.log
 --- forgeos-scanner-out.log
 --- forgeos-reports-out.log
+
+=== TELEGRAM: mensajes enviados recientes (vista previa) ===
+      4 💱 FOREX Ciclo completado ID: forex_N Analizados: N | BUY:
+      3 📈 STOCKS Ciclo completado ID: stocks_N Analizados: N | B
+      3 ⚠️ FOREX: N/N tickers sin barras / no analizado (usar EURUSD.FOREX etc
+      3 ⚠️ EODHD sin precio (N tickers) ENEL, ENI, ISP, UCG
+      1 Reconectar Broker» en el dashboard (sin 
+duplicados omitidos: 0
 
 === PROCESOS PM2 QUE PUEDEN ENVIAR A TELEGRAM ===
 forgeos-scanner            online   script=/var/www/forgeos/scripts/market-scanner-poll.js

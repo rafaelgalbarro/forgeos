@@ -152,6 +152,7 @@ do_deploy() {
 
   sec "REINICIO"
   pm2 restart forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker --update-env > /dev/null && echo "reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker"
+  if pm2 describe forgeos-forex-bot >/dev/null 2>&1; then pm2 restart forgeos-forex-bot --update-env >/dev/null && echo "reiniciado: forgeos-forex-bot"; fi
   sleep 20
   pm2 jlist 2>/dev/null | python3 -c '
 import sys, json
@@ -662,6 +663,40 @@ do_signals() {
   grep -oE "ninguna señal \([A-Z_]+\)" "$L" | sort | uniq -c | sort -rn | head
 }
 
+do_forex_backtest() {
+  sec "BACKTEST FOREX (EODHD 5m → M15, ${1:-180} días)"
+  local days; days="$(echo "${1:-180}" | tr -cd '0-9')"; [ -n "$days" ] || days=180
+  timeout 900 node scripts/forex-bot.cjs backtest "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -45
+}
+
+do_forex_bot() {
+  sec "BOT FOREX"
+  if ! pm2 describe forgeos-forex-bot >/dev/null 2>&1; then
+    pm2 start ecosystem.config.js --only forgeos-forex-bot >/dev/null 2>&1 && pm2 save >/dev/null 2>&1 && echo "forgeos-forex-bot arrancado (primera vez)"
+    sleep 40
+  fi
+  pm2 jlist 2>/dev/null | python3 -c '
+import sys, json
+for p in json.load(sys.stdin):
+    if p.get("name") == "forgeos-forex-bot":
+        e = p.get("pm2_env", {}); print("proceso:", e.get("status"), "reinicios:", e.get("restart_time"))'
+  echo "modo: $(grep -E '^FOREX_BOT_MODE=' .env.local | cut -d= -f2 || true) (vacío = shadow) · OANDA: $(grep -qE '^OANDA_API_TOKEN=.+' .env.local && echo configurado || echo 'no configurado') · entorno: $(grep -E '^OANDA_ENV=' .env.local | cut -d= -f2)"
+  echo "--- últimos ciclos"
+  grep -hE "\[ForexBot\]" logs/forgeos-forex-bot-out.log 2>/dev/null | tail -6 | cut -c1-400
+  tail -5 logs/forgeos-forex-bot-error.log 2>/dev/null | cut -c1-300
+  echo "--- operaciones"
+  python3 - <<'PY'
+import json
+try:
+    t = json.load(open(".forgeos/forex-bot/trades.json"))
+except Exception:
+    print("sin operaciones todavía"); raise SystemExit
+for x in t[-12:]:
+    print(x.get("mode"), x.get("instrument"), x.get("side"), x.get("units"), "entrada", x.get("entry"), "SL", round(x.get("stop", 0), 5), "TP", round(x.get("takeProfit", 0), 5),
+          "| cierre", x.get("closedAt", "abierta"), x.get("exitReason"), "P&L", x.get("pnl"))
+PY
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -695,6 +730,8 @@ case "$ACTION" in
   telegram-stats) do_telegram_stats ;;
   screenshot) do_screenshot "$ARG" ;;
   signals) do_signals ;;
+  forex-backtest) do_forex_backtest "$ARG" ;;
+  forex-bot) do_forex_bot ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

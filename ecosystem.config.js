@@ -127,6 +127,26 @@ module.exports = {
       },
     },
     {
+      name: "forgeos-forex-bot",
+      script: "./scripts/forex-bot.cjs",
+      cwd: ROOT,
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_restarts: 100,
+      min_uptime: "10s",
+      restart_delay: 10_000,
+      out_file: path.join(LOG_DIR, "forgeos-forex-bot-out.log"),
+      error_file: path.join(LOG_DIR, "forgeos-forex-bot-error.log"),
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+      merge_logs: true,
+      env: {
+        NODE_ENV: "production",
+        FORGEOS_CACHE_DIR: FORGEOS_SHARED_CACHE,
+        // FOREX_BOT_MODE / OANDA_* are read from .env.local (default: shadow)
+      },
+    },
+    {
       name: "forgeos-watchdog",
       script: "./scripts/watchdog.sh",
       interpreter: "bash",

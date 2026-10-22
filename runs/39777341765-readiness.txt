@@ -1,0 +1,223 @@
+
+=== CONFIGURACIÓN .env.local (sin secretos) ===
+ANTHROPIC_API_KEY=(definida)
+GROQ_API_KEY=(definida)
+TELEGRAM_BOT_TOKEN=(definida)
+TELEGRAM_CHAT_ID=(definida)
+IBKR_SERVICE_URL=http://127.0.0.1:8002
+IBKR_INTERNAL_API_KEY=(definida)
+LIVE_TRADING_ENABLED=true
+IBKR_READ_ONLY=false
+FOREX_ENABLED=true
+FOREX_MAX_SPREAD_PIPS=3
+FOREX_MAX_POSITIONS=3
+FOREX_RISK_PCT=2
+FOREX_STOP_PIPS=20
+FOREX_TP_PIPS=40
+FOREX_MIN_CONFIDENCE=0.75
+RESEND_API_KEY=(definida)
+IBKR_ACCOUNT_ID=U24225949
+POLYGON_API_KEY=(definida)
+FINNHUB_API_KEY=(definida)
+ALPHA_VANTAGE_API_KEY=(definida)
+FMP_API_KEY=(definida)
+ALPACA_API_KEY=(definida)
+ALPACA_SECRET=(definida)
+EODHD_API_KEY=(definida)
+KRAKEN_API_KEY=(definida)
+KRAKEN_API_SECRET=(definida)
+CRYPTO_BROKER=kraken
+CRYPTO_LIVE_MAX_NOTIONAL_EUR=15
+CRYPTO_LIVE_MAX_POSITIONS=2
+CRYPTO_ENGINE_EXTERNAL=1
+CRYPTO_LIVE_STRATEGIES=
+STOCKS_EXECUTION_ENABLED=true
+STOCKS_EXECUTION_US=true
+STOCKS_EXECUTION_EU=true
+IBKR_FRACTIONAL_ENABLED=false
+KRAKEN_FUTURES_API_KEY=(definida)
+KRAKEN_FUTURES_API_SECRET=(definida)
+STOCKS_EXECUTION_PREMARKET=true
+CRYPTO_VENUE=futures
+FUTURES_SHADOW_MODE=false
+FUTURES_MAX_LEVERAGE=1
+FUTURES_LIVE_STRATEGIES=RS_VS_BTC_1H_SHORT,TREND_PULLBACK_1H_SHORT
+US_PRICE_SOURCE=auto
+
+=== CONFIGURACIÓN broker services/ibkr-broker/.env (sin secretos) ===
+INTERNAL_API_KEY=(definida)
+APPROVAL_SECRET=(definida)
+IBKR_HOST=127.0.0.1
+IBKR_PORT=4003
+IBKR_CLIENT_ID=10
+IBKR_READ_ONLY=false
+LIVE_TRADING_ENABLED=true
+MAX_ORDER_NOTIONAL=250
+MAX_ORDER_QUANTITY=100000
+ALLOWED_CURRENCIES=EUR,USD
+ALLOWED_EXCHANGES=SMART
+FOREX_ENABLED=true
+IBKR_ACCOUNT_ID=U24225949
+IBKR_CONNECT_TIMEOUT_SECONDS=30
+
+=== FRENOS Y BLOQUEOS ===
+--- ibkr-stocks-execution-pause.json
+(no existe)
+
+--- ibkr-broker-no-ack-symbol-day.json
+{
+  "updatedAt": "2026-10-22T09:48:00.811001+00:00",
+  "symbols": {
+    "HOOD": "2026-10-19",
+    "ORCL": "2026-10-19",
+    "AENA": "2026-10-20",
+    "BMW": "2026-10-20",
+    "REP": "2026-10-22",
+    "MBG": "2026-10-20",
+    "SAN": "2026-10-21",
+    "FER": "2026-10-21",
+    "INGA": "2026-10-21",
+    "DTE": "2026-10-22"
+  }
+}
+--- ibkr-non-tradable.json
+{
+  "updatedAt": "2026-10-22T09:48:00.827Z",
+  "entries": {
+    "HYDC": {
+      "symbol": "HYDC",
+      "code": null,
+      "message": "Posición antigua del usuario: no vender",
+      "ibkrStatus": "ManualBlock",
+      "addedAt": "2026-10-12T20:29:25.018746Z",
+      "telegramSent": true
+    },
+    "DTE": {
+      "symbol": "DTE",
+      "code": 460,
+      "message": "No trading permissions.",
+      "ibkrStatus": "NO_ACK",
+      "addedAt": "2026-10-22T09:48:00.827Z",
+      "telegramSent": true,
+      "expiresAt": "2026-10-23T09:48:00.827Z"
+    }
+  }
+}
+--- kraken-futures-daily-risk.json
+{
+  "dayKey": "2026-10-22",
+  "dayStartCapital": 56.1655,
+  "dayPnl": -0.1390000000000029,
+  "exitsOnly": false,
+  "dailyLimitHit": false
+}
+
+=== PRE-MERCADO: preparación para operar en real ===
+señales registradas=63 cerradas=0 mejoraron=0 → listo=False (requiere ≥20 cerradas y mayoría mejorando)
+
+=== CUENTAS IBKR (efectivo y posiciones) ===
+U15513057 base= EUR NAV= 395.28 Disponible= 252.99 USD= 35.52 EUR= 221.298
+U24225949 base= EUR NAV= 183.45 Disponible= 145.38 USD= 162.90 EUR= 0.00
+   U15513057 TEF 42.0 EUR coste= 3.50742855
+   U24225949 HYDC 2.0 USD coste= 2.0243
+   U15513057 GNLN 0.25 USD coste= 42.696
+   U15513057 CGBSF 2000.0 USD coste= 0.079049
+   U24225949 FLYX 0.8004 USD coste= 6.26274365
+   U24225949 INND 30000.0 USD coste= 0.000707
+   U24225949 RECX 2500.0 USD coste= 0.00808
+   U15513057 APTX.OLD 100.0 USD coste= 0.027348
+   U24225949 APLT.CVR 300.0 USD coste= 0.0137
+
+=== BROKER: último error de Python (Traceback) ===
+
+=== ACCIONES: decisiones recientes del ciclo ===
+11|forgeos | [AutoExecute] KLAC → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MRVL → skip (timeout IBKR)
+11|forgeos | [AutoExecute] JPM → skip (timeout IBKR)
+11|forgeos | [AutoExecute] GS → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MS → skip (timeout IBKR)
+11|forgeos | [AutoExecute] C → skip (timeout IBKR)
+11|forgeos | [AutoExecute] V → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MA → skip (timeout IBKR)
+11|forgeos | [AutoExecute] PYPL → skip (timeout IBKR)
+11|forgeos | [AutoExecute] XYZ → skip (timeout IBKR)
+11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
+11|forgeos | [AutoExecute] SOFI → skip (timeout IBKR)
+11|forgeos | [AutoExecute] LLY → skip (timeout IBKR)
+11|forgeos | [AutoExecute] UNH → skip (timeout IBKR)
+11|forgeos | [AutoExecute] ABBV → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MRK → skip (timeout IBKR)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [ProStrategy] SMCI: skip (ya subió 5.4% > 5%)
+11|forgeos | [AutoExecute] COIN → skip (timeout IBKR)
+11|forgeos | [AutoExecute] ARM → skip (timeout IBKR)
+11|forgeos | [AutoExecute] AMAT → skip (timeout IBKR)
+11|forgeos | [AutoExecute] LRCX → skip (timeout IBKR)
+11|forgeos | [AutoExecute] KLAC → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MRVL → skip (timeout IBKR)
+11|forgeos | [AutoExecute] JPM → skip (timeout IBKR)
+11|forgeos | [AutoExecute] SCHW → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MA → skip (timeout IBKR)
+11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
+11|forgeos | [AutoExecute] SOFI → skip (timeout IBKR)
+11|forgeos | [AutoExecute] UNH → skip (timeout IBKR)
+11|forgeos | [AutoExecute] JNJ → skip (timeout IBKR)
+11|forgeos | [AutoExecute] ABBV → skip (timeout IBKR)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos |   ❌ RECHAZADO: posición duplicada en TEF
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [ProStrategy] SMCI: skip (ya subió 5.7% > 5%)
+
+=== ACCIONES: resumen de ciclos ===
+11|forgeos | [ProStrategy] CRM: US_LISTED 08:18 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] AMD: US_LISTED 08:18 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] INTC: US_LISTED 08:18 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] QCOM: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] TXN: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] NOW: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] PLTR: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] COIN: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] MSTR: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] SMCI: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+
+=== SCHEDULER ===
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T11:52:20.392Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T11:56:37.175Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T11:59:47.922Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T12:05:03.522Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-10-22T12:08:04.942Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T12:08:15.316Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T12:12:30.024Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-22T12:15:42.166Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+
+=== CRIPTO: motor ===
+2026-10-22 12:14:16 +00:00: [Kraken/Futures] cycle margin=28.1394 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=2 held=[PF_ZROUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion]
+2026-10-22 12:14:16 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=1 640ms
+2026-10-22 12:15:16 +00:00: [Kraken/Futures] cycle margin=28.1359 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=1 held=[PF_ZROUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion]
+2026-10-22 12:15:16 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=1 443ms
+2026-10-22 12:16:16 +00:00: [Kraken/Futures] cycle margin=28.1364 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=2 held=[PF_ZROUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion]
+2026-10-22 12:16:16 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=1 600ms
+2026-10-22 12:17:16 +00:00: [Kraken/Futures] cycle margin=28.1349 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=1 held=[PF_ZROUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion]
+2026-10-22 12:17:16 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=1 515ms
+2026-10-22 12:18:16 +00:00: [Kraken/Futures] cycle margin=28.1244 symbols=16 dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=2 orders=0 shadow=1 held=[PF_ZROUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion]
+2026-10-22 12:18:16 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=2 orders=0 held=1 516ms
+2026-10-22 11:49:09 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-22 12:00:16 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+2026-10-22 12:01:16 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+2026-10-22 12:02:16 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+2026-10-22 12:03:16 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

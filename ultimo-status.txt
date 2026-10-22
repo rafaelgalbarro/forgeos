@@ -1,9 +1,1 @@
-Load key "/home/runner/.ssh/id_ed25519": error in libcrypto
-root@204.168.189.120: Permission denied (publickey,password).
---- diagnóstico SSH (código 255) ---
-debug1: Connecting to 204.168.189.120 [204.168.189.120] port 22.
-debug1: Connection established.
-debug1: Authenticating to 204.168.189.120:22 as 'root'
-debug1: Authentications that can continue: publickey,password
-root@204.168.189.120: Permission denied (publickey,password).
-codigo_salida=255
+sin salida

@@ -17,7 +17,7 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 APP=/var/www/forgeos
 BRANCH=feature/ibkr-live-supervised-v1
 RAW="${SSH_ORIGINAL_COMMAND:-${*:-}}"
-ACTION="$(echo "$RAW" | awk '{print $1}' | tr -cd 'a-z-')"
+ACTION="$(echo "$RAW" | awk '{print $1}' | tr -cd 'a-z0-9-')"
 # Argumento opcional (p. ej. un ticker): solo mayúsculas, dígitos, punto y guion.
 ARG="$(echo "$RAW" | awk '{print $2}' | tr -cd 'A-Z0-9._:-' | cut -c1-60)"
 

@@ -1,0 +1,4 @@
+sin salida (falló la preparación)
+--- preparación ---
+líneas clave: 5
+Load key "/home/runner/.ssh/id_ed25519": error in libcrypto

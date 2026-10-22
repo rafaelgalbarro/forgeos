@@ -1889,18 +1889,8 @@ class IBKRClient(EWrapper, EClient):
         if notional < 25:
             raise RuntimeError(f"Fractional mínimo $25 — notional ${notional:.2f}")
 
-        side = str(proposal.get("side") or "").upper()
-        use_bracket = bool(proposal.get("bracket"))
-        if leg == "parent" and side == "BUY" and not use_bracket:
-            order.cashQty = float(round(notional, 2))
-            order.totalQuantity = 0
-            return {
-                "mode": "cashQty",
-                "totalQuantity": 0,
-                "cashQty": order.cashQty,
-                "shareQty": normalized_qty,
-            }
-
+        # IBKR rejects cashQty on API stock LMT orders (10244 "Cash Quantity cannot be used for
+        # this order"): always send the fractional share quantity instead.
         order.totalQuantity = float(normalized_qty)
         order.cashQty = 0.0
         return {

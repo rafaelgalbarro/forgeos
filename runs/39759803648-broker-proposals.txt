@@ -1,0 +1,44 @@
+2026-10-22T09:58:37 EXECUTED  BUY  TEF    qty=25.0 lmt=3.433 sl=3.36434 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-22T09:47:59 REJECTED  BUY  DTE    qty=5.0 lmt=25.71 sl=25.195800000000002 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-22T09:47:58 EXECUTED  BUY  TEF    qty=42.0 lmt=3.439 sl=3.37022 cuenta=U15513057 ibkr=Filled motivo=
+2026-10-22T07:39:22 REJECTED  BUY  REP    qty=7.0 lmt=29.52 sl=28.5803 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:29:54 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:26:46 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:23:38 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:20:29 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:17:21 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:14:08 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:10:56 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:07:43 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:04:32 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:01:15 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=NO_ACK motivo=IBKR status=NO_ACK (not Submitted/PreSubmitted/Filled)
+2026-10-21T15:29:15 REJECTED  BUY  REP    qty=5.0 lmt=29.43 sl=28.5448 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:25:38 REJECTED  BUY  REP    qty=5.0 lmt=29.43 sl=28.5448 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:22:06 REJECTED  BUY  REP    qty=5.0 lmt=29.43 sl=28.5448 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:18:31 REJECTED  BUY  REP    qty=5.0 lmt=29.45 sl=28.5456 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:15:07 REJECTED  BUY  REP    qty=5.0 lmt=29.45 sl=28.5456 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:11:29 REJECTED  BUY  REP    qty=5.0 lmt=29.45 sl=28.5456 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:08:10 REJECTED  BUY  REP    qty=5.0 lmt=29.47 sl=28.5463 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:04:34 REJECTED  BUY  REP    qty=5.0 lmt=29.46 sl=28.5459 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T15:01:12 REJECTED  BUY  REP    qty=5.0 lmt=29.46 sl=28.5459 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:57:33 REJECTED  BUY  REP    qty=4.0 lmt=29.52 sl=28.5483 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:54:13 REJECTED  BUY  REP    qty=4.0 lmt=29.52 sl=28.5483 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:50:38 REJECTED  BUY  REP    qty=4.0 lmt=29.54 sl=28.5491 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:47:17 REJECTED  BUY  REP    qty=4.0 lmt=29.54 sl=28.5491 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:43:40 REJECTED  BUY  REP    qty=4.0 lmt=29.52 sl=28.5483 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:40:22 REJECTED  BUY  INGA   qty=4.0 lmt=29.62 sl=29.0276 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INGA: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:40:20 REJECTED  BUY  REP    qty=4.0 lmt=29.53 sl=28.5487 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:36:45 REJECTED  BUY  INGA   qty=4.0 lmt=29.62 sl=29.0276 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INGA: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:36:44 REJECTED  BUY  REP    qty=4.0 lmt=29.53 sl=28.5487 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:33:23 REJECTED  BUY  REP    qty=4.0 lmt=29.5 sl=28.5475 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:29:39 REJECTED  BUY  REP    qty=4.0 lmt=29.5 sl=28.5475 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:26:22 REJECTED  BUY  INGA   qty=4.0 lmt=29.63 sl=29.037399999999998 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INGA: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:26:20 REJECTED  BUY  REP    qty=4.0 lmt=29.53 sl=28.5487 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:22:44 REJECTED  BUY  REP    qty=4.0 lmt=29.49 sl=28.5471 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:19:12 REJECTED  BUY  REP    qty=4.0 lmt=29.49 sl=28.5471 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:15:36 REJECTED  BUY  REP    qty=5.0 lmt=29.36 sl=28.542 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-21T14:12:14 REJECTED  BUY  REP    qty=5.0 lmt=29.36 sl=28.542 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -1,4 +1,8 @@
-script remoto actualizado a db82eab
+
+=== VERSIONES DISPONIBLES DE IB GATEWAY (solo descarga, no toca el contenedor) ===
+en uso: 10.45.1j
+stable: 10.50.1f
+latest: 10.51.1d
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -1,0 +1,29 @@
+
+=== KRAKEN FUTURES: diagnóstico de estrategias ===
+venue= futures shadow= False apalancamiento= 1 estrategias live= ['RS_VS_BTC_1H_SHORT', 'TREND_PULLBACK_1H_SHORT']
+margen= 56.0915 último ciclo= 2026-10-22T10:10:13.796Z lastCycle= None
+riesgo diario= {'dayKey': '2026-10-22', 'dayStartCapital': 56.1655, 'dayPnl': -0.07399999999999807, 'exitsOnly': False, 'dailyLimitHit': False}
+diagnóstico actualizado= 2026-10-22T10:10:13.797Z último ciclo= 2026-10-22T10:10:13.797Z
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=46770  señales=0    casi=46770 | 30147×insuficientes barras; 15962×sin sweep de liquidez arriba; 661×vol n/a<1.5x
+  RS_VS_BTC_1H_SHORT           short intentos=46770  señales=3226 casi=43544 | 36055×no bottom-3 RS vs BTC; 5542×RS no negativo 1h+4h; 1125×insuficientes barras
+  TREND_PULLBACK_1H_SHORT      short intentos=46770  señales=0    casi=46770 | 42807×insuficientes barras 1h; 3416×EMA20>=EMA50 1h; 540×no en EMA20
+  VWAP_BOUNCE_5M_SHORT         short intentos=46770  señales=0    casi=46770 | 34840×insuficientes barras; 11383×1h no bajista; 529×sin touch+reject VWAP arriba
+puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
+
+=== KRAKEN FUTURES: /instruments (público) ===
+result= success filas= 231 claves= ['result', 'instruments', 'serverTime']
+PF_* = 209 ejemplos de símbolo: ['PF_XBTUSD', 'PF_ETHUSD', 'PF_ADAUSD', 'PF_XRPUSD', 'PF_SOLUSD']
+PF_ETHUSD {'symbol': 'PF_ETHUSD', 'tradeable': True, 'tickSize': 0.1, 'contractSize': 1, 'contractValueTradePrecision': 3, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contractSize': 1, 'contractValueTradePrecision': 2, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+
+=== KRAKEN FUTURES: últimas líneas del motor ===
+2026-10-22 10:06:59 +00:00: [Kraken/Futures] cycle margin=56.0940 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ETHUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:07:59 +00:00: [Kraken/Futures] cycle margin=56.0915 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=0 held=[PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ETHUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:08:59 +00:00: [Kraken/Futures] cycle margin=56.0935 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=0 held=[PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ETHUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:09:12 +00:00: [Kraken/Futures] cycle margin=56.0925 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+2026-10-22 10:10:13 +00:00: [Kraken/Futures] cycle margin=56.0915 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_ZROUSD:RS_VS_BTC_1H_SHORT:instrument_unknown | PF_LTCUSD:RS_VS_BTC_1H_SHORT:instrument_unknown]
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

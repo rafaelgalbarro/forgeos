@@ -4,8 +4,8 @@
  * Modes (FOREX_BOT_MODE):
  *   shadow   — signals simulated with real prices (no broker). Default.
  *   practice — real orders on a demo account (OANDA_ENV=practice, or an MT5 demo login).
- *   live     — real money; requires FOREX_BOT_LIVE_CONFIRM=true, the strategy passing the backtest
- *              gate and a real account (OANDA_ENV=live, or an MT5 login that is not demo).
+ *   live     — real money only for CONFIRMED pairs (pair-strategies.json: liveEligible + locked);
+ *              the other pairs keep running simulated. Requires FOREX_BOT_LIVE_CONFIRM=true and a real account (OANDA_ENV=live, or an MT5 login that is not demo).
  * Broker (FOREX_BOT_BROKER): mt5 (OANDA TMS via services/mt5-bridge) or oanda (v20 REST).
  * Every order carries stop loss + take profit on the broker. Flat before the weekend.
  * Daily loss limit (FOREX_BOT_DAILY_LOSS_PCT) halts new entries until the next London day.
@@ -283,7 +283,7 @@ export async function runForexBotCycle(): Promise<string> {
       const choice = pairChoices.get(p);
       // Real money only for validated pairs; everything else is simulated (shadow).
       const tradeMode: FxTrade["mode"] =
-        liveMode && !brokerBlock && (mode !== "live" || choice?.liveEligible) ? mode : "shadow";
+        liveMode && !brokerBlock && (mode !== "live" || (choice?.liveEligible && choice.locked)) ? mode : "shadow";
       const sameMode = stillOpen.filter((t) => t.mode === tradeMode);
       if (sameMode.length >= (tradeMode === "shadow" ? SHADOW_MAX : fxMaxPositions())) continue;
       // Never stack exposure on the same currency (within real or within shadow).

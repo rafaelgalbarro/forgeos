@@ -352,12 +352,33 @@ export async function runFuturesExitLoop(): Promise<void> {
   const opens = listOpenCryptoJournal({ shadow: false }).filter(
     (t) => t.venue === "futures" && t.open,
   );
+  const openOrders = opens.length ? await adapter.getOpenOrders().catch(() => null) : [];
   for (const open of opens) {
-    const pf = spotPairToPfSymbol(open.pair) ?? open.pair;
+    const pf = (open.pfSymbol ?? spotPairToPfSymbol(open.pair) ?? open.pair).toUpperCase();
     const pos = positions.find((p) => p.symbol === pf);
     if (!pos) {
       await finalizeFuturesClose(open, open.entry, "EXCHANGE_FLAT", 0);
       continue;
+    }
+    // Every live position must have a reduce-only stop AND take-profit on the exchange.
+    if (openOrders) {
+      const mine = openOrders.filter((o) => o.symbol === pf && o.reduceOnly);
+      const hasTp = mine.some((o) => o.orderType.includes("take_profit"));
+      const tp = Number(open.takeProfit ?? 0);
+      if (!hasTp && tp > 0) {
+        const meta = await adapter.getInstrument(pf).catch(() => null);
+        const trigger = quantizeStopConservative(tp, meta?.tickSize ?? 0, pos.side === "long" ? "short" : "long");
+        await adapter
+          .placeTakeProfit({ symbol: pf, positionSide: pos.side, size: pos.size, triggerPrice: trigger })
+          .then((r) => console.log(`[Kraken/Futures] TP en exchange ${pf} ${pos.side} trigger=${trigger} id=${r.orderId}`))
+          .catch((err) =>
+            console.warn(`[Kraken/Futures] TP en exchange ${pf} falló: ${err instanceof Error ? err.message : err}`),
+          );
+      }
+      const hasStop = mine.some((o) => o.orderType === "stp" || o.orderType === "stop");
+      if (!hasStop) {
+        console.warn(`[Kraken/Futures] ⚠ ${pf} sin stop reduce-only en el exchange`);
+      }
     }
     const dist = liquidationDistancePct(pos.side, pos.markPrice, pos.liquidationPrice);
     if (dist != null && dist < 0.5) {

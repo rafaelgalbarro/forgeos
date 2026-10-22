@@ -425,9 +425,13 @@ export class KrakenFuturesAdapter {
     if (!Array.isArray(rows)) return [];
     return rows.map((p) => {
       const size = num(p.size ?? p.quantity);
+      // Kraken v3 returns size > 0 plus side "long"/"short"; sign only as a fallback.
+      const sideRaw = String(p.side ?? "").toLowerCase();
+      const side: "long" | "short" =
+        sideRaw === "short" || sideRaw === "long" ? sideRaw : size >= 0 ? "long" : "short";
       return {
-        symbol: String(p.symbol ?? ""),
-        side: size >= 0 ? "long" : "short",
+        symbol: String(p.symbol ?? "").toUpperCase(),
+        side,
         size: Math.abs(size),
         entryPrice: num(p.price ?? p.entryPrice),
         markPrice: num(p.markPrice ?? p.mark),
@@ -435,6 +439,40 @@ export class KrakenFuturesAdapter {
         unrealizedPnl: num(p.pnl ?? p.unrealizedPnl),
         leverage: num(p.effectiveLeverage ?? p.leverage) || 1,
       };
+    });
+  }
+
+  /** Open orders (reduce-only stops / take-profits included). */
+  async getOpenOrders(): Promise<
+    Array<{ orderId: string; symbol: string; side: string; orderType: string; reduceOnly: boolean; stopPrice: number | null }>
+  > {
+    const raw = await privateCall<{ openOrders?: Record<string, unknown>[] }>("GET", "/openorders");
+    const rows = raw.openOrders ?? [];
+    return (Array.isArray(rows) ? rows : []).map((o) => ({
+      orderId: String(o.order_id ?? o.orderId ?? ""),
+      symbol: String(o.symbol ?? "").toUpperCase(),
+      side: String(o.side ?? "").toLowerCase(),
+      orderType: String(o.orderType ?? o.type ?? "").toLowerCase(),
+      reduceOnly: Boolean(o.reduceOnly),
+      stopPrice: o.stopPrice != null ? num(o.stopPrice) : null,
+    }));
+  }
+
+  /** Reduce-only take-profit on the exchange (trigger on mark price). */
+  async placeTakeProfit(params: {
+    symbol: string;
+    positionSide: "long" | "short";
+    size: number;
+    triggerPrice: number;
+  }): Promise<FuturesOrderResult> {
+    return this.sendOrder({
+      symbol: params.symbol,
+      side: params.positionSide === "long" ? "sell" : "buy",
+      size: params.size,
+      orderType: "take_profit",
+      stopPrice: params.triggerPrice,
+      reduceOnly: true,
+      triggerSignal: "mark",
     });
   }
 

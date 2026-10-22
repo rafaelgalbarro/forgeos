@@ -1,0 +1,66 @@
+
+=== ESTRATEGIAS POR PAR (historia de OANDA vía MT5, marcos H1:H4) ===
+[FX optimize] GBP_USD: H1:0✗ H4:8000 → H4_RSI_REVERT_lo25_hi75_A1.5_R1.5 (oos_PF=0.93<1.15; oos_media=-0.033R<0.05)
+[FX optimize] USD_JPY H1 MT5: MT5 /rates?symbol=USDJPY&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] USD_JPY: H1:0✗ H4:8000 → H4_DONCHIAN_BREAK_n20_A1.5_R2 (oos_PF=0.81<1.15; oos_media=-0.114R<0.05)
+[FX optimize] AUD_USD H1 MT5: MT5 /rates?symbol=AUDUSD&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] AUD_USD: H1:0✗ H4:8000 → H4_BB_REVERT_A1.5_R1.5 (oos_PF=0.59<1.15; oos_media=-0.243R<0.05)
+[FX optimize] USD_CAD H1 MT5: MT5 /rates?symbol=USDCAD&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] USD_CAD: H1:0✗ H4:8000 → H4_BB_REVERT_A1.5_R1.5 (oos_PF=0.45<1.15; oos_media=-0.352R<0.05)
+[FX optimize] USD_CHF: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n20_A2_R1.5 (oos_PF=1.00<1.15; oos_media=-0.002R<0.05)
+[FX optimize] NZD_USD H1 MT5: MT5 /rates?symbol=NZDUSD&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] NZD_USD: H1:0✗ H4:8000 → H4_BB_REVERT_A1.5_R1 (oos_PF=0.63<1.15; oos_media=-0.198R<0.05)
+[FX optimize] EUR_GBP H1 MT5: MT5 /rates?symbol=EURGBP&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] EUR_GBP: H1:0✗ H4:8000 → ninguna (sin candidata IS)
+[FX optimize] EUR_JPY H1 MT5: MT5 /rates?symbol=EURJPY&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] EUR_JPY: H1:0✗ H4:8000 → H4_DONCHIAN_BREAK_n20_A2_R2 (oos_PF=0.72<1.15; oos_media=-0.143R<0.05)
+[FX optimize] GBP_JPY H1 MT5: MT5 /rates?symbol=GBPJPY&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] GBP_JPY: H1:0✗ H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R2 (oos_PF=0.84<1.15; oos_media=-0.096R<0.05)
+[FX optimize] EUR_CHF H1 MT5: MT5 /rates?symbol=EURCHF&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] EUR_CHF: H1:0✗ H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R1.5 (oos_PF=0.53<1.15; oos_media=-0.303R<0.05)
+[FX optimize] EUR_AUD H1 MT5: MT5 /rates?symbol=EURAUD&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] EUR_AUD: H1:0✗ H4:8000 → H4_BB_REVERT_A1.5_R1.5 (oos_PF=0.90<1.15; oos_media=-0.051R<0.05)
+[FX optimize] EUR_CAD H1 MT5: MT5 /rates?symbol=EURCAD&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] EUR_CAD: H1:0✗ H4:8000 → H4_RSI_REVERT_lo25_hi75_A1.5_R1.5 (oos_PF=0.69<1.15; oos_media=-0.203R<0.05)
+[FX optimize] GBP_CHF: H1:30000 H4:8000 → H4_EMA_CROSS_fast12_slow26_A1.5_R1.5 (oos_PF=0.98<1.15; oos_media=-0.008R<0.05)
+[FX optimize] GBP_AUD: H1:30000 H4:8000 → H4_RSI_REVERT_lo25_hi75_A1.5_R1 (oos_PF=1.14<1.15)
+[FX optimize] AUD_JPY: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n20_A1.5_R1.5 (oos_PF=0.80<1.15; oos_media=-0.111R<0.05)
+[FX optimize] AUD_NZD: H1:30000 H4:8000 → H4_EMA_CROSS_fast12_slow26_A1.5_R2 APTA
+[FX optimize] AUD_CAD: H1:30000 H4:8000 → H4_RSI_REVERT_lo30_hi70_A1.5_R1.5 APTA
+[FX optimize] CAD_JPY H1 MT5: MT5 /rates?symbol=CADJPY.pro&tf=H1&count=30000 HTTP 500: copy_rates: (-1, 'Terminal: Call failed')
+[FX optimize] CAD_JPY: H1:0✗ H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R2 (oos_PF=0.64<1.15; oos_media=-0.232R<0.05)
+[FX optimize] CHF_JPY: H1:30000 H4:8000 → H4_DONCHIAN_BREAK_n55_A1.5_R1.5 (oos_PF=0.84<1.15; oos_media=-0.086R<0.05)
+[FX optimize] NZD_JPY: H1:30000 H4:8000 → H4_EMA_CROSS_fast12_slow26_A1.5_R2 (oos_PF=0.96<1.15; oos_media=-0.022R<0.05)
+# Estrategias por par — 2026-10-22
+
+Datos: MT5 (OANDA) · H1 + H4 · 30 reglas candidatas por par · spread típico cobrado.
+Elección con los primeros 2/3 de la historia; validación con el último 1/3 (OOS).
+Apta para real: ≥15 ops OOS, PF ≥ 1.15, media ≥ 0.05 R.
+
+| Par | Estrategia | Periodo | Ops IS | PF IS | Ops OOS | Acierto OOS | PF OOS | Media OOS | ¿Real? |
+|---|---|---|---|---|---|---|---|---|---|
+| EUR_USD | H4: vuelta dentro de Bollinger(20,2) (reversión) · SL 1.5×ATR · TP 1R · máx 2.5 d | 2021-11-03→2026-10-22 | 236 | 1.20 | 120 | 48% | 0.91 | -0.040 R | no (oos_PF=0.91<1.15; oos_media=-0.040R<0.05) |
+| GBP_USD | H4: RSI(14) sale de 25/75 (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-03→2026-10-22 | 48 | 1.41 | 23 | 39% | 0.93 | -0.033 R | no (oos_PF=0.93<1.15; oos_media=-0.033R<0.05) |
+| USD_JPY | H4: ruptura del máximo/mínimo de 20 velas a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 208 | 1.30 | 105 | 34% | 0.81 | -0.114 R | no (oos_PF=0.81<1.15; oos_media=-0.114R<0.05) |
+| AUD_USD | H4: vuelta dentro de Bollinger(20,2) (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-03→2026-10-22 | 239 | 1.12 | 127 | 35% | 0.59 | -0.243 R | no (oos_PF=0.59<1.15; oos_media=-0.243R<0.05) |
+| USD_CAD | H4: vuelta dentro de Bollinger(20,2) (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-03→2026-10-22 | 220 | 1.08 | 130 | 31% | 0.45 | -0.352 R | no (oos_PF=0.45<1.15; oos_media=-0.352R<0.05) |
+| USD_CHF | H4: ruptura del máximo/mínimo de 20 velas a favor de EMA200 · SL 2×ATR · TP 1.5R · máx 5 d | 2021-11-03→2026-10-22 | 181 | 1.30 | 85 | 45% | 1.00 | -0.002 R | no (oos_PF=1.00<1.15; oos_media=-0.002R<0.05) |
+| NZD_USD | H4: vuelta dentro de Bollinger(20,2) (reversión) · SL 1.5×ATR · TP 1R · máx 2.5 d | 2021-11-03→2026-10-22 | 232 | 1.07 | 131 | 42% | 0.63 | -0.198 R | no (oos_PF=0.63<1.15; oos_media=-0.198R<0.05) |
+| EUR_GBP | — | 2019-11-26→2026-10-22 | 0 | 0.00 | 0 | 0% | 0.00 | 0.000 R | no (sin candidata IS) |
+| EUR_JPY | H4: ruptura del máximo/mínimo de 20 velas a favor de EMA200 · SL 2×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 175 | 1.29 | 86 | 36% | 0.72 | -0.143 R | no (oos_PF=0.72<1.15; oos_media=-0.143R<0.05) |
+| GBP_JPY | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 139 | 1.39 | 64 | 34% | 0.84 | -0.096 R | no (oos_PF=0.84<1.15; oos_media=-0.096R<0.05) |
+| EUR_CHF | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-11-02→2026-10-22 | 134 | 1.25 | 63 | 35% | 0.53 | -0.303 R | no (oos_PF=0.53<1.15; oos_media=-0.303R<0.05) |
+| EUR_AUD | H4: vuelta dentro de Bollinger(20,2) (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-03→2026-10-22 | 234 | 1.23 | 111 | 44% | 0.90 | -0.051 R | no (oos_PF=0.90<1.15; oos_media=-0.051R<0.05) |
+| EUR_CAD | H4: RSI(14) sale de 25/75 (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-02→2026-10-22 | 56 | 1.30 | 17 | 35% | 0.69 | -0.203 R | no (oos_PF=0.69<1.15; oos_media=-0.203R<0.05) |
+| GBP_CHF | H4: cruce EMA12/EMA26 a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-10-25→2026-10-22 | 78 | 1.45 | 43 | 44% | 0.98 | -0.008 R | no (oos_PF=0.98<1.15; oos_media=-0.008R<0.05) |
+| GBP_AUD | H4: RSI(14) sale de 25/75 (reversión) · SL 1.5×ATR · TP 1R · máx 2.5 d | 2021-10-29→2026-10-22 | 50 | 1.33 | 18 | 56% | 1.14 | 0.056 R | no (oos_PF=1.14<1.15) |
+| AUD_JPY | H4: ruptura del máximo/mínimo de 20 velas a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-11-03→2026-10-22 | 212 | 1.18 | 113 | 39% | 0.80 | -0.111 R | no (oos_PF=0.80<1.15; oos_media=-0.111R<0.05) |
+| AUD_NZD | H4: cruce EMA12/EMA26 a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 78 | 1.16 | 40 | 43% | 1.28 | 0.132 R | sí |
+| AUD_CAD | H4: RSI(14) sale de 30/70 (reversión) · SL 1.5×ATR · TP 1.5R · máx 2.5 d | 2021-11-02→2026-10-22 | 104 | 1.46 | 40 | 55% | 1.26 | 0.105 R | sí |
+| CAD_JPY | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-03→2026-10-22 | 139 | 1.17 | 74 | 31% | 0.64 | -0.232 R | no (oos_PF=0.64<1.15; oos_media=-0.232R<0.05) |
+| CHF_JPY | H4: ruptura del máximo/mínimo de 55 velas a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 5 d | 2021-10-21→2026-10-22 | 148 | 1.27 | 75 | 39% | 0.84 | -0.086 R | no (oos_PF=0.84<1.15; oos_media=-0.086R<0.05) |
+| NZD_JPY | H4: cruce EMA12/EMA26 a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-01→2026-10-22 | 78 | 1.31 | 42 | 43% | 0.96 | -0.022 R | no (oos_PF=0.96<1.15; oos_media=-0.022R<0.05) |
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

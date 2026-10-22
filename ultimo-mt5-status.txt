@@ -1,10 +1,7 @@
 
 === MT5 ===
-mt5 Up 23 minutes
-puente: waiting restart reinicios: 76
-puente actualizado
-permisos ajustados a uid 911
-puente reiniciado; esperando 120 s (instalación de Python 64 bits la primera vez)…
+mt5 Up 27 minutes
+puente: online reinicios: 77
 --- diagnóstico contenedor
 drwxr-xr-x 4 abc abc 4096 Oct 22 13:45 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe

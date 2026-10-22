@@ -15,7 +15,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order]
+        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order, futures]
 
 concurrency:
   group: forgeos-server

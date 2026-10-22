@@ -1,13 +1,13 @@
 
 === KRAKEN FUTURES: diagnóstico de estrategias ===
 venue= futures shadow= False apalancamiento= 1 estrategias live= ['RS_VS_BTC_1H_SHORT', 'TREND_PULLBACK_1H_SHORT']
-margen= 28.1869 último ciclo= 2026-10-22T10:41:44.493Z lastCycle= None
-riesgo diario= {'dayKey': '2026-10-22', 'dayStartCapital': 56.1655, 'dayPnl': -0.0765000000000029, 'exitsOnly': False, 'dailyLimitHit': False}
-diagnóstico actualizado= 2026-10-22T10:41:44.494Z último ciclo= 2026-10-22T10:41:44.494Z
-  LIQUIDITY_SWEEP_15M_SHORT    short intentos=47330  señales=0    casi=47330 | 30147×insuficientes barras; 16522×sin sweep de liquidez arriba; 661×vol n/a<1.5x
-  RS_VS_BTC_1H_SHORT           short intentos=47330  señales=3322 casi=44008 | 36510×no bottom-3 RS vs BTC; 5551×RS no negativo 1h+4h; 1125×insuficientes barras
-  TREND_PULLBACK_1H_SHORT      short intentos=47330  señales=0    casi=47330 | 42807×insuficientes barras 1h; 3591×EMA20>=EMA50 1h; 848×no en EMA20
-  VWAP_BOUNCE_5M_SHORT         short intentos=47330  señales=0    casi=47330 | 34840×insuficientes barras; 11558×1h no bajista; 914×sin touch+reject VWAP arriba
+margen= 28.182900000000004 último ciclo= 2026-10-22T10:44:57.026Z lastCycle= None
+riesgo diario= {'dayKey': '2026-10-22', 'dayStartCapital': 56.1655, 'dayPnl': -0.08050000000000068, 'exitsOnly': False, 'dailyLimitHit': False}
+diagnóstico actualizado= 2026-10-22T10:44:57.028Z último ciclo= 2026-10-22T10:44:57.028Z
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=47394  señales=0    casi=47394 | 30147×insuficientes barras; 16586×sin sweep de liquidez arriba; 661×vol n/a<1.5x
+  RS_VS_BTC_1H_SHORT           short intentos=47394  señales=3334 casi=44060 | 36562×no bottom-3 RS vs BTC; 5551×RS no negativo 1h+4h; 1125×insuficientes barras
+  TREND_PULLBACK_1H_SHORT      short intentos=47394  señales=0    casi=47394 | 42807×insuficientes barras 1h; 3611×EMA20>=EMA50 1h; 881×no en EMA20
+  VWAP_BOUNCE_5M_SHORT         short intentos=47394  señales=0    casi=47394 | 34840×insuficientes barras; 11578×1h no bajista; 958×sin touch+reject VWAP arriba
 puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
 
 === KRAKEN FUTURES: /instruments (público) ===
@@ -18,17 +18,18 @@ PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contract
 PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
 
 === KRAKEN FUTURES: cuenta, posiciones y órdenes (API privada) ===
-margen disponible: 28.1869 | valor cartera: 56.09700602550507 | PnL: 0.008007746699997265
+margen disponible: 28.1839 | valor cartera: 56.104595150769754 | PnL: 0.020544423449999627
 posiciones: [('PF_ZROUSD', 'short', 15, 1.86014)]
+  orden: a30ac163-a5cd-46a5-8e02-d9f82a07875d PF_ZROUSD buy take_profit size= 9 lmt= None stop= 1.8181 reduceOnly= True
   orden: a30abf87-cbe2-4858-9a5f-e4c3f43a4fc3 PF_ZROUSD buy stop size= 9 lmt= None stop= 1.8791 reduceOnly= True
   orden: a30abdca-f340-42dc-8848-b187517e31c9 PF_ZROUSD buy take_profit size= 6 lmt= None stop= 1.8212 reduceOnly= True
   orden: a30ab913-74a3-4a95-85c2-36bcbf2b91ad PF_ZROUSD buy stop size= 6 lmt= None stop= 1.8782 reduceOnly= True
-órdenes abiertas: 3
+órdenes abiertas: 4
 
 === KRAKEN FUTURES: últimas líneas del motor ===
-2026-10-22 10:39:43 +00:00: [Kraken/Futures] cycle margin=44.9388 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=1 shadow=2
-2026-10-22 10:40:44 +00:00: [Kraken/Futures] cycle margin=28.1879 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=3
-2026-10-22 10:41:44 +00:00: [Kraken/Futures] cycle margin=28.1869 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=3
+2026-10-22 10:43:44 +00:00: [Kraken/Futures] cycle margin=28.1874 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=3
+2026-10-22 10:44:44 +00:00: [Kraken/Futures] cycle margin=28.1829 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=3
+2026-10-22 10:44:57 +00:00: [Kraken/Futures] cycle margin=28.1829 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=3
 --- errores de órdenes
 2026-10-22 10:29:15 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 2026-10-22 10:29:20 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
@@ -39,21 +40,21 @@ posiciones: [('PF_ZROUSD', 'short', 15, 1.86014)]
 2026-10-22 10:29:45 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 2026-10-22 10:29:50 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 --- últimas 15 líneas del motor (sin ciclos)
-2026-10-22 10:39:25 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
-2026-10-22 10:39:26 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
-2026-10-22 10:39:34 +00:00: [CryptoEngine] SIGINT — salida
-2026-10-22 10:39:34 +00:00: [CryptoEngine] FORGEOS_ROOT=/var/www/forgeos
-2026-10-22 10:39:34 +00:00: [CryptoEngine] FORGEOS_CACHE_DIR=/var/www/forgeos/.forgeos/cache
-2026-10-22 10:39:34 +00:00: [CryptoEngine] boot pid=1779086 broker=kraken analysis=60000ms
-2026-10-22 10:39:35 +00:00: [CryptoEngine] arranque pid=1779098 venue=futures analysis=60000ms exits=5s
-2026-10-22 10:39:35 +00:00: [Telegram] sendMessage intento chatId=1156860156 chars=77 buttons=0
-2026-10-22 10:39:35 +00:00: [Kraken/Futures] started shadow=false levCap=1
-2026-10-22 10:39:35 +00:00: [Telegram] sendMessage OK message_id=22241
 2026-10-22 10:39:35 +00:00: [Kraken/Futures/WS] conectado — 16 PF símbolos
 2026-10-22 10:39:42 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
 2026-10-22 10:39:43 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
 2026-10-22 10:39:43 +00:00: [Telegram] sendMessage intento chatId=1156860156 chars=76 buttons=0
 2026-10-22 10:39:43 +00:00: [Telegram] sendMessage OK message_id=22242
+2026-10-22 10:44:48 +00:00: [CryptoEngine] SIGINT — salida
+2026-10-22 10:44:48 +00:00: [CryptoEngine] FORGEOS_ROOT=/var/www/forgeos
+2026-10-22 10:44:48 +00:00: [CryptoEngine] FORGEOS_CACHE_DIR=/var/www/forgeos/.forgeos/cache
+2026-10-22 10:44:48 +00:00: [CryptoEngine] boot pid=1780059 broker=kraken analysis=60000ms
+2026-10-22 10:44:49 +00:00: [CryptoEngine] arranque pid=1780079 venue=futures analysis=60000ms exits=5s
+2026-10-22 10:44:49 +00:00: [Kraken/Futures] started shadow=false levCap=1
+2026-10-22 10:44:50 +00:00: [Kraken/Futures/WS] conectado — 16 PF símbolos
+2026-10-22 10:44:55 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD short trigger=1.8181 id=a30ac163-a5cd-46a5-8e02-d9f82a07875d
+2026-10-22 10:44:56 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
+2026-10-22 10:44:56 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

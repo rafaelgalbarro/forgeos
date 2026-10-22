@@ -262,6 +262,114 @@ do_cycle_trace() {
   pm2 logs ibkr-broker --lines 3000 --nostream 2>&1 | awk '/Traceback/{buf=""; c=60} c>0{buf=buf $0 "\n"; c--} END{printf "%s", buf}' | grep -vE "site-packages|dist-packages|\^\^\^" | cut -c1-240 | tail -25
 }
 
+broker_pm2_python() {
+  # Intérprete con el que PM2 ejecuta ibkr-broker (para instalar dependencias en el mismo entorno).
+  pm2 jlist 2>/dev/null | python3 -c '
+import sys, json
+for p in json.load(sys.stdin):
+    if p.get("name") == "ibkr-broker":
+        e = p.get("pm2_env", {})
+        print(e.get("exec_interpreter") or "", e.get("pm_exec_path") or "", e.get("pm_cwd") or "")'
+}
+
+wait_broker_connected() {
+  local i
+  for i in $(seq 1 30); do
+    if curl -s --max-time 5 http://localhost:8002/api/ibkr/status -H "X-Internal-API-Key: $API_KEY" | grep -q '"connected":true'; then
+      echo "broker conectado (tras $((i*3)) s)"; return 0
+    fi
+    sleep 3
+  done
+  echo "broker NO conectado tras 90 s"; return 1
+}
+
+do_install_twsapi() {
+  local DEST="$APP/services/ibkr-broker/tws-api/pythonclient"
+  sec "INTÉRPRETE DEL BROKER"
+  read -r INTERP EXEC CWD <<< "$(broker_pm2_python)"
+  echo "intérprete=$INTERP script=$EXEC cwd=$CWD"
+  local PY="$INTERP"
+  case "$PY" in ""|none|bash|sh|/bin/bash|/bin/sh) PY="$(broker_python)";; esac
+  case "$PY" in */python*|python*) ;; *) PY="$(broker_python)";; esac
+  echo "python usado: $PY ($("$PY" --version 2>&1))"
+
+  sec "DESCARGA TWS API (Mac/Unix, versión estable)"
+  command -v unzip >/dev/null || apt-get install -y -q unzip >/dev/null
+  local page url tmp
+  page="$(curl -sL --max-time 30 https://interactivebrokers.github.io/)"
+  url="$(printf '%s' "$page" | grep -oE 'https?://[^"'"'"' ]*twsapi_macunix\.[0-9]+\.[0-9]+\.zip' | sort -t. -k2,2n -k3,3n -u | head -1)"
+  [ -n "$url" ] || url="$(printf '%s' "$page" | grep -oE '[^"'"'"' ]*twsapi_macunix\.[0-9]+\.[0-9]+\.zip' | head -1)"
+  case "$url" in http*) ;; "") echo "No se encontró el enlace de descarga"; exit 5;; *) url="https://interactivebrokers.github.io/${url#/}";; esac
+  echo "url: $url"
+  tmp="$(mktemp -d)"
+  curl -sSL --max-time 180 -o "$tmp/twsapi.zip" "$url" || { echo "descarga fallida"; exit 5; }
+  ls -la "$tmp/twsapi.zip"
+  IBKR_TWS_API_ZIP="$tmp/twsapi.zip" IBKR_TWS_API_INSTALL_DIR="$DEST.new" bash scripts/install-ibkr-tws-pythonclient.sh | tail -3
+
+  sec "COMPROBACIÓN DE IMPORTACIÓN"
+  if ! (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); import ibapi.client as c; print('SERVER_VERSION', c.SERVER_VERSION if hasattr(c,'SERVER_VERSION') else '?')" 2>&1); then
+    echo "falta alguna dependencia; instalando protobuf…"
+    "$PY" -m pip install -q --break-system-packages protobuf 2>&1 | tail -2
+    (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); import ibapi.client as c; print('SERVER_VERSION', c.SERVER_VERSION)") || { echo "ABORTADO: no importa"; rm -rf "$DEST.new"; exit 5; }
+  fi
+  (cd /tmp && "$PY" -c "import sys; sys.path.insert(0, '$DEST.new'); from ibapi import server_versions as v; print('MIN_SERVER_VER_FRACTIONAL_POSITIONS', getattr(v,'MIN_SERVER_VER_FRACTIONAL_POSITIONS','?'))" 2>&1 | tail -1)
+
+  sec "TESTS DEL BROKER CON LA LIBRERÍA OFICIAL"
+  (cd services/ibkr-broker && IBKR_TWS_API_PYTHONPATH="$DEST.new" "$PY" -m pytest -q tests 2>&1 | tail -3)
+
+  sec "ACTIVACIÓN"
+  rm -rf "$DEST.old"; [ -d "$DEST" ] && mv "$DEST" "$DEST.old"
+  mv "$DEST.new" "$DEST"
+  pm2 restart ibkr-broker --update-env >/dev/null && echo "ibkr-broker reiniciado"
+  if wait_broker_connected; then
+    pm2 logs ibkr-broker --lines 80 --nostream 2>&1 | grep -E "ibapi path=" | tail -1
+  else
+    echo "ROLLBACK: vuelvo a la librería anterior"
+    rm -rf "$DEST.failed"; mv "$DEST" "$DEST.failed"; [ -d "$DEST.old" ] && mv "$DEST.old" "$DEST"
+    pm2 restart ibkr-broker --update-env >/dev/null; wait_broker_connected
+    pm2 logs ibkr-broker --lines 80 --nostream 2>&1 | grep -iE "error|traceback|ibapi path" | tail -8
+    exit 6
+  fi
+}
+
+set_env_flag() {
+  local key="$1" val="$2"
+  mkdir -p /root/env-backups && chmod 700 /root/env-backups
+  cp -a .env.local "/root/env-backups/.env.local.$(date +%Y%m%d-%H%M%S)"
+  if grep -qE "^$key=" .env.local; then sed -i "s/^$key=.*/$key=$val/" .env.local; else echo "$key=$val" >> .env.local; fi
+  echo "$key=$(grep -E "^$key=" .env.local | cut -d= -f2)"
+}
+
+do_fractional_on() {
+  sec "PRUEBA whatIf DE FRACCIÓN (no envía orden real)"
+  local out
+  out="$(curl -s --max-time 40 -X POST http://localhost:8002/api/ibkr/fractional-whatif-probe -H "X-Internal-API-Key: $API_KEY" -H 'Content-Type: application/json' -d '{"account":"U24225949","symbol":"AAPL","quantity":0.1}')"
+  echo "$out" | cut -c1-600
+  if ! echo "$out" | grep -q '"ok":true'; then
+    echo "ABORTADO: la prueba de fracciones no ha pasado; IBKR_FRACTIONAL_ENABLED sin cambios"; exit 7
+  fi
+  sec "ACTIVAR IBKR_FRACTIONAL_ENABLED"
+  set_env_flag IBKR_FRACTIONAL_ENABLED true
+  pm2 restart forgeos forgeos-scheduler --update-env >/dev/null && echo "forgeos y scheduler reiniciados"
+}
+
+do_fractional_off() {
+  set_env_flag IBKR_FRACTIONAL_ENABLED false
+  pm2 restart forgeos forgeos-scheduler --update-env >/dev/null && echo "forgeos y scheduler reiniciados"
+}
+
+do_unblock_eu() {
+  python3 - <<'PY'
+import json, datetime
+p = ".forgeos/cache/ibkr-non-tradable.json"
+d = json.load(open(p))
+removed = [s for s in ("ITX", "DTE", "TEF") if d.get("entries", {}).pop(s, None) is not None]
+d["updatedAt"] = datetime.datetime.utcnow().isoformat() + "Z"
+json.dump(d, open(p, "w"), indent=2)
+print("desbloqueados:", removed, "| siguen bloqueados:", sorted(d.get("entries", {}).keys()))
+PY
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -279,6 +387,10 @@ case "$ACTION" in
   readiness) do_readiness ;;
   trace) do_trace "$ARG" ;;
   cycle-trace) do_cycle_trace ;;
+  install-twsapi) do_install_twsapi ;;
+  fractional-on) do_fractional_on ;;
+  fractional-off) do_fractional_off ;;
+  unblock-eu) do_unblock_eu ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \
       && bash -n /tmp/forgeos-remote.new && install -m 700 /tmp/forgeos-remote.new /usr/local/bin/forgeos-remote \

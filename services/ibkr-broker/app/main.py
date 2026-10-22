@@ -32,6 +32,11 @@ from fastapi import Body, Depends, FastAPI, Header, HTTPException
 # Set IBKR_TWS_API_PYTHONPATH to e.g. C:\\TWS API\\source\\pythonclient
 # so ibapi is imported from the official desktop installation.
 official_api_path = os.getenv("IBKR_TWS_API_PYTHONPATH", "").strip()
+if not official_api_path:
+    # Default install location of scripts/install-ibkr-tws-pythonclient.sh
+    _default_official = Path(__file__).resolve().parents[1] / "tws-api" / "pythonclient"
+    if (_default_official / "ibapi").is_dir():
+        official_api_path = str(_default_official)
 if official_api_path and Path(official_api_path).exists():
     if official_api_path not in sys.path:
         sys.path.insert(0, official_api_path)

@@ -596,6 +596,16 @@ do_gateway_logs() {
   wait_broker_connected || true
 }
 
+# protect SYMBOL:CCY:ACCOUNT:QTY:STOP:TP — repone SL+TP (OCA, GTC) a una posición larga.
+do_protect() {
+  IFS=':' read -r sym ccy acct qty sl tp <<< "$1"
+  [ -n "$tp" ] || { echo "uso: protect SYMBOL:CCY:ACCOUNT:QTY:STOP:TP"; exit 2; }
+  sec "PROTEGER $sym ($acct) qty=$qty SL=$sl TP=$tp"
+  curl -s --max-time 40 -X POST http://localhost:8002/api/ibkr/protect-position -H "X-Internal-API-Key: $API_KEY" -H 'Content-Type: application/json' \
+    -d "{\"symbol\":\"$sym\",\"currency\":\"$ccy\",\"account\":\"$acct\",\"quantity\":$qty,\"stop_price\":$sl,\"take_profit\":$tp}"; echo
+  sleep 3; do_orders
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -625,6 +635,7 @@ case "$ACTION" in
   gateway-upgrade) do_gateway_upgrade "$ARG" ;;
   gateway-rollback) do_gateway_rollback ;;
   gateway-logs) do_gateway_logs ;;
+  protect) do_protect "$ARG" ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

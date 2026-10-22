@@ -95,11 +95,11 @@ log.info(
 try:
     from .order_ids import allocate_consecutive_order_ids
     from .order_send_brakes import assert_order_send_allowed, record_place_no_ack
-    from .price_ticks import normalize_bracket_prices
+    from .price_ticks import normalize_bracket_prices, round_price
 except ImportError:  # pragma: no cover — uvicorn without package root
     from order_ids import allocate_consecutive_order_ids
     from order_send_brakes import assert_order_send_allowed, record_place_no_ack
-    from price_ticks import normalize_bracket_prices
+    from price_ticks import normalize_bracket_prices, round_price
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -2710,6 +2710,66 @@ class IBKRClient(EWrapper, EClient):
         self.presubmitted_seen_at.clear()
         return {"ok": True, "cancelled": "all", "method": "reqGlobalCancel"}
 
+    def protect_position(
+        self,
+        *,
+        symbol: str,
+        currency: str,
+        account: str,
+        quantity: float,
+        stop_price: float,
+        take_profit: float,
+    ) -> dict[str, Any]:
+        """Stop loss + take profit (OCA, GTC, reduce via SELL) for an existing LONG position."""
+        self.ensure_connected()
+        proposal = {
+            "symbol": symbol.upper(),
+            "currency": currency.upper(),
+            "sec_type": "STK",
+            "exchange": "SMART",
+            "side": "SELL",
+        }
+        if currency.upper() == "EUR" and symbol.upper() in self._EU_LOCAL_PRIMARY:
+            proposal["primary_exchange"] = self._EU_LOCAL_PRIMARY[symbol.upper()]
+        contract = self._qualify_stock_contract(proposal)
+        min_tick, rules = self._tick_info_for_contract(contract, None)
+        sl = round_price(stop_price, "up", min_tick, rules)
+        tp = round_price(take_profit, "down", min_tick, rules)
+        if not (sl < tp):
+            raise RuntimeError(f"precios incoherentes SL={sl} TP={tp}")
+        oca = f"PROTECT-{symbol.upper()}-{int(time.time())}"
+        placed: list[dict[str, Any]] = []
+        with self._order_id_lock:
+            tp_id, sl_id = allocate_consecutive_order_ids(self, 2)
+            for oid, otype, price in ((tp_id, "LMT", tp), (sl_id, "STP", sl)):
+                o = Order()
+                o.action = "SELL"
+                o.orderType = otype
+                o.totalQuantity = float(quantity)
+                if otype == "LMT":
+                    o.lmtPrice = float(price)
+                else:
+                    o.auxPrice = float(price)
+                o.tif = "GTC"
+                o.ocaGroup = oca
+                o.ocaType = 1
+                o.transmit = True
+                o.account = account
+                apply_order_legacy_attr_compat(o)
+                self.place_ack_events[oid] = threading.Event()
+                self.order_context[oid] = {"kind": "PROTECT", "symbol": symbol, "account": account}
+                self.placeOrder(oid, contract, o)
+                placed.append({"orderId": oid, "type": otype, "price": price})
+        time.sleep(3)
+        result = []
+        for p in placed:
+            oid = p["orderId"]
+            result.append({**p, "status": self.place_ack_status.get(oid, "NO_ACK"),
+                           "errors": [f"{e.get('code')} {e.get('message')}" for e in self.place_ack_errors.get(oid, [])]})
+            self.place_ack_events.pop(oid, None)
+        log.info("PROTECT %s %s qty=%s SL=%s TP=%s → %s", account, symbol, quantity, sl, tp, result)
+        return {"ok": all(r["status"] in IBKR_ACCEPTED_STATUSES for r in result), "oca": oca, "orders": result}
+
     def cancel_stale_presubmitted(self, max_age_seconds: float = 300.0) -> dict[str, Any]:
         """Cancel PreSubmitted orders older than max_age_seconds."""
         self.ensure_connected()
@@ -2724,7 +2784,15 @@ class IBKRClient(EWrapper, EClient):
                 continue
             open_ids.add(oid)
             status = str(row.get("status") or "")
-            # PreSubmitted and Submitted can stall and block new orders
+            # Only stuck *entries* may be cancelled. NEVER bracket children (stop loss / take
+            # profit, parentId>0), OCA protection orders or any SELL: those protect open
+            # positions and are meant to rest (GTC) — cancelling them left TEF unprotected.
+            action = str(row.get("action") or "").upper()
+            parent_id = int(row.get("parentId") or 0)
+            order_type = str(row.get("orderType") or "").upper()
+            if action != "BUY" or parent_id > 0 or order_type in {"STP", "STP LMT", "TRAIL"}:
+                self.presubmitted_seen_at.pop(oid, None)
+                continue
             if status not in {"PreSubmitted", "Submitted", "PendingSubmit"}:
                 self.presubmitted_seen_at.pop(oid, None)
                 continue
@@ -3019,6 +3087,33 @@ def cancel_all_ibkr_orders():
         return result
     except Exception as exc:
         audit("ORDERS_CANCEL_ALL_FAILED", None, {"error": str(exc)})
+        raise HTTPException(503, str(exc)) from exc
+
+
+class ProtectPositionRequest(BaseModel):
+    symbol: str = Field(min_length=1, max_length=12)
+    currency: Literal["USD", "EUR"] = "EUR"
+    account: str = Field(min_length=1, max_length=32)
+    quantity: float = Field(gt=0)
+    stop_price: float = Field(gt=0)
+    take_profit: float = Field(gt=0)
+
+
+@app.post("/api/ibkr/protect-position", dependencies=auth)
+def protect_position(body: ProtectPositionRequest):
+    """Re-attach stop loss + take profit (OCA GTC) to an existing long position."""
+    if emergency_stop():
+        raise HTTPException(423, "Parada de emergencia activada")
+    if not settings.live_trading_enabled or settings.ibkr_read_only:
+        raise HTTPException(423, "Live trading desactivado o IBKR_READ_ONLY")
+    try:
+        out = ibkr.protect_position(
+            symbol=body.symbol, currency=body.currency, account=body.account.strip(),
+            quantity=body.quantity, stop_price=body.stop_price, take_profit=body.take_profit,
+        )
+        audit("POSITION_PROTECTED", body.symbol, out)
+        return out
+    except Exception as exc:
         raise HTTPException(503, str(exc)) from exc
 
 

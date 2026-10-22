@@ -1,0 +1,34 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando c662a1b Kraken Futures: una sola posición por contrato y TP que cubre todo el tamaño de la posición
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-104253
+Updating 1a8da9a..c662a1b
+Fast-forward
+ .github/workflows/server-remote.yml   |  4 +-
+ deploy/remote/forgeos-remote.sh       | 99 ++++++++++++++++++++++++++++++++++-
+ lib/brokers/kraken-futures/adapter.ts |  3 +-
+ lib/trading/crypto/futures-engine.ts  | 26 +++++++--
+ 4 files changed, 124 insertions(+), 8 deletions(-)
+
+=== TESTS DEL BROKER ===
+..................                                                       [100%]
+18 passed in 0.38s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

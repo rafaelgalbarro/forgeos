@@ -1,0 +1,32 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 1a8da9a Kraken Futures: precio mark desde el ticker para validar el TP (openpositions no lo trae)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-103249
+Updating 8480ffd..1a8da9a
+Fast-forward
+ deploy/remote/forgeos-remote.sh      |  4 +++-
+ lib/trading/crypto/futures-engine.ts | 10 ++++++++--
+ 2 files changed, 11 insertions(+), 3 deletions(-)
+
+=== TESTS DEL BROKER ===
+..................                                                       [100%]
+18 passed in 0.39s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -839,6 +839,17 @@ case "$ACTION" in
   forex-bot) do_forex_bot ;;
   mt5-setup) do_mt5_setup ;;
   mt5-status) do_mt5_status ;;
+  mt5-wine9)
+    # MT5 recent builds show "A debugger has been found" under Wine ≥10: pin Wine 9.0 inside the container.
+    pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
+    docker exec mt5 sh -c '. /etc/os-release; echo "$PRETTY_NAME"; apt-get update -qq >/dev/null 2>&1; apt-cache madison winehq-stable | head -5'
+    V="$(docker exec mt5 sh -c 'apt-cache madison winehq-stable | awk "{print \$3}" | grep "^9\.0" | head -1')"
+    echo "versión 9.0 disponible: ${V:-ninguna}"
+    if [ -n "$V" ]; then
+      docker exec mt5 sh -c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --allow-downgrades winehq-stable=$V wine-stable=$V wine-stable-amd64=$V wine-stable-i386=$V >/tmp/wine9.log 2>&1; tail -3 /tmp/wine9.log; apt-mark hold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386 >/dev/null"
+      docker exec mt5 wine --version
+    fi
+    pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado" ;;
   mt5-shot)
     docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
     if false; then :

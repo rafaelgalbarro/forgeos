@@ -148,10 +148,18 @@ do_deploy() {
     swapon /swapfile && grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
     echo "swap activado: $(swapon --show --noheadings)"
   fi
+  # Free RAM for the build: stop the MT5 bridge + terminal (restarted after the build).
+  if pm2 describe forgeos-mt5-bridge >/dev/null 2>&1; then
+    pm2 stop forgeos-mt5-bridge >/dev/null 2>&1
+    docker exec mt5 sh -c 'pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 3; pkill -9 -f terminal64.exe' >/dev/null 2>&1 || true
+    MT5_STOPPED=1
+  fi
   free -m | sed -n 2,3p
+  ps -eo rss,comm --sort=-rss | head -6 | awk '{printf "%6d MB %s\n", $1/1024, $2}'
   npm install --no-audit --no-fund 2>&1 | tail -2
   if ! npm run build > /tmp/forgeos-build.log 2>&1; then
     tail -30 /tmp/forgeos-build.log
+    [ "${MT5_STOPPED:-0}" = 1 ] && pm2 restart forgeos-mt5-bridge >/dev/null 2>&1
     echo "ABORTADO: el build ha fallado — NO se reinicia nada."
     exit 4
   fi
@@ -160,6 +168,7 @@ do_deploy() {
   sec "REINICIO"
   pm2 restart forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker --update-env > /dev/null && echo "reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker"
   if pm2 describe forgeos-forex-bot >/dev/null 2>&1; then pm2 restart forgeos-forex-bot --update-env >/dev/null && echo "reiniciado: forgeos-forex-bot"; fi
+  if [ "${MT5_STOPPED:-0}" = 1 ]; then pm2 restart forgeos-mt5-bridge --update-env >/dev/null && echo "reiniciado: forgeos-mt5-bridge"; fi
   sleep 20
   pm2 jlist 2>/dev/null | python3 -c '
 import sys, json

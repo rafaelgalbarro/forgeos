@@ -151,7 +151,8 @@ do_deploy() {
   # Free RAM for the build: stop the MT5 bridge + terminal (restarted after the build).
   if pm2 describe forgeos-mt5-bridge >/dev/null 2>&1; then
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1
-    docker exec mt5 sh -c 'pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 3; pkill -9 -f terminal64.exe' >/dev/null 2>&1 || true
+    echo "procesos MT5 antes: terminal=$(pgrep -fc terminal64.exe) puente=$(pgrep -fc mt5_bridge.py) wine=$(pgrep -fc wine)"
+    pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 3; pkill -9 -f mt5_bridge.py; pkill -9 -f terminal64.exe
     MT5_STOPPED=1
   fi
   free -m | sed -n 2,3p

@@ -365,8 +365,14 @@ export async function runFuturesExitLoop(): Promise<void> {
       const mine = openOrders.filter((o) => o.symbol === pf && o.reduceOnly);
       const hasTp = mine.some((o) => o.orderType.includes("take_profit"));
       const tp = Number(open.takeProfit ?? 0);
+      // /openpositions has no mark price → take it from the ticker.
+      const mark =
+        pos.markPrice > 0 ? pos.markPrice : await adapter.getQuote(pf).then((q) => q.mark || q.mid).catch(() => 0);
       const tpWrongSide =
-        tp > 0 && (pos.side === "short" ? tp >= pos.markPrice : tp <= pos.markPrice);
+        tp > 0 && mark > 0 && (pos.side === "short" ? tp >= mark : tp <= mark);
+      if (tpWrongSide) {
+        console.warn(`[Kraken/Futures] TP ${pf} ${tp} ya superado (mark=${mark}) — no se coloca`);
+      }
       if (!hasTp && tp > 0 && !tpWrongSide) {
         const meta = await adapter.getInstrument(pf).catch(() => null);
         const trigger = quantizeStopConservative(tp, meta?.tickSize ?? 0, pos.side === "long" ? "short" : "long");
@@ -374,7 +380,7 @@ export async function runFuturesExitLoop(): Promise<void> {
           .placeTakeProfit({ symbol: pf, positionSide: pos.side, size: pos.size, triggerPrice: trigger })
           .then((r) => console.log(`[Kraken/Futures] TP en exchange ${pf} ${pos.side} trigger=${trigger} id=${r.orderId}`))
           .catch((err) =>
-            console.warn(`[Kraken/Futures] TP en exchange ${pf} trigger=${trigger} mark=${pos.markPrice} falló: ${err instanceof Error ? err.message : err}`),
+            console.warn(`[Kraken/Futures] TP en exchange ${pf} trigger=${trigger} mark=${mark} falló: ${err instanceof Error ? err.message : err}`),
           );
       }
       const hasStop = mine.some((o) => o.orderType === "stp" || o.orderType === "stop");

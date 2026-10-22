@@ -444,7 +444,7 @@ export class KrakenFuturesAdapter {
 
   /** Open orders (reduce-only stops / take-profits included). */
   async getOpenOrders(): Promise<
-    Array<{ orderId: string; symbol: string; side: string; orderType: string; reduceOnly: boolean; stopPrice: number | null }>
+    Array<{ orderId: string; symbol: string; side: string; orderType: string; reduceOnly: boolean; stopPrice: number | null; size: number }>
   > {
     const raw = await privateCall<{ openOrders?: Record<string, unknown>[] }>("GET", "/openorders");
     const rows = raw.openOrders ?? [];
@@ -455,6 +455,7 @@ export class KrakenFuturesAdapter {
       orderType: String(o.orderType ?? o.type ?? "").toLowerCase(),
       reduceOnly: Boolean(o.reduceOnly),
       stopPrice: o.stopPrice != null ? num(o.stopPrice) : null,
+      size: num(o.unfilledSize ?? o.size ?? o.quantity),
     }));
   }
 

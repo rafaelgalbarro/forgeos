@@ -353,7 +353,8 @@ export async function runFuturesExitLoop(): Promise<void> {
     (t) => t.venue === "futures" && t.open,
   );
   const openOrders = opens.length ? await adapter.getOpenOrders().catch(() => null) : [];
-  for (const open of opens) {
+  const tpHandled = new Set<string>();
+  for (const open of [...opens].reverse()) {
     const pf = (open.pfSymbol ?? spotPairToPfSymbol(open.pair) ?? open.pair).toUpperCase();
     const pos = positions.find((p) => p.symbol === pf);
     if (!pos) {
@@ -361,9 +362,15 @@ export async function runFuturesExitLoop(): Promise<void> {
       continue;
     }
     // Every live position must have a reduce-only stop AND take-profit on the exchange.
-    if (openOrders) {
+    if (openOrders && !tpHandled.has(pf)) {
+      tpHandled.add(pf);
       const mine = openOrders.filter((o) => o.symbol === pf && o.reduceOnly);
-      const hasTp = mine.some((o) => o.orderType.includes("take_profit"));
+      // TP must cover the whole position (several entries can stack on one contract).
+      const tpCovered = mine
+        .filter((o) => o.orderType.includes("take_profit"))
+        .reduce((a, o) => a + (o.size > 0 ? o.size : 0), 0);
+      const tpMissing = Number(Math.max(0, pos.size - tpCovered).toFixed(8));
+      const hasTp = tpMissing <= 0;
       const tp = Number(open.takeProfit ?? 0);
       // /openpositions has no mark price → take it from the ticker.
       const mark =
@@ -377,7 +384,7 @@ export async function runFuturesExitLoop(): Promise<void> {
         const meta = await adapter.getInstrument(pf).catch(() => null);
         const trigger = quantizeStopConservative(tp, meta?.tickSize ?? 0, pos.side === "long" ? "short" : "long");
         await adapter
-          .placeTakeProfit({ symbol: pf, positionSide: pos.side, size: pos.size, triggerPrice: trigger })
+          .placeTakeProfit({ symbol: pf, positionSide: pos.side, size: tpMissing, triggerPrice: trigger })
           .then((r) => console.log(`[Kraken/Futures] TP en exchange ${pf} ${pos.side} trigger=${trigger} id=${r.orderId}`))
           .catch((err) =>
             console.warn(`[Kraken/Futures] TP en exchange ${pf} trigger=${trigger} mark=${mark} falló: ${err instanceof Error ? err.message : err}`),
@@ -488,10 +495,21 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   const risk = canOpenFuturesPosition();
   const shadowOn = futuresShadowMode() || acct.availableMargin <= 0;
 
+  // One live position per contract: journal + exchange (in case the journal missed one).
+  const openPfSymbols = new Set<string>(
+    listOpenCryptoJournal({ shadow: false })
+      .filter((t) => t.venue === "futures" && t.open)
+      .map((t) => String(t.pfSymbol ?? spotPairToPfSymbol(t.pair) ?? t.pair).toUpperCase()),
+  );
+  for (const p of await adapter.getOpenPositions().catch(() => [])) openPfSymbols.add(p.symbol.toUpperCase());
   for (const sig of ranked.slice(0, 8)) {
     const pf = spotPairToPfSymbol(sig.pair);
     if (!pf) {
       held.push(`${sig.pair}:no_pf`);
+      continue;
+    }
+    if (openPfSymbols.has(pf)) {
+      held.push(`${pf}:${sig.strategyId}:ya_hay_posicion`);
       continue;
     }
     const legDir = sig.direction === "SELL" ? "short" : "long";

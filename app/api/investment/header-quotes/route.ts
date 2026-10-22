@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import { getBatchPrices } from "@/lib/market-data/yahoo-finance";
 import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
 import { getUsMarketSession } from "@/src/core/trading/market-session";
+import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
+
+/** Base currency of the IBKR accounts (NAV is reported in it, not necessarily USD). */
+async function accountBaseCurrency(): Promise<string> {
+  const acct = await ibkrServiceFetch<Record<string, Record<string, { currency?: string }>>>(
+    "/api/ibkr/account",
+  ).catch(() => null);
+  for (const tags of Object.values(acct ?? {})) {
+    const c = String(tags?.NetLiquidation?.currency ?? "").toUpperCase();
+    if (c === "EUR" || c === "USD") return c;
+  }
+  return "USD";
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,9 +47,10 @@ function mapQuote(
  */
 export async function GET() {
   try {
-    const [quotes, acct] = await Promise.all([
+    const [quotes, acct, currency] = await Promise.all([
       getBatchPrices(["SPY", "QQQ", "^VIX"]).catch(() => new Map()),
       fetchTradingAccountSnapshot().catch(() => null),
+      accountBaseCurrency(),
     ]);
 
     const nav = acct && Number.isFinite(acct.navUSD) ? acct.navUSD : null;
@@ -57,6 +71,7 @@ export async function GET() {
       nav,
       dailyPnl,
       dailyPnlPct,
+      currency,
       session: {
         phase: session.phase,
         label: session.sessionLabel,

@@ -17,6 +17,7 @@ type HeaderQuotes = {
   nav: number | null;
   dailyPnl: number | null;
   dailyPnlPct: number | null;
+  currency?: string;
   spy?: { changePct: number | null };
   error?: string;
 };
@@ -26,9 +27,13 @@ type PortfolioPayload = {
   summary?: { pnlDaily?: { value?: number | null } };
 };
 
-function fmtMoney(n: number | null | undefined): string {
+function fmtMoney(n: number | null | undefined, currency = "USD"): string {
   if (n == null || !Number.isFinite(n)) return "NO_DATA";
-  return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  try {
+    return n.toLocaleString("es-ES", { style: "currency", currency, maximumFractionDigits: 2 });
+  } catch {
+    return `${n.toFixed(2)} ${currency}`;
+  }
 }
 
 function fmtPct(n: number | null | undefined): string {
@@ -68,6 +73,7 @@ export function InvestmentOverviewBoard() {
           nav: hq.data.nav ?? null,
           dailyPnl: hq.data.dailyPnl ?? null,
           dailyPnlPct: hq.data.dailyPnlPct ?? null,
+          currency: hq.data.currency ?? "USD",
           spy: { changePct: hq.data.spy?.changePct ?? null },
         });
         setError(hq.data.error ?? "");
@@ -129,13 +135,13 @@ export function InvestmentOverviewBoard() {
         <div className={styles.overviewPnlBlock}>
           <p className={styles.overviewLabel}>P&amp;L del día</p>
           <p className={`${styles.overviewPnlValue} ${pnlTone}`} data-numeric="true">
-            {fmtMoney(pnl)}
+            {fmtMoney(pnl, quotes?.currency ?? "USD")}
           </p>
           <p className={`${styles.overviewPnlPct} ${pnlTone}`} data-numeric="true">
             {fmtPct(pnlPct)}
           </p>
           <p className={styles.overviewNavLine}>
-            NAV <strong data-numeric="true">{fmtMoney(quotes?.nav)}</strong>
+            NAV <strong data-numeric="true">{fmtMoney(quotes?.nav, quotes?.currency ?? "USD")}</strong>
           </p>
         </div>
 

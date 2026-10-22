@@ -145,18 +145,57 @@ export async function fetchYahooChartBarsRaw(
 }
 
 /** Batch quotes — delegates to fmp.getBatchQuotes (parallel /stable/profile, max 10). */
+/** Index aliases → EODHD symbols. */
+const EODHD_INDEX_ALIASES: Record<string, string> = {
+  "^VIX": "VIX.INDX",
+  VIX: "VIX.INDX",
+  "^GSPC": "GSPC.INDX",
+  "^NDX": "NDX.INDX",
+  "^DJI": "DJI.INDX",
+  "^TNX": "TNX.INDX",
+};
+
+async function eodhdFallbackQuote(symbol: string): Promise<YahooQuote | null> {
+  const { getQuote } = await import("@/lib/market-data/eodhd");
+  const q = await getQuote(EODHD_INDEX_ALIASES[symbol] ?? symbol).catch(() => null);
+  if (!q || !(q.price > 0)) return null;
+  return {
+    symbol,
+    price: q.price,
+    changePct: Number.isFinite(q.changePercentage) ? q.changePercentage : 0,
+    volume: q.volume ?? 0,
+    avgVolume: 0,
+    high52w: q.high52w > 0 ? q.high52w : q.price,
+    low52w: q.low52w > 0 ? q.low52w : q.price,
+    bid: q.price,
+    ask: q.price,
+    exchange: "EODHD",
+  };
+}
+
 export async function getBatchPrices(tickers: readonly string[]): Promise<Map<string, YahooQuote>> {
   const out = new Map<string, YahooQuote>();
-  if (tickers.length === 0 || !isFmpEnabled()) return out;
+  if (tickers.length === 0) return out;
 
   const requested = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
-  const fmpSymbols = [...new Set(requested.map(toFmpSymbol).filter(Boolean))];
-  const quotes = await getBatchQuotes(fmpSymbols);
-  for (const symbol of requested) {
-    const fmpSymbol = toFmpSymbol(symbol);
-    const q = quotes.get(fmpSymbol);
-    if (!q) continue;
-    out.set(symbol, fmpQuoteToYahoo(q, symbol));
+  if (isFmpEnabled()) {
+    const fmpSymbols = [...new Set(requested.map(toFmpSymbol).filter(Boolean))];
+    const quotes = await getBatchQuotes(fmpSymbols).catch(() => new Map());
+    for (const symbol of requested) {
+      const fmpSymbol = toFmpSymbol(symbol);
+      const q = quotes.get(fmpSymbol);
+      if (!q) continue;
+      out.set(symbol, fmpQuoteToYahoo(q, symbol));
+    }
+  }
+  // FMP off / plan-limited → EODHD (our paid real-time source), a few at a time.
+  const missing = requested.filter((s) => !out.has(s)).slice(0, 40);
+  for (let i = 0; i < missing.length; i += 8) {
+    const chunk = missing.slice(i, i + 8);
+    const got = await Promise.all(chunk.map((s) => eodhdFallbackQuote(s)));
+    got.forEach((q, j) => {
+      if (q) out.set(chunk[j]!, q);
+    });
   }
   return out;
 }

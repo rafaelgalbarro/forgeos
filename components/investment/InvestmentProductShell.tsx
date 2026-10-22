@@ -45,6 +45,10 @@ export function InvestmentProductShell({ children }: { children: React.ReactNode
   useEffect(() => {
     void refreshStatus();
     warmInvestmentDataCaches();
+    // The first snapshot can be the cached fallback right after a restart (BROKER OFF);
+    // re-poll so the badge reflects the real broker state.
+    const id = window.setInterval(() => void refreshStatus(), 30_000);
+    return () => window.clearInterval(id);
   }, [refreshStatus]);
 
   useEffect(() => {

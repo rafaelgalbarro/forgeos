@@ -17,6 +17,7 @@ type HeaderQuotesPayload = {
   nav: number | null;
   dailyPnl: number | null;
   dailyPnlPct: number | null;
+  currency?: string;
   session: {
     phase: string;
     label: string;
@@ -58,7 +59,11 @@ function fmtPct(n: number | null): string {
 
 function fmtMoney(n: number | null | undefined, currency = "USD"): string {
   if (n == null || !Number.isFinite(n)) return "NO_DATA";
-  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })} ${currency}`;
+  try {
+    return n.toLocaleString("es-ES", { style: "currency", currency, maximumFractionDigits: 0 });
+  } catch {
+    return `${n.toFixed(0)} ${currency}`;
+  }
 }
 
 function sessionBadge(
@@ -67,13 +72,13 @@ function sessionBadge(
 ): { text: string; className: string } {
   switch (phase) {
     case "REGULAR":
-      return { text: "🟢 USA ABIERTO 14:30-22:00", className: stylesMap.hdrSessionOpen };
+      return { text: "🟢 EE. UU. ABIERTO", className: stylesMap.hdrSessionOpen };
     case "PRE_MARKET":
-      return { text: "🟡 PREMARKET 14:00-14:30", className: stylesMap.hdrSessionPre };
+      return { text: "🟡 PREMARKET EE. UU.", className: stylesMap.hdrSessionPre };
     case "AFTER_MARKET":
-      return { text: "🟡 AFTERMARKET 22:00-02:00", className: stylesMap.hdrSessionPre };
+      return { text: "🟡 AFTER-HOURS EE. UU.", className: stylesMap.hdrSessionPre };
     default:
-      return { text: "🔴 MERCADO CERRADO / EXT", className: stylesMap.hdrSessionClosed };
+      return { text: "🔴 EE. UU. CERRADO", className: stylesMap.hdrSessionClosed };
   }
 }
 
@@ -140,7 +145,7 @@ export function InvestmentTerminalHeader(props: InvestmentTerminalHeaderProps) {
   const nav = data?.nav ?? props.fallbackNav ?? null;
   const pnl = data?.dailyPnl ?? null;
   const pnlPct = data?.dailyPnlPct ?? null;
-  const currency = props.currency ?? "USD";
+  const currency = data?.currency ?? props.currency ?? "USD";
 
   function quoteCell(q: Quote | undefined, key: "spy" | "qqq" | "vix", digits = 2) {
     const f = flash[key];

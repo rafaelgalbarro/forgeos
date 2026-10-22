@@ -140,6 +140,10 @@ export async function runTypedTradingCycle(config: TypedCycleConfig): Promise<Ne
       minBuyConfidence: config.minBuyConfidence ?? 0.6,
       analysisOnly: config.analysisOnly ?? false,
     });
+    // Dashboard «Último ciclo» reads this (scheduler cycles come through here).
+    if (config.kind === "stocks") {
+      (globalThis as { __lastTradingCycle?: unknown }).__lastTradingCycle = result;
+    }
 
     // Soft skip when IBKR unavailable (stocks) — HTTP 200
     if (result.reason === "ibkr_unavailable") {

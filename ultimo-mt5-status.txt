@@ -4,13 +4,13 @@ mt5 Up 6 hours
 puente: online reinicios: 111
 puente sin respuesta (puede estar arrancando)
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Oct 22 19:47 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Oct 22 20:01 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  22836       00:25 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  22843       00:25 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  23442       00:28 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  23449       00:28 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
 --- logs del terminal
 ## /Program Files/MetaTrader 5/logs/20261022.log
 KP	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud Asia 1: 1 gbit" found
@@ -29,32 +29,32 @@ HI	0	18:44:26.968	Terminal	C:\Program Files\MetaTrader 5
 KP	0	18:44:26.968	Terminal	launched with Z:\config\forgeos\start.ini
 HF	0	18:44:26.977	MCP	started on 127.0.0.1:22346
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261022.log
-KE	0	19:36:21.280	Terminal	launched with Z:\config\forgeos\start.ini
-NP	0	19:36:21.288	MCP	started on 127.0.0.1:22346
-JN	0	19:36:24.463	Network	'242902': authorized on OANDATMS-MT5 through Access Server for clients
-EM	0	19:36:24.463	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.22 21:11:03
-NM	0	19:36:25.433	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
-QM	0	19:36:25.433	Network	'242902': trading has been enabled - hedging mode
-EF	0	19:36:25.433	Network	'242902': balance management has been enabled
-EO	0	19:47:16.824	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
-JM	0	19:47:17.080	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
-JE	0	19:47:17.081	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 5 / 7 Gb memory, 32 / 74 Gb disk, GMT+0
-IN	0	19:47:17.081	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
-OF	0	19:47:17.081	Terminal	launched with Z:\config\forgeos\start.ini
-PL	0	19:47:17.092	MCP	started on 127.0.0.1:22346
-FK	0	19:47:21.233	Network	'242902': authorized on OANDATMS-MT5 through Access Server for clients
 LP	0	19:47:21.233	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.22 21:36:23
+EP	0	19:47:22.118	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
+RQ	0	19:47:22.118	Network	'242902': trading has been enabled - hedging mode
+FS	0	19:47:22.118	Network	'242902': balance management has been enabled
+KH	0	20:00:52.867	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
+PP	0	20:00:53.078	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
+RP	0	20:00:53.078	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 5 / 7 Gb memory, 31 / 74 Gb disk, GMT+0
+HR	0	20:00:53.078	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
+RK	0	20:00:53.078	Terminal	launched with Z:\config\forgeos\start.ini
+HO	0	20:00:53.086	MCP	started on 127.0.0.1:22346
+HD	0	20:00:56.706	Network	'242902': authorized on OANDATMS-MT5 through Access Server for clients
+EG	0	20:00:56.706	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.22 21:47:20
+LG	0	20:00:57.703	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
+OD	0	20:00:57.703	Network	'242902': trading has been enabled - hedging mode
+CP	0	20:00:57.703	Network	'242902': balance management has been enabled
 --- herramientas X: xwd 
 --- /health
 
 --- /resolve?base=EUR_USD
 
-2026-10-22 19:36:59 +00:00: mt5 bridge listening on 8004
-2026-10-22 19:36:59 +00:00: init=True err=None
-2026-10-22 19:47:07 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
-2026-10-22 19:47:13 +00:00: MetaTrader5 py: 5.0.6231
-2026-10-22 19:47:14 +00:00: wine: wine-11.10 (Staging)
-2026-10-22 19:47:14 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-10-22 19:47:55 +00:00: mt5 bridge listening on 8004
+2026-10-22 19:47:55 +00:00: init=True err=None
+2026-10-22 20:00:44 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
+2026-10-22 20:00:49 +00:00: MetaTrader5 py: 5.0.6231
+2026-10-22 20:00:50 +00:00: wine: wine-11.10 (Staging)
+2026-10-22 20:00:50 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
 2026-10-22 15:11:18 +00:00:     self.server_bind()
 2026-10-22 15:11:18 +00:00:   File "Z:\config\.wine\drive_c\Python39-64\lib\http\server.py", line 136, in server_bind
 2026-10-22 15:11:18 +00:00:     socketserver.TCPServer.server_bind(self)

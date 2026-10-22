@@ -1,41 +1,43 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando be13052 deploy: parar MT5 durante el build y rearrancarlo después
+Desplegando b695154 mt5: matar terminal/puente desde el host
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-151719
-Updating fb10e6a..be13052
+estado copiado en /root/forgeos-state-20261022-151934
+Updating be13052..b695154
 Fast-forward
- deploy/remote/forgeos-remote.sh | 9 +++++++++
- deploy/remote/mt5-bridge-run.sh | 7 ++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
+ deploy/remote/forgeos-remote.sh | 3 ++-
+ deploy/remote/mt5-bridge-run.sh | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.67s
+19 passed in 0.69s
 
 === BUILD ===
-Mem:            7746        6063        1036          11         980        1682
-Swap:           4095        4092           3
+procesos MT5 antes: terminal=53 puente=1 wine=5
+Mem:            7746        2615        4579           4         924        5130
+Swap:           4095         821        3274
      0 MB COMMAND
-   569 MB java
-   370 MB next-server
-   149 MB terminal64.exe
-   149 MB terminal64.exe
-   149 MB terminal64.exe
+   565 MB java
+   360 MB next-server
+   143 MB node
+   123 MB node
+   100 MB node
 
 up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
 
-> forgeos-app-factory@0.1.0 build
-> next build
-
-   ▲ Next.js 15.5.19
-   - Environments: .env.local
-
-   Creating an optimized production build ...
-Killed
-ABORTADO: el build ha fallado — NO se reinicia nada.
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=4
+codigo_salida=0

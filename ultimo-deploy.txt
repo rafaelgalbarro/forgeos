@@ -1,22 +1,18 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando f068f6e Regla dura: compras de acciones solo con stop loss y take profit (web y broker); diagnóstico de futuros se recarga al cambiar; acción remota futures
+Desplegando 685ad50 Kraken Futures: registra el error real al cargar instrumentos
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-100703
-Updating a04cbed..f068f6e
+estado copiado en /root/forgeos-state-20261022-101132
+Updating f068f6e..685ad50
 Fast-forward
- .github/workflows/server-remote.yml       |  2 +-
- deploy/remote/forgeos-remote.sh           | 26 ++++++++++++++++++++++++++
- lib/investment/ibkr-supervised-submit.ts  | 11 +++++++++++
- lib/trading/crypto/futures-diagnostics.ts | 15 ++++++++++++++-
- services/ibkr-broker/app/main.py          | 13 +++++++++++++
- 5 files changed, 65 insertions(+), 2 deletions(-)
-script remoto actualizado
+ deploy/remote/forgeos-remote.sh       | 18 ++++++++++++++
+ lib/brokers/kraken-futures/adapter.ts | 44 +++++++++++++++++++++++++++++------
+ 2 files changed, 55 insertions(+), 7 deletions(-)
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.42s
+18 passed in 0.41s
 
 === BUILD ===
 

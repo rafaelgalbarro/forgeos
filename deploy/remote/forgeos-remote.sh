@@ -649,6 +649,19 @@ do_screenshot() {
   done
 }
 
+do_signals() {
+  local L=/root/.pm2/logs/forgeos-out.log
+  sec "RESÚMENES DE CICLO DE ACCIONES (últimos)"
+  grep -E "\[Cycle/stocks\] fase=" "$L" | tail -8 | cut -c1-260
+  sec "SEÑALES BUY Y SU DESTINO (hoy, agrupado)"
+  grep -E "\[Signal\] [A-Z.]+ BUY agents|\[Signal\] [A-Z.]+: BUY status|EXECUTED conf|SIGNAL_NO_CAPITAL|sin capital|capital insuficiente|RECHAZADO|Premarket SHADOW|posición duplicada|orden de compra pendiente|compra sin stop|ORDER_REJECTED|BROKER_NO_ACK|ManualBlock|no tradable|skip \(" "$L" \
+    | sed -E 's/^[0-9]+\|[a-z-]+ *\| //; s/[0-9]+(\.[0-9]+)?/N/g' | cut -c1-150 | sort | uniq -c | sort -rn | head -40
+  sec "ÚLTIMAS 30 SEÑALES BUY CON DETALLE"
+  grep -E "\[Signal\] [A-Z.]+ BUY agents|\[Signal\] [A-Z.]+: BUY status|❌ RECHAZADO|SIGNAL_NO_CAPITAL|Premarket SHADOW" "$L" | tail -30 | cut -c1-260
+  sec "MOTIVOS DE «ninguna señal» (estrategias, agrupado)"
+  grep -oE "ninguna señal \([A-Z_]+\)" "$L" | sort | uniq -c | sort -rn | head
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -681,6 +694,7 @@ case "$ACTION" in
   protect) do_protect "$ARG" ;;
   telegram-stats) do_telegram_stats ;;
   screenshot) do_screenshot "$ARG" ;;
+  signals) do_signals ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

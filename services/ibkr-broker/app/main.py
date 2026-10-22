@@ -438,7 +438,7 @@ class IBKRClient(EWrapper, EClient):
         self._pending_next_id_event = event
         try:
             self.reqIds(-1)
-            if not event.wait(timeout=5.0):
+            if not event.wait(timeout=15.0):
                 raise RuntimeError("Timeout esperando nextValidId() antes de placeOrder")
             if self.next_order_id is None:
                 raise RuntimeError("No existe un identificador de orden válido (nextValidId)")

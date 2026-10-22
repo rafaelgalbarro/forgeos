@@ -18,7 +18,7 @@ PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contract
 PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
 
 === KRAKEN FUTURES: cuenta, posiciones y órdenes (API privada) ===
-margen disponible: 44.943799999999996 | valor cartera: 56.1079985887128 | PnL: 0.0034937816400000266
+margen disponible: 44.9443 | valor cartera: 56.108498495072865 | PnL: 0.00201827976000013
 posiciones: [('PF_ZROUSD', 'short', 6, 1.8605)]
   orden: a30ab913-74a3-4a95-85c2-36bcbf2b91ad PF_ZROUSD buy stop size= 6 lmt= None stop= 1.8782 reduceOnly= True
 órdenes abiertas: 1
@@ -28,14 +28,14 @@ posiciones: [('PF_ZROUSD', 'short', 6, 1.8605)]
 2026-10-22 10:25:41 +00:00: [Kraken/Futures] cycle margin=44.9438 symbols=16 dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=2 orders=0 shadow=2
 2026-10-22 10:26:22 +00:00: [Kraken/Futures] cycle margin=44.9448 symbols=16 dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=2 orders=0 shadow=2
 --- errores de órdenes
-2026-10-22 10:26:20 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
-2026-10-22 10:26:25 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
-2026-10-22 10:26:30 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 2026-10-22 10:26:35 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 2026-10-22 10:26:40 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 2026-10-22 10:26:45 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 2026-10-22 10:26:50 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 2026-10-22 10:26:55 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
+2026-10-22 10:27:00 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
+2026-10-22 10:27:05 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
+2026-10-22 10:27:10 +00:00: [Kraken/Futures] TP en exchange PF_ZROUSD falló: Kraken sendorder take_profit buy PF_ZROUSD rejected: status=invalidPrice
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

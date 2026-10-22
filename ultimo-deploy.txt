@@ -1,23 +1,26 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando e8073ad mt5 bridge: servir HTTP durante el login, registrar errores; logs del terminal en mt5-status
+Desplegando 6bf5aef forex-bot: sesión 24h (dom 23:00 → vie 19:00 Londres, sin rollover) y 21 pares
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-145201
-Updating 4ca32a9..e8073ad
+estado copiado en /root/forgeos-state-20261022-150047
+Updating e8073ad..6bf5aef
 Fast-forward
- deploy/remote/forgeos-remote.sh   |  3 ++-
- services/mt5-bridge/mt5_bridge.py | 23 +++++++++++++++++------
- 2 files changed, 19 insertions(+), 7 deletions(-)
-script remoto actualizado
+ lib/forex-bot/backtest.ts               | 11 +++++------
+ lib/forex-bot/config.ts                 | 29 ++++++++++++++++++++++++++++-
+ lib/forex-bot/engine.ts                 |  2 +-
+ lib/forex-bot/sessions.ts               | 28 +++++++++++++++++++++++-----
+ lib/trading/__tests__/forex-bot.test.ts |  4 ++++
+ scripts/forex-backtest.ts               |  5 +++--
+ 6 files changed, 64 insertions(+), 15 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.62s
+19 passed in 1.16s
 
 === BUILD ===
 
-up to date in 1s
+up to date in 5s
 
 > forgeos-app-factory@0.1.0 build
 > next build

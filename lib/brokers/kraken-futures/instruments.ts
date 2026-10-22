@@ -92,5 +92,7 @@ export function quantizeFuturesSize(
 
 export function quantizeFuturesPrice(price: number, tickSize: number): number {
   if (!(price > 0) || !(tickSize > 0)) return price;
-  return Math.round(price / tickSize) * tickSize;
+  // Fix float artefacts (1.8235000000000001 → Kraken "invalidPrice").
+  const decimals = Math.max(0, Math.min(10, Math.ceil(-Math.log10(tickSize) - 1e-9)));
+  return Number((Math.round(price / tickSize) * tickSize).toFixed(decimals));
 }

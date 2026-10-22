@@ -1,19 +1,17 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando d7ccab7 Broker: detecta la versión de la API de IBKR con server_versions.MAX_CLIENT_VER (client.SERVER_VERSION no existe)
+Desplegando 56b2f46 Broker: órdenes whatIf con transmit=True (la API oficial de IBKR rechaza whatIf sin transmitir, error 321)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-094901
-Updating 46c3598..d7ccab7
+estado copiado en /root/forgeos-state-20261022-095333
+Updating d7ccab7..56b2f46
 Fast-forward
- deploy/remote/forgeos-remote.sh  | 33 +++++++++++++++++++++++----------
- services/ibkr-broker/app/main.py |  8 ++++++++
- 2 files changed, 31 insertions(+), 10 deletions(-)
-script remoto actualizado
+ services/ibkr-broker/app/main.py | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.40s
+18 passed in 0.41s
 
 === BUILD ===
 

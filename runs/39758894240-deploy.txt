@@ -1,0 +1,31 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 56b2f46 Broker: órdenes whatIf con transmit=True (la API oficial de IBKR rechaza whatIf sin transmitir, error 321)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-095333
+Updating d7ccab7..56b2f46
+Fast-forward
+ services/ibkr-broker/app/main.py | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+=== TESTS DEL BROKER ===
+..................                                                       [100%]
+18 passed in 0.41s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

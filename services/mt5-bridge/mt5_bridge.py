@@ -50,6 +50,17 @@ def ensure_init():
     creds = json.loads(creds_raw)
     mt5.shutdown()
     term = creds.get("path") or r"C:\Program Files\MetaTrader 5\terminal64.exe"
+    # The runner starts the terminal already logged in (/config:start.ini). Attach first without
+    # credentials: passing them makes the terminal open its (WebView) login dialog under Wine.
+    if mt5.initialize(path=term, timeout=180000):
+        a = mt5.account_info()
+        if a is not None and int(a.login) == int(creds["login"]):
+            STATE.update(initialized=True, last_error=None, login=int(creds["login"]), server=str(creds["server"]))
+            return True
+        STATE["last_error"] = "terminal conectado pero sin sesión en %s (cuenta=%s)" % (creds["login"], getattr(a, "login", None))
+        if a is None:
+            return False
+    mt5.shutdown()
     ok = mt5.initialize(path=term, login=int(creds["login"]), password=str(creds["password"]), server=str(creds["server"]), timeout=180000)
     if not ok:
         STATE["initialized"] = False

@@ -30,8 +30,24 @@ if ! dx wine "$WINPY" -c "import MetaTrader5" >/dev/null 2>&1; then
   dx wine "$WINPY" -m pip install --upgrade --no-warn-script-location pip MetaTrader5 2>&1 | tail -3
 fi
 echo "wine: $(dx wine --version 2>/dev/null)"
+# Start config: log in at launch (no login dialog) and allow algo trading for the Python API.
+CF=/root/mt5-config/forgeos
+if [ -f "$CF/mt5-credentials.json" ]; then
+  python3 - "$CF" <<'PY'
+import json, os, sys
+d = sys.argv[1]
+c = json.load(open(os.path.join(d, "mt5-credentials.json")))
+ini = ("[Common]\r\nLogin=%s\r\nPassword=%s\r\nServer=%s\r\nKeepPrivate=1\r\nNewsEnable=0\r\n"
+       "[Experts]\r\nAllowLiveTrading=1\r\nAllowDllImport=0\r\nEnabled=1\r\nAccount=0\r\nProfile=0\r\n") % (c["login"], c["password"], c["server"])
+p = os.path.join(d, "start.ini")
+with open(p, "w", encoding="utf-16") as fh:
+    fh.write(ini)
+os.chmod(p, 0o600)
+PY
+  chown "$U" "$CF/start.ini"
+fi
 # Start the terminal ourselves (detached, on the VNC display); the bridge then attaches to it.
 docker exec -d -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" "$C" \
-  wine 'C:\Program Files\MetaTrader 5\terminal64.exe'
+  wine 'C:\Program Files\MetaTrader 5\terminal64.exe' '/config:Z:\config\forgeos\start.ini'
 sleep 40
 exec docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'

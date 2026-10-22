@@ -1,19 +1,20 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando d98c58c Acciones remotas: readiness (revisión para operar) y update-script
+Desplegando 46c3598 Broker: usa la librería oficial de IBKR si está en tws-api/pythonclient; acciones remotas install-twsapi, fractional-on/off y unblock-eu
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-093501
-Updating d2c3b84..d98c58c
+estado copiado en /root/forgeos-state-20261022-094245
+Updating d98c58c..46c3598
 Fast-forward
- .github/workflows/server-remote.yml |  2 +-
- deploy/remote/forgeos-remote.sh     | 72 +++++++++++++++++++++++++++++++++++--
- 2 files changed, 71 insertions(+), 3 deletions(-)
+ .github/workflows/server-remote.yml |  11 ++-
+ deploy/remote/forgeos-remote.sh     | 138 +++++++++++++++++++++++++++++++++++-
+ services/ibkr-broker/app/main.py    |   5 ++
+ 3 files changed, 149 insertions(+), 5 deletions(-)
 script remoto actualizado
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.34s
+18 passed in 0.39s
 
 === BUILD ===
 

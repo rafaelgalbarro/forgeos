@@ -1,0 +1,77 @@
+
+=== GIT ===
+HEAD: c662a1b Kraken Futures: una sola posición por contrato y TP que cubre todo el tamaño de la posición
+GitHub: 9891946 Acción remota gateway-rollback (guarda Jts de ambos contenedores y compara)
+Commits del servidor que no están en GitHub:
+Commits de GitHub pendientes de desplegar:
+9891946 Acción remota gateway-rollback (guarda Jts de ambos contenedores y compara)
+Cambios locales sin commit (sin .forgeos):
+ M package-lock.json
+
+=== PM2 ===
+forgeos-scanner              online   reinicios=17 uptime=97985m mem=74MB
+forgeos-alerts               online   reinicios=17 uptime=97985m mem=75MB
+forgeos-reports              online   reinicios=2 uptime=97985m mem=68MB
+forgeos-forex                stopped  reinicios=6 uptime=0m mem=0MB
+forgeos                      online   reinicios=452 uptime=5m mem=81MB
+forgeos-watchdog             online   reinicios=1 uptime=80862m mem=3MB
+forgeos-scheduler            online   reinicios=47 uptime=5m mem=94MB
+ibkr-broker                  online   reinicios=78 uptime=2m mem=71MB
+forgeos-crypto-engine        online   reinicios=136 uptime=5m mem=74MB
+forgeos-crypto-backtest      stopped  reinicios=0 uptime=0m mem=0MB
+forgeos-eodhd-us-ws          online   reinicios=0 uptime=4233m mem=86MB
+pm2-logrotate                online   reinicios=3 uptime=4261m mem=90MB
+
+=== BROKER IBKR ===
+conectado= False estado= DISCONNECTED cuentas= ['U24225949']
+tiempo de respuesta /status: 33 ms
+18|ibkr-br | Traceback (most recent call last):
+
+=== ÚLTIMAS PROPUESTAS IBKR ===
+2026-10-22T09:58:37 EXECUTED  BUY  TEF    qty=25.0 lmt=3.433 sl=3.36434 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-22T09:47:59 REJECTED  BUY  DTE    qty=5.0 lmt=25.71 sl=25.195800000000002 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-22T09:47:58 EXECUTED  BUY  TEF    qty=42.0 lmt=3.439 sl=3.37022 cuenta=U15513057 ibkr=Filled motivo=
+2026-10-22T07:39:22 REJECTED  BUY  REP    qty=7.0 lmt=29.52 sl=28.5803 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:29:54 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:26:46 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:23:38 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:20:29 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:17:21 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:14:08 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:10:56 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:07:43 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+
+=== KRAKEN FUTURES ===
+2026-10-22 11:03:57 +00:00: [Kraken/Futures] cycle margin=28.1514 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=2
+2026-10-22 11:03:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 687ms
+2026-10-22 11:04:57 +00:00: [Kraken/Futures] cycle margin=28.1484 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=2
+2026-10-22 11:04:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 603ms
+2026-10-22 11:05:20 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
+2026-10-22 11:05:21 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
+
+=== PANEL /investment ===
+web: live= True readOnly= False modo= LIVE
+broker: DISCONNECTED UNAVAILABLE error= None
+accountSummary: STALE error= IBKR disconnected — skipping account
+positions: None error= None
+portfolioSummary: STALE error= IBKR disconnected — skipping positions
+LIVE_TRADING_ENABLED en .env.local: true
+IBKR_READ_ONLY en .env.local: false
+
+=== ACCIONES: CICLO Y PRE-MERCADO (últimas líneas) ===
+11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.71 bid=97.50 ask=97.92
+11|forgeos | [Premarket] SOFI price-source=EODHD-WS-realtime $14.57 bid=14.56 ask=14.58
+11|forgeos | [Premarket] LLY price-source=discarded — EODHD-WS: precio ≈ previousClose sin volumen — posible cierre previo
+11|forgeos | [Premarket] UNH price-source=EODHD-WS-realtime $418.50 bid=418.17 ask=418.83
+11|forgeos | [Premarket] MRK price-source=EODHD-WS-realtime $150.77 bid=150.60 ask=150.95
+11|forgeos | [Premarket] JNJ price-source=EODHD-WS-realtime $259.85 bid=259.69 ask=260.00
+11|forgeos | [Premarket] PFE price-source=discarded — PFE: sin cotización WS
+11|forgeos | [Premarket] AMGN price-source=discarded — AMGN: sin cotización WS
+11|forgeos | [Premarket] GILD price-source=discarded — GILD: sin cotización WS
+11|forgeos | [Premarket] MRNA price-source=discarded — MRNA: sin cotización WS
+11|forgeos | [Premarket] ISRG price-source=discarded — ISRG: sin cotización WS
+11|forgeos | [Premarket] ABBV price-source=EODHD-WS-realtime $286.93 bid=286.65 ask=287.21
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

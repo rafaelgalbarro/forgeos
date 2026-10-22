@@ -1,40 +1,0 @@
-
-=== RECURSOS ===
-/dev/sda1        75G   21G   52G  28% /
-               total        used        free      shared  buff/cache   available
-Mem:            7746        2831        2789         478        2910        4914
-
-=== CONTENEDOR MT5 ===
-imagen descargada
-contenedor mt5 creado (solo accesible desde el propio servidor)
-esperando la primera instalación de MT5 + Python (hasta 15 min)…
-MT5 y Python instalados (tras 110 s)
-[2/7] File /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe is not installed. Installing...
-reg: The operation completed successfully
-[3/7] Downloading MT5 installer...
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 22.6M  100 22.6M    0     0  23.2M   
-[3/7] Installing MetaTrader 5...
-[4/7] File /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe is installed. Running MT5...
-Application could not be started, or no application associated with the specified file.
-ShellExecuteEx failed: File not found.
-
-[5/7] Installing Python in Wine...
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 26.7M  100 26.7M    0     0   177M      0 --:--:-- --:--:-- --:--:--  178M
-
-=== ENTORNO ===
-MT5_BRIDGE_KEY añadido a .env.local
-
-=== PUENTE ===
-2026-10-22 13:42:55 +00:00: bridge: Z:\config\.wine\drive_c\Program Files (x86)\Python39-32\python.exe
-2026-10-22 13:43:10 +00:00: bridge: Z:\config\.wine\drive_c\Program Files (x86)\Python39-32\python.exe
-2026-10-22 13:42:55 +00:00: wine: '/config/.wine' is not owned by you
-2026-10-22 13:43:10 +00:00: wine: '/config/.wine' is not owned by you
-credenciales: PENDIENTES (comando oculto)
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0

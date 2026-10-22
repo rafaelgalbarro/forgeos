@@ -3,6 +3,7 @@
  *
  *   FOREX_BOT_MODE            shadow (default) | practice | live
  *   FOREX_BOT_RISK_PCT        risk per trade, % of NAV (default 2, hard cap 2)
+ *   FOREX_BOT_MIN_LOT_MAX_RISK_PCT up to this % when the minimum lot forces it (default 3, cap 3)
  *   FOREX_BOT_DAILY_LOSS_PCT  stop trading for the day after this loss (default 4)
  *   FOREX_BOT_MAX_POSITIONS   concurrent trades (default 2)
  *   FOREX_BOT_PAIRS           comma list (default 21 majors + crosses)
@@ -84,6 +85,11 @@ export function fxBotMode(): FxBotMode {
 
 export function fxRiskPct(): number {
   return Math.min(2, num(process.env.FOREX_BOT_RISK_PCT, 2));
+}
+
+/** Risk ceiling (% NAV) accepted only when the broker's minimum lot forces it (default 3, hard cap 3). */
+export function fxMinLotMaxRiskPct(): number {
+  return Math.min(3, num(process.env.FOREX_BOT_MIN_LOT_MAX_RISK_PCT, 3));
 }
 
 export function fxDailyLossPct(): number {

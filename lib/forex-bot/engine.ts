@@ -21,6 +21,7 @@ import {
   fxLiveConfirmed,
   fxMaxLeverage,
   fxMaxPositions,
+  fxMinLotMaxRiskPct,
   fxPairs,
   fxRiskPct,
   fxStrategies,
@@ -343,6 +344,7 @@ export async function runForexBotCycle(): Promise<string> {
             tickValueLoss: info.tick_value_loss || info.tick_value, contractSize: info.contract_size,
             volumeMin: info.volume_min, volumeStep: info.volume_step, volumeMax: info.volume_max,
             baseToAccount: convert(info.currency_base || ccys(p)[0], accountCurrency, rates), maxLeverage: fxMaxLeverage(),
+            minLotMaxRiskPct: fxMinLotMaxRiskPct(),
           });
           size = r.ok ? { ok: true, units: Math.round(r.lots * info.contract_size), lots: r.lots, riskAccount: r.riskAccount, leverage: r.leverage } : r;
         } else {
@@ -407,7 +409,7 @@ export async function runForexBotCycle(): Promise<string> {
         if (tradeMode !== "shadow" || !shadowQuiet) tg(
           `💱 <b>FX ${ev.side === "long" ? "compra" : "venta"} ${p}</b> (${modeLabel(tradeMode)})\n` +
             `${size.lots != null ? `${size.lots} lotes (${size.units} uds)` : `${size.units} uds`} @ ${trade.entry} · SL ${trade.stop.toFixed(5)} · TP ${trade.takeProfit.toFixed(5)}\n` +
-            `riesgo ≈ ${size.riskAccount.toFixed(2)} ${accountCurrency} (${fxRiskPct()}%) · apal. ${size.leverage.toFixed(1)}x · ${s}\n${ev.reason}`,
+            `riesgo ≈ ${size.riskAccount.toFixed(2)} ${accountCurrency} (${((size.riskAccount / (tradeMode === "shadow" ? shadowNav : nav)) * 100).toFixed(1)}%) · apal. ${size.leverage.toFixed(1)}x · ${s}\n${ev.reason}`,
         );
         break;
       }

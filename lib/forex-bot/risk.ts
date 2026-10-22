@@ -99,6 +99,8 @@ export function sizeFxLots(args: {
   volumeMax: number;
   baseToAccount: number | null;
   maxLeverage: number;
+  /** when the minimum lot exceeds riskPct, still allow it up to this % of NAV (0 = never) */
+  minLotMaxRiskPct?: number;
 }): FxLotSizing {
   if (!(args.nav > 0)) return { ok: false, reason: "NAV 0" };
   if (!(args.stopDistance > 0) || !(args.tickSize > 0) || !(args.tickValueLoss > 0)) {
@@ -118,7 +120,14 @@ export function sizeFxLots(args: {
   lots = Number(lots.toFixed(decimals));
   if (lots < args.volumeMin) {
     const minRisk = args.volumeMin * lossPerLot;
-    return { ok: false, reason: `lote mínimo ${args.volumeMin} arriesga ${minRisk.toFixed(2)} > ${riskAccount.toFixed(2)}` };
+    const cap = (args.nav * (args.minLotMaxRiskPct ?? 0)) / 100;
+    const levOk = !(args.baseToAccount && args.baseToAccount > 0 && args.contractSize > 0) ||
+      args.volumeMin * args.contractSize * args.baseToAccount <= args.nav * args.maxLeverage;
+    if (minRisk <= cap && levOk) {
+      lots = args.volumeMin;
+    } else {
+      return { ok: false, reason: `lote mínimo ${args.volumeMin} arriesga ${minRisk.toFixed(2)} > ${(cap > riskAccount ? cap : riskAccount).toFixed(2)}` };
+    }
   }
   const notionalAccount = lots * args.contractSize * (args.baseToAccount ?? 1);
   return { ok: true, lots, riskAccount: lots * lossPerLot, notionalAccount, leverage: notionalAccount / args.nav };

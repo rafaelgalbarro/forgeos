@@ -115,3 +115,20 @@ describe("forex bot: MT5 lot sizing", () => {
     expect(s.ok).toBe(false);
   });
 });
+
+import { sizeFxLots as sizeLots2 } from "@/lib/forex-bot/risk";
+describe("min lot risk ceiling", () => {
+  const base = { nav: 98.72, riskPct: 2, stopDistance: 0.0045, tickSize: 0.00001, tickValueLoss: 0.55, contractSize: 100000,
+    volumeMin: 0.01, volumeStep: 0.01, volumeMax: 50, baseToAccount: 0.55, maxLeverage: 10 };
+  it("rejects min lot above 2% without ceiling", () => {
+    expect(sizeLots2(base).ok).toBe(false);
+  });
+  it("accepts min lot up to 3%", () => {
+    const r = sizeLots2({ ...base, minLotMaxRiskPct: 3 });
+    expect(r.ok).toBe(true);
+    if (r.ok) { expect(r.lots).toBe(0.01); expect(r.riskAccount / 98.72).toBeLessThanOrEqual(0.03); }
+  });
+  it("still rejects above 3%", () => {
+    expect(sizeLots2({ ...base, stopDistance: 0.008, minLotMaxRiskPct: 3 }).ok).toBe(false);
+  });
+});

@@ -839,6 +839,16 @@ case "$ACTION" in
   forex-bot) do_forex_bot ;;
   mt5-setup) do_mt5_setup ;;
   mt5-status) do_mt5_status ;;
+  mt5-shot)
+    docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
+    if command -v convert >/dev/null; then convert /tmp/mt5.xwd -resize 1280x1280\> /tmp/mt5.png
+    else python3 -c "import PIL" 2>/dev/null || pip3 install -q --break-system-packages pillow >/dev/null 2>&1
+      python3 - <<'PY'
+from PIL import Image
+im = Image.open("/tmp/mt5.xwd"); im.thumbnail((1280, 1280)); im.convert("RGB").save("/tmp/mt5.png")
+PY
+    fi
+    echo "PNG-BEGIN"; base64 -w0 /tmp/mt5.png; echo; echo "PNG-END" ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

@@ -763,7 +763,8 @@ for p in json.load(sys.stdin):
   fi
   echo "--- diagnóstico contenedor"
   docker exec mt5 sh -c 'ls -ld /config/.wine; ls "/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe" 2>&1; find /config/.wine/drive_c -iname python.exe 2>/dev/null | grep -vi scripts' 2>&1 | head -8
-  docker logs --tail 8 mt5 2>&1 | cut -c1-200
+  docker exec mt5 sh -c 'ps -eo pid,etime,args | grep -iE "terminal64|python" | grep -v grep' 2>&1 | cut -c1-200 | head -6
+  docker exec mt5 sh -c 'ls -t "/config/.wine/drive_c/Program Files/MetaTrader 5/logs/"*.log 2>/dev/null | head -1 | xargs -r -I{} sh -c "tail -15 \"{}\" | iconv -f UTF-16LE -t UTF-8 2>/dev/null || tail -15 \"{}\""' 2>&1 | tr -d '\000' | cut -c1-220 | tail -15
   local K; K="$(mt5_key)"
   for path in "/health" "/resolve?base=EUR_USD"; do
     echo "--- $path"; curl -s --max-time 90 "http://127.0.0.1:8004$path" -H "X-Bridge-Key: $K" | cut -c1-900; echo

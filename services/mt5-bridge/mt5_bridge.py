@@ -224,6 +224,9 @@ class Handler(BaseHTTPRequestHandler):
         if method == "POST":
             n = int(self.headers.get("Content-Length", "0") or 0)
             body = json.loads(self.rfile.read(n) or b"{}")
+        if not STATE["initialized"]:
+            return self._send(200 if url.path == "/health" else 503,
+                              {"ok": False, "state": STATE, "error": STATE["last_error"] or "iniciando sesión en MT5…"})
         with LOCK:
             try:
                 if url.path == "/health":
@@ -259,10 +262,18 @@ class Handler(BaseHTTPRequestHandler):
         self._handle("POST")
 
 
-if __name__ == "__main__":
-    for _ in range(30):
-        if ensure_init():
+def _init_loop():
+    while not STATE["initialized"]:
+        with LOCK:
+            ok = ensure_init()
+        print("init=%s err=%s" % (ok, STATE["last_error"]), flush=True)
+        if ok:
             break
-        time.sleep(10)
-    print("mt5 bridge listening on 8004; init=%s err=%s" % (STATE["initialized"], STATE["last_error"]), flush=True)
-    ThreadingHTTPServer(("0.0.0.0", 8004), Handler).serve_forever()
+        time.sleep(30)
+
+
+if __name__ == "__main__":
+    srv = ThreadingHTTPServer(("0.0.0.0", 8004), Handler)
+    print("mt5 bridge listening on 8004", flush=True)
+    threading.Thread(target=_init_loop, daemon=True).start()
+    srv.serve_forever()

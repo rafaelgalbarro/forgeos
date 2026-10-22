@@ -1,0 +1,34 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 98121b2 Telegram: sin resumen por ciclo salvo órdenes pendientes de aprobación; aviso FOREX sin barras 1 vez/día; aviso EODHD sin precio 1 vez/día aunque haya reinicios
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-114709
+Updating 3c800f9..98121b2
+Fast-forward
+ deploy/remote/forgeos-remote.sh            |  3 +++
+ lib/notifications/telegram-bot.ts          |  9 +++++++++
+ lib/trading/cycle-route-handler.ts         |  2 +-
+ lib/trading/stocks/eodhd-universe-check.ts | 12 ++++++++++++
+ 4 files changed, 25 insertions(+), 1 deletion(-)
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.40s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

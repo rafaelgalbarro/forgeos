@@ -1,22 +1,20 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 3c800f9 Web: cotizaciones SPY/QQQ/VIX y sectores con EODHD cuando FMP falla; moneda real (EUR) en NAV y P&L; etiquetas de sesión correctas; «Último ciclo» con los ciclos del scheduler; estado del broker se refresca cada 30 s
+Desplegando 98121b2 Telegram: sin resumen por ciclo salvo órdenes pendientes de aprobación; aviso FOREX sin barras 1 vez/día; aviso EODHD sin precio 1 vez/día aunque haya reinicios
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-114027
-Updating 2587d92..3c800f9
+estado copiado en /root/forgeos-state-20261022-114709
+Updating 3c800f9..98121b2
 Fast-forward
- app/api/investment/header-quotes/route.ts          | 17 ++++++-
- components/investment/InvestmentOverviewBoard.tsx  | 14 ++++--
- components/investment/InvestmentProductShell.tsx   |  4 ++
- components/investment/InvestmentTerminalHeader.tsx | 17 ++++---
- lib/market-data/yahoo-finance.ts                   | 55 ++++++++++++++++++----
- lib/trading/cycle-route-handler.ts                 |  4 ++
- 6 files changed, 92 insertions(+), 19 deletions(-)
+ deploy/remote/forgeos-remote.sh            |  3 +++
+ lib/notifications/telegram-bot.ts          |  9 +++++++++
+ lib/trading/cycle-route-handler.ts         |  2 +-
+ lib/trading/stocks/eodhd-universe-check.ts | 12 ++++++++++++
+ 4 files changed, 25 insertions(+), 1 deletion(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.43s
+19 passed in 0.40s
 
 === BUILD ===
 

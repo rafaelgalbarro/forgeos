@@ -35,9 +35,9 @@ vi.mock("@/lib/brokers/kraken-futures", () => ({
     sizeForNotionalEurDetailed: async () => ({
       ok: true as const,
       symbol: "PF_XBTUSD",
-      size: 0.001,
+      size: 0.0001,
       price: 95_000,
-      notionalUsd: 95,
+      notionalUsd: 9.5,
     }),
     getInstrument: async () => ({
       symbol: "PF_XBTUSD",

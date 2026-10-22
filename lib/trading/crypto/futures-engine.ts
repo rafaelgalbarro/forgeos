@@ -534,6 +534,12 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     }
 
     try {
+      // Effective leverage stays ≤1x: notional (cap) is far below the flex margin.
+      const notionalUsd = sizing.size * px;
+      if (notionalUsd > acct.availableMargin * futuresMaxLeverage()) {
+        held.push(`${pf}:${sig.strategyId}:notional_${notionalUsd.toFixed(2)}>margin_x${futuresMaxLeverage()}`);
+        continue;
+      }
       await adapter.setLeverage(pf, futuresMaxLeverage());
       const limitPx = orderSide === "buy" ? quote?.bid ?? px : quote?.ask ?? px;
       const result = await adapter.enterWithExchangeStop({

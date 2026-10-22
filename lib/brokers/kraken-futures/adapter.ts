@@ -189,7 +189,7 @@ async function publicGet<T>(endpoint: string, query?: Record<string, string>): P
 }
 
 async function privateCall<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PUT",
   endpoint: string,
   params: Record<string, string | number | boolean> = {},
 ): Promise<T> {
@@ -198,6 +198,8 @@ async function privateCall<T>(
   }
   const endpointPath = apiPath(endpoint);
   const nonce = nextKrakenFuturesNonce();
+  // GET: no postData. PUT (leveragepreferences): params go in the query string and are
+  // also the signed postData. POST: form body.
   const postData =
     method === "GET"
       ? ""
@@ -208,7 +210,7 @@ async function privateCall<T>(
         ).toString();
   const headers = krakenFuturesAuthHeaders(endpointPath, postData, nonce);
   const qs =
-    method === "GET" && Object.keys(params).length
+    method !== "POST" && Object.keys(params).length
       ? `?${new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))).toString()}`
       : "";
   let res: Response;
@@ -436,11 +438,23 @@ export class KrakenFuturesAdapter {
     });
   }
 
-  async setLeverage(symbol: string, maxLeverage: number): Promise<void> {
-    await privateCall("POST", "/leveragepreferences", {
-      symbol: symbol.toUpperCase(),
-      maxLeverage,
-    });
+  /**
+   * Leverage preference (Kraken v3: PUT /leveragepreferences?symbol&maxLeverage).
+   * Best-effort: the engine already caps notional far below margin (≤1x effective),
+   * so a failure here must not block the entry. Returns the error text, if any.
+   */
+  async setLeverage(symbol: string, maxLeverage: number): Promise<string | null> {
+    try {
+      await privateCall("PUT", "/leveragepreferences", {
+        symbol: symbol.toUpperCase(),
+        maxLeverage,
+      });
+      return null;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Kraken/Futures] setLeverage ${symbol} x${maxLeverage} falló (se continúa): ${msg.slice(0, 200)}`);
+      return msg;
+    }
   }
 
   async getMaxLeveragePreference(symbol: string): Promise<number | null> {

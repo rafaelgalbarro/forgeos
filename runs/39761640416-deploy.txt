@@ -1,0 +1,33 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando a94fc78 Kraken Futures: la API pública devuelve result="success" (texto); usar el cuerpo — causa de instrument_unknown y 0 órdenes
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-101453
+Updating 685ad50..a94fc78
+Fast-forward
+ lib/brokers/kraken-futures/adapter.ts          |  5 ++++-
+ lib/trading/__tests__/aa-kraken-public.test.ts | 22 ++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 1 deletion(-)
+ create mode 100644 lib/trading/__tests__/aa-kraken-public.test.ts
+
+=== TESTS DEL BROKER ===
+..................                                                       [100%]
+18 passed in 0.38s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

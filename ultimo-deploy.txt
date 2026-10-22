@@ -1,18 +1,19 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 685ad50 Kraken Futures: registra el error real al cargar instrumentos
+Desplegando a94fc78 Kraken Futures: la API pública devuelve result="success" (texto); usar el cuerpo — causa de instrument_unknown y 0 órdenes
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-101132
-Updating f068f6e..685ad50
+estado copiado en /root/forgeos-state-20261022-101453
+Updating 685ad50..a94fc78
 Fast-forward
- deploy/remote/forgeos-remote.sh       | 18 ++++++++++++++
- lib/brokers/kraken-futures/adapter.ts | 44 +++++++++++++++++++++++++++++------
- 2 files changed, 55 insertions(+), 7 deletions(-)
+ lib/brokers/kraken-futures/adapter.ts          |  5 ++++-
+ lib/trading/__tests__/aa-kraken-public.test.ts | 22 ++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 1 deletion(-)
+ create mode 100644 lib/trading/__tests__/aa-kraken-public.test.ts
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.41s
+18 passed in 0.38s
 
 === BUILD ===
 

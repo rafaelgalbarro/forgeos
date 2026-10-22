@@ -599,7 +599,14 @@ export class KrakenFuturesAdapter {
         ? spotOrPf.toUpperCase()
         : spotPairToPfSymbol(spotOrPf);
     if (!pf) return { ok: false, reason: "no_pf_symbol" };
-    const meta = await this.getInstrument(pf).catch(() => null);
+    let instrumentError = "";
+    const meta = await this.getInstrument(pf).catch((err: unknown) => {
+      instrumentError = err instanceof Error ? err.message : String(err);
+      return null;
+    });
+    if (!meta && instrumentError) {
+      return { ok: false, reason: `instrument_error(${instrumentError.slice(0, 120)})` };
+    }
     let px = priceUsd ?? 0;
     if (!(px > 0)) {
       px = await this.getQuote(pf).then((q) => q.mid).catch(() => 0);

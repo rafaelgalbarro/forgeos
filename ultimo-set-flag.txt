@@ -1,8 +1,8 @@
 
-=== AJUSTE CRYPTO_LIVE_MAX_POSITIONS ===
-antes: 1
-CRYPTO_LIVE_MAX_POSITIONS=2
-forgeos-crypto-engine reiniciado
+=== AJUSTE FOREX_BOT_LIVE_CONFIRM ===
+antes: 
+FOREX_BOT_LIVE_CONFIRM=true
+forgeos-forex-bot reiniciado
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

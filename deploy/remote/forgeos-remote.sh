@@ -858,6 +858,9 @@ case "$ACTION" in
       docker exec mt5 sh -c "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --allow-downgrades winehq-stable=$V wine-stable=$V wine-stable-amd64=$V wine-stable-i386=$V >/tmp/wine9.log 2>&1; tail -3 /tmp/wine9.log; apt-mark hold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386 >/dev/null"
       docker exec mt5 wine --version
     fi
+    # Update the prefix for the new Wine without the Mono/Gecko install dialogs (they block the terminal).
+    WU="$(stat -c %u /root/mt5-config/.wine)"
+    docker exec -u "$WU" -e HOME=/config -e WINEPREFIX=/config/.wine -e DISPLAY=:1 mt5 sh -c 'wineserver -k 2>/dev/null; WINEDLLOVERRIDES="mscoree=d;mshtml=d" wineboot -u >/dev/null 2>&1; wineserver -w; echo "prefijo actualizado"'
     pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado" ;;
   mt5-shot)
     docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null

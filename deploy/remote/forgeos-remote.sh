@@ -882,6 +882,21 @@ case "$ACTION" in
       wine winecfg /v win11 >/dev/null 2>&1; wineserver -w
       echo "versión Windows: $(wine reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion" /v CurrentBuild 2>/dev/null | grep -o "[0-9]\{5\}")"'
     pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado" ;;
+  mt5-oanda)
+    # Install OANDA TMS' own MT5 build (ships OANDA's server list, so the terminal can reach OANDATMS-MT5).
+    pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
+    WU="$(stat -c %u /root/mt5-config/.wine)"
+    URL="$(curl -sSL -A 'Mozilla/5.0' https://www.oanda.com/eu-en/download 2>/dev/null | grep -oE 'https://download\.mql5\.com/cdn/web/[^"'"'"' ]+5setup\.exe[^"'"'"' ]*' | head -1)"
+    [ -z "$URL" ] && URL="$(curl -sSL -A 'Mozilla/5.0' https://www.oanda.com/eu-en/trading/platforms/metatrader-5/ 2>/dev/null | grep -oE 'https://download\.mql5\.com/cdn/web/[^"'"'"' ]+5setup\.exe[^"'"'"' ]*' | head -1)"
+    echo "instalador OANDA: ${URL:-no encontrado}"
+    if [ -n "$URL" ]; then
+      docker exec -u "$WU" -e HOME=/config -e WINEPREFIX=/config/.wine -e DISPLAY=:1 -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" mt5 sh -c "
+        cd /tmp && curl -sSLo oanda5setup.exe '$URL' && ls -la oanda5setup.exe && timeout 600 wine oanda5setup.exe /auto; sleep 20
+        find /config/.wine/drive_c -iname terminal64.exe | grep -v '/MetaTrader 5/terminal64'; 
+        find /config/.wine/drive_c -iname servers.dat -newer /tmp/oanda5setup.exe 2>/dev/null | head -3"
+      pkill -f terminal64.exe
+    fi
+    pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado" ;;
   mt5-shot)
     docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
     if false; then :

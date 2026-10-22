@@ -83,9 +83,9 @@ export async function mt5SymbolInfo(instrument: string): Promise<Mt5SymbolInfo> 
   return call<Mt5SymbolInfo>(`/symbol?symbol=${encodeURIComponent(s)}`);
 }
 
-export async function mt5Candles(instrument: string, tf: "M15" | "H1", count: number): Promise<FxCandle[]> {
+export async function mt5Candles(instrument: string, tf: "M15" | "H1" | "H4", count: number): Promise<FxCandle[]> {
   const s = await mt5Symbol(instrument);
-  return call<FxCandle[]>(`/rates?symbol=${encodeURIComponent(s)}&tf=${tf}&count=${count}`, undefined, 60_000);
+  return call<FxCandle[]>(`/rates?symbol=${encodeURIComponent(s)}&tf=${tf}&count=${count}`, undefined, 120_000);
 }
 
 export type Mt5Position = {

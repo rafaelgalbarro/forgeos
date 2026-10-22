@@ -1,6 +1,6 @@
 /**
  * Per-pair strategy selection on real broker history (OANDA via MT5; EODHD fallback).
- *   node scripts/forex-bot.cjs optimize [m15Bars=25000]
+ *   node scripts/forex-bot.cjs optimize [timeframes=H1:H4]   (M15 ≈1 año, H1 ≈5 años, H4 ≈5 años)
  * Writes .forgeos/forex-bot/pair-strategies.json (used by the engine) and pair-strategies-YYYY-MM-DD.md.
  */
 
@@ -11,18 +11,22 @@ import { eodhdIntraday5m } from "@/lib/forex-bot/data";
 import { aggregate } from "@/lib/forex-bot/indicators";
 import { fxBotDir, savePairChoices } from "@/lib/forex-bot/journal";
 import { mt5Candles, mt5Configured } from "@/lib/forex-bot/mt5";
-import { choosePairStrategy, PAIR_GATE, specGrid, type PairChoice } from "@/lib/forex-bot/pair-strategies";
+import { choosePairStrategy, PAIR_GATE, type FxTf, type PairChoice } from "@/lib/forex-bot/pair-strategies";
 import type { FxCandle } from "@/lib/forex-bot/types";
 
-async function history(pair: string, count: number): Promise<{ bars: FxCandle[]; source: string }> {
+const COUNTS: Record<FxTf, number> = { M15: 25000, H1: 30000, H4: 8000 };
+
+async function history(pair: string, tf: FxTf): Promise<{ bars: FxCandle[]; source: string }> {
+  const count = COUNTS[tf];
   if (mt5Configured()) {
     try {
-      const bars = await mt5Candles(pair, "M15", count);
-      if (bars.length >= 2000) return { bars, source: "MT5 (OANDA)" };
+      const bars = await mt5Candles(pair, tf, count);
+      if (bars.length >= 1000) return { bars, source: "MT5 (OANDA)" };
     } catch (err) {
-      console.warn(`[FX optimize] ${pair} MT5: ${err instanceof Error ? err.message : err}`);
+      console.warn(`[FX optimize] ${pair} ${tf} MT5: ${err instanceof Error ? err.message : err}`);
     }
   }
+  if (tf !== "M15") return { bars: [], source: "—" };
   const m5 = await eodhdIntraday5m(pair, Math.ceil(count / 96) + 5);
   const now = Math.floor(Date.now() / 1000);
   return { bars: aggregate(m5, 15).filter((b) => b.time + 900 <= now), source: "EODHD" };
@@ -31,18 +35,25 @@ async function history(pair: string, count: number): Promise<{ bars: FxCandle[];
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 async function main(): Promise<void> {
-  const count = Math.max(3000, Number(process.argv[2] ?? 25000) || 25000);
-  const grid = specGrid();
+  const tfs = String(process.argv[2] ?? "H1:H4").toUpperCase().split(/[,:]/).filter((t): t is FxTf => t === "M15" || t === "H1" || t === "H4");
+  if (!tfs.length) tfs.push("H1", "H4");
   const choices: PairChoice[] = [];
   const sources = new Set<string>();
   for (const p of fxPairs()) {
     try {
-      const { bars, source } = await history(p, count);
-      sources.add(source);
-      if (bars.length < 2000) { console.log(`[FX optimize] ${p}: solo ${bars.length} velas`); continue; }
-      const c = choosePairStrategy(p, bars, TYPICAL_SPREAD_PIPS[p] ?? 2.5, grid);
+      const data: Partial<Record<FxTf, FxCandle[]>> = {};
+      const got: string[] = [];
+      for (const tf of tfs) {
+        const { bars, source } = await history(p, tf);
+        if (bars.length < 1000) { got.push(`${tf}:${bars.length}✗`); continue; }
+        sources.add(source);
+        data[tf] = bars;
+        got.push(`${tf}:${bars.length}`);
+      }
+      if (!Object.keys(data).length) { console.log(`[FX optimize] ${p}: sin historia (${got.join(" ")})`); continue; }
+      const c = choosePairStrategy(p, data, TYPICAL_SPREAD_PIPS[p] ?? 2.5);
       choices.push(c);
-      console.log(`[FX optimize] ${p}: ${bars.length} velas (${source}) → ${c.spec?.id ?? "ninguna"} ${c.liveEligible ? "APTA" : `(${c.reason})`}`);
+      console.log(`[FX optimize] ${p}: ${got.join(" ")} → ${c.spec?.id ?? "ninguna"} ${c.liveEligible ? "APTA" : `(${c.reason})`}`);
     } catch (err) {
       console.log(`[FX optimize] ${p}: error ${err instanceof Error ? err.message : err}`);
     }
@@ -53,7 +64,7 @@ async function main(): Promise<void> {
   const lines = [
     `# Estrategias por par — ${generatedAt.slice(0, 10)}`,
     ``,
-    `Datos: ${[...sources].join(", ")} · M15 · ${grid.length} reglas candidatas por par · spread típico cobrado.`,
+    `Datos: ${[...sources].join(", ")} · ${tfs.join(" + ")} · ${choices[0]?.candidates ?? 0} reglas candidatas por par · spread típico cobrado.`,
     `Elección con los primeros 2/3 de la historia; validación con el último 1/3 (OOS).`,
     `Apta para real: ≥${PAIR_GATE.minOosTrades} ops OOS, PF ≥ ${PAIR_GATE.minOosPF}, media ≥ ${PAIR_GATE.minOosMeanR} R.`,
     ``,

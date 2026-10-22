@@ -687,9 +687,9 @@ do_forex_backtest() {
 }
 
 do_forex_optimize() {
-  local n; n="$(echo "${1:-25000}" | tr -cd '0-9')"; [ -n "$n" ] || n=25000
-  sec "ESTRATEGIAS POR PAR (historia M15 de OANDA vía MT5, $n velas)"
-  timeout 1500 node scripts/forex-bot.cjs optimize "$n" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -60
+  local tfs; tfs="$(echo "${1:-H1:H4}" | tr -cd 'A-Z0-9:')"; [ -n "$tfs" ] || tfs="H1:H4"
+  sec "ESTRATEGIAS POR PAR (historia de OANDA vía MT5, marcos $tfs)"
+  timeout 2400 node scripts/forex-bot.cjs optimize "$tfs" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -60
 }
 
 do_forex_bot() {

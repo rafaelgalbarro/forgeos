@@ -31,7 +31,7 @@ import {
 import { fxCandles } from "./data";
 import { pipSize } from "./indicators";
 import { fxEligibleStrategies, loadFxState, loadFxTrades, loadPairChoices, saveFxState, saveFxTrades } from "./journal";
-import { computeIndicators, signalAt, type PairChoice } from "./pair-strategies";
+import { computeIndicators, signalAt, TF_SEC, type FxTf, type PairChoice } from "./pair-strategies";
 import {
   oandaAccount,
   oandaCloseTrade,
@@ -41,7 +41,7 @@ import {
   oandaTradeDetails,
   type OandaPrice,
 } from "./oanda";
-import { mt5Account, mt5Close, mt5Closed, mt5Configured, mt5Order, mt5Positions, mt5SymbolInfo, type Mt5SymbolInfo } from "./mt5";
+import { mt5Account, mt5Candles, mt5Close, mt5Closed, mt5Configured, mt5Order, mt5Positions, mt5SymbolInfo, type Mt5SymbolInfo } from "./mt5";
 import { convert, fxPnlAccount, sizeFxLots, sizeFxPosition, type FxRates } from "./risk";
 import { isFxEntryWindow, isWeekendFlattenTime, londonDayKey } from "./sessions";
 import { evaluateLondonBreakout, evaluateTrendPullback } from "./strategies";
@@ -57,6 +57,19 @@ async function getCandles(instrument: string): Promise<{ m15: FxCandle[]; h1: Fx
   const fresh = await fxCandles(instrument, 400);
   candleCache.set(instrument, { bucket, ...fresh });
   return fresh;
+}
+
+const tfCache = new Map<string, { bucket: number; bars: FxCandle[] }>();
+
+/** H1/H4 closed candles from MT5 (refreshed once per bar). */
+async function getTfCandles(instrument: string, tf: FxTf): Promise<FxCandle[]> {
+  const bucket = Math.floor(Date.now() / 1000 / TF_SEC[tf]);
+  const key = `${instrument}:${tf}`;
+  const hit = tfCache.get(key);
+  if (hit && hit.bucket === bucket && hit.bars.length) return hit.bars;
+  const bars = await mt5Candles(instrument, tf, 400);
+  tfCache.set(key, { bucket, bars });
+  return bars;
 }
 
 function ccys(instrument: string): [string, string] {
@@ -254,8 +267,19 @@ export async function runForexBotCycle(): Promise<string> {
       const choice = pairChoices.get(p);
       if (choice?.spec) {
         if (mode === "live" && !choice.liveEligible) continue;
-        const ind = computeIndicators(d.m15);
-        const i = d.m15.length - 1;
+        const tf: FxTf = choice.spec.tf ?? "M15";
+        let bars: FxCandle[] = d.m15;
+        if (tf !== "M15") {
+          if (!mt5Configured()) { notes.push(`${p}: ${tf} requiere MT5`); continue; }
+          bars = await getTfCandles(p, tf).catch(() => []);
+          const lastTf = bars[bars.length - 1];
+          if (!lastTf || bars.length < 210) continue;
+          const key = `${p}:${tf}`;
+          if (state.lastCandleByPair[key] === lastTf.time) continue; // one decision per closed bar
+          state.lastCandleByPair[key] = lastTf.time;
+        }
+        const ind = computeIndicators(bars, TF_SEC[tf]);
+        const i = bars.length - 1;
         const side = signalAt(choice.spec, ind, i);
         const a = ind.atr14[i];
         if (side && a && a > 0) {
@@ -263,7 +287,7 @@ export async function runForexBotCycle(): Promise<string> {
           const dir = side === "long" ? 1 : -1;
           evals.push({
             s: choice.spec.id,
-            maxHoldMin: choice.spec.maxBars * 15,
+            maxHoldMin: (choice.spec.maxBars * TF_SEC[tf]) / 60,
             ev: {
               strategy: choice.spec.id, instrument: p, side, entry: lastBar.close,
               stop: lastBar.close - dir * risk, takeProfit: lastBar.close + dir * choice.spec.rr * risk,

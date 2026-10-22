@@ -44,7 +44,7 @@ describe("forex per-pair strategies", () => {
 
   it("choice reports a reason when nothing qualifies", () => {
     const flat = series(3000, () => 1.1);
-    const c = choosePairStrategy("EUR_USD", flat, 1);
+    const c = choosePairStrategy("EUR_USD", { H1: flat }, 1);
     expect(c.liveEligible).toBe(false);
     expect(c.reason.length).toBeGreaterThan(0);
   });

@@ -23,8 +23,13 @@ import type { FxCandle, FxSide } from "./types";
 
 export type FxFamily = "EMA_CROSS" | "MACD_TREND" | "DONCHIAN_BREAK" | "RSI_REVERT" | "BB_REVERT";
 
+export type FxTf = "M15" | "H1" | "H4";
+export const TF_SEC: Record<FxTf, number> = { M15: 900, H1: 3600, H4: 14400 };
+
 export type FxSpec = {
   id: string;
+  /** candle timeframe the rule runs on */
+  tf: FxTf;
   family: FxFamily;
   /** family parameters: fast/slow, n, lo/hi … */
   p: Record<string, number>;
@@ -33,21 +38,30 @@ export type FxSpec = {
   maxBars: number;
 };
 
-function spec(family: FxFamily, p: Record<string, number>, atrMult: number, rr: number, maxBars = 96): FxSpec {
+/** Time exit per timeframe: trend rules / reversion rules (in bars). */
+const MAX_BARS: Record<FxTf, { trend: number; revert: number }> = {
+  M15: { trend: 96, revert: 48 }, // 24 h / 12 h
+  H1: { trend: 72, revert: 36 }, // 3 d / 1.5 d
+  H4: { trend: 30, revert: 15 }, // 5 d / 2.5 d
+};
+
+function spec(tf: FxTf, family: FxFamily, p: Record<string, number>, atrMult: number, rr: number): FxSpec {
   const ps = Object.entries(p).map(([k, v]) => `${k}${v}`).join("_");
-  return { id: `${family}${ps ? `_${ps}` : ""}_A${atrMult}_R${rr}`, family, p, atrMult, rr, maxBars };
+  const revert = family === "RSI_REVERT" || family === "BB_REVERT";
+  const maxBars = MAX_BARS[tf][revert ? "revert" : "trend"];
+  return { id: `${tf}_${family}${ps ? `_${ps}` : ""}_A${atrMult}_R${rr}`, tf, family, p, atrMult, rr, maxBars };
 }
 
 /** Parameter grid (kept small on purpose: fewer specs → less curve fitting). */
-export function specGrid(): FxSpec[] {
+export function specGrid(tf: FxTf = "M15"): FxSpec[] {
   const out: FxSpec[] = [];
   for (const [fast, slow] of [[9, 21], [20, 50], [12, 26]] as const) {
-    for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec("EMA_CROSS", { fast, slow }, a, r));
+    for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec(tf, "EMA_CROSS", { fast, slow }, a, r));
   }
-  for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec("MACD_TREND", {}, a, r));
-  for (const n of [20, 55]) for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec("DONCHIAN_BREAK", { n }, a, r));
-  for (const [lo, hi] of [[30, 70], [25, 75]] as const) for (const r of [1, 1.5]) out.push(spec("RSI_REVERT", { lo, hi }, 1.5, r, 48));
-  for (const r of [1, 1.5]) out.push(spec("BB_REVERT", {}, 1.5, r, 48));
+  for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec(tf, "MACD_TREND", {}, a, r));
+  for (const n of [20, 55]) for (const a of [1.5, 2]) for (const r of [1.5, 2]) out.push(spec(tf, "DONCHIAN_BREAK", { n }, a, r));
+  for (const [lo, hi] of [[30, 70], [25, 75]] as const) for (const r of [1, 1.5]) out.push(spec(tf, "RSI_REVERT", { lo, hi }, 1.5, r));
+  for (const r of [1, 1.5]) out.push(spec(tf, "BB_REVERT", {}, 1.5, r));
   return out;
 }
 
@@ -122,7 +136,7 @@ export type FxIndicators = {
   weekend: boolean[];
 };
 
-export function computeIndicators(bars: readonly FxCandle[]): FxIndicators {
+export function computeIndicators(bars: readonly FxCandle[], barSec = 900): FxIndicators {
   const close = bars.map((b) => b.close);
   const emaCache = new Map<number, Arr>();
   const ema = (n: number): Arr => {
@@ -169,8 +183,8 @@ export function computeIndicators(bars: readonly FxCandle[]): FxIndicators {
   const entryOk: boolean[] = [];
   const weekend: boolean[] = [];
   for (const b of bars) {
-    // London clock only changes per 15-min bar; compute once per bar.
-    const end = new Date((b.time + 900) * 1000);
+    // London clock evaluated once per bar, at the bar close.
+    const end = new Date((b.time + barSec) * 1000);
     entryOk.push(isFxEntryWindow(end, "24h"));
     weekend.push(isWeekendFlattenTime(end));
   }
@@ -239,7 +253,8 @@ export function describeSpec(s: FxSpec): string {
         : s.family === "DONCHIAN_BREAK" ? `ruptura del máximo/mínimo de ${p.n} velas a favor de EMA200`
           : s.family === "RSI_REVERT" ? `RSI(14) sale de ${p.lo}/${p.hi} (reversión)`
             : "vuelta dentro de Bollinger(20,2) (reversión)";
-  return `${base} · SL ${s.atrMult}×ATR · TP ${s.rr}R · máx ${s.maxBars / 4} h`;
+  const h = (s.maxBars * TF_SEC[s.tf]) / 3600;
+  return `${s.tf}: ${base} · SL ${s.atrMult}×ATR · TP ${s.rr}R · máx ${h >= 48 ? `${h / 24} d` : `${h} h`}`;
 }
 
 // ── Backtest ────────────────────────────────────────────────────────────────
@@ -277,7 +292,7 @@ export function backtestSpec(s: FxSpec, ind: FxIndicators, instrument: string, s
       if (j - i >= s.maxBars) { exit = b.close - (dir * spread) / 2; reason = "TIME"; break; }
     }
     if (j >= bars.length) break; // still open at the end of the data: ignore
-    out.push({ entryTime: bars[i + 1]!.time, exitTime: bars[j]!.time + 900, side, r: ((exit - entry) * dir) / risk, reason });
+    out.push({ entryTime: bars[i + 1]!.time, exitTime: bars[j]!.time + 1, side, r: ((exit - entry) * dir) / risk, reason });
     busyUntil = j;
   }
   return out;
@@ -318,21 +333,37 @@ export type PairChoice = {
   to: number;
 };
 
-export function choosePairStrategy(instrument: string, bars: readonly FxCandle[], spreadPips: number, grid = specGrid()): PairChoice {
-  const from = bars[0]?.time ?? 0;
-  const to = bars[bars.length - 1]?.time ?? 0;
-  const split = from + ((to - from) * 2) / 3;
-  const ind = computeIndicators(bars);
-  let best: { s: FxSpec; is: SpecStats; oos: SpecStats; score: number } | null = null;
-  for (const s of grid) {
-    const t = backtestSpec(s, ind, instrument, spreadPips);
-    const is = specStats(t.filter((x) => x.entryTime < split));
-    if (is.trades < PAIR_GATE.minIsTrades || is.pf <= 1) continue;
-    // score: expectancy, lightly rewarding sample size (avoids lucky tiny samples)
-    const score = is.meanR * Math.sqrt(is.trades);
-    if (!best || score > best.score) best = { s, is, oos: specStats(t.filter((x) => x.entryTime >= split)), score };
+export function choosePairStrategy(
+  instrument: string,
+  data: Partial<Record<FxTf, readonly FxCandle[]>> | readonly FxCandle[],
+  spreadPips: number,
+): PairChoice {
+  const sets: Array<[FxTf, readonly FxCandle[]]> = Array.isArray(data)
+    ? [["M15", data as readonly FxCandle[]]]
+    : (Object.entries(data) as Array<[FxTf, readonly FxCandle[]]>).filter(([, b]) => b && b.length > 0);
+  let best: { s: FxSpec; is: SpecStats; oos: SpecStats; score: number; from: number; to: number; bars: number } | null = null;
+  let candidates = 0;
+  let from = Infinity;
+  let to = 0;
+  let nBars = 0;
+  for (const [tf, bars] of sets) {
+    const f = bars[0]!.time;
+    const t = bars[bars.length - 1]!.time;
+    from = Math.min(from, f); to = Math.max(to, t); nBars += bars.length;
+    const split = f + ((t - f) * 2) / 3;
+    const ind = computeIndicators(bars, TF_SEC[tf]);
+    const grid = specGrid(tf);
+    candidates += grid.length;
+    for (const s of grid) {
+      const tr = backtestSpec(s, ind, instrument, spreadPips);
+      const is = specStats(tr.filter((x) => x.entryTime < split));
+      if (is.trades < PAIR_GATE.minIsTrades || is.pf <= 1) continue;
+      // score: expectancy, lightly rewarding sample size (avoids lucky tiny samples)
+      const score = is.meanR * Math.sqrt(is.trades);
+      if (!best || score > best.score) best = { s, is, oos: specStats(tr.filter((x) => x.entryTime >= split)), score, from: f, to: t, bars: bars.length };
+    }
   }
-  const base = { instrument, candidates: grid.length, bars: bars.length, from, to };
+  const base = { instrument, candidates, bars: nBars, from: Number.isFinite(from) ? from : 0, to };
   if (!best) return { ...base, spec: null, description: "ninguna regla rentable en la muestra de entrenamiento", is: null, oos: null, liveEligible: false, reason: "sin candidata IS" };
   const reasons: string[] = [];
   if (best.oos.trades < PAIR_GATE.minOosTrades) reasons.push(`oos_ops=${best.oos.trades}<${PAIR_GATE.minOosTrades}`);
@@ -340,6 +371,9 @@ export function choosePairStrategy(instrument: string, bars: readonly FxCandle[]
   if (best.oos.meanR < PAIR_GATE.minOosMeanR) reasons.push(`oos_media=${best.oos.meanR.toFixed(3)}R<${PAIR_GATE.minOosMeanR}`);
   return {
     ...base,
+    from: best.from,
+    to: best.to,
+    bars: best.bars,
     spec: best.s,
     description: describeSpec(best.s),
     is: best.is,

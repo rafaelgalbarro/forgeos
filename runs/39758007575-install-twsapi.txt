@@ -1,0 +1,13 @@
+
+=== INTÉRPRETE DEL BROKER ===
+intérprete=none script=/usr/bin/bash cwd=/var/www/forgeos/services/ibkr-broker
+python usado: /usr/bin/python3 (Python 3.14.4)
+
+=== DESCARGA TWS API (Mac/Unix, versión estable) ===
+página: 2333 bytes
+href="https://download2.interactivebrokers.com/installers/tws-api/index.html"
+No se encontró el enlace de descarga
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=5

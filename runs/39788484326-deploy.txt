@@ -1,0 +1,40 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando a589d06 remote: permitir dígitos en el nombre de acción (mt5-*)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-133743
+Updating 4b4a412..a589d06
+Fast-forward
+ deploy/remote/forgeos-remote.sh         |   2 +-
+ lib/forex-bot/config.ts                 |   7 ++
+ lib/forex-bot/data.ts                   |  12 ++-
+ lib/forex-bot/engine.ts                 | 142 +++++++++++++++++++++++++-------
+ lib/forex-bot/mt5.ts                    | 137 ++++++++++++++++++++++++++++++
+ lib/forex-bot/risk.ts                   |  45 ++++++++++
+ lib/forex-bot/types.ts                  |   3 +
+ lib/trading/__tests__/forex-bot.test.ts |  24 ++++++
+ 8 files changed, 339 insertions(+), 33 deletions(-)
+ create mode 100644 lib/forex-bot/mt5.ts
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.40s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -1,36 +1,41 @@
 
 === BACKTEST FOREX (EODHD 5m → M15, 180 días) ===
-[ForexBot] boot pid=1799388 entry=forex-backtest.ts mode=shadow
-[FX backtest] EUR_USD: velas=11894 ops=179 totalR=-17.27
-[FX backtest] GBP_USD: velas=11902 ops=217 totalR=-43.40
-[FX backtest] USD_JPY: velas=11869 ops=205 totalR=-16.80
-[FX backtest] AUD_USD: velas=11925 ops=169 totalR=-36.45
-[FX backtest] USD_CAD: velas=11914 ops=233 totalR=-14.27
-[FX backtest] USD_CHF: velas=11903 ops=219 totalR=-80.26
-[FX backtest] EUR_GBP: velas=11924 ops=224 totalR=-60.96
-[FX backtest] EUR_JPY: velas=11899 ops=202 totalR=-39.40
+[ForexBot] boot pid=1843448 entry=forex-backtest.ts mode=shadow
 # Backtest forex intradía — 2026-10-22
 
-Datos EODHD 5m → M15, 180 días, spread típico cobrado en cada operación. Muestra fuera (OOS) = último tercio.
+Datos EODHD 5m → M15, 180 días, sesión 24h, spread típico cobrado en cada operación. Muestra fuera (OOS) = último tercio.
 Puerta para operar en real: ≥30 operaciones OOS, PF ≥ 1.2, media ≥ 0.05 R.
 
 | Estrategia | Ops | % acierto | Media R | PF | Total R | DD máx R | OOS ops | OOS PF | OOS media R | ¿Real? |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FX_TREND_PULLBACK_M15 | 1472 | 33% | -0.216 | 0.70 | -317.9 | 333.7 | 502 | 0.70 | -0.209 | no (oos_PF=0.70<1.2; oos_meanR=-0.209<0.05) |
-| FX_LONDON_BREAKOUT | 176 | 44% | 0.052 | 1.09 | 9.1 | 11.6 | 70 | 0.88 | -0.073 | no (oos_PF=0.88<1.2; oos_meanR=-0.073<0.05) |
+| FX_TREND_PULLBACK_M15 | 0 | 0% | 0.000 | 0.00 | 0.0 | 0.0 | 0 | 0.00 | 0.000 | no (oos_trades=0<30; oos_PF=0.00<1.2; oos_meanR=0.000<0.05) |
+| FX_LONDON_BREAKOUT | 0 | 0% | 0.000 | 0.00 | 0.0 | 0.0 | 0 | 0.00 | 0.000 | no (oos_trades=0<30; oos_PF=0.00<1.2; oos_meanR=0.000<0.05) |
 
 ## Por par
 
 | Par | Resultado |
 |---|---|
-| EUR_USD | 11894 velas M15 · 179 operaciones · -17.3 R |
-| GBP_USD | 11902 velas M15 · 217 operaciones · -43.4 R |
-| USD_JPY | 11869 velas M15 · 205 operaciones · -16.8 R |
-| AUD_USD | 11925 velas M15 · 169 operaciones · -36.4 R |
-| USD_CAD | 11914 velas M15 · 233 operaciones · -14.3 R |
-| USD_CHF | 11903 velas M15 · 219 operaciones · -80.3 R |
-| EUR_GBP | 11924 velas M15 · 224 operaciones · -61.0 R |
-| EUR_JPY | 11899 velas M15 · 202 operaciones · -39.4 R |
+| EUR_USD | error: EODHD intraday HTTP 402 EUR_USD |
+| GBP_USD | error: EODHD intraday HTTP 402 GBP_USD |
+| USD_JPY | error: EODHD intraday HTTP 402 USD_JPY |
+| AUD_USD | error: EODHD intraday HTTP 402 AUD_USD |
+| USD_CAD | error: EODHD intraday HTTP 402 USD_CAD |
+| USD_CHF | error: EODHD intraday HTTP 402 USD_CHF |
+| NZD_USD | error: EODHD intraday HTTP 402 NZD_USD |
+| EUR_GBP | error: EODHD intraday HTTP 402 EUR_GBP |
+| EUR_JPY | error: EODHD intraday HTTP 402 EUR_JPY |
+| GBP_JPY | error: EODHD intraday HTTP 402 GBP_JPY |
+| EUR_CHF | error: EODHD intraday HTTP 402 EUR_CHF |
+| EUR_AUD | error: EODHD intraday HTTP 402 EUR_AUD |
+| EUR_CAD | error: EODHD intraday HTTP 402 EUR_CAD |
+| GBP_CHF | error: EODHD intraday HTTP 402 GBP_CHF |
+| GBP_AUD | error: EODHD intraday HTTP 402 GBP_AUD |
+| AUD_JPY | error: EODHD intraday HTTP 402 AUD_JPY |
+| AUD_NZD | error: EODHD intraday HTTP 402 AUD_NZD |
+| AUD_CAD | error: EODHD intraday HTTP 402 AUD_CAD |
+| CAD_JPY | error: EODHD intraday HTTP 402 CAD_JPY |
+| CHF_JPY | error: EODHD intraday HTTP 402 CHF_JPY |
+| NZD_JPY | error: EODHD intraday HTTP 402 NZD_JPY |
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -1,7 +1,7 @@
 
-=== AJUSTE FOREX_BOT_LIVE_CONFIRM ===
+=== AJUSTE FOREX_BOT_MODE ===
 antes: 
-FOREX_BOT_LIVE_CONFIRM=true
+FOREX_BOT_MODE=live
 forgeos-forex-bot reiniciado
 --- preparación ---
 líneas clave: 7

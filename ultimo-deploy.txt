@@ -1,17 +1,18 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 56b2f46 Broker: órdenes whatIf con transmit=True (la API oficial de IBKR rechaza whatIf sin transmitir, error 321)
+Desplegando ab01ff0 Broker: fracciones con cantidad de acciones (IBKR rechaza cashQty en LMT de acciones, 10244)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-095333
-Updating d7ccab7..56b2f46
+estado copiado en /root/forgeos-state-20261022-095643
+Updating 56b2f46..ab01ff0
 Fast-forward
- services/ibkr-broker/app/main.py | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ services/ibkr-broker/app/main.py                           | 14 ++------------
+ services/ibkr-broker/tests/test_fractional_order_fields.py | 10 +++++-----
+ 2 files changed, 7 insertions(+), 17 deletions(-)
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.41s
+18 passed in 0.45s
 
 === BUILD ===
 

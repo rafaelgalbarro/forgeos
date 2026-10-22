@@ -629,6 +629,23 @@ for p in json.load(sys.stdin):
     print("%-26s %-8s script=%s" % (p.get("name"), e.get("status"), e.get("pm_exec_path")))'
 }
 
+# screenshot RUTA — RUTA en mayúsculas con '.' como '/', p. ej. INVESTMENT o INVESTMENT.PORTFOLIO
+do_screenshot() {
+  local path="/$(echo "${1:-INVESTMENT}" | tr 'A-Z.' 'a-z/')"
+  if [ ! -d /opt/forgeos-shot/node_modules/playwright ]; then
+    sec "INSTALANDO PLAYWRIGHT (solo la primera vez)"
+    mkdir -p /opt/forgeos-shot && cd /opt/forgeos-shot && npm init -y >/dev/null 2>&1 && npm i -s playwright@1.48.2 >/dev/null 2>&1
+    npx -y playwright@1.48.2 install --with-deps chromium 2>&1 | tail -2
+    cd "$APP"
+  fi
+  sec "CAPTURA $path"
+  node deploy/remote/page-shot.cjs "$path" /tmp/forgeos-shot 2>&1 | tail -40
+  for v in desktop movil; do
+    [ -f "/tmp/forgeos-shot-$v.jpg" ] || continue
+    echo "-----BEGIN SHOT $v-----"; base64 -w0 "/tmp/forgeos-shot-$v.jpg"; echo; echo "-----END SHOT $v-----"
+  done
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -660,6 +677,7 @@ case "$ACTION" in
   gateway-logs) do_gateway_logs ;;
   protect) do_protect "$ARG" ;;
   telegram-stats) do_telegram_stats ;;
+  screenshot) do_screenshot "$ARG" ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

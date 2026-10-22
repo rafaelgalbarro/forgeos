@@ -1,5 +1,7 @@
 import "server-only";
 
+import { shouldSkipDuplicateTelegram, telegramPreview } from "@/lib/notifications/telegram-dedupe";
+
 export type TelegramInlineButton = {
   text: string;
   callback_data: string;
@@ -86,7 +88,13 @@ export async function sendTelegramMessage(
     return null;
   }
 
-  console.log(`[Telegram] sendMessage intento chatId=${chatId} chars=${text.length} buttons=${buttons?.length ?? 0}`);
+  if (!buttons?.length && shouldSkipDuplicateTelegram(text)) {
+    console.log(`[Telegram] duplicado omitido (<60 min): «${telegramPreview(text, 70)}»`);
+    return null;
+  }
+  console.log(
+    `[Telegram] sendMessage intento chatId=${chatId} chars=${text.length} buttons=${buttons?.length ?? 0} «${telegramPreview(text, 70)}»`,
+  );
 
   const reply_markup = buttons?.length
     ? { inline_keyboard: buttons.map((row) => row.map((b) => ({ text: b.text, callback_data: b.callback_data }))) }

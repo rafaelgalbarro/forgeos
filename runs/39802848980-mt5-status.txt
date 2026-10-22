@@ -1,0 +1,39 @@
+
+=== MT5 ===
+mt5 Up 2 hours
+puente: online reinicios: 100
+puente sin respuesta
+puente reiniciado; esperando 90 s…
+--- diagnóstico contenedor
+drwxr-xr-x 4 abc abc 4096 Oct 22 13:45 /config/.wine
+/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
+/config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
+/config/.wine/drive_c/Python39-64/python.exe
+    505    01:34:03 C:\Program Files\MetaTrader 5\terminal64.exe /install
+    583    01:32:53 C:\Program Files\MetaTrader 5\terminal64.exe
+   3601       43:54 C:\Program Files\MetaTrader 5\terminal64.exe
+   3603       43:54 C:\Program Files\MetaTrader 5\terminal64.exe
+   3619       42:14 C:\Program Files\MetaTrader 5\terminal64.exe
+   3621       42:03 C:\Program Files\MetaTrader 5\terminal64.exe
+--- /health
+{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")", "login": null, "server": null}, "error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")"}
+
+--- /resolve?base=EUR_USD
+{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")", "login": null, "server": null}, "error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")"}
+
+2026-10-22 15:11:34 +00:00: bridge: Z:\config\.wine\drive_c\Python39-64\python.exe (uid 911)
+2026-10-22 15:11:39 +00:00: mt5 bridge listening on 8004
+2026-10-22 15:13:19 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
+2026-10-22 15:14:16 +00:00: bridge: Z:\config\.wine\drive_c\Python39-64\python.exe (uid 911)
+2026-10-22 15:14:19 +00:00: mt5 bridge listening on 8004
+2026-10-22 15:15:59 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
+2026-10-22 15:11:18 +00:00:     self.server_bind()
+2026-10-22 15:11:18 +00:00:   File "Z:\config\.wine\drive_c\Python39-64\lib\http\server.py", line 136, in server_bind
+2026-10-22 15:11:18 +00:00:     socketserver.TCPServer.server_bind(self)
+2026-10-22 15:11:18 +00:00:   File "Z:\config\.wine\drive_c\Python39-64\lib\socketserver.py", line 466, in server_bind
+2026-10-22 15:11:18 +00:00:     self.socket.bind(self.server_address)
+2026-10-22 15:11:18 +00:00: PermissionError: [WinError 10013] Access denied
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

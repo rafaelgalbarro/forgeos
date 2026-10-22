@@ -1,0 +1,80 @@
+
+=== GIT ===
+HEAD: ab01ff0 Broker: fracciones con cantidad de acciones (IBKR rechaza cashQty en LMT de acciones, 10244)
+GitHub: ab01ff0 Broker: fracciones con cantidad de acciones (IBKR rechaza cashQty en LMT de acciones, 10244)
+Commits del servidor que no están en GitHub:
+Commits de GitHub pendientes de desplegar:
+Cambios locales sin commit (sin .forgeos):
+ M package-lock.json
+
+=== PM2 ===
+forgeos-scanner              online   reinicios=17 uptime=97915m mem=75MB
+forgeos-alerts               online   reinicios=17 uptime=97915m mem=75MB
+forgeos-reports              online   reinicios=2 uptime=97915m mem=68MB
+forgeos-forex                stopped  reinicios=6 uptime=0m mem=0MB
+forgeos                      online   reinicios=442 uptime=2m mem=81MB
+forgeos-watchdog             online   reinicios=1 uptime=80792m mem=3MB
+forgeos-scheduler            online   reinicios=37 uptime=2m mem=82MB
+ibkr-broker                  online   reinicios=67 uptime=2m mem=67MB
+forgeos-crypto-engine        online   reinicios=124 uptime=2m mem=73MB
+forgeos-crypto-backtest      stopped  reinicios=0 uptime=0m mem=0MB
+forgeos-eodhd-us-ws          online   reinicios=0 uptime=4163m mem=86MB
+pm2-logrotate                online   reinicios=3 uptime=4192m mem=91MB
+
+=== BROKER IBKR ===
+conectado= True estado= CONNECTED cuentas= ['U15513057', 'U24225949']
+  error 2100 API client has been unsubscribed from account data.
+  error 2100 API client has been unsubscribed from account data.
+  error 10243 Fractional-sized order cannot be placed via API. Please use desktop version to place this order.
+  error 2100 API client has been unsubscribed from account data.
+  error 2100 API client has been unsubscribed from account data.
+tiempo de respuesta /status: 34 ms
+
+=== ÚLTIMAS PROPUESTAS IBKR ===
+2026-10-22T09:58:37 EXECUTED  BUY  TEF    qty=25.0 lmt=3.433 sl=3.36434 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-22T09:47:59 REJECTED  BUY  DTE    qty=5.0 lmt=25.71 sl=25.195800000000002 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-22T09:47:58 EXECUTED  BUY  TEF    qty=42.0 lmt=3.439 sl=3.37022 cuenta=U15513057 ibkr=Filled motivo=
+2026-10-22T07:39:22 REJECTED  BUY  REP    qty=7.0 lmt=29.52 sl=28.5803 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:29:54 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:26:46 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:23:38 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:20:29 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:17:21 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:14:08 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:10:56 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-22T07:07:43 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+
+=== KRAKEN FUTURES ===
+2026-10-22 09:58:48 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
+2026-10-22 09:58:49 +00:00: [Kraken/Futures] cycle margin=56.1010 symbols=16 dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=0 orders=0 shadow=0
+2026-10-22 09:58:49 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 6759ms
+2026-10-22 09:58:50 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
+2026-10-22 09:59:49 +00:00: [Kraken/Futures] cycle margin=56.1015 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 shadow=0
+2026-10-22 09:59:49 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 366ms
+
+=== PANEL /investment ===
+web: live= True readOnly= False modo= LIVE
+broker: CONNECTED IBKR_LIVE_READ_ONLY error= None
+accountSummary: CONNECTED error= None
+positions: None error= None
+portfolioSummary: CONNECTED error= None
+LIVE_TRADING_ENABLED en .env.local: true
+IBKR_READ_ONLY en .env.local: false
+
+=== ACCIONES: CICLO Y PRE-MERCADO (últimas líneas) ===
+11|forgeos | [Premarket] AMGN price-source=discarded — AMGN: sin cotización WS
+11|forgeos | [Premarket] GILD price-source=discarded — GILD: sin cotización WS
+11|forgeos | [Premarket] MRNA price-source=discarded — MRNA: sin cotización WS
+11|forgeos | [Premarket] ISRG price-source=discarded — ISRG: sin cotización WS
+11|forgeos | [Premarket] UNH price-source=EODHD-WS-realtime $418.41 bid=418.00 ask=418.83
+11|forgeos | [Premarket] ABBV price-source=EODHD-WS-realtime $286.55 bid=286.10 ask=287.00
+11|forgeos | [Premarket] JNJ price-source=EODHD-WS-realtime $259.71 bid=259.37 ask=260.05
+11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Universe] MSTR price-source=ws $145.05 bid=144.90 ask=145.20
+11|forgeos | [Universe] GS price-source=ws $895.75 bid=892.00 ask=899.50
+11|forgeos | [Universe] MRK price-source=ws $150.67 bid=150.55 ask=150.79
+11|forgeos | [AutoExecute] TEF → orden enviada ibkrId=2256 proposal=1603bf2c-ada9-4552-8c30-5eaf0f09dd8d
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

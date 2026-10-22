@@ -1,0 +1,1249 @@
+commits del servidor no presentes en GitHub: 8
+From 16b2f40095d9147c126e370ec1b98a29320a8f75 Mon Sep 17 00:00:00 2001
+From: Rafael <rafael@forgeos.trade>
+Date: Sun, 30 Aug 2026 20:23:18 +0000
+Subject: [PATCH 1/6] feat(alpaca): integrate Alpaca paper trading for crypto
+ 24/7
+
+- Add Alpaca client lib (lib/investment/alpaca/client.ts)
+- Add Alpaca order executor (lib/investment/alpaca/submit.ts)
+- Add Alpaca crypto history with EMA/RSI (lib/investment/alpaca/history.ts)
+- Add API endpoints: /alpaca/account, /positions, /orders, /crypto
+- Add crypto-alpaca.ts: SOL, AVAX, DOGE, ADA, LINK universe
+- Patch trading-engine: bifurcate IBKR (stocks) vs Alpaca (crypto)
+- Patch pro-strategies: crypto price min -bash.001, Alpaca history
+- Patch market-session: ALWAYS_ON crypto includes Alpaca tickers
+- Patch cycle-universe: include Alpaca crypto in trading universe
+- First paper trade executed: BTC/USD buy+sell confirmed
+---
+ app/api/investment/alpaca/account/route.ts    |  15 ++
+ app/api/investment/alpaca/crypto/route.ts     |  52 ++++++
+ app/api/investment/alpaca/orders/route.ts     |  29 +++
+ app/api/investment/alpaca/positions/route.ts  |  15 ++
+ lib/investment/alpaca/client.ts               | 144 +++++++++++++++
+ lib/investment/alpaca/history.ts              | 134 ++++++++++++++
+ lib/investment/alpaca/submit.ts               | 165 ++++++++++++++++++
+ lib/investment/cycle-universe.ts              |   5 +-
+ src/core/trading/crypto-alpaca.ts             |  38 ++++
+ src/core/trading/market-session.ts            |   2 +-
+ src/core/trading/strategies/pro-strategies.ts |  24 ++-
+ src/core/trading/trading-engine.ts            | 140 ++++++++++++---
+ 12 files changed, 733 insertions(+), 30 deletions(-)
+ create mode 100644 app/api/investment/alpaca/account/route.ts
+ create mode 100644 app/api/investment/alpaca/crypto/route.ts
+ create mode 100644 app/api/investment/alpaca/orders/route.ts
+ create mode 100644 app/api/investment/alpaca/positions/route.ts
+ create mode 100644 lib/investment/alpaca/client.ts
+ create mode 100644 lib/investment/alpaca/history.ts
+ create mode 100644 lib/investment/alpaca/submit.ts
+ create mode 100644 src/core/trading/crypto-alpaca.ts
+
+diff --git a/app/api/investment/alpaca/account/route.ts b/app/api/investment/alpaca/account/route.ts
+new file mode 100644
+index 0000000..3fbbb36
+--- /dev/null
++++ b/app/api/investment/alpaca/account/route.ts
+@@ -0,0 +1,15 @@
++import { NextResponse } from "next/server";
++import { getAlpacaAccount } from "@/lib/investment/alpaca/client";
++
++export const dynamic = "force-dynamic";
++export const runtime = "nodejs";
++
++export async function GET() {
++  try {
++    const account = await getAlpacaAccount();
++    return NextResponse.json({ ok: true, account, source: "alpaca-paper" });
++  } catch (error) {
++    const message = error instanceof Error ? error.message : "Alpaca account failed";
++    return NextResponse.json({ ok: false, error: message }, { status: 503 });
++  }
++}
+diff --git a/app/api/investment/alpaca/crypto/route.ts b/app/api/investment/alpaca/crypto/route.ts
+new file mode 100644
+index 0000000..69fa5f2
+--- /dev/null
++++ b/app/api/investment/alpaca/crypto/route.ts
+@@ -0,0 +1,52 @@
++import { NextResponse } from "next/server";
++
++export const dynamic = "force-dynamic";
++export const runtime = "nodejs";
++
++const ALPACA_API_KEY = process.env.ALPACA_API_KEY ?? "";
++const ALPACA_SECRET = process.env.ALPACA_SECRET ?? "";
++
++const DEFAULT_SYMBOLS = ["BTC/USD", "ETH/USD", "SOL/USD", "AVAX/USD", "DOGE/USD", "XRP/USD"];
++
++export async function GET(request: Request) {
++  try {
++    const url = new URL(request.url);
++    const raw = url.searchParams.get("symbols");
++    const symbols = raw ? raw.split(",").map(s => s.trim()) : DEFAULT_SYMBOLS;
++
++    const syms = symbols.map(s => encodeURIComponent(s)).join(",");
++
++    const res = await fetch(
++      `https://data.alpaca.markets/v1beta3/crypto/us/latest/bars?symbols=${syms}`,
++      {
++        headers: {
++          "APCA-API-KEY-ID": ALPACA_API_KEY,
++          "APCA-API-SECRET-KEY": ALPACA_SECRET,
++        },
++      }
++    );
++
++    if (!res.ok) {
++      const text = await res.text();
++      throw new Error(`Alpaca ${res.status}: ${text}`);
++    }
++
++    const data = await res.json();
++    const bars = data.bars ?? {};
++
++    const quotes = Object.entries(bars).map(([symbol, bar]: [string, any]) => ({
++      symbol,
++      price: bar.c,
++      open: bar.o,
++      high: bar.h,
++      low: bar.l,
++      volume: bar.v,
++      timestamp: bar.t,
++    }));
++
++    return NextResponse.json({ ok: true, quotes, count: quotes.length, source: "alpaca-paper" });
++  } catch (error) {
++    const message = error instanceof Error ? error.message : "Alpaca crypto failed";
++    return NextResponse.json({ ok: false, error: message, quotes: [] }, { status: 503 });
++  }
++}
+diff --git a/app/api/investment/alpaca/orders/route.ts b/app/api/investment/alpaca/orders/route.ts
+new file mode 100644
+index 0000000..1025c14
+--- /dev/null
++++ b/app/api/investment/alpaca/orders/route.ts
+@@ -0,0 +1,29 @@
++import { NextResponse } from "next/server";
++import { getAlpacaOrders, placeAlpacaOrder } from "@/lib/investment/alpaca/client";
++
++export const dynamic = "force-dynamic";
++export const runtime = "nodejs";
++
++export async function GET(request: Request) {
++  try {
++    const url = new URL(request.url);
++    const status = url.searchParams.get("status") ?? "all";
++    const limit = parseInt(url.searchParams.get("limit") ?? "50");
++    const orders = await getAlpacaOrders(status, limit);
++    return NextResponse.json({ ok: true, orders, count: orders.length, source: "alpaca-paper" });
++  } catch (error) {
++    const message = error instanceof Error ? error.message : "Alpaca orders failed";
++    return NextResponse.json({ ok: false, error: message, orders: [] }, { status: 503 });
++  }
++}
++
++export async function POST(request: Request) {
++  try {
++    const body = await request.json();
++    const order = await placeAlpacaOrder(body);
++    return NextResponse.json({ ok: true, order, source: "alpaca-paper" });
++  } catch (error) {
++    const message = error instanceof Error ? error.message : "Alpaca order failed";
++    return NextResponse.json({ ok: false, error: message }, { status: 503 });
++  }
++}
+diff --git a/app/api/investment/alpaca/positions/route.ts b/app/api/investment/alpaca/positions/route.ts
+new file mode 100644
+index 0000000..51cd99f
+--- /dev/null
++++ b/app/api/investment/alpaca/positions/route.ts
+@@ -0,0 +1,15 @@
++import { NextResponse } from "next/server";
++import { getAlpacaPositions } from "@/lib/investment/alpaca/client";
++
++export const dynamic = "force-dynamic";
++export const runtime = "nodejs";
++
++export async function GET() {
++  try {
++    const positions = await getAlpacaPositions();
++    return NextResponse.json({ ok: true, positions, count: positions.length, source: "alpaca-paper" });
++  } catch (error) {
++    const message = error instanceof Error ? error.message : "Alpaca positions failed";
++    return NextResponse.json({ ok: false, error: message, positions: [] }, { status: 503 });
++  }
++}
+diff --git a/lib/investment/alpaca/client.ts b/lib/investment/alpaca/client.ts
+new file mode 100644
+index 0000000..e9bf27c
+--- /dev/null
++++ b/lib/investment/alpaca/client.ts
+@@ -0,0 +1,144 @@
++const ALPACA_API_KEY = process.env.ALPACA_API_KEY ?? "";
++const ALPACA_SECRET = process.env.ALPACA_SECRET ?? "";
++const ALPACA_ENDPOINT = process.env.ALPACA_ENDPOINT ?? "https://paper-api.alpaca.markets/v2";
++const DATA_ENDPOINT = "https://data.alpaca.markets/v2";
++const TIMEOUT_MS = 10_000;
++
++function alpacaHeaders() {
++  return {
++    "APCA-API-KEY-ID": ALPACA_API_KEY,
++    "APCA-API-SECRET-KEY": ALPACA_SECRET,
++    "Content-Type": "application/json",
++  };
++}
++
++async function alpacaFetch<T>(url: string, init?: RequestInit): Promise<T> {
++  const controller = new AbortController();
++  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
++  try {
++    const res = await fetch(url, {
++      ...init,
++      headers: { ...alpacaHeaders(), ...(init?.headers ?? {}) },
++      signal: controller.signal,
++    });
++    if (!res.ok) {
++      const text = await res.text().catch(() => res.statusText);
++      throw new Error(`Alpaca ${res.status}: ${text}`);
++    }
++    return res.json() as Promise<T>;
++  } finally {
++    clearTimeout(timer);
++  }
++}
++
++export interface AlpacaAccount {
++  id: string;
++  account_number: string;
++  status: string;
++  currency: string;
++  cash: string;
++  portfolio_value: string;
++  equity: string;
++  buying_power: string;
++  daytrade_count: number;
++  pattern_day_trader: boolean;
++  trading_blocked: boolean;
++  account_blocked: boolean;
++  created_at: string;
++  paper: boolean;
++}
++
++export async function getAlpacaAccount(): Promise<AlpacaAccount> {
++  return alpacaFetch<AlpacaAccount>(`${ALPACA_ENDPOINT}/account`);
++}
++
++export interface AlpacaPosition {
++  asset_id: string;
++  symbol: string;
++  exchange: string;
++  asset_class: string;
++  qty: string;
++  avg_entry_price: string;
++  side: string;
++  market_value: string;
++  cost_basis: string;
++  unrealized_pl: string;
++  unrealized_plpc: string;
++  current_price: string;
++  change_today: string;
++}
++
++export async function getAlpacaPositions(): Promise<AlpacaPosition[]> {
++  return alpacaFetch<AlpacaPosition[]>(`${ALPACA_ENDPOINT}/positions`);
++}
++
++export interface AlpacaOrder {
++  id: string;
++  client_order_id: string;
++  symbol: string;
++  asset_class: string;
++  qty: string;
++  filled_qty: string;
++  type: string;
++  side: string;
++  status: string;
++  created_at: string;
++  filled_at: string | null;
++  filled_avg_price: string | null;
++  limit_price: string | null;
++}
++
++export async function getAlpacaOrders(status = "all", limit = 50): Promise<AlpacaOrder[]> {
++  return alpacaFetch<AlpacaOrder[]>(
++    `${ALPACA_ENDPOINT}/orders?status=${status}&limit=${limit}&direction=desc`
++  );
++}
++
++export interface PlaceOrderParams {
++  symbol: string;
++  qty: number;
++  side: "buy" | "sell";
++  type?: "market" | "limit";
++  time_in_force?: "day" | "gtc" | "ioc";
++  limit_price?: number;
++}
++
++export async function placeAlpacaOrder(params: PlaceOrderParams): Promise<AlpacaOrder> {
++  return alpacaFetch<AlpacaOrder>(`${ALPACA_ENDPOINT}/orders`, {
++    method: "POST",
++    body: JSON.stringify({
++      symbol: params.symbol,
++      qty: params.qty,
++      side: params.side,
++      type: params.type ?? "market",
++      time_in_force: params.time_in_force ?? "gtc",
++      ...(params.limit_price ? { limit_price: params.limit_price } : {}),
++    }),
++  });
++}
++
++export interface AlpacaCryptoBar {
++  symbol: string;
++  price: number;
++  open: number;
++  high: number;
++  low: number;
++  volume: number;
++  timestamp: string;
++}
++
++export async function getCryptoQuotes(symbols: string[]): Promise<AlpacaCryptoBar[]> {
++  const syms = symbols.join(",");
++  const data = await alpacaFetch<{
++    bars: Record<string, { c: number; o: number; h: number; l: number; v: number; t: string }>;
++  }>(`${DATA_ENDPOINT}/crypto/us/latest/bars?symbols=${syms}`);
++  return Object.entries(data.bars ?? {}).map(([symbol, bar]) => ({
++    symbol,
++    price: bar.c,
++    open: bar.o,
++    high: bar.h,
++    low: bar.l,
++    volume: bar.v,
++    timestamp: bar.t,
++  }));
++}
+diff --git a/lib/investment/alpaca/history.ts b/lib/investment/alpaca/history.ts
+new file mode 100644
+index 0000000..f2e1f61
+--- /dev/null
++++ b/lib/investment/alpaca/history.ts
+@@ -0,0 +1,134 @@
++/**
++ * Alpaca Crypto Historical Data
++ * Provides OHLCV bars for technical analysis (EMA, RSI, change1d, etc.)
++ */
++import "server-only";
++
++const ALPACA_API_KEY = process.env.ALPACA_API_KEY ?? "";
++const ALPACA_SECRET = process.env.ALPACA_SECRET ?? "";
++const DATA_URL = "https://data.alpaca.markets/v1beta3/crypto/us";
++const TIMEOUT_MS = 10_000;
++
++export type AlpacaBar = {
++  t: string;  // timestamp
++  o: number;  // open
++  h: number;  // high
++  l: number;  // low
++  c: number;  // close
++  v: number;  // volume
++  vw: number; // vwap
++};
++
++export type AlpacaCryptoHistory = {
++  symbol: string;
++  bars: AlpacaBar[];
++  change1d: number;
++  change1dPct: number;
++  high52w: number;
++  low52w: number;
++  vol20: number;
++  ema9: number | null;
++  ema21: number | null;
++  ema50: number | null;
++  rsi14: number | null;
++  vwap: number | null;
++};
++
++async function alpacaFetch<T>(url: string): Promise<T> {
++  const controller = new AbortController();
++  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
++  try {
++    const res = await fetch(url, {
++      headers: {
++        "APCA-API-KEY-ID": ALPACA_API_KEY,
++        "APCA-API-SECRET-KEY": ALPACA_SECRET,
++      },
++      signal: controller.signal,
++    });
++    if (!res.ok) {
++      const text = await res.text().catch(() => res.statusText);
++      throw new Error(`Alpaca ${res.status}: ${text}`);
++    }
++    return res.json() as Promise<T>;
++  } finally {
++    clearTimeout(timer);
++  }
++}
++
++function calcEMA(closes: number[], period: number): number | null {
++  if (closes.length < period) return null;
++  const k = 2 / (period + 1);
++  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
++  for (let i = period; i < closes.length; i++) {
++    ema = closes[i]! * k + ema * (1 - k);
++  }
++  return ema;
++}
++
++function calcRSI(closes: number[], period = 14): number | null {
++  if (closes.length < period + 1) return null;
++  let gains = 0, losses = 0;
++  for (let i = closes.length - period; i < closes.length; i++) {
++    const diff = closes[i]! - closes[i - 1]!;
++    if (diff > 0) gains += diff;
++    else losses -= diff;
++  }
++  if (losses === 0) return 100;
++  const rs = gains / losses;
++  return 100 - 100 / (1 + rs);
++}
++
++/** BTC → BTC/USD */
++function toAlpacaSymbol(ticker: string): string {
++  const t = ticker.trim().toUpperCase().replace(/[-_/]/g, "");
++  const base = t.endsWith("USD") && t.length > 3 ? t.slice(0, -3) : t;
++  return `${base}/USD`;
++}
++
++/**
++ * Fetch daily bars for a crypto ticker and compute technical indicators.
++ */
++export async function getAlpacaCryptoHistory(ticker: string, limit = 60): Promise<AlpacaCryptoHistory> {
++  const symbol = toAlpacaSymbol(ticker);
++  const encoded = encodeURIComponent(symbol);
++
++  const data = await alpacaFetch<{
++    bars: Record<string, AlpacaBar[]>;
++  }>(`${DATA_URL}/bars?symbols=${encoded}&timeframe=1H&limit=${limit}&sort=asc`);
++
++  const bars = data.bars?.[symbol] ?? [];
++
++  if (bars.length < 2) {
++    throw new Error(`Sin datos históricos suficientes para ${symbol}`);
++  }
++
++  const closes = bars.map(b => b.c);
++  const today = bars[bars.length - 1]!;
++  const yesterday = bars[bars.length - 2]!;
++
++  const change1d = today.c - yesterday.c;
++  const change1dPct = (change1d / yesterday.c) * 100;
++  const high52w = Math.max(...bars.map(b => b.h));
++  const low52w = Math.min(...bars.map(b => b.l));
++  const vol20 = bars.slice(-20).reduce((s, b) => s + b.v, 0) / Math.min(20, bars.length);
++  const ema9 = calcEMA(closes, 9);
++  const ema21 = calcEMA(closes, 21);
++  const ema50 = calcEMA(closes, 50);
++  const rsi14 = calcRSI(closes);
++  const vwap = today.vw;
++
++  return {
++    symbol,
++    bars,
++    change1d,
++    change1dPct,
++    high52w,
++    low52w,
++    vol20,
++    ema9,
++    ema21,
++    ema50,
++    rsi14,
++    vwap,
++  };
++}
+diff --git a/lib/investment/alpaca/submit.ts b/lib/investment/alpaca/submit.ts
+new file mode 100644
+index 0000000..277ffff
+--- /dev/null
++++ b/lib/investment/alpaca/submit.ts
+@@ -0,0 +1,165 @@
++/**
++ * Alpaca Crypto Order Executor
++ * Equivalent to ibkr-supervised-submit but for Alpaca paper/live.
++ */
++import "server-only";
++
++const ALPACA_API_KEY = process.env.ALPACA_API_KEY ?? "";
++const ALPACA_SECRET = process.env.ALPACA_SECRET ?? "";
++const ALPACA_ENDPOINT = process.env.ALPACA_ENDPOINT ?? "https://paper-api.alpaca.markets/v2";
++const TIMEOUT_MS = 15_000;
++
++export const ALPACA_CRYPTO_TICKERS = [
++  "BTC", "ETH", "SOL", "AVAX", "DOGE", "XRP", "ADA", "LINK", "LTC", "BCH"
++] as const;
++
++export type AlpacaCryptoTicker = (typeof ALPACA_CRYPTO_TICKERS)[number];
++
++const ALPACA_CRYPTO_SET = new Set<string>(ALPACA_CRYPTO_TICKERS);
++
++/** BTC, BTCUSD, BTC/USD → BTC */
++export function normalizeAlpacaCryptoTicker(raw: string): AlpacaCryptoTicker | null {
++  const t = raw.trim().toUpperCase().replace(/[-_/]/g, "");
++  const base = t.endsWith("USD") && t.length > 3 ? t.slice(0, -3) : t;
++  return ALPACA_CRYPTO_SET.has(base) ? (base as AlpacaCryptoTicker) : null;
++}
++
++export function isAlpacaCryptoTicker(ticker: string): boolean {
++  return normalizeAlpacaCryptoTicker(ticker) !== null;
++}
++
++/** BTC → BTC/USD (formato Alpaca) */
++export function toAlpacaSymbol(ticker: string): string | null {
++  const base = normalizeAlpacaCryptoTicker(ticker);
++  return base ? `${base}/USD` : null;
++}
++
++export type AlpacaSubmitResult = {
++  readonly orderId: string;
++  readonly clientOrderId: string;
++  readonly symbol: string;
++  readonly status: string;
++  readonly qty: string;
++  readonly side: string;
++  readonly type: string;
++  readonly filledAt: string | null;
++  readonly filledAvgPrice: string | null;
++};
++
++export type AlpacaSubmitParams = {
++  symbol: string;
++  side: "BUY" | "SELL";
++  quantity: number;
++  limitPrice?: number;
++  rationale?: string;
++};
++
++async function alpacaFetch<T>(url: string, init?: RequestInit): Promise<T> {
++  const controller = new AbortController();
++  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
++  try {
++    const res = await fetch(url, {
++      ...init,
++      headers: {
++        "APCA-API-KEY-ID": ALPACA_API_KEY,
++        "APCA-API-SECRET-KEY": ALPACA_SECRET,
++        "Content-Type": "application/json",
++        ...(init?.headers ?? {}),
++      },
++      signal: controller.signal,
++    });
++    if (!res.ok) {
++      const text = await res.text().catch(() => res.statusText);
++      throw new Error(`Alpaca ${res.status}: ${text}`);
++    }
++    return res.json() as Promise<T>;
++  } finally {
++    clearTimeout(timer);
++  }
++}
++
++/**
++ * Submit a crypto order to Alpaca.
++ * Uses notional (USD amount) for fractional crypto support.
++ */
++export async function submitAlpacaCryptoOrder(
++  params: AlpacaSubmitParams
++): Promise<AlpacaSubmitResult> {
++  const alpacaSymbol = toAlpacaSymbol(params.symbol);
++  if (!alpacaSymbol) {
++    throw new Error(`${params.symbol} no es un ticker crypto Alpaca válido`);
++  }
++
++  const side = params.side === "BUY" ? "buy" : "sell";
++
++  // Para crypto Alpaca usamos qty fraccional o notional
++  const orderBody: Record<string, unknown> = {
++    symbol: alpacaSymbol,
++    side,
++    type: params.limitPrice ? "limit" : "market",
++    time_in_force: "gtc",
++  };
++
++  // Usamos qty directa (shares = unidades de crypto)
++  if (params.quantity > 0) {
++    orderBody.qty = String(params.quantity);
++  }
++
++  if (params.limitPrice && params.limitPrice > 0) {
++    orderBody.limit_price = String(params.limitPrice.toFixed(2));
++  }
++
++  console.log(
++    `[AlpacaSubmit] ${alpacaSymbol} ${side} qty=${params.quantity} ` +
++    `limit=${params.limitPrice ?? "market"} | ${params.rationale ?? ""}`
++  );
++
++  const order = await alpacaFetch<{
++    id: string;
++    client_order_id: string;
++    symbol: string;
++    status: string;
++    qty: string;
++    side: string;
++    type: string;
++    filled_at: string | null;
++    filled_avg_price: string | null;
++  }>(`${ALPACA_ENDPOINT}/orders`, {
++    method: "POST",
++    body: JSON.stringify(orderBody),
++  });
++
++  console.log(
++    `[AlpacaSubmit] ✅ Orden enviada: id=${order.id} symbol=${order.symbol} ` +
++    `status=${order.status} qty=${order.qty}`
++  );
++
++  return {
++    orderId: order.id,
++    clientOrderId: order.client_order_id,
++    symbol: order.symbol,
++    status: order.status,
++    qty: order.qty,
++    side: order.side,
++    type: order.type,
++    filledAt: order.filled_at,
++    filledAvgPrice: order.filled_avg_price,
++  };
++}
++
++/**
++ * Get current price for a crypto ticker from Alpaca.
++ */
++export async function getAlpacaCryptoPrice(ticker: string): Promise<number> {
++  const base = normalizeAlpacaCryptoTicker(ticker);
++  if (!base) throw new Error(`${ticker} no es crypto Alpaca`);
++
++  const symbol = encodeURIComponent(`${base}/USD`);
++  const data = await alpacaFetch<{
++    bars: Record<string, { c: number }>;
++  }>(`https://data.alpaca.markets/v1beta3/crypto/us/latest/bars?symbols=${symbol}`);
++
++  const bar = data.bars?.[`${base}/USD`];
++  if (!bar || !bar.c) throw new Error(`Sin precio Alpaca para ${base}/USD`);
++  return bar.c;
++}
+diff --git a/lib/investment/cycle-universe.ts b/lib/investment/cycle-universe.ts
+index aa5c766..6f16596 100644
+--- a/lib/investment/cycle-universe.ts
++++ b/lib/investment/cycle-universe.ts
+@@ -12,6 +12,7 @@ import {
+   getDailyMarketUniverse,
+ } from "@/lib/investment/market-daily-universe";
+ import { IBKR_CRYPTO_TICKERS, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
++import { ALPACA_CRYPTO_TICKERS, isAlpacaCryptoTicker } from "@/src/core/trading/crypto-alpaca";
+ import { regionalFocusTickersMadrid } from "@/src/core/trading/strategies/pro-strategies";
+ import {
+   getTradingCycleIntervalMs,
+@@ -42,6 +43,7 @@ export function isTickerAllowedForTrading(ticker: string): boolean {
+   const id = ticker.trim().toUpperCase();
+   if (!id) return false;
+   if (isIbkrCryptoTicker(id)) return true;
++  if (isAlpacaCryptoTicker(id)) return true;
+   const daily = getDailyUniverse();
+   if ((daily?.excludedEarnings ?? []).includes(id)) return false;
+   if ((daily?.tickers ?? []).some((t) => t.symbol === id)) return true;
+@@ -57,7 +59,8 @@ export type CycleUniverseResult = {
+ };
+ 
+ function withCrypto(tickers: readonly string[], cap: number): string[] {
+-  return [...new Set([...IBKR_CRYPTO_TICKERS, ...tickers])].slice(0, Math.max(cap, IBKR_CRYPTO_TICKERS.length));
++  const allCrypto = [...new Set([...IBKR_CRYPTO_TICKERS, ...ALPACA_CRYPTO_TICKERS])];
++  return [...new Set([...allCrypto, ...tickers])].slice(0, Math.max(cap, allCrypto.length));
+ }
+ 
+ function resolveFromCache(limit: number): CycleUniverseResult {
+diff --git a/src/core/trading/crypto-alpaca.ts b/src/core/trading/crypto-alpaca.ts
+new file mode 100644
+index 0000000..6d9f99c
+--- /dev/null
++++ b/src/core/trading/crypto-alpaca.ts
+@@ -0,0 +1,38 @@
++/**
++ * Alpaca Crypto universe — 24/7 trading via Alpaca paper/live.
++ * Tickers: BTC, ETH, SOL, AVAX, DOGE, XRP, ADA, LINK, LTC, BCH
++ */
++
++export const ALPACA_CRYPTO_TICKERS = [
++  "BTC", "ETH", "SOL", "AVAX", "DOGE", "XRP", "ADA", "LINK", "LTC", "BCH"
++] as const;
++
++export type AlpacaCryptoTicker = (typeof ALPACA_CRYPTO_TICKERS)[number];
++
++const ALPACA_CRYPTO_SET = new Set<string>(ALPACA_CRYPTO_TICKERS);
++
++/** BTC, BTCUSD, BTC/USD, BTC-USD → BTC */
++export function normalizeAlpacaTicker(raw: string): AlpacaCryptoTicker | null {
++  const t = raw.trim().toUpperCase().replace(/[-_/]/g, "");
++  const base = t.endsWith("USD") && t.length > 3 ? t.slice(0, -3) : t;
++  return ALPACA_CRYPTO_SET.has(base) ? (base as AlpacaCryptoTicker) : null;
++}
++
++export function isAlpacaCryptoTicker(ticker: string): boolean {
++  return normalizeAlpacaTicker(ticker) !== null;
++}
++
++/** BTC → BTC/USD */
++export function toAlpacaSymbol(ticker: string): string | null {
++  const base = normalizeAlpacaTicker(ticker);
++  return base ? `${base}/USD` : null;
++}
++
++/** Ensure all Alpaca crypto tickers are in the universe. */
++export function ensureAlpacaCryptoInList(tickers: readonly string[]): string[] {
++  const out = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))];
++  for (const c of ALPACA_CRYPTO_TICKERS) {
++    if (!out.includes(c)) out.unshift(c);
++  }
++  return out;
++}
+diff --git a/src/core/trading/market-session.ts b/src/core/trading/market-session.ts
+index e60eb9e..c46008c 100644
+--- a/src/core/trading/market-session.ts
++++ b/src/core/trading/market-session.ts
+@@ -11,7 +11,7 @@ export type ExchangeCode =
+   | "PAXOS"
+ 
+ /** Crypto 24h (PAXOS) — lista local, sin dependencias server-only. */
+-const ALWAYS_ON_CRYPTO_TICKERS = ["BTC", "ETH", "LTC", "BCH", "XRP"] as const
++const ALWAYS_ON_CRYPTO_TICKERS = ["BTC", "ETH", "LTC", "BCH", "XRP", "SOL", "AVAX", "DOGE", "ADA", "LINK"] as const
+ 
+ /** US listing venues — horario USA (NYSE/NASDAQ/ETFs). */
+ export const US_LISTING_EXCHANGES = new Set([
+diff --git a/src/core/trading/strategies/pro-strategies.ts b/src/core/trading/strategies/pro-strategies.ts
+index 4ade175..aff83e1 100644
+--- a/src/core/trading/strategies/pro-strategies.ts
++++ b/src/core/trading/strategies/pro-strategies.ts
+@@ -29,6 +29,8 @@ import {
+   rsiSeries,
+ } from "@/lib/market-data/technical-indicators";
+ import { IBKR_CRYPTO_TICKERS, isIbkrCryptoTicker } from "@/src/core/trading/crypto-ibkr";
++import { isAlpacaCryptoTicker } from "@/src/core/trading/crypto-alpaca";
++import { getAlpacaCryptoHistory } from "@/lib/investment/alpaca/history";
+ import {
+   ASIA_DIRECT_TICKERS,
+   ASIA_ETF_TICKERS,
+@@ -312,6 +314,23 @@ function hit(id: ProStrategyId, reason: string, overrides?: Partial<ProStrategyH
+ 
+ async function loadDailyBars(symbol: string): Promise<OhlcvBar[]> {
+   const timeoutMs = 12_000
++  // Alpaca crypto: usar datos históricos de Alpaca en lugar de IBKR
++  if (isAlpacaCryptoTicker(symbol)) {
++    try {
++      const hist = await getAlpacaCryptoHistory(symbol, 60)
++      return hist.bars.map(b => ({
++        date: b.t,
++        open: b.o,
++        high: b.h,
++        low: b.l,
++        close: b.c,
++        volume: b.v,
++      }))
++    } catch (err) {
++      console.warn(`[ProStrategy] ${symbol}: error cargando histórico Alpaca:`, err instanceof Error ? err.message : err)
++      return []
++    }
++  }
+   try {
+     const bars = await Promise.race([
+       ibkrDailyBars(symbol),
+@@ -681,7 +700,7 @@ export async function evaluateProStrategies(
+   const dayLow = live.dayLow;
+   const bid = inputs?.bid;
+   const ask = inputs?.ask;
+-  const crypto = isIbkrCryptoTicker(symbol);
++  const crypto = isIbkrCryptoTicker(symbol) || isAlpacaCryptoTicker(symbol);
+ 
+   const hold = (reason: string, rsiVal: number | null = null): ProStrategySignal => ({
+     direction: "HOLD",
+@@ -708,7 +727,8 @@ export async function evaluateProStrategies(
+     },
+   });
+ 
+-  if (!(price > 0.75)) return hold("Precio bajo mínimo $0.75");
++  const minPriceThreshold = crypto ? 0.001 : 0.75;
++  if (!(price > minPriceThreshold)) return hold(`Precio bajo mínimo $${minPriceThreshold}`);
+   if (price > 500 && !crypto) return hold("Precio sobre máximo $500");
+ 
+   if (isLossStreakBlacklisted(symbol)) {
+diff --git a/src/core/trading/trading-engine.ts b/src/core/trading/trading-engine.ts
+index f510424..a1f9f23 100644
+--- a/src/core/trading/trading-engine.ts
++++ b/src/core/trading/trading-engine.ts
+@@ -43,6 +43,9 @@ import {
+   EUROPE_ETF_TICKERS,
+ } from './market-session'
+ import { isIbkrCryptoTicker } from './crypto-ibkr'
++import { isAlpacaCryptoTicker } from './crypto-alpaca'
++import { submitAlpacaCryptoOrder, getAlpacaCryptoPrice } from '@/lib/investment/alpaca/submit'
++import { getAlpacaCryptoHistory } from '@/lib/investment/alpaca/history'
+ import { recordMlSignal } from '@/lib/ml/signal-trainer'
+ import { getTickerInfo } from '@/lib/market-data/yahoo-finance'
+ import {
+@@ -126,7 +129,7 @@ function prioritizeCycleTickers(tickers: readonly string[]): string[] {
+     if (preSet.has(t) || isPremarketHighPriority(t)) withPremarket.push(t)
+     else if (gainerSet.has(t)) gainers.push(t)
+     else if (activeSet.has(t)) actives.push(t)
+-    else if (isIbkrCryptoTicker(t)) crypto.push(t)
++    else if (isAlpacaCryptoTicker(t) || isIbkrCryptoTicker(t)) crypto.push(t)
+     else if (GLOBAL_ETF_PRIORITY.has(t)) etfs.push(t)
+     else rest.push(t)
+   }
+@@ -163,6 +166,8 @@ function markTimeoutSkip(ticker: string): void {
+ 
+ function isTimeoutSkipped(ticker: string): boolean {
+   const key = ticker.trim().toUpperCase()
++  // Alpaca crypto nunca se bloquea por timeout IBKR — tiene su propia fuente de precios
++  if (isAlpacaCryptoTicker(key)) return false
+   const until = timeoutSkipUntil.get(key)
+   if (until == null) return false
+   if (Date.now() >= until) {
+@@ -434,7 +439,11 @@ export class TradingEngine {
+           try {
+             let order: OrderResult
+             try {
+-              order = await TradingEngine.withTickerTimeout(work, ticker)
++              // Alpaca crypto needs more time for HTTP price fetch
++              const tickerTimeoutMs = isAlpacaCryptoTicker(ticker)
++                ? 20_000
++                : TradingEngine.TICKER_TIMEOUT_MS
++              order = await TradingEngine.withTickerTimeout(work, ticker, tickerTimeoutMs)
+             } catch (timeoutErr) {
+               // Critical: analysis timeout must NOT abort IBKR submit already in flight.
+               if (execGate.enteredAutoExecute) {
+@@ -741,21 +750,58 @@ export class TradingEngine {
+       }
+     }
+ 
+-    console.log(`[AutoExecute] ${ticker} → obteniendo precio IBKR…`)
++    console.log(`[AutoExecute] ${ticker} → obteniendo precio…`)
+     let priceData: Awaited<ReturnType<typeof fetchTradingPrice>>
+     try {
+-      priceData = await this.fetchPrice(ticker)
+-      console.log(
+-        `[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)} (${priceData.quoteRoute})`,
+-      )
++      if (isAlpacaCryptoTicker(ticker)) {
++        // Obtener precio + histórico de Alpaca para crypto
++        let alpacaPrice = 0
++        let hist: Awaited<ReturnType<typeof getAlpacaCryptoHistory>> | null = null
++        try {
++          hist = await getAlpacaCryptoHistory(ticker, 60)
++          alpacaPrice = hist.bars[hist.bars.length - 1]?.c ?? 0
++          if (!alpacaPrice) alpacaPrice = await getAlpacaCryptoPrice(ticker)
++        } catch {
++          alpacaPrice = await getAlpacaCryptoPrice(ticker)
++        }
++        priceData = {
++          currentPrice: alpacaPrice,
++          quoteRoute: 'ALPACA',
++          quoteExchange: 'CRYPTO',
++          bid: alpacaPrice,
++          ask: alpacaPrice,
++          last: alpacaPrice,
++          symbol: ticker,
++          updatedAt: new Date().toISOString(),
++          change1dPct: hist?.change1dPct ?? 0,
++          high52w: hist?.high52w ?? alpacaPrice * 1.5,
++          low52w: hist?.low52w ?? alpacaPrice * 0.5,
++          vol20d: hist?.vol20 ?? 1_000_000,
++          ema9: hist?.ema9 ?? null,
++          ema21: hist?.ema21 ?? null,
++          ema50: hist?.ema50 ?? null,
++          rsi: hist?.rsi14 ?? null,
++          vwap: hist?.vwap ?? null,
++        } as any
++        console.log(
++          `[AutoExecute] ${ticker} → precio Alpaca: $${alpacaPrice.toFixed(4)} ` +
++          `change1d=${hist?.change1dPct?.toFixed(2) ?? 'n/a'}% RSI=${hist?.rsi14?.toFixed(1) ?? 'n/a'} ` +
++          `EMA9=${hist?.ema9?.toFixed(2) ?? 'n/a'} EMA21=${hist?.ema21?.toFixed(2) ?? 'n/a'}`
++        )
++      } else {
++        priceData = await this.fetchPrice(ticker)
++        console.log(
++          `[AutoExecute] ${ticker} → precio: $${priceData.currentPrice.toFixed(2)} (${priceData.quoteRoute})`,
++        )
++      }
+     } catch {
+-      console.log(`[Universe] ${ticker} sin precio IBKR, skip`)
++      console.log(`[Universe] ${ticker} sin precio, skip`)
+       return {
+         status: 'SKIPPED',
+         ticker,
+         direction: 'HOLD',
+-        reason: `${ticker}: sin precio IBKR (ticker no reconocido / sin cotización)`,
+-        signal: { confidence: 0, reasoning: 'Sin precio IBKR — skip silencioso', urgency: 'LOW' },
++        reason: `${ticker}: sin precio (ticker no reconocido / sin cotización)`,
++        signal: { confidence: 0, reasoning: 'Sin precio — skip silencioso', urgency: 'LOW' },
+         timestamp: new Date().toISOString(),
+       }
+     }
+@@ -773,7 +819,7 @@ export class TradingEngine {
+     }
+ 
+     const quoteExchange = priceData.quoteExchange ?? 'SMART'
+-    const usSession = !isIbkrCryptoTicker(ticker) && US_QUOTE_EXCHANGES.has(quoteExchange.toUpperCase())
++    const usSession = !isIbkrCryptoTicker(ticker) && !isAlpacaCryptoTicker(ticker) && US_QUOTE_EXCHANGES.has(quoteExchange.toUpperCase())
+       ? getUsMarketSession()
+       : null
+ 
+@@ -807,22 +853,30 @@ export class TradingEngine {
+     const usExtendedHours = usSession ? usSession.isExtendedHours : true
+ 
+     // Mixed technical strategies (EOD + live profile)
+-    const change1dPct =
+-      priceData.changePercentage ||
+-      (priceData.previousClose > 0
+-        ? ((priceData.currentPrice - priceData.previousClose) / priceData.previousClose) * 100
+-        : 0)
++    const change1dPct = isAlpacaCryptoTicker(ticker)
++      ? ((priceData as any).change1dPct ?? 0)
++      : (priceData.changePercentage ||
++        (priceData.previousClose > 0
++          ? ((priceData.currentPrice - priceData.previousClose) / priceData.previousClose) * 100
++          : 0))
+     const pm = peekPremarketCandidate(ticker)
+     const strategy = await evaluateProStrategies(ticker, {
+       price: priceData.currentPrice,
+       change1dPct: pm && Math.abs(pm.gapPct) > Math.abs(change1dPct) ? pm.gapPct : change1dPct,
+-      volume: Math.max(priceData.volume, pm?.volume ?? 0),
+-      yearHigh: priceData.high52w,
+-      yearLow: priceData.low52w,
+-      priceAvg50: priceData.priceAvg50,
++      volume: Math.max(priceData.volume ?? (priceData as any).vol20d ?? 0, pm?.volume ?? 0),
++      yearHigh: (priceData as any).high52w ?? priceData.high52w,
++      yearLow: (priceData as any).low52w ?? priceData.low52w,
++      priceAvg50: (priceData as any).ema50 ?? priceData.priceAvg50,
+       priceAvg200: priceData.priceAvg200,
+       premarketCandidate: Boolean(pm) || isPremarketHighPriority(ticker),
+       gapHeldMs: pm ? Date.now() - pm.firstSeenAtMs : undefined,
++      inputs: isAlpacaCryptoTicker(ticker) ? {
++        rsi: (priceData as any).rsi ?? undefined,
++        ema9: (priceData as any).ema9 ?? undefined,
++        ema21: (priceData as any).ema21 ?? undefined,
++        ema50: (priceData as any).ema50 ?? undefined,
++        vwap: (priceData as any).vwap ?? undefined,
++      } : undefined,
+     })
+     const signal = {
+       direction: strategy.direction === 'BUY' ? ('BUY' as const) : ('HOLD' as const),
+@@ -847,7 +901,7 @@ export class TradingEngine {
+     }
+ 
+     // USA premarket 14:00–14:30: prepare only — no execute
+-    if (isUsaPremarketPrepareOnly() && !isIbkrCryptoTicker(ticker)) {
++    if (isUsaPremarketPrepareOnly() && !isIbkrCryptoTicker(ticker) && !isAlpacaCryptoTicker(ticker)) {
+       console.log(`[AutoExecute] ${ticker} → Premarket prepare-only (no ejecutar aún)`)
+       return {
+         status: 'HOLD',
+@@ -875,16 +929,19 @@ export class TradingEngine {
+       signal.confidence,
+       strategy.positionSizeFactor ?? 1,
+     )
+-    if (priceData.currentPrice < capital.minPrice || priceData.currentPrice > capital.maxPrice) {
++    // Crypto Alpaca: precio mínimo $0.001, máximo sin límite práctico
++    const effectiveMinPrice = isAlpacaCryptoTicker(ticker) ? 0.001 : capital.minPrice
++    const effectiveMaxPrice = isAlpacaCryptoTicker(ticker) ? 10_000_000 : capital.maxPrice
++    if (priceData.currentPrice < effectiveMinPrice || priceData.currentPrice > effectiveMaxPrice) {
+       console.warn(
+         `[AutoExecute] ${ticker} BLOCKED: precio $${priceData.currentPrice.toFixed(2)} fuera de rango ` +
+-          `$${capital.minPrice}-$${capital.maxPrice} (cuenta ${capital.accountId || 'default'})`,
++          `$${effectiveMinPrice}-$${effectiveMaxPrice} (cuenta ${capital.accountId || 'default'})`,
+       )
+       return {
+         status: 'REJECTED_RISK',
+         ticker,
+         direction: signal.direction,
+-        reason: `Precio $${priceData.currentPrice.toFixed(2)} fuera de rango cuenta $${capital.minPrice}-$${capital.maxPrice}`,
++        reason: `Precio $${priceData.currentPrice.toFixed(2)} fuera de rango cuenta $${effectiveMinPrice}-$${effectiveMaxPrice}`,
+         signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+         timestamp: new Date().toISOString(),
+       }
+@@ -1152,7 +1209,7 @@ export class TradingEngine {
+       takeProfit: effectiveTakeProfit,
+       reason: signal.reasoning,
+       signal: { confidence: signal.confidence, reasoning: signal.reasoning, urgency: signal.urgency },
+-      outsideRth: isIbkrCryptoTicker(ticker) ? true : usExtendedHours,
++      outsideRth: isIbkrCryptoTicker(ticker) || isAlpacaCryptoTicker(ticker) ? true : usExtendedHours,
+       preTradeChecklist: checklistSnapshot,
+       smartPlan: smartPlan
+         ? {
+@@ -1372,12 +1429,43 @@ export class TradingEngine {
+       : ''
+ 
+     try {
++      // ── Bifurcación broker: Alpaca Crypto vs IBKR ──────────────────────────
++      if (isAlpacaCryptoTicker(params.ticker)) {
++        // Obtener precio real de Alpaca si no tenemos limit price
++        let alpacaPrice = limitPrice
++        try {
++          alpacaPrice = await getAlpacaCryptoPrice(params.ticker)
++          console.log(`[AutoExecute] ${params.ticker} → precio Alpaca: $${alpacaPrice.toFixed(4)}`)
++        } catch {
++          console.warn(`[AutoExecute] ${params.ticker} → usando precio sugerido: $${limitPrice}`)
++        }
++        const alpacaResult = await submitAlpacaCryptoOrder({
++          symbol: params.ticker,
++          side: side as 'BUY' | 'SELL',
++          quantity: Number(params.shares),
++          limitPrice: alpacaPrice,
++          rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
++        })
++        console.log(
++          `[AutoExecute] ${params.ticker} → orden Alpaca enviada id=${alpacaResult.orderId} status=${alpacaResult.status}`,
++        )
++        console.log('[TradingEngine] ALPACA ORDER SUBMITTED:', {
++          approvalId: params.approvalId,
++          ticker: params.ticker,
++          alpacaPrice,
++          orderId: alpacaResult.orderId,
++          status: alpacaResult.status,
++        })
++        return alpacaResult.orderId
++      }
++
++      // ── IBKR para acciones ─────────────────────────────────────────────────
+       const submitted = await submitSupervisedLiveLimitOrder({
+         symbol: String(params.ticker).toUpperCase(),
+         side,
+         quantity: Number(params.shares),
+         limitPrice,
+-        outsideRth: isIbkrCryptoTicker(params.ticker) ? true : params.outsideRth ?? true,
++        outsideRth: isIbkrCryptoTicker(params.ticker) || isAlpacaCryptoTicker(params.ticker) ? true : params.outsideRth ?? true,
+         rationale: `ForgeOS trading engine (approvalId=${params.approvalId})${plannedNote}`,
+         account,
+       })
+-- 
+2.53.0
+
+
+From bf5cd5d3e7fe0ad51d28c722b39bed780b6cf431 Mon Sep 17 00:00:00 2001
+From: Rafael <rafael@forgeos.trade>
+Date: Fri, 25 Sep 2026 09:45:18 +0000
+Subject: [PATCH 2/6] fix: cycle timeout 120s, capital USD real, PreRisk logs
+
+---
+ lib/trading/agents.ts              |  9 ++++---
+ lib/trading/capital.ts             | 40 +++++++++++++++---------------
+ src/core/trading/trading-engine.ts |  2 +-
+ 3 files changed, 27 insertions(+), 24 deletions(-)
+
+diff --git a/lib/trading/agents.ts b/lib/trading/agents.ts
+index 19d7529..f7bd8a0 100644
+--- a/lib/trading/agents.ts
++++ b/lib/trading/agents.ts
+@@ -521,9 +521,12 @@ export async function runPreOrderRiskCheck(input: {
+   const capital = input.capital ?? (await fetchCapitalSnapshot());
+ 
+   const available =
+-    capital.availableFunds > 0
+-      ? capital.availableFunds
+-      : Math.max(capital.cashUSD, capital.cashEUR, capital.tradingCashUSD);
++    capital.cashUSD > 0
++      ? capital.cashUSD  // Prefer USD directly for stock purchases
++      : capital.availableFunds > 0
++        ? capital.availableFunds
++        : Math.max(capital.cashUSD, capital.cashEUR, capital.tradingCashUSD);
++  console.log(`[PreRisk] ${ticker} capital: cashUSD=$${capital.cashUSD?.toFixed(2)} cashEUR=€${capital.cashEUR?.toFixed(2)} available=$${available.toFixed(2)} price=$${price.toFixed(2)}`);
+ 
+   const atrPct = atrPctFromBars(price, input.bars ?? []);
+   let stopLossPct = atrPct;
+diff --git a/lib/trading/capital.ts b/lib/trading/capital.ts
+index bddc7dc..3950818 100644
+--- a/lib/trading/capital.ts
++++ b/lib/trading/capital.ts
+@@ -52,33 +52,33 @@ async function loadCapitalLive(): Promise<CapitalSnapshot> {
+ 
+   const primary = (process.env.IBKR_ACCOUNT_ID ?? "").trim();
+   const ids = Object.keys(account ?? {});
+-  const pickId =
+-    primary && ids.includes(primary) ? primary : ids[0] ?? "";
+-  const tags = pickId ? account[pickId] : undefined;
+ 
++  // Combine ALL accounts — sum USD and EUR cash across all accounts
+   let cashUSD = 0;
+   let cashEUR = 0;
+-  const cbUsd = num(tags, "CashBalance_USD");
+-  const cbEur = num(tags, "CashBalance_EUR");
+-  if (cbUsd > 0 || cbEur > 0) {
+-    cashUSD = cbUsd;
+-    cashEUR = cbEur;
+-  } else {
+-    const totalCash = num(tags, "TotalCashValue") || base.cashUSD;
+-    const cur = tagCurrency(tags, "TotalCashValue");
+-    if (cur === "EUR") {
+-      cashEUR = totalCash;
+-      cashUSD = 0;
+-    } else if (cur === "USD") {
+-      cashUSD = totalCash;
++  for (const id of ids) {
++    const t = account[id];
++    const cbUsd = num(t, "CashBalance_USD");
++    const cbEur = num(t, "CashBalance_EUR");
++    if (cbUsd > 0 || cbEur > 0) {
++      cashUSD += Math.max(0, cbUsd); // only positive USD (skip negative margin)
++      cashEUR += Math.max(0, cbEur);
+     } else {
+-      // Base currency unknown — treat TotalCashValue as available buying power proxy in USD terms
+-      cashUSD = totalCash;
++      const totalCash = num(t, "TotalCashValue");
++      const cur = tagCurrency(t, "TotalCashValue");
++      if (cur === "EUR") cashEUR += totalCash;
++      else cashUSD += totalCash;
+     }
+   }
++  // Use primary account tags for other fields
++  const pickId = primary && ids.includes(primary) ? primary : ids[0] ?? "";
++  const tags = pickId ? account[pickId] : undefined;
+ 
+-  const availableFunds =
+-    num(tags, "AvailableFunds") || Math.max(cashUSD, cashEUR, base.cashUSD);
++  // Use USD cash balance directly — AvailableFunds is in EUR for EUR accounts
++  const cashBalanceUSD = num(tags, "CashBalance_USD");
++  const availableFunds = cashBalanceUSD > 0
++    ? cashBalanceUSD
++    : num(tags, "AvailableFunds") || Math.max(cashUSD, cashEUR, base.cashUSD);
+   const grossPositionValue = num(tags, "GrossPositionValue");
+ 
+   const openTickers: string[] = [];
+diff --git a/src/core/trading/trading-engine.ts b/src/core/trading/trading-engine.ts
+index b040b76..e3e10c9 100644
+--- a/src/core/trading/trading-engine.ts
++++ b/src/core/trading/trading-engine.ts
+@@ -99,7 +99,7 @@ import { evaluateAlpacaStrategy } from '@/lib/brokers/alpaca-strategies'
+ export const MAX_AUTO_CYCLE_TICKERS = 50;
+ 
+ /** Automatic cycle wall-clock cap (20 tickers × 3 workers × ~8s). */
+-export const CYCLE_TIMEOUT_MS = 45 * 1000;
++export const CYCLE_TIMEOUT_MS = 120 * 1000;
+ 
+ /** Explicit POST cycle wall-clock cap. */
+ export const EXPLICIT_CYCLE_TIMEOUT_MS = 30 * 1000;
+-- 
+2.53.0
+
+
+From 7ad32af61eb41e5ab26e1d43c78d8891a0c3199d Mon Sep 17 00:00:00 2001
+From: Rafael <rafael@forgeos.trade>
+Date: Fri, 25 Sep 2026 10:01:25 +0000
+Subject: [PATCH 3/6] fix: daily PnL solo realizado (falso Risk STOP)
+
+---
+ lib/trading/ibkr-data.ts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/lib/trading/ibkr-data.ts b/lib/trading/ibkr-data.ts
+index 750b7d1..b341999 100644
+--- a/lib/trading/ibkr-data.ts
++++ b/lib/trading/ibkr-data.ts
+@@ -101,7 +101,8 @@ async function fetchTradingAccountSnapshotLive(): Promise<TradingAccountSnapshot
+   const dailyPnlUSD = ids.reduce((sum, id) => {
+     return (
+       sum +
+-      parseTagNumber(account[id], "UnrealizedPnL") +
++      // Solo P&L realizado hoy: UnrealizedPnL es la pérdida acumulada de posiciones
++      // antiguas y disparaba un falso Risk STOP (drawdown -105%)
+       parseTagNumber(account[id], "RealizedPnL")
+     );
+   }, 0);
+-- 
+2.53.0
+
+
+From 7197afeae63e90a9bd9e3e0ba146db7fc82951a1 Mon Sep 17 00:00:00 2001
+From: Rafael <rafael@forgeos.trade>
+Date: Fri, 25 Sep 2026 11:47:35 +0000
+Subject: [PATCH 4/6] fix: acciones nunca bloqueadas por timeout IBKR
+
+---
+ src/core/trading/trading-engine.ts | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/core/trading/trading-engine.ts b/src/core/trading/trading-engine.ts
+index aa358c8..7bd4212 100644
+--- a/src/core/trading/trading-engine.ts
++++ b/src/core/trading/trading-engine.ts
+@@ -211,6 +211,8 @@ function markTimeoutSkip(ticker: string): void {
+ 
+ function isTimeoutSkipped(ticker: string): boolean {
+   if (isAlpacaCryptoTicker(ticker) || isIbkrCryptoTicker(ticker)) return false
++  // Las acciones obtienen precio de EODHD: un timeout de IBKR nunca debe bloquearlas
++  if (!isAlpacaForexTicker(ticker)) return false
+   const key = ticker.trim().toUpperCase()
+   const until = timeoutSkipUntil.get(key)
+   if (until == null) return false
+-- 
+2.53.0
+
+
+From 80311cc10745c7cd1b00e35336015777bfef0772 Mon Sep 17 00:00:00 2001
+From: Rafael <rafael@forgeos.trade>
+Date: Fri, 25 Sep 2026 11:57:46 +0000
+Subject: [PATCH 5/6] fix: timeout por ticker 15s
+
+---
+ src/core/trading/trading-engine.ts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/trading/trading-engine.ts b/src/core/trading/trading-engine.ts
+index 7bd4212..feeea1d 100644
+--- a/src/core/trading/trading-engine.ts
++++ b/src/core/trading/trading-engine.ts
+@@ -342,7 +342,7 @@ export class TradingEngine {
+   private approvals = OrderApprovalGate.getInstance()
+ 
+   /** Per-ticker analysis cap — skip silently after 6s. */
+-  private static readonly TICKER_TIMEOUT_MS = 6_000
++  private static readonly TICKER_TIMEOUT_MS = 15_000
+   /** Once live submit started, allow longer for IBKR ack. */
+   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 60_000
+   private static readonly CYCLE_CONCURRENCY = 5
+-- 
+2.53.0
+
+
+From 5574e2e8459ec845d51c0e1b6088a2a86337e36c Mon Sep 17 00:00:00 2001
+From: Rafael <rafael@forgeos.trade>
+Date: Fri, 25 Sep 2026 17:56:36 +0000
+Subject: [PATCH 6/6] fix: permitir operar acciones del universo por sectores
+
+---
+ src/core/trading/risk/risk-manager.ts | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/core/trading/risk/risk-manager.ts b/src/core/trading/risk/risk-manager.ts
+index 6e151a5..7e7a8ce 100644
+--- a/src/core/trading/risk/risk-manager.ts
++++ b/src/core/trading/risk/risk-manager.ts
+@@ -1,3 +1,4 @@
++import { isUsStockTicker } from "@/lib/trading/stocks-universe"
+ /**
+  * ForgeOS RiskManager
+  * Circuit breaker y sizing de posiciones. Esta capa NUNCA se puede bypassear.
+@@ -181,7 +182,7 @@ export class RiskManager {
+     }
+ 
+     // 3. Ticker permitido: allowlist estática o candidatos del scanner del día
+-    if (!isTickerAllowedForTrading(price.ticker)) {
++    if (!isTickerAllowedForTrading(price.ticker) && !isUsStockTicker(price.ticker)) {
+       return { allowed: false, reason: `${price.ticker} no está en allowlist ni en el scanner del día` }
+     }
+ 
+-- 
+2.53.0
+
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

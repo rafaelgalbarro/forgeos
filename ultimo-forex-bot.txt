@@ -1,0 +1,14 @@
+
+=== BOT FOREX ===
+forgeos-forex-bot arrancado (primera vez)
+proceso: online reinicios: 0
+modo:  (vacío = shadow) · OANDA: no configurado · entorno: 
+--- últimos ciclos
+2026-10-22 13:11:36 +00:00: [ForexBot] boot pid=1799528 entry=forex-bot-main.ts mode=shadow
+2026-10-22 13:11:36 +00:00: [ForexBot] arranque intervalo=60000ms
+2026-10-22 13:11:40 +00:00: 2026-10-22T13:11:36.898Z [ForexBot] modo=shadow datos=EODHD pares=8 nav=500.00 EUR abiertas=0 entradas=0 pnlHoy=0.00
+--- operaciones
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

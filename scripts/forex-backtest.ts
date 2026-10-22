@@ -11,6 +11,7 @@ import { eodhdIntraday5m } from "@/lib/forex-bot/data";
 import { aggregate } from "@/lib/forex-bot/indicators";
 import { backtestInstrument, FX_GATE, gateRows, statsFor, type FxBacktestTrade } from "@/lib/forex-bot/backtest";
 import { fxBotDir } from "@/lib/forex-bot/journal";
+import { fxSessionMode } from "@/lib/forex-bot/sessions";
 
 async function main(): Promise<void> {
   const days = Math.max(30, Number(process.argv[2] ?? 180) || 180);
@@ -26,7 +27,7 @@ async function main(): Promise<void> {
       if (m15.length < 500) { perPair.push(`| ${p} | sin datos suficientes (${m15.length} velas) |`); continue; }
       tMin = Math.min(tMin, m15[0]!.time);
       tMax = Math.max(tMax, m15[m15.length - 1]!.time);
-      const trades = backtestInstrument(p, m15, ALL_FX_STRATEGIES, TYPICAL_SPREAD_PIPS[p] ?? 1.5);
+      const trades = backtestInstrument(p, m15, ALL_FX_STRATEGIES, TYPICAL_SPREAD_PIPS[p] ?? 2.5, fxSessionMode());
       all.push(...trades);
       const sum = trades.reduce((s, t) => s + t.r, 0);
       perPair.push(`| ${p} | ${m15.length} velas M15 · ${trades.length} operaciones · ${sum.toFixed(1)} R |`);
@@ -43,7 +44,7 @@ async function main(): Promise<void> {
   const lines = [
     `# Backtest forex intradía — ${new Date().toISOString().slice(0, 10)}`,
     ``,
-    `Datos EODHD 5m → M15, ${days} días, spread típico cobrado en cada operación. Muestra fuera (OOS) = último tercio.`,
+    `Datos EODHD 5m → M15, ${days} días, sesión ${fxSessionMode()}, spread típico cobrado en cada operación. Muestra fuera (OOS) = último tercio.`,
     `Puerta para operar en real: ≥${FX_GATE.minOosTrades} operaciones OOS, PF ≥ ${FX_GATE.minOosPF}, media ≥ ${FX_GATE.minOosMeanR} R.`,
     ``,
     `| Estrategia | Ops | % acierto | Media R | PF | Total R | DD máx R | OOS ops | OOS PF | OOS media R | ¿Real? |`,

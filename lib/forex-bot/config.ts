@@ -5,7 +5,8 @@
  *   FOREX_BOT_RISK_PCT        risk per trade, % of NAV (default 2, hard cap 2)
  *   FOREX_BOT_DAILY_LOSS_PCT  stop trading for the day after this loss (default 4)
  *   FOREX_BOT_MAX_POSITIONS   concurrent trades (default 2)
- *   FOREX_BOT_PAIRS           comma list (default majors)
+ *   FOREX_BOT_PAIRS           comma list (default 21 majors + crosses)
+ *   FOREX_BOT_SESSION         24h (default, Sun 23:00 → Fri 19:00 London) | london
  *   FOREX_BOT_STRATEGIES      comma list (default both)
  *   FOREX_BOT_MAX_LEVERAGE    notional / NAV cap (default 10, ESMA retail max 30)
  *   FOREX_BOT_LIVE_CONFIRM    must be "true" for mode=live
@@ -23,8 +24,21 @@ export const DEFAULT_FX_PAIRS = [
   "AUD_USD",
   "USD_CAD",
   "USD_CHF",
+  "NZD_USD",
   "EUR_GBP",
   "EUR_JPY",
+  "GBP_JPY",
+  "EUR_CHF",
+  "EUR_AUD",
+  "EUR_CAD",
+  "GBP_CHF",
+  "GBP_AUD",
+  "AUD_JPY",
+  "AUD_NZD",
+  "AUD_CAD",
+  "CAD_JPY",
+  "CHF_JPY",
+  "NZD_JPY",
 ] as const;
 
 export const ALL_FX_STRATEGIES: readonly FxStrategyId[] = [
@@ -42,6 +56,19 @@ export const TYPICAL_SPREAD_PIPS: Record<string, number> = {
   USD_CHF: 1.6,
   EUR_GBP: 1.4,
   EUR_JPY: 1.9,
+  NZD_USD: 1.6,
+  GBP_JPY: 2.8,
+  EUR_CHF: 1.9,
+  EUR_AUD: 2.5,
+  EUR_CAD: 2.6,
+  GBP_CHF: 3.0,
+  GBP_AUD: 3.5,
+  AUD_JPY: 2.0,
+  AUD_NZD: 2.6,
+  AUD_CAD: 2.4,
+  CAD_JPY: 2.4,
+  CHF_JPY: 2.8,
+  NZD_JPY: 2.6,
 };
 
 function num(v: string | undefined, def: number): number {

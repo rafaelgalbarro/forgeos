@@ -249,7 +249,7 @@ export async function runForexBotCycle(): Promise<string> {
         const info = mt5Info.get(p);
         if (useMt5 && mode !== "shadow" && !(info?.bid && info?.ask)) { notes.push(`${p}: sin cotización MT5`); continue; }
         const spread = info?.bid && info?.ask ? info.ask - info.bid
-          : quote ? quote.ask - quote.bid : (TYPICAL_SPREAD_PIPS[p] ?? 1.5) * pipSize(p);
+          : quote ? quote.ask - quote.bid : (TYPICAL_SPREAD_PIPS[p] ?? 2.5) * pipSize(p);
         if (spread > 0.25 * ev.risk) { notes.push(`${p}: spread alto`); continue; }
         let size: { ok: true; units: number; lots: number | null; riskAccount: number; leverage: number } | { ok: false; reason: string };
         if (info && useMt5) {

@@ -76,6 +76,10 @@ describe("forex bot: strategy & sessions", () => {
   it("session windows (London time)", () => {
     expect(isFxEntryWindow(new Date("2026-10-21T09:00:00Z"))).toBe(true); // Wed 10:00 London
     expect(isFxEntryWindow(new Date("2026-10-24T09:00:00Z"))).toBe(false); // Saturday
+    expect(isFxEntryWindow(new Date("2026-10-21T02:00:00Z"), "24h")).toBe(true); // Wed 03:00 London
+    expect(isFxEntryWindow(new Date("2026-10-21T02:00:00Z"), "london")).toBe(false);
+    expect(isFxEntryWindow(new Date("2026-10-21T20:30:00Z"), "24h")).toBe(false); // rollover 21:30 London
+    expect(isFxEntryWindow(new Date("2026-10-25T23:30:00Z"), "24h")).toBe(true); // Sun 23:30 London (GMT)
     expect(isWeekendFlattenTime(new Date("2026-10-23T19:30:00Z"))).toBe(true); // Fri 20:30 London
   });
 

@@ -2,12 +2,12 @@
  * Walk-forward backtest for the intraday FX strategies (pure).
  * - Signals on closed M15 bars; entry at the next bar's open; full typical spread charged.
  * - SL/TP checked on later bars (same bar touching both → stop, conservative).
- * - Intraday: flat at 21:00 London and before the weekend.
+ * - Flat before the weekend; session "london" also flat at 21:00 London.
  * Results in R multiples; first 2/3 of the period = in-sample, last 1/3 = out-of-sample.
  */
 
 import { aggregate, pipSize } from "./indicators";
-import { londonMinutes, londonWeekday, isWeekendFlattenTime } from "./sessions";
+import { isFxEntryWindow, isWeekendFlattenTime, londonMinutes, type FxSessionMode } from "./sessions";
 import { evaluateLondonBreakout, evaluateTrendPullback } from "./strategies";
 import { isFxSignal, type FxCandle, type FxStrategyId } from "./types";
 
@@ -40,6 +40,7 @@ export function backtestInstrument(
   m15All: readonly FxCandle[],
   strategies: readonly FxStrategyId[],
   spreadPips: number,
+  session: FxSessionMode = "24h",
 ): FxBacktestTrade[] {
   const h1All = aggregate(m15All, 60);
   const spread = spreadPips * pipSize(instrument);
@@ -52,9 +53,7 @@ export function backtestInstrument(
     while (h1Ptr < h1All.length && h1All[h1Ptr]!.time + 3600 <= barEnd) h1Ptr += 1;
     if (bar.time < busyUntil) continue;
     const at = new Date(barEnd * 1000);
-    const lm = londonMinutes(at);
-    const wd = londonWeekday(at);
-    if (wd < 1 || wd > 5 || lm < 7 * 60 || lm >= 16 * 60 + 30 || (wd === 5 && lm >= 14 * 60)) continue;
+    if (!isFxEntryWindow(at, session)) continue;
     const m15 = m15All.slice(Math.max(0, i - 299), i + 1);
     const h1 = h1All.slice(Math.max(0, h1Ptr - 120), h1Ptr);
     for (const strategy of strategies) {
@@ -81,7 +80,7 @@ export function backtestInstrument(
         if (hitTp) { exitPx = tp - (dirSign * spread) / 2; reason = "TP"; break; }
         const endAt = new Date((b.time + 900) * 1000);
         if (isWeekendFlattenTime(endAt)) { exitPx = b.close; reason = "WEEKEND"; break; }
-        if (londonMinutes(endAt) >= 21 * 60) { exitPx = b.close; reason = "TIME"; break; }
+        if (session === "london" && londonMinutes(endAt) >= 21 * 60) { exitPx = b.close; reason = "TIME"; break; }
       }
       const r = ((exitPx - entry) * dirSign) / ev.risk;
       trades.push({ strategy, instrument, side: ev.side, entryTime: next.time, exitTime, r, exitReason: reason });

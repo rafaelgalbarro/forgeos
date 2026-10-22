@@ -22,12 +22,30 @@ export function londonDayKey(at: Date = new Date()): string {
   return londonParts(at).ymd;
 }
 
-/** Entries allowed: Mon–Fri 07:00–16:30 London (London session + NY overlap); Fri until 14:00. */
-export function isFxEntryWindow(at: Date = new Date()): boolean {
+export type FxSessionMode = "24h" | "london";
+
+/** FOREX_BOT_SESSION=24h (default) | london. */
+export function fxSessionMode(): FxSessionMode {
+  return (process.env.FOREX_BOT_SESSION ?? "24h").trim().toLowerCase() === "london" ? "london" : "24h";
+}
+
+/**
+ * Entries allowed.
+ *  london: Mon–Fri 07:00–16:30 London (Fri until 14:00).
+ *  24h:    Sun 23:00 → Fri 19:00 London, except the daily rollover 21:00–23:00 (wide spreads).
+ */
+export function isFxEntryWindow(at: Date = new Date(), mode: FxSessionMode = fxSessionMode()): boolean {
   const { weekday, minutes } = londonParts(at);
-  if (weekday < 1 || weekday > 5) return false;
-  if (weekday === 5) return minutes >= 7 * 60 && minutes < 14 * 60;
-  return minutes >= 7 * 60 && minutes < 16 * 60 + 30;
+  if (mode === "london") {
+    if (weekday < 1 || weekday > 5) return false;
+    if (weekday === 5) return minutes >= 7 * 60 && minutes < 14 * 60;
+    return minutes >= 7 * 60 && minutes < 16 * 60 + 30;
+  }
+  if (weekday === 6) return false;
+  if (weekday === 0) return minutes >= 23 * 60;
+  if (minutes >= 21 * 60 && minutes < 23 * 60) return false;
+  if (weekday === 5) return minutes < 19 * 60;
+  return true;
 }
 
 /** London-breakout window: 07:00–10:00 London, Mon–Fri. */

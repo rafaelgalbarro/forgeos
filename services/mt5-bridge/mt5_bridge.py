@@ -49,7 +49,8 @@ def ensure_init():
         return False
     creds = json.loads(creds_raw)
     mt5.shutdown()
-    term = creds.get("path") or r"C:\Program Files\MetaTrader 5\terminal64.exe"
+    oanda = r"C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe"
+    term = creds.get("path") or (oanda if os.path.exists(oanda) else r"C:\Program Files\MetaTrader 5\terminal64.exe")
     # The runner starts the terminal already logged in (/config:start.ini). Attach first without
     # credentials: passing them makes the terminal open its (WebView) login dialog under Wine.
     if mt5.initialize(path=term, timeout=180000):

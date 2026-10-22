@@ -46,8 +46,15 @@ os.chmod(p, 0o600)
 PY
   chown "$U" "$CF/start.ini"
 fi
+# Prefer OANDA TMS' own build (it ships the OANDATMS-MT5 server list).
+if dx test -f "/config/.wine/drive_c/Program Files/OANDA TMS MT5 Terminal/terminal64.exe"; then
+  TERM_EXE='C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe'
+else
+  TERM_EXE='C:\Program Files\MetaTrader 5\terminal64.exe'
+fi
+echo "terminal: $TERM_EXE"
 # Start the terminal ourselves (detached, on the VNC display); the bridge then attaches to it.
 docker exec -d -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" "$C" \
-  wine 'C:\Program Files\MetaTrader 5\terminal64.exe' '/config:Z:\config\forgeos\start.ini'
+  wine "$TERM_EXE" '/config:Z:\config\forgeos\start.ini'
 sleep 40
 exec docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'

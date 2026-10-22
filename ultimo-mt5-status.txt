@@ -1,20 +1,17 @@
 
 === MT5 ===
 mt5 Up 5 hours
-puente: online reinicios: 110
-puente actualizado
-puente sin respuesta (puede estar arrancando)
-puente reiniciado; esperando 90 s…
+puente: online reinicios: 111
 --- diagnóstico contenedor
 drwxr-xr-x 4 abc abc 4096 Oct 22 18:49 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  20353       01:13 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  20361       01:13 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
-  20638       00:33 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
-  20644       00:33 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+  20353       01:55 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  20361       01:55 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  20638       01:15 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  20644       01:15 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/MetaTrader 5/logs/20261022.log
 KP	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud Asia 1: 1 gbit" found
@@ -56,7 +53,7 @@ KS	0	18:49:19.868	Compiler	full recompilation has been finished:  53 file(s) com
 {"symbol": "EURUSD"}
 
 --- /symbol EURUSD
-{"symbol": "EURUSD", "digits": 5, "point": 1e-05, "contract_size": 100000.0, "volume_min": 0.01, "volume_step": 0.01, "volume_max": 50.0, "tick_size": 1e-05, "tick_value": 0.8819197629399677, "tick_value_loss": 0.9009901882168503, "stops_level": 0, "filling_mode": 1, "trade_mode": 0, "currency_profit": "USD", "currency_base": "EUR", "bid": 1.10989, "ask": 1.13389, "time": 1792702194}
+{"symbol": "EURUSD", "digits": 5, "point": 1e-05, "contract_size": 100000.0, "volume_min": 0.01, "volume_step": 0.01, "volume_max": 50.0, "tick_size": 1e-05, "tick_value": 0.8819353188637147, "tick_value_loss": 0.9010064241758045, "stops_level": 0, "filling_mode": 1, "trade_mode": 0, "currency_profit": "USD", "currency_base": "EUR", "bid": 1.10987, "ask": 1.13387, "time": 1792702234}
 
 --- velas M15 (últimas 2)
 [{"time": 1792700100, "open": 1.12222, "high": 1.12237, "low": 1.12216, "close": 1.12226, "volume": 1011.0}, {"time": 1792701000, "open": 1.12226, "high": 1.12243, "low": 1.12211, "close": 1.12213, "volume": 1116.0}]

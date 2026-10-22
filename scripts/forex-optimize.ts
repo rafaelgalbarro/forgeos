@@ -19,11 +19,14 @@ const COUNTS: Record<FxTf, number> = { M15: 25000, H1: 30000, H4: 8000 };
 async function history(pair: string, tf: FxTf): Promise<{ bars: FxCandle[]; source: string }> {
   const count = COUNTS[tf];
   if (mt5Configured()) {
-    try {
-      const bars = await mt5Candles(pair, tf, count);
-      if (bars.length >= 1000) return { bars, source: "MT5 (OANDA)" };
-    } catch (err) {
-      console.warn(`[FX optimize] ${pair} ${tf} MT5: ${err instanceof Error ? err.message : err}`);
+    // The terminal may hold less history than asked for ("Call failed"): retry with fewer bars.
+    for (const n of [count, Math.floor(count * 0.66), Math.floor(count * 0.4), Math.floor(count * 0.2)]) {
+      try {
+        const bars = await mt5Candles(pair, tf, n);
+        if (bars.length >= 1000) return { bars, source: "MT5 (OANDA)" };
+      } catch (err) {
+        console.warn(`[FX optimize] ${pair} ${tf} ${n} velas: ${err instanceof Error ? err.message.slice(0, 90) : err}`);
+      }
     }
   }
   if (tf !== "M15") return { bars: [], source: "—" };

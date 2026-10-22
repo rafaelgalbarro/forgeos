@@ -1,15 +1,16 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando a94fc78 Kraken Futures: la API pública devuelve result="success" (texto); usar el cuerpo — causa de instrument_unknown y 0 órdenes
+Desplegando 20ec0d3 Kraken Futures: leveragepreferences con PUT (POST daba 404) y sin bloquear la entrada; nunca nocional > margen × apalancamiento
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-101453
-Updating 685ad50..a94fc78
+estado copiado en /root/forgeos-state-20261022-101929
+Updating a94fc78..20ec0d3
 Fast-forward
- lib/brokers/kraken-futures/adapter.ts          |  5 ++++-
- lib/trading/__tests__/aa-kraken-public.test.ts | 22 ++++++++++++++++++++++
- 2 files changed, 26 insertions(+), 1 deletion(-)
- create mode 100644 lib/trading/__tests__/aa-kraken-public.test.ts
+ deploy/remote/forgeos-remote.sh                    |  4 +++-
+ lib/brokers/kraken-futures/adapter.ts              | 28 ++++++++++++++++------
+ .../crypto/__tests__/futures-engine-e2e.test.ts    |  4 ++--
+ lib/trading/crypto/futures-engine.ts               |  6 +++++
+ 4 files changed, 32 insertions(+), 10 deletions(-)
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]

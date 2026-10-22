@@ -31,14 +31,22 @@ jobs:
           KNOWN_HOSTS: ${{ secrets.FORGEOS_SSH_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          # Normaliza copias desde Windows: quita \r, espacios sobrantes y líneas vacías.
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          echo "líneas de la clave: $(wc -l < ~/.ssh/id_ed25519) (primera: $(head -c 36 ~/.ssh/id_ed25519))"
+          if ssh-keygen -y -f ~/.ssh/id_ed25519 > /tmp/pub 2>/tmp/keyerr; then
+            echo "huella de la clave: $(ssh-keygen -lf /tmp/pub)"
+          else
+            echo "CLAVE INVÁLIDA: $(cat /tmp/keyerr)"
+          fi
           if [ -n "$KNOWN_HOSTS" ]; then
             printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           else
             ssh-keyscan -T 15 -t ed25519 "$SSH_HOST" > ~/.ssh/known_hosts 2>/dev/null
           fi
           echo "huella del servidor:"; ssh-keygen -lf ~/.ssh/known_hosts || true
+          { echo "--- preparación ---"; echo "líneas clave: $(wc -l < ~/.ssh/id_ed25519)"; cat /tmp/keyerr 2>/dev/null; ssh-keygen -lf /tmp/pub 2>/dev/null; } > ~/prep.txt
 
       - name: Ejecutar "${{ inputs.action }}"
         env:
@@ -55,6 +63,7 @@ jobs:
               | grep -E "Connecting|Connection|Authenticat|Offering|Server accepts|denied|Host key|REMOTE HOST|refused|timed out" \
               | head -20 >> remote-output.txt
           fi
+          cat ~/prep.txt >> remote-output.txt 2>/dev/null
           echo "codigo_salida=$rc" >> remote-output.txt
           cat remote-output.txt
           echo "$rc" > rc.txt

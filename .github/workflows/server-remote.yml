@@ -15,7 +15,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order, futures, set-flag, gateway-info, gateway-check, gateway-upgrade, gateway-rollback, gateway-logs, protect, telegram-stats, screenshot]
+        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order, futures, set-flag, gateway-info, gateway-check, gateway-upgrade, gateway-rollback, gateway-logs, protect, telegram-stats, screenshot, signals]
 
 concurrency:
   group: forgeos-server

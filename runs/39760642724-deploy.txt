@@ -1,0 +1,36 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando f068f6e Regla dura: compras de acciones solo con stop loss y take profit (web y broker); diagnóstico de futuros se recarga al cambiar; acción remota futures
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-100703
+Updating a04cbed..f068f6e
+Fast-forward
+ .github/workflows/server-remote.yml       |  2 +-
+ deploy/remote/forgeos-remote.sh           | 26 ++++++++++++++++++++++++++
+ lib/investment/ibkr-supervised-submit.ts  | 11 +++++++++++
+ lib/trading/crypto/futures-diagnostics.ts | 15 ++++++++++++++-
+ services/ibkr-broker/app/main.py          | 13 +++++++++++++
+ 5 files changed, 65 insertions(+), 2 deletions(-)
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+..................                                                       [100%]
+18 passed in 0.42s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -2,25 +2,21 @@
 === MT5 ===
 mt5 Up 5 hours
 puente: online reinicios: 110
+puente actualizado
 puente sin respuesta (puede estar arrancando)
+puente reiniciado; esperando 90 s…
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Oct 22 18:35 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Oct 22 18:49 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  19483       06:01 start.exe /exec C:\Program Files\MetaTrader 5\terminal64.exe
-  19489       06:00 C:\Program Files\MetaTrader 5\terminal64.exe /config:Z:\config\forgeos\start.ini
-  19532       05:20 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
-  19539       05:20 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+  20353       01:13 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  20361       01:13 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  20638       00:33 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  20644       00:33 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/MetaTrader 5/logs/20261022.log
-CJ	0	18:29:08.213	Terminal	launched with Z:\config\forgeos\start.ini
-DH	0	18:29:08.222	MCP	started on 127.0.0.1:22346
-FH	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud Asia 2: 10 gbit" found
-NI	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud USA 1: 10 gbit" found
-NO	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud Europe 2: 10 gbit" found
-ME	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud USA 2: 10 gbit" found
 KP	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud Asia 1: 1 gbit" found
 OI	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud Europe 3: 10 gbit" found
 OG	0	18:29:40.690	Tester	MQL5 Cloud Server "MQL5 Cloud Europe 1: 10 gbit" found
@@ -30,19 +26,47 @@ EH	0	18:34:58.311	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-g
 JI	0	18:34:58.311	Terminal	C:\Program Files\MetaTrader 5
 MP	0	18:34:58.311	Terminal	launched with Z:\config\forgeos\start.ini
 CF	0	18:34:58.318	MCP	started on 127.0.0.1:22346
+OM	0	18:44:26.814	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
+GO	0	18:44:26.968	Terminal	MetaTrader 5 x64 build 6281 started for MetaQuotes Ltd.
+DI	0	18:44:26.968	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 5 / 7 Gb memory, 34 / 74 Gb disk, GMT+0
+HI	0	18:44:26.968	Terminal	C:\Program Files\MetaTrader 5
+KP	0	18:44:26.968	Terminal	launched with Z:\config\forgeos\start.ini
+HF	0	18:44:26.977	MCP	started on 127.0.0.1:22346
+## /Program Files/OANDA TMS MT5 Terminal/logs/20261022.log
+RR	0	18:48:45.332	MCP	started on 127.0.0.1:22346
+RD	0	18:48:45.375	Compiler	full recompilation has been started
+GQ	0	18:48:51.860	Network	'242902': authorized on OANDATMS-MT5 through Access Server for clients
+CJ	0	18:48:51.860	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.22 20:48:07
+OJ	0	18:48:52.810	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
+LJ	0	18:48:52.810	Network	'242902': trading has been enabled - hedging mode
+LM	0	18:48:52.810	Network	'242902': balance management has been enabled
+FI	0	18:49:19.649	Tester	MQL5 Cloud Server "MQL5 Cloud Asia 2: 10 gbit" found
+JH	0	18:49:19.650	Tester	MQL5 Cloud Server "MQL5 Cloud USA 1: 10 gbit" found
+IM	0	18:49:19.651	Tester	MQL5 Cloud Server "MQL5 Cloud Europe 2: 10 gbit" found
+ND	0	18:49:19.651	Tester	MQL5 Cloud Server "MQL5 Cloud USA 2: 10 gbit" found
+ER	0	18:49:19.652	Tester	MQL5 Cloud Server "MQL5 Cloud Asia 1: 1 gbit" found
+RN	0	18:49:19.653	Tester	MQL5 Cloud Server "MQL5 Cloud Europe 3: 10 gbit" found
+GE	0	18:49:19.654	Tester	MQL5 Cloud Server "MQL5 Cloud Europe 1: 10 gbit" found
+KS	0	18:49:19.868	Compiler	full recompilation has been finished:  53 file(s) compiled
 --- herramientas X: xwd 
 --- /health
-{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10005, 'IPC timeout')", "login": null, "server": null}, "error": "initialize: (-10005, 'IPC timeout')"}
+{"ok": true, "state": {"initialized": true, "last_error": null, "login": 242902, "server": "OANDATMS-MT5"}, "account": {"login": 242902, "server": "OANDATMS-MT5", "currency": "EUR", "balance": 98.72, "equity": 98.72, "margin": 0.0, "margin_free": 98.72, "leverage": 100, "trade_allowed": false, "trade_expert": true, "terminal_trade_allowed": true, "connected": true, "demo": false, "margin_mode_netting": false}}
 
 --- /resolve?base=EUR_USD
-{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10005, 'IPC timeout')", "login": null, "server": null}, "error": "initialize: (-10005, 'IPC timeout')"}
+{"symbol": "EURUSD"}
 
-2026-10-22 18:29:47 +00:00: mt5 bridge listening on 8004
-2026-10-22 18:34:54 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
-2026-10-22 18:34:55 +00:00: MetaTrader5 py: 5.0.6231
-2026-10-22 18:34:55 +00:00: wine: wine-11.10 (Staging)
-2026-10-22 18:35:37 +00:00: mt5 bridge listening on 8004
-2026-10-22 18:41:39 +00:00: init=False err=initialize: (-10005, 'IPC timeout')
+--- /symbol EURUSD
+{"symbol": "EURUSD", "digits": 5, "point": 1e-05, "contract_size": 100000.0, "volume_min": 0.01, "volume_step": 0.01, "volume_max": 50.0, "tick_size": 1e-05, "tick_value": 0.8819197629399677, "tick_value_loss": 0.9009901882168503, "stops_level": 0, "filling_mode": 1, "trade_mode": 0, "currency_profit": "USD", "currency_base": "EUR", "bid": 1.10989, "ask": 1.13389, "time": 1792702194}
+
+--- velas M15 (últimas 2)
+[{"time": 1792700100, "open": 1.12222, "high": 1.12237, "low": 1.12216, "close": 1.12226, "volume": 1011.0}, {"time": 1792701000, "open": 1.12226, "high": 1.12243, "low": 1.12211, "close": 1.12213, "volume": 1116.0}]
+
+2026-10-22 18:48:27 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
+2026-10-22 18:48:34 +00:00: MetaTrader5 py: 5.0.6231
+2026-10-22 18:48:40 +00:00: wine: wine-11.10 (Staging)
+2026-10-22 18:48:41 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-10-22 18:49:22 +00:00: mt5 bridge listening on 8004
+2026-10-22 18:49:22 +00:00: init=True err=None
 2026-10-22 15:11:18 +00:00:     self.server_bind()
 2026-10-22 15:11:18 +00:00:   File "Z:\config\.wine\drive_c\Python39-64\lib\http\server.py", line 136, in server_bind
 2026-10-22 15:11:18 +00:00:     socketserver.TCPServer.server_bind(self)

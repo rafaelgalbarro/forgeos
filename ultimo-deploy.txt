@@ -1,34 +1,28 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando f4f6f8d forex-bot: estrategias por par en H1 y H4 con ~5 años de historia de OANDA
+Desplegando cefd3db forex-optimize: reintentar con menos velas si el terminal no tiene tanta historia
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-193317
-Updating 92c5985..f4f6f8d
+estado copiado en /root/forgeos-state-20261022-194421
+Updating f4f6f8d..cefd3db
 Fast-forward
- deploy/remote/forgeos-remote.sh                    |  6 +-
- lib/forex-bot/engine.ts                            | 34 +++++++--
- lib/forex-bot/mt5.ts                               |  4 +-
- lib/forex-bot/pair-strategies.ts                   | 88 +++++++++++++++-------
- .../__tests__/forex-pair-strategies.test.ts        |  2 +-
- scripts/forex-optimize.ts                          | 39 ++++++----
- 6 files changed, 121 insertions(+), 52 deletions(-)
-script remoto actualizado
+ scripts/forex-optimize.ts | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.51s
+19 passed in 0.48s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2578        1764           5        3715        5167
-Swap:           4095        1149        2946
+Mem:            7746        2540        2158           5        3359        5205
+Swap:           4095        1188        2907
      0 MB COMMAND
    444 MB next-server
-   398 MB java
+   361 MB java
    180 MB node
-   179 MB node
-   133 MB node
+   180 MB node
+   132 MB node
 
 up to date in 1s
    Generating static pages (153/204) 

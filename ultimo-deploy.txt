@@ -1,20 +1,19 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 46c3598 Broker: usa la librería oficial de IBKR si está en tws-api/pythonclient; acciones remotas install-twsapi, fractional-on/off y unblock-eu
+Desplegando d7ccab7 Broker: detecta la versión de la API de IBKR con server_versions.MAX_CLIENT_VER (client.SERVER_VERSION no existe)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-094245
-Updating d98c58c..46c3598
+estado copiado en /root/forgeos-state-20261022-094901
+Updating 46c3598..d7ccab7
 Fast-forward
- .github/workflows/server-remote.yml |  11 ++-
- deploy/remote/forgeos-remote.sh     | 138 +++++++++++++++++++++++++++++++++++-
- services/ibkr-broker/app/main.py    |   5 ++
- 3 files changed, 149 insertions(+), 5 deletions(-)
+ deploy/remote/forgeos-remote.sh  | 33 +++++++++++++++++++++++----------
+ services/ibkr-broker/app/main.py |  8 ++++++++
+ 2 files changed, 31 insertions(+), 10 deletions(-)
 script remoto actualizado
 
 === TESTS DEL BROKER ===
 ..................                                                       [100%]
-18 passed in 0.39s
+18 passed in 0.40s
 
 === BUILD ===
 

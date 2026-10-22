@@ -1,0 +1,266 @@
+
+=== CONFIGURACIÓN .env.local (sin secretos) ===
+ANTHROPIC_API_KEY=(definida)
+GROQ_API_KEY=(definida)
+TELEGRAM_BOT_TOKEN=(definida)
+TELEGRAM_CHAT_ID=(definida)
+IBKR_SERVICE_URL=http://127.0.0.1:8002
+IBKR_INTERNAL_API_KEY=(definida)
+LIVE_TRADING_ENABLED=true
+IBKR_READ_ONLY=false
+FOREX_ENABLED=true
+FOREX_MAX_SPREAD_PIPS=3
+FOREX_MAX_POSITIONS=3
+FOREX_RISK_PCT=2
+FOREX_STOP_PIPS=20
+FOREX_TP_PIPS=40
+FOREX_MIN_CONFIDENCE=0.75
+RESEND_API_KEY=(definida)
+IBKR_ACCOUNT_ID=U24225949
+POLYGON_API_KEY=(definida)
+FINNHUB_API_KEY=(definida)
+ALPHA_VANTAGE_API_KEY=(definida)
+FMP_API_KEY=(definida)
+ALPACA_API_KEY=(definida)
+ALPACA_SECRET=(definida)
+EODHD_API_KEY=(definida)
+KRAKEN_API_KEY=(definida)
+KRAKEN_API_SECRET=(definida)
+CRYPTO_BROKER=kraken
+CRYPTO_LIVE_MAX_NOTIONAL_EUR=10
+CRYPTO_LIVE_MAX_POSITIONS=1
+CRYPTO_ENGINE_EXTERNAL=1
+CRYPTO_LIVE_STRATEGIES=
+STOCKS_EXECUTION_ENABLED=true
+STOCKS_EXECUTION_US=true
+STOCKS_EXECUTION_EU=true
+IBKR_FRACTIONAL_ENABLED=false
+KRAKEN_FUTURES_API_KEY=(definida)
+KRAKEN_FUTURES_API_SECRET=(definida)
+STOCKS_EXECUTION_PREMARKET=true
+CRYPTO_VENUE=futures
+FUTURES_SHADOW_MODE=false
+FUTURES_MAX_LEVERAGE=1
+FUTURES_LIVE_STRATEGIES=RS_VS_BTC_1H_SHORT,TREND_PULLBACK_1H_SHORT
+US_PRICE_SOURCE=auto
+
+=== CONFIGURACIÓN broker services/ibkr-broker/.env (sin secretos) ===
+INTERNAL_API_KEY=(definida)
+APPROVAL_SECRET=(definida)
+IBKR_HOST=127.0.0.1
+IBKR_PORT=4003
+IBKR_CLIENT_ID=10
+IBKR_READ_ONLY=false
+LIVE_TRADING_ENABLED=true
+MAX_ORDER_NOTIONAL=250
+MAX_ORDER_QUANTITY=100000
+ALLOWED_CURRENCIES=EUR,USD
+ALLOWED_EXCHANGES=SMART
+FOREX_ENABLED=true
+IBKR_ACCOUNT_ID=U24225949
+IBKR_CONNECT_TIMEOUT_SECONDS=30
+
+=== FRENOS Y BLOQUEOS ===
+--- ibkr-stocks-execution-pause.json
+(no existe)
+
+--- ibkr-broker-no-ack-symbol-day.json
+{
+  "updatedAt": "2026-10-22T07:01:20.891479+00:00",
+  "symbols": {
+    "HOOD": "2026-10-19",
+    "ORCL": "2026-10-19",
+    "AENA": "2026-10-20",
+    "BMW": "2026-10-20",
+    "REP": "2026-10-22",
+    "MBG": "2026-10-20",
+    "SAN": "2026-10-21",
+    "FER": "2026-10-21",
+    "INGA": "2026-10-21"
+  }
+}
+--- ibkr-non-tradable.json
+{
+  "updatedAt": "2026-10-13T13:13:26.798Z",
+  "entries": {
+    "HYDC": {
+      "symbol": "HYDC",
+      "code": null,
+      "message": "Posición antigua del usuario: no vender",
+      "ibkrStatus": "ManualBlock",
+      "addedAt": "2026-10-12T20:29:25.018746Z",
+      "telegramSent": true
+    },
+    "ITX": {
+      "symbol": "ITX",
+      "code": null,
+      "message": "Bloqueo temporal: timeout de datos EU hasta desplegar el punto G",
+      "ibkrStatus": "ManualBlock",
+      "addedAt": "2026-10-13T12:29:15.399546Z",
+      "telegramSent": true
+    },
+    "DTE": {
+      "symbol": "DTE",
+      "code": null,
+      "message": "bloqueo manual hasta verificar contrato Xetra EUR (no DTE Energy)",
+      "ibkrStatus": "ManualBlock",
+      "addedAt": "2026-10-13T13:13:26.798Z",
+      "telegramSent": true,
+      "expiresAt": null
+    },
+    "TEF": {
+      "symbol": "TEF",
+      "code": null,
+      "message": "bloqueo manual hasta verificar contrato BME EUR (no ADR NYSE)",
+      "ibkrStatus": "ManualBlock",
+      "addedAt": "2026-10-13T13:13:26.798Z",
+      "telegramSent": true,
+      "expiresAt": null
+    }
+  }
+}
+--- kraken-futures-daily-risk.json
+{
+  "dayKey": "2026-10-22",
+  "dayStartCapital": 56.1655,
+  "dayPnl": -0.013500000000000512,
+  "exitsOnly": false,
+  "dailyLimitHit": false
+}
+
+=== PRE-MERCADO: preparación para operar en real ===
+señales registradas=13 cerradas=0 mejoraron=0 → listo=False (requiere ≥20 cerradas y mayoría mejorando)
+
+=== CUENTAS IBKR (efectivo y posiciones) ===
+U15513057 base= EUR NAV= 397.78 Disponible= 397.35 USD= 35.52 EUR= 368.61
+U24225949 base= EUR NAV= 183.05 Disponible= 145.06 USD= 162.90 EUR= 0.00
+   U24225949 INND 30000.0 USD coste= 0.000707
+   U24225949 HYDC 2.0 USD coste= 2.0243
+   U15513057 GNLN 0.25 USD coste= 42.696
+   U24225949 RECX 2500.0 USD coste= 0.00808
+   U15513057 CGBSF 2000.0 USD coste= 0.079049
+   U15513057 APTX.OLD 100.0 USD coste= 0.027348
+   U24225949 FLYX 0.8004 USD coste= 6.26274365
+   U24225949 APLT.CVR 300.0 USD coste= 0.0137
+
+=== BROKER: último error de Python (Traceback) ===
+3767:18|ibkr-br | Traceback (most recent call last):
+4833:18|ibkr-br | Traceback (most recent call last):
+5145:18|ibkr-br | Traceback (most recent call last):
+18|ibkr-br | Traceback (most recent call last):
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
+18|ibkr-br |     result = await app(  # type: ignore[func-returns-value]
+18|ibkr-br |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |         self.scope, self.receive, self.send
+18|ibkr-br |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |     )
+18|ibkr-br |     ^
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+18|ibkr-br |     return await self.app(scope, receive, send)
+18|ibkr-br |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/fastapi/applications.py", line 1133, in __call__
+18|ibkr-br |     await super().__call__(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/applications.py", line 107, in __call__
+18|ibkr-br |     await self.middleware_stack(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 186, in __call__
+18|ibkr-br |     raise exc
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 164, in __call__
+18|ibkr-br |     await self.app(scope, receive, _send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/exceptions.py", line 63, in __call__
+18|ibkr-br |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+18|ibkr-br |     raise exc
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+18|ibkr-br |     await app(scope, receive, sender)
+
+=== ACCIONES: decisiones recientes del ciclo ===
+11|forgeos | [AutoExecute] XYZ → skip (timeout IBKR)
+11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
+11|forgeos | [AutoExecute] SOFI → skip (timeout IBKR)
+11|forgeos | [AutoExecute] UNH → skip (timeout IBKR)
+11|forgeos | [AutoExecute] JNJ → skip (timeout IBKR)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [AutoExecute] LRCX → skip (timeout IBKR)
+11|forgeos | [AutoExecute] KLAC → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MRVL → skip (timeout IBKR)
+11|forgeos | [AutoExecute] JPM → skip (timeout IBKR)
+11|forgeos | [AutoExecute] GS → skip (timeout IBKR)
+11|forgeos | [AutoExecute] WFC → skip (timeout IBKR)
+11|forgeos | [AutoExecute] BLK → skip (timeout IBKR)
+11|forgeos | [AutoExecute] SCHW → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MA → skip (timeout IBKR)
+11|forgeos | [AutoExecute] PYPL → skip (timeout IBKR)
+11|forgeos | [AutoExecute] XYZ → skip (timeout IBKR)
+11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
+11|forgeos | [AutoExecute] SOFI → skip (timeout IBKR)
+11|forgeos | [AutoExecute] LLY → skip (timeout IBKR)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [AutoExecute] AMAT → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MRVL → skip (timeout IBKR)
+11|forgeos | [AutoExecute] JPM → skip (timeout IBKR)
+11|forgeos | [AutoExecute] BAC → skip (timeout IBKR)
+11|forgeos | [AutoExecute] GS → skip (timeout IBKR)
+11|forgeos | [AutoExecute] BLK → skip (timeout IBKR)
+11|forgeos | [AutoExecute] SCHW → skip (timeout IBKR)
+11|forgeos | [AutoExecute] PYPL → skip (timeout IBKR)
+11|forgeos | [AutoExecute] XYZ → skip (timeout IBKR)
+11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
+11|forgeos | [AutoExecute] LLY → skip (timeout IBKR)
+11|forgeos | [AutoExecute] MRK → skip (timeout IBKR)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — shadow only: 0/0 improved (need ≥20 closed + majority improve)
+
+=== ACCIONES: resumen de ciclos ===
+11|forgeos | [ProStrategy] QCOM: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] TXN: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] COIN: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] NOW: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] PLTR: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] MSTR: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] SMCI: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] ARM: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] AMAT: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [ProStrategy] LRCX: US_LISTED 05:36 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+
+=== SCHEDULER ===
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Iniciando ciclos typed cada 3min + stocks scan 15min en ventana… key=set(len=64)
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+/root/.pm2/logs/forgeos-scheduler-error.log last 400 lines:
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+
+=== CRIPTO: motor ===
+2026-10-22 09:31:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 357ms
+2026-10-22 09:32:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 388ms
+2026-10-22 09:33:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 390ms
+2026-10-22 09:33:25 +00:00: [CryptoEngine] arranque pid=1766515 venue=futures analysis=60000ms exits=5s
+2026-10-22 09:33:32 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 6706ms
+2026-10-22 09:34:32 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 354ms
+2026-10-22 09:35:32 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=2s px=2s btc60=2s btcPx=2s signals=0 orders=0 held=0 371ms
+2026-10-22 09:36:32 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 426ms
+2026-10-22 09:37:02 +00:00: [CryptoEngine] arranque pid=1767039 venue=futures analysis=60000ms exits=5s
+2026-10-22 09:37:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 6328ms
+2026-10-22 09:09:01 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-22 09:33:25 +00:00: (node:1766515) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-22 09:33:25 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-10-22 09:37:02 +00:00: (node:1767039) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-10-22 09:37:02 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

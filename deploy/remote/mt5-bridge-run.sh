@@ -27,4 +27,9 @@ if ! dx wine "$WINPY" -c "import MetaTrader5" >/dev/null 2>&1; then
   echo "instalando paquete MetaTrader5…"
   dx wine "$WINPY" -m pip install --upgrade --no-warn-script-location pip MetaTrader5 2>&1 | tail -3
 fi
+echo "wine: $(dx wine --version 2>/dev/null)"
+# Start the terminal ourselves (detached, on the VNC display); the bridge then attaches to it.
+docker exec -d -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all "$C" \
+  wine 'C:\Program Files\MetaTrader 5\terminal64.exe'
+sleep 40
 exec docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'

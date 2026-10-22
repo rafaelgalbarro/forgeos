@@ -1,0 +1,31 @@
+respaldo del estado actual: rama local server-backup-20261022-093126 (f67a90b)
+package-lock.json local guardado en git stash
+HEAD ahora = d2c3b84 Trae a GitHub los cambios propios del servidor que faltaban
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando d2c3b84 Trae a GitHub los cambios propios del servidor que faltaban
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261022-093127
+Already up to date.
+
+=== TESTS DEL BROKER ===
+..................                                                       [100%]
+18 passed in 0.34s
+
+=== BUILD ===
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

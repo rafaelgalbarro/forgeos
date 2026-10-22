@@ -17,6 +17,8 @@ if [ -z "$PY" ]; then
   PY="$(find_py64)"
 fi
 if [ -z "$PY" ]; then echo "python.exe 64 bits de Wine no encontrado"; sleep 60; exit 1; fi
+# pm2 restart only kills the `docker exec` client: kill bridges left running inside the container.
+docker exec "$C" sh -c 'pkill -f "mt5_bridge.py" ; sleep 2; pkill -9 -f "mt5_bridge.py"' >/dev/null 2>&1 || true
 WINPY="Z:${PY//\//\\}"
 echo "bridge: $WINPY (uid $U)"
 if ! dx wine "$WINPY" -c "import MetaTrader5" >/dev/null 2>&1; then

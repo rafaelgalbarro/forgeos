@@ -783,9 +783,9 @@ for p in json.load(sys.stdin):
   docker exec mt5 sh -c 'ls -ld /config/.wine; ls "/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe" 2>&1; find /config/.wine/drive_c -iname python.exe 2>/dev/null | grep -vi scripts' 2>&1 | head -8
   docker exec mt5 sh -c 'ps -eo pid,etime,args | grep -iE "terminal64|python" | grep -v grep' 2>&1 | cut -c1-200 | head -6
   echo "--- logs del terminal"
-  for f in $(find /root/mt5-config/.wine/drive_c -path '*logs*' -name '*.log' -mmin -180 2>/dev/null | head -6); do
-    echo "## $f" | sed 's#/root/mt5-config/.wine/drive_c##'
-    iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tr -d '\r' | tail -12 | cut -c1-220
+  find /root/mt5-config/.wine/drive_c -path '*logs*' -name '2*.log' -mmin -180 2>/dev/null | head -4 | while IFS= read -r f; do
+    echo "## ${f#/root/mt5-config/.wine/drive_c}"
+    iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tr -d '\r' | tail -15 | cut -c1-220
   done
   echo "--- herramientas X: $(docker exec mt5 sh -c 'for t in xwd import scrot xdotool wmctrl; do command -v $t >/dev/null && printf "%s " $t; done')"
   docker exec mt5 sh -c 'command -v wmctrl >/dev/null && DISPLAY=:1 wmctrl -l' 2>&1 | head -8

@@ -50,7 +50,7 @@ def ensure_init():
     creds = json.loads(creds_raw)
     mt5.shutdown()
     term = creds.get("path") or r"C:\Program Files\MetaTrader 5\terminal64.exe"
-    ok = mt5.initialize(path=term, login=int(creds["login"]), password=str(creds["password"]), server=str(creds["server"]), timeout=90000)
+    ok = mt5.initialize(path=term, login=int(creds["login"]), password=str(creds["password"]), server=str(creds["server"]), timeout=180000)
     if not ok:
         STATE["initialized"] = False
         STATE["last_error"] = "initialize: %s" % (mt5.last_error(),)
@@ -263,19 +263,23 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def _init_loop():
+    fails = 0
     while not STATE["initialized"]:
         with LOCK:
             ok = ensure_init()
         print("init=%s err=%s" % (ok, STATE["last_error"]), flush=True)
         if ok:
             break
-        # A failed initialize can leave a terminal64.exe behind; never let them pile up.
-        try:
-            mt5.shutdown()
-            os.system("taskkill /F /IM terminal64.exe >NUL 2>&1")
-        except Exception:  # noqa: BLE001
-            pass
-        time.sleep(90)
+        fails += 1
+        # Let a slow first start / live update finish; only after 3 failures kill the terminal
+        # (a failed initialize can leave a terminal64.exe behind; never let them pile up).
+        if fails % 3 == 0:
+            try:
+                mt5.shutdown()
+                os.system("taskkill /F /IM terminal64.exe >NUL 2>&1")
+            except Exception:  # noqa: BLE001
+                pass
+        time.sleep(60)
 
 
 if __name__ == "__main__":

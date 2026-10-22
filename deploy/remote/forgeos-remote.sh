@@ -9,7 +9,7 @@
 #   restrict,command="/usr/local/bin/forgeos-remote" ssh-ed25519 AAAA... forgeos-github-actions
 #
 # La clave SOLO puede ejecutar este script; la acción llega en SSH_ORIGINAL_COMMAND.
-# Acciones: status | deploy | patches | broker-proposals
+# Acciones: status | deploy | patches | broker-proposals | diff | align
 # Nunca imprime secretos (.env.local no se muestra).
 
 set -uo pipefail
@@ -109,6 +109,7 @@ do_deploy() {
   git fetch -q origin || { echo "git fetch falló"; exit 1; }
   local ahead dirty
   ahead=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
+  git checkout -q -- package-lock.json 2>/dev/null  # npm install lo reescribe en cada despliegue
   dirty=$(git status --porcelain --untracked-files=no | grep -v ' .forgeos/' | wc -l)
   if [ "$ahead" -gt 0 ]; then
     echo "ABORTADO: el servidor tiene $ahead commit(s) que no están en GitHub (usa la acción 'patches')."
@@ -129,6 +130,11 @@ do_deploy() {
     cp -a "$B/." .forgeos/; echo "ABORTADO: no es fast-forward"; exit 3
   fi
   cp -a "$B/." .forgeos/
+
+  # Actualiza este script desde el repo (el despliegue ya ejecuta código del repo como root).
+  if [ -f deploy/remote/forgeos-remote.sh ] && ! cmp -s deploy/remote/forgeos-remote.sh /usr/local/bin/forgeos-remote; then
+    install -m 700 deploy/remote/forgeos-remote.sh /usr/local/bin/forgeos-remote && echo "script remoto actualizado"
+  fi
 
   sec "TESTS DEL BROKER"
   (cd services/ibkr-broker && "$(broker_python)" -m pytest -q tests 2>&1 | tail -3) || true
@@ -152,6 +158,29 @@ for p in json.load(sys.stdin):
         print(p["name"], p["pm2_env"]["status"])'
 }
 
+do_diff() {
+  git fetch -q origin
+  sec "DIFERENCIAS servidor (HEAD) vs GitHub (origin/$BRANCH) — archivos"
+  git diff --stat "origin/$BRANCH" HEAD -- . ':(exclude).forgeos' ':(exclude).env*' ':(exclude)package-lock.json' | tail -60
+  sec "DIFERENCIAS — contenido (código)"
+  git diff "origin/$BRANCH" HEAD -- app lib src scripts services ':(exclude)**/__tests__/**' ':(exclude).env*' | head -3000
+}
+
+# Alinea el servidor con GitHub: guarda el estado actual en una rama local de respaldo,
+# deja HEAD = origin/$BRANCH (conserva .forgeos, .env.local y archivos no versionados)
+# y despliega. Reversible: git reset --hard <rama de respaldo>.
+do_align() {
+  git fetch -q origin || { echo "git fetch falló"; exit 1; }
+  local backup="server-backup-$(date +%Y%m%d-%H%M%S)"
+  git branch "$backup" HEAD && echo "respaldo del estado actual: rama local $backup ($(git rev-parse --short HEAD))"
+  git stash push -q -m "align $backup" -- package-lock.json 2>/dev/null && echo "package-lock.json local guardado en git stash"
+  local B; B=/root/forgeos-state-$(date +%Y%m%d-%H%M%S)
+  cp -a .forgeos "$B"
+  git reset -q --hard "origin/$BRANCH" && echo "HEAD ahora = $(git log -1 --format='%h %s')"
+  cp -a "$B/." .forgeos/
+  do_deploy
+}
+
 do_patches() {
   git fetch -q origin
   local n; n=$(git rev-list --count --no-merges "origin/$BRANCH..HEAD")
@@ -164,5 +193,7 @@ case "$ACTION" in
   deploy) do_deploy ;;
   patches) do_patches ;;
   broker-proposals) do_broker_proposals 40 ;;
-  *) echo "Acción no permitida: '$ACTION' (status | deploy | patches | broker-proposals)"; exit 2 ;;
+  diff) do_diff ;;
+  align) do_align ;;
+  *) echo "Acción no permitida: '$ACTION' (status | deploy | patches | broker-proposals | diff | align)"; exit 2 ;;
 esac

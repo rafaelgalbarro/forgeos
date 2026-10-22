@@ -1,17 +1,22 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 2587d92 Capturas: sesión de Founder para ver el panel
+Desplegando 3c800f9 Web: cotizaciones SPY/QQQ/VIX y sectores con EODHD cuando FMP falla; moneda real (EUR) en NAV y P&L; etiquetas de sesión correctas; «Último ciclo» con los ciclos del scheduler; estado del broker se refresca cada 30 s
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-113238
-Updating b63201c..2587d92
+estado copiado en /root/forgeos-state-20261022-114027
+Updating 2587d92..3c800f9
 Fast-forward
- deploy/remote/page-shot.cjs | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ app/api/investment/header-quotes/route.ts          | 17 ++++++-
+ components/investment/InvestmentOverviewBoard.tsx  | 14 ++++--
+ components/investment/InvestmentProductShell.tsx   |  4 ++
+ components/investment/InvestmentTerminalHeader.tsx | 17 ++++---
+ lib/market-data/yahoo-finance.ts                   | 55 ++++++++++++++++++----
+ lib/trading/cycle-route-handler.ts                 |  4 ++
+ 6 files changed, 92 insertions(+), 19 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.46s
+19 passed in 0.43s
 
 === BUILD ===
 

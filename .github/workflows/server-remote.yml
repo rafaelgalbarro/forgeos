@@ -30,6 +30,7 @@ jobs:
           SSH_HOST: ${{ secrets.FORGEOS_SSH_HOST }}
           KNOWN_HOSTS: ${{ secrets.FORGEOS_SSH_KNOWN_HOSTS }}
         run: |
+          set +e
           install -m 700 -d ~/.ssh
           # Normaliza copias desde Windows: quita \r, espacios sobrantes y líneas vacías.
           printf '%s\n' "$SSH_KEY" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$' > ~/.ssh/id_ed25519
@@ -74,7 +75,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           ACTION: ${{ inputs.action }}
         run: |
-          [ -f remote-output.txt ] || echo "sin salida" > remote-output.txt
+          [ -f remote-output.txt ] || { echo "sin salida (falló la preparación)"; cat ~/prep.txt 2>/dev/null; } > remote-output.txt
           git init -q out && cd out
           git config user.name "forgeos-actions"; git config user.email "actions@users.noreply.github.com"
           git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"

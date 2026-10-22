@@ -841,11 +841,19 @@ case "$ACTION" in
   mt5-status) do_mt5_status ;;
   mt5-shot)
     docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
-    if command -v convert >/dev/null; then convert /tmp/mt5.xwd -resize 1280x1280\> /tmp/mt5.png
+    if false; then :
     else python3 -c "import PIL" 2>/dev/null || pip3 install -q --break-system-packages pillow >/dev/null 2>&1
       python3 - <<'PY'
+import struct
 from PIL import Image
-im = Image.open("/tmp/mt5.xwd"); im.thumbnail((1280, 1280)); im.convert("RGB").save("/tmp/mt5.png")
+d = open("/tmp/mt5.xwd", "rb").read()
+h = struct.unpack(">25I", d[:100])
+hsize, w, ht, border, bpp, bpl, ncolors = h[0], h[4], h[5], h[7], h[11], h[12], h[19]
+off = hsize + ncolors * 12
+raw = d[off:off + bpl * ht]
+mode = "BGRX" if border == 0 else "XRGB"
+im = Image.frombytes("RGB", (w, ht), raw, "raw", mode, bpl)
+im.thumbnail((1280, 1280)); im.save("/tmp/mt5.png")
 PY
     fi
     echo "PNG-BEGIN"; base64 -w0 /tmp/mt5.png; echo; echo "PNG-END" ;;

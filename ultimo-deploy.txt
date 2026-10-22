@@ -1,43 +1,36 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 92c5985 forex-bot: estrategias específicas por par (30 reglas a corto plazo, elección IS + validación OOS con historia real de OANDA)
+Desplegando f4f6f8d forex-bot: estrategias por par en H1 y H4 con ~5 años de historia de OANDA
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-190758
-Updating 084c766..92c5985
+estado copiado en /root/forgeos-state-20261022-193317
+Updating 92c5985..f4f6f8d
 Fast-forward
- .github/workflows/server-remote.yml                |   2 +-
- deploy/remote/forgeos-remote.sh                    |   7 +
- lib/forex-bot/engine.ts                            |  55 +++-
- lib/forex-bot/journal.ts                           |  19 ++
- lib/forex-bot/pair-strategies.ts                   | 350 +++++++++++++++++++++
- lib/forex-bot/sessions.ts                          |   6 +-
- lib/forex-bot/types.ts                             |   7 +-
- .../__tests__/forex-pair-strategies.test.ts        |  51 +++
- scripts/forex-bot.cjs                              |   3 +-
- scripts/forex-optimize.ts                          |  72 +++++
- 10 files changed, 559 insertions(+), 13 deletions(-)
- create mode 100644 lib/forex-bot/pair-strategies.ts
- create mode 100644 lib/trading/__tests__/forex-pair-strategies.test.ts
- create mode 100644 scripts/forex-optimize.ts
+ deploy/remote/forgeos-remote.sh                    |  6 +-
+ lib/forex-bot/engine.ts                            | 34 +++++++--
+ lib/forex-bot/mt5.ts                               |  4 +-
+ lib/forex-bot/pair-strategies.ts                   | 88 +++++++++++++++-------
+ .../__tests__/forex-pair-strategies.test.ts        |  2 +-
+ scripts/forex-optimize.ts                          | 39 ++++++----
+ 6 files changed, 121 insertions(+), 52 deletions(-)
 script remoto actualizado
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.56s
+19 passed in 0.51s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2479        1988           8        3593        5266
-Swap:           4095        1146        2949
+Mem:            7746        2578        1764           5        3715        5167
+Swap:           4095        1149        2946
      0 MB COMMAND
-   397 MB java
-   394 MB next-server
+   444 MB next-server
+   398 MB java
    180 MB node
-   177 MB node
-   113 MB node
+   179 MB node
+   133 MB node
 
-up to date in 2s
+up to date in 1s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

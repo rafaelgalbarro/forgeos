@@ -1,31 +1,33 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando b695154 mt5: matar terminal/puente desde el host
+Desplegando a9d2677 mt5: arrancar el terminal en el display antes del puente; versión de wine
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-151934
-Updating be13052..b695154
+estado copiado en /root/forgeos-state-20261022-153046
+Updating b695154..a9d2677
 Fast-forward
- deploy/remote/forgeos-remote.sh | 3 ++-
- deploy/remote/mt5-bridge-run.sh | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ .github/workflows/server-remote.yml |  2 +-
+ deploy/remote/forgeos-remote.sh     | 27 ++++++++++++++++++++++++++-
+ deploy/remote/mt5-bridge-run.sh     |  5 +++++
+ services/mt5-bridge/mt5_bridge.py   |  8 +++++++-
+ 4 files changed, 39 insertions(+), 3 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.69s
+19 passed in 0.54s
 
 === BUILD ===
-procesos MT5 antes: terminal=53 puente=1 wine=5
-Mem:            7746        2615        4579           4         924        5130
-Swap:           4095         821        3274
+procesos MT5 antes: terminal=3 puente=1 wine=5
+Mem:            7746        2726        3922           8        1486        5019
+Swap:           4095         752        3343
      0 MB COMMAND
-   565 MB java
-   360 MB next-server
-   143 MB node
-   123 MB node
-   100 MB node
+   576 MB java
+   432 MB next-server
+   175 MB node
+   134 MB node
+   111 MB node
 
-up to date in 2s
+up to date in 1s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

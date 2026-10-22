@@ -1,0 +1,55 @@
+name: Servidor ForgeOS (acciones remotas)
+
+# Lanzado a mano (o por Claude vía API). La clave SSH del secreto solo puede ejecutar
+# /usr/local/bin/forgeos-remote en el servidor (forced command), nada más.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Acción en el servidor"
+        required: true
+        default: status
+        type: choice
+        options: [status, deploy, patches, broker-proposals]
+
+concurrency:
+  group: forgeos-server
+  cancel-in-progress: false
+
+jobs:
+  remote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Preparar SSH
+        env:
+          SSH_KEY: ${{ secrets.FORGEOS_SSH_KEY }}
+          SSH_HOST: ${{ secrets.FORGEOS_SSH_HOST }}
+          KNOWN_HOSTS: ${{ secrets.FORGEOS_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if [ -n "$KNOWN_HOSTS" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -T 15 -t ed25519 "$SSH_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          echo "huella del servidor:"; ssh-keygen -lf ~/.ssh/known_hosts || true
+
+      - name: Ejecutar "${{ inputs.action }}"
+        env:
+          SSH_HOST: ${{ secrets.FORGEOS_SSH_HOST }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 \
+            "root@$SSH_HOST" "$ACTION" 2>&1 | tee remote-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Guardar salida
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: salida-${{ inputs.action }}-${{ github.run_id }}
+          path: remote-output.txt
+          retention-days: 7

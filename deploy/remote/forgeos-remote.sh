@@ -446,6 +446,27 @@ for want in ("PF_ETHUSD", "PF_LTCUSD", "PF_XBTUSD"):
     else:
         print(want, "NO ENCONTRADO")
 PY
+  sec "KRAKEN FUTURES: cuenta, posiciones y órdenes (API privada)"
+  python3 - <<'PY'
+import time, hmac, hashlib, base64, urllib.request, json
+env = dict(l.strip().split("=", 1) for l in open(".env.local") if "=" in l and not l.lstrip().startswith("#"))
+def get(p):
+    n = str(int(time.time() * 1000))
+    a = base64.b64encode(hmac.new(base64.b64decode(env["KRAKEN_FUTURES_API_SECRET"]), hashlib.sha256((n + p).encode()).digest(), hashlib.sha512).digest()).decode()
+    req = urllib.request.Request("https://futures.kraken.com/derivatives" + p, headers={"APIKey": env["KRAKEN_FUTURES_API_KEY"], "Nonce": n, "Authent": a})
+    return json.load(urllib.request.urlopen(req, timeout=20))
+try:
+    flex = get("/api/v3/accounts")["accounts"]["flex"]
+    print("margen disponible:", flex.get("availableMargin"), "| valor cartera:", flex.get("portfolioValue"), "| PnL:", flex.get("pnl"))
+    pos = get("/api/v3/openpositions").get("openPositions", [])
+    print("posiciones:", [(p.get("symbol"), p.get("side"), p.get("size"), p.get("price")) for p in pos] or "ninguna")
+    ords = get("/api/v3/openorders").get("openOrders", [])
+    for o in ords:
+        print("  orden:", o.get("order_id"), o.get("symbol"), o.get("side"), o.get("orderType"), "size=", o.get("unfilledSize"), "lmt=", o.get("limitPrice"), "stop=", o.get("stopPrice"), "reduceOnly=", o.get("reduceOnly"))
+    print("órdenes abiertas:", len(ords))
+except Exception as e:
+    print("error API privada:", e)
+PY
   sec "KRAKEN FUTURES: últimas líneas del motor"
   grep -E "Kraken/Futures\] cycle" logs/forgeos-crypto-engine-out.log | tail -3 | cut -c1-900
   echo "--- errores de órdenes"

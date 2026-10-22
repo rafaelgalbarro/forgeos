@@ -45,7 +45,14 @@ function divergencePct(a: number, b: number): number {
   return (Math.abs(a - b) / mid) * 100;
 }
 
-async function eodhdFetchLatest1mClose(ticker: string): Promise<number | null> {
+/** 1m candle older than this cannot validate a live WS quote (EODHD intraday lags / no premarket). */
+export const EODHD_1M_QC_MAX_AGE_MS = 20 * 60_000;
+/** Without a usable 1m reference, accept a fresh WS book only if bid/ask spread is sane. */
+export const EODHD_WS_MAX_SPREAD_PCT_NO_1M = 3.0;
+
+type Latest1m = { close: number; tsMs: number | null };
+
+async function eodhdFetchLatest1mClose(ticker: string): Promise<Latest1m | null> {
   if (!isEodhdConfigured()) return null;
   const symbol = ticker.trim().toUpperCase();
   const eodhdSymbol = toEodhdSymbol(symbol);
@@ -61,10 +68,13 @@ async function eodhdFetchLatest1mClose(ticker: string): Promise<number | null> {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
       if (!res.ok) return null;
-      const rows = (await res.json()) as Array<{ close?: number }>;
+      const rows = (await res.json()) as Array<{ close?: number; timestamp?: number }>;
       for (let i = (rows?.length ?? 0) - 1; i >= 0; i -= 1) {
         const c = Number(rows[i]?.close ?? 0);
-        if (c > 0) return c;
+        if (c > 0) {
+          const ts = Number(rows[i]?.timestamp ?? NaN);
+          return { close: c, tsMs: Number.isFinite(ts) && ts > 0 ? ts * 1000 : null };
+        }
       }
       return null;
     } catch {
@@ -157,19 +167,45 @@ export async function evaluateEodhdWsQuality(
     return r;
   }
 
-  const candle1mClose = await eodhdFetchLatest1mClose(symbol);
-  if (candle1mClose == null || !(candle1mClose > 0)) {
+  const latest = await eodhdFetchLatest1mClose(symbol);
+  const candleAgeMs = latest?.tsMs != null ? Date.now() - latest.tsMs : null;
+  const usable1m =
+    latest != null &&
+    latest.close > 0 &&
+    (candleAgeMs == null || candleAgeMs <= EODHD_1M_QC_MAX_AGE_MS);
+  if (!usable1m) {
+    // EODHD intraday 1m lags and often has no premarket bars: a stale/missing candle
+    // cannot invalidate a fresh WS book. Fall back to a spread sanity check.
+    const spreadPct =
+      ws.bid > 0 && ws.ask >= ws.bid ? ((ws.ask - ws.bid) / wsMid) * 100 : null;
+    const why =
+      latest == null
+        ? "sin vela 1m"
+        : `vela 1m de hace ${Math.round((candleAgeMs ?? 0) / 60_000)}m`;
+    if (spreadPct == null || spreadPct <= EODHD_WS_MAX_SPREAD_PCT_NO_1M) {
+      const r: EodhdWsQcResult = {
+        symbol,
+        ok: true,
+        code: "OK",
+        reason: `ws-only (${why}; spread ${spreadPct == null ? "n/a" : spreadPct.toFixed(2) + "%"})`,
+        wsMid,
+        checkedAt,
+      };
+      blocked.delete(symbol);
+      return r;
+    }
     const r: EodhdWsQcResult = {
       symbol,
       ok: false,
       code: "NO_1M",
-      reason: `${symbol}: sin vela 1m EODHD para QC`,
+      reason: `${symbol}: ${why} y spread WS ${spreadPct.toFixed(2)}% > ${EODHD_WS_MAX_SPREAD_PCT_NO_1M}%`,
       wsMid,
       checkedAt,
     };
     blocked.set(symbol, r);
     return r;
   }
+  const candle1mClose = latest.close;
 
   const div = divergencePct(wsMid, candle1mClose);
   if (div > EODHD_WS_VS_1M_MAX_PCT) {

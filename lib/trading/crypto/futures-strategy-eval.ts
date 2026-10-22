@@ -5,6 +5,7 @@
 import "server-only";
 
 import { getBars, getTicker } from "@/lib/brokers/kraken/market-store";
+import { spotPairToPfSymbol } from "@/lib/brokers/kraken-futures/instruments";
 import { getMarketRegime } from "@/lib/trading/crypto/regime";
 import { recordFuturesStrategyEval } from "@/lib/trading/crypto/futures-diagnostics";
 import { applyStopDistanceCap } from "@/lib/trading/crypto/signal-guards";
@@ -54,7 +55,8 @@ function recordEval(
 ): void {
   recordFuturesStrategyEval({
     strategy: signal.strategyId,
-    pair,
+    // Diagnostics show the traded contract (PF_*), not the internal spot key.
+    pair: spotPairToPfSymbol(pair) ?? pair,
     direction,
     signalDirection: missing ? "HOLD" : signal.direction,
     reasoning: signal.reasoning,

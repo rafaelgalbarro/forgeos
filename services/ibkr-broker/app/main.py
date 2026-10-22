@@ -82,9 +82,11 @@ log.info(
 try:
     from .order_ids import allocate_consecutive_order_ids
     from .order_send_brakes import assert_order_send_allowed, record_place_no_ack
+    from .price_ticks import normalize_bracket_prices
 except ImportError:  # pragma: no cover — uvicorn without package root
     from order_ids import allocate_consecutive_order_ids
     from order_send_brakes import assert_order_send_allowed, record_place_no_ack
+    from price_ticks import normalize_bracket_prices
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -108,6 +110,8 @@ class Settings(BaseSettings):
     ibkr_client_id: int = 41
     ibkr_account_id: str = ""
     ibkr_account_ids: str = ""
+    # EUR local equities (BME/IBIS/AEB/SBF/BVME) must use the EUR cash account.
+    ibkr_eur_stocks_account_id: str = ""
     ibkr_connect_timeout_seconds: int = 12
     ibkr_read_only: bool = True
     live_trading_enabled: bool = False
@@ -223,6 +227,8 @@ def init_db() -> None:
 
 # Max wait for any IBKR callback (account, positions, quotes, contract details).
 IBKR_WAIT_TIMEOUT_SEC = 5.0
+# Tick-size info (minTick / marketRuleIds / rule increments) cache lifetime.
+TICK_CACHE_TTL_SEC = 24 * 3600
 # Market-data / subscription errors — unblock waiters immediately (do not spin).
 IBKR_FAST_FAIL_CODES = {
     10089, 354, 10167, 10197, 162, 200, 366, 420, 10168,
@@ -395,6 +401,11 @@ class IBKRClient(EWrapper, EClient):
         self.contract_details_done: dict[int, threading.Event] = {}
         self.market_rules_data: dict[int, list[dict[str, float]]] = {}
         self.market_rules_done: dict[int, threading.Event] = {}
+        # conId -> (fetched_at, minTick, marketRuleIds); rule_id -> (fetched_at, increments)
+        self._tick_info_cache: dict[int, tuple[float, Any, str]] = {}
+        self._market_rule_cache: dict[int, tuple[float, list[dict[str, float]]]] = {}
+        # bracket child order id -> parent order id (route child errors to parent ack)
+        self._bracket_child_parent: dict[int, int] = {}
         self.place_ack_events: dict[int, threading.Event] = {}
         self.place_ack_status: dict[int, str] = {}
         self.place_ack_errors: dict[int, list[dict[str, Any]]] = {}
@@ -477,6 +488,11 @@ class IBKRClient(EWrapper, EClient):
             log.warning("%s error orderId=%s code=%s: %s %s", kind, reqId, errorCode, errorString, advancedOrderRejectJson or "")
             self.place_ack_errors.setdefault(reqId, []).append(entry)
             self.place_ack_events[reqId].set()
+            parent_id = self._bracket_child_parent.get(reqId)
+            if parent_id is not None and code in IBKR_ORDER_REJECT_CODES:
+                parent_event = self.place_ack_events.get(parent_id)
+                if parent_event is not None:
+                    parent_event.set()
         elif code not in {2104, 2106, 2158, 2119}:
             # Skip noisy market-data-farm connectivity messages
             log.info("IBKR error reqId=%s code=%s: %s", reqId, errorCode, errorString)
@@ -1302,12 +1318,18 @@ class IBKRClient(EWrapper, EClient):
             if not value:
                 continue
             rule_id = int(value)
+            hit = self._market_rule_cache.get(rule_id)
+            if hit and hit[1] and time.time() - hit[0] < TICK_CACHE_TTL_SEC:
+                rules[rule_id] = hit[1]
+                continue
             done = threading.Event()
             self.market_rules_done[rule_id] = done
             self.market_rules_data.pop(rule_id, None)
             self.reqMarketRule(rule_id)
             if done.wait(IBKR_WAIT_TIMEOUT_SEC):
                 rules[rule_id] = self.market_rules_data.get(rule_id, [])
+                if rules[rule_id]:
+                    self._market_rule_cache[rule_id] = (time.time(), rules[rule_id])
             self.market_rules_done.pop(rule_id, None)
         return rules
 
@@ -1717,6 +1739,51 @@ class IBKRClient(EWrapper, EClient):
         normalized = (value / increment).to_integral_value(rounding=ROUND_DOWN) * increment
         return float(normalized)
 
+    def _tick_info_for_contract(self, contract: Contract, details=None) -> tuple[Any, dict[int, list[dict[str, float]]]]:
+        """(minTick, market rules) for a qualified contract — cached per conId for 24 h.
+
+        Cache-hit contracts carry no ContractDetails, so before this fix their prices
+        were only rounded to 2 decimals (and TP/SL not at all) → IBKR error 110 on
+        venues with 0.005 ticks (e.g. REP SL 28.574 on BME).
+        """
+        con_id = int(getattr(contract, "conId", 0) or 0)
+        min_tick: Any = None
+        rule_ids = ""
+        if details is not None:
+            min_tick = getattr(details, "minTick", None)
+            rule_ids = str(getattr(details, "marketRuleIds", "") or "")
+            if con_id:
+                self._tick_info_cache[con_id] = (time.time(), min_tick, rule_ids)
+        elif con_id:
+            hit = self._tick_info_cache.get(con_id)
+            if hit and time.time() - hit[0] < TICK_CACHE_TTL_SEC:
+                _, min_tick, rule_ids = hit
+            else:
+                lookup = Contract()
+                lookup.conId = con_id
+                lookup.exchange = getattr(contract, "exchange", "") or "SMART"
+                try:
+                    found = self._resolve_contract_details(lookup)
+                except Exception as exc:
+                    log.warning("tick info reqContractDetails failed conId=%s: %s", con_id, exc)
+                    found = []
+                if found:
+                    min_tick = getattr(found[0], "minTick", None)
+                    rule_ids = str(getattr(found[0], "marketRuleIds", "") or "")
+                    self._tick_info_cache[con_id] = (time.time(), min_tick, rule_ids)
+        rules: dict[int, list[dict[str, float]]] = {}
+        if rule_ids:
+            try:
+                rules = self._resolve_market_rules(rule_ids)
+            except Exception as exc:
+                log.warning("market rules failed (%s): %s", rule_ids, exc)
+        if min_tick in (None, "", 0, 0.0) and not rules:
+            log.warning(
+                "No tick info for %s conId=%s — falling back to 0.01",
+                getattr(contract, "symbol", "?"), con_id,
+            )
+        return min_tick, rules
+
     @staticmethod
     def _is_fractional_share_qty(quantity: float) -> bool:
         if quantity <= 0:
@@ -1859,6 +1926,17 @@ class IBKRClient(EWrapper, EClient):
             raise RuntimeError("Cantidad inválida tras normalización")
         return float(normalized)
 
+    def _eur_stocks_account(self) -> str:
+        """IBKR_EUR_STOCKS_ACCOUNT_ID, else the managed account whose base currency is EUR."""
+        configured = (settings.ibkr_eur_stocks_account_id or os.getenv("IBKR_EUR_STOCKS_ACCOUNT_ID", "")).strip()
+        if configured:
+            return configured
+        for acct, tags in (self.account_data or {}).items():
+            base = str(((tags or {}).get("NetLiquidation") or {}).get("currency") or "").upper()
+            if base == "EUR":
+                return acct
+        return ""
+
     def _log_buying_power(self, account: str) -> None:
         """Log available buying power before placing an order."""
         try:
@@ -1948,14 +2026,13 @@ class IBKRClient(EWrapper, EClient):
             qualified = getattr(details, "contract", None)
             if qualified is not None:
                 contract = qualified
-            market_rules = self._resolve_market_rules(getattr(details, "marketRuleIds", "") or "")
             if bool(proposal.get("fractional")):
                 if not self._contract_allows_fractional(details, proposal):
                     raise RuntimeError(f"{contract.symbol}: contrato no admite fracciones")
                 normalized_qty = self._normalize_fractional_quantity(float(proposal["quantity"]), details)
             else:
                 normalized_qty = self._normalize_quantity(float(proposal["quantity"]), details)
-            normalized_price = self._normalize_price(float(proposal["limit_price"]), details, market_rules)
+            normalized_price = float(proposal["limit_price"])
         else:
             # Already qualified via cache/conId or basic contract
             if getattr(contract, "conId", 0) in (0, None):
@@ -1975,7 +2052,36 @@ class IBKRClient(EWrapper, EClient):
                     normalized_qty = float(qty)
                 else:
                     normalized_qty = float(max(1, int(qty)))
-                normalized_price = round(price, 2)
+                normalized_price = price
+        stop_loss = proposal.get("stop_loss")
+        take_profit = proposal.get("take_profit")
+        tick_meta: dict[str, Any] = {}
+        if sec_type != "CRYPTO":
+            min_tick, tick_rules = self._tick_info_for_contract(contract, details)
+            px = normalize_bracket_prices(
+                side=str(proposal.get("side") or "BUY"),
+                entry=float(proposal["limit_price"]),
+                take_profit=float(take_profit) if take_profit else None,
+                stop_loss=float(stop_loss) if stop_loss else None,
+                min_tick=min_tick,
+                rules=tick_rules,
+            )
+            tick_meta = {
+                "minTick": min_tick,
+                "rules": sorted(tick_rules.keys()),
+                "raw": {
+                    "entry": proposal.get("limit_price"),
+                    "tp": take_profit,
+                    "sl": stop_loss,
+                },
+                "normalized": px,
+            }
+            normalized_price = float(px["entry"])
+            if take_profit:
+                take_profit = px["take_profit"]
+            if stop_loss:
+                stop_loss = px["stop_loss"]
+            log.info("TICK NORMALIZE %s %s", contract.symbol, tick_meta)
         order = Order()
         order.action = proposal["side"]
         order.orderType = "LMT"
@@ -2003,12 +2109,18 @@ class IBKRClient(EWrapper, EClient):
         elif str(contract.secType or "").upper() == "STK" and str(order.action).upper() == "BUY":
             order.tif = "GTC"
         account = (proposal.get("account") or settings.default_account_id(self.accounts) or "").strip()
+        if sec_type == "STK" and str(contract.currency or "").upper() == "EUR":
+            eur_account = self._eur_stocks_account()
+            if eur_account and eur_account.upper() != account.upper():
+                log.warning(
+                    "ACCOUNT FIX %s: EUR listing routed to %s (requested %s)",
+                    contract.symbol, eur_account, account or "default",
+                )
+                account = eur_account
         if account:
             order.account = account
         apply_whatif_legacy_attr_compat(order)
 
-        stop_loss = proposal.get("stop_loss")
-        take_profit = proposal.get("take_profit")
         use_bracket = bool(proposal.get("bracket")) and stop_loss and take_profit and str(order.action).upper() == "BUY"
         # Parent must not transmit until children attached (live only).
         if use_bracket and transmit and not what_if:
@@ -2059,6 +2171,18 @@ class IBKRClient(EWrapper, EClient):
                 "currency": contract.currency,
                 "account": account,
             }
+            if use_bracket:
+                for child_id, leg_name in ((tp_id, "BRACKET_TP"), (sl_id, "BRACKET_SL")):
+                    self.place_ack_events[child_id] = threading.Event()
+                    self.place_ack_status.pop(child_id, None)
+                    self.place_ack_errors.pop(child_id, None)
+                    self._bracket_child_parent[child_id] = order_id
+                    self.order_context[child_id] = {
+                        "kind": leg_name,
+                        "symbol": contract.symbol,
+                        "currency": contract.currency,
+                        "account": account,
+                    }
             try:
                 self.placeOrder(order_id, contract, order)
                 if use_bracket:
@@ -2114,6 +2238,20 @@ class IBKRClient(EWrapper, EClient):
         if not self.isConnected():
             raise ConnectionError("IBKR disconnected during placeOrder")
         ack.wait(IBKR_WAIT_TIMEOUT_SEC)
+        if use_bracket:
+            # Child legs (TP/SL) can be rejected (e.g. 110 tick) while the parent never
+            # transmits → parent shows NO_ACK. Surface the child's real IBKR error.
+            for child_id in (tp_id, sl_id):
+                child_errs = self.place_ack_errors.pop(child_id, [])
+                for err in child_errs:
+                    tagged = dict(err)
+                    leg = self.order_context.get(child_id, {}).get("kind", "BRACKET_CHILD")
+                    tagged["message"] = f"{err.get('message')} [{leg} id={child_id}]"
+                    self.place_ack_errors.setdefault(order_id, []).append(tagged)
+                self.place_ack_events.pop(child_id, None)
+                self.place_ack_status.pop(child_id, None)
+                self._bracket_child_parent.pop(child_id, None)
+                self.order_context.pop(child_id, None)
         errors = self.place_ack_errors.get(order_id, [])
         status = self.place_ack_status.get(order_id, "NO_ACK")
         log.info("PLACE RESULT id=%s status=%s errors=%d", order_id, status, len(errors))

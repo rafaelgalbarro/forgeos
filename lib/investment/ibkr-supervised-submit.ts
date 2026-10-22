@@ -26,9 +26,8 @@ import {
 } from "@/lib/trading/equity-strategy-session";
 import {
   getEuropeanEurEquity,
-  ibkrEurStocksAccountId,
-  ibkrUsdStocksAccountId,
   isEuropeanEurEquity,
+  resolveStockOrderAccount,
 } from "@/lib/trading/europe-equities";
 import {
   IBKR_CRYPTO_EXCHANGE,
@@ -378,13 +377,16 @@ export async function submitSupervisedLiveLimitOrder(args: {
   const currency = args.currency ?? (eu ? "EUR" : "USD");
   const primaryExchange = args.primaryExchange ?? eu?.primaryExchange;
   const exchange = args.exchange ?? (crypto ? IBKR_CRYPTO_EXCHANGE : "SMART");
-  const account =
-    args.account ??
-    (crypto
-      ? undefined
-      : eu
-        ? ibkrEurStocksAccountId()
-        : ibkrUsdStocksAccountId());
+  const account = resolveStockOrderAccount({
+    requested: args.account,
+    crypto,
+    euLocal: Boolean(eu) || currency === "EUR",
+  });
+  if (args.account && account && args.account.toUpperCase() !== account.toUpperCase()) {
+    console.warn(
+      `[AutoExecute] ${symbol}: cuenta ${args.account} ignorada — EUR local → ${account}`,
+    );
+  }
 
   const rationale = (args.rationale.trim().length >= 10
     ? args.rationale
@@ -677,3 +679,4 @@ export async function cancelIbkrOrder(orderId: string | number): Promise<void> {
     method: "DELETE",
   });
 }
+

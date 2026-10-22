@@ -165,3 +165,18 @@ export function europeanQuoteRoutes(symbol: string): Array<{
     },
   ];
 }
+
+
+/**
+ * EUR local equities must always use the EUR stocks account, whatever the caller
+ * passed (e.g. "richest USD account" or IBKR_ACCOUNT_ID for exits).
+ */
+export function resolveStockOrderAccount(args: {
+  requested?: string;
+  crypto: boolean;
+  euLocal: boolean;
+}): string | undefined {
+  if (args.crypto) return args.requested;
+  if (args.euLocal) return ibkrEurStocksAccountId();
+  return args.requested ?? ibkrUsdStocksAccountId();
+}

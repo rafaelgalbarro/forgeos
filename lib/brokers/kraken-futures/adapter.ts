@@ -5,6 +5,12 @@
 import "server-only";
 
 import {
+  isAcceptedSendStatus,
+  sizeForNotionalUsd,
+  type FuturesSizingResult,
+} from "./order-math";
+
+import {
   quantizeFuturesPrice,
   quantizeFuturesSize,
   spotPairToPfSymbol,
@@ -16,7 +22,9 @@ import {
   krakenFuturesRestBase,
   nextKrakenFuturesNonce,
   redactKrakenFuturesSecrets,
+  useKrakenFuturesDemoEndpoint,
 } from "./sign";
+import { chartsCandlesUrl, parseChartsCandles } from "./charts";
 
 type ApiEnvelope<T> = {
   result?: T;
@@ -320,42 +328,29 @@ export class KrakenFuturesAdapter {
     };
   }
 
+  /**
+   * OHLC candles via the Charts API (`count` newest candles, default 300).
+   * Throws on HTTP errors so callers can log the real cause.
+   */
   async getCandles(
     symbol: string,
     resolutionMinutes: number,
     fromMs?: number,
+    count = 300,
   ): Promise<FuturesBar[]> {
-    const sym = symbol.toUpperCase();
-    const path = `/history/${sym}/${resolutionMinutes}`;
-    const query: Record<string, string> = {};
-    if (fromMs) query.from = String(Math.floor(fromMs / 1000));
-    const raw = await publicGet<{ candles?: unknown[]; history?: unknown[] }>(path, query);
-    const candles = (raw.candles ?? raw.history ?? raw) as unknown[];
-    if (!Array.isArray(candles)) return [];
-    return candles.map((c) => {
-      const row = c as Record<string, unknown> | number[];
-      if (Array.isArray(row)) {
-        const t = num(row[0]);
-        return {
-          time: new Date(t * 1000).toISOString(),
-          open: num(row[1]),
-          high: num(row[2]),
-          low: num(row[3]),
-          close: num(row[4]),
-          volume: num(row[5]),
-        };
-      }
-      const ts = num(row.time ?? row.timestamp);
-      return {
-        time: new Date(ts).toISOString(),
-        open: num(row.open),
-        high: num(row.high),
-        low: num(row.low),
-        close: num(row.close),
-        volume: num(row.volume),
-      };
+    const url = chartsCandlesUrl({
+      demo: useKrakenFuturesDemoEndpoint(),
+      symbol,
+      minutes: resolutionMinutes,
+      count: fromMs ? undefined : count,
+      fromSec: fromMs ? fromMs / 1000 : undefined,
     });
+    if (!url) throw new Error(`Kraken charts: unsupported resolution ${resolutionMinutes}m`);
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Kraken charts HTTP ${res.status} ${symbol} ${resolutionMinutes}m`);
+    return parseChartsCandles(await res.json());
   }
+
 
   async getAccount(): Promise<FuturesAccount> {
     const raw = await privateCall<Record<string, unknown>>("GET", "/accounts");
@@ -473,6 +468,12 @@ export class KrakenFuturesAdapter {
       body,
     );
     const st = raw.sendStatus ?? (raw as Record<string, unknown>);
+    if (!isAcceptedSendStatus(st.status)) {
+      // e.g. invalidPrice, insufficientAvailableFunds, postWouldExecute, wouldNotReducePosition
+      throw new Error(
+        `Kraken sendorder ${params.orderType} ${params.side} ${params.symbol} rejected: status=${String(st.status)}`,
+      );
+    }
     const orderId = String(st.order_id ?? st.orderId ?? st.id ?? "");
     return {
       orderId,
@@ -502,15 +503,23 @@ export class KrakenFuturesAdapter {
       postOnly: params.postOnly ?? true,
     });
     const stopSide = params.side === "buy" ? "sell" : "buy";
-    const stop = await this.sendOrder({
-      symbol: params.symbol,
-      side: stopSide,
-      size: params.size,
-      orderType: "stp",
-      stopPrice: params.stopPrice,
-      reduceOnly: true,
-      triggerSignal: "mark",
-    });
+    let stop: FuturesOrderResult;
+    try {
+      stop = await this.sendOrder({
+        symbol: params.symbol,
+        side: stopSide,
+        size: params.size,
+        orderType: "stp",
+        stopPrice: params.stopPrice,
+        reduceOnly: true,
+        triggerSignal: "mark",
+      });
+    } catch (err) {
+      // Never leave an unprotected entry resting on the book.
+      if (entry.orderId) await this.cancelOrder(entry.orderId).catch(() => undefined);
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`exchange stop failed (entry cancelled): ${msg}`);
+    }
     return { ...entry, stopOrderId: stop.orderId };
   }
 
@@ -553,6 +562,32 @@ export class KrakenFuturesAdapter {
     }
     eurUsdCache = { rate, at: Date.now() };
     return rate;
+  }
+
+  /** Like sizeForNotionalEur but explains why sizing failed (logged by the engine). */
+  async sizeForNotionalEurDetailed(
+    spotOrPf: string,
+    notionalEur: number,
+    priceUsd?: number,
+  ): Promise<FuturesSizingResult> {
+    const eurUsd = await this.getEurUsdRate();
+    const pf =
+      spotOrPf.toUpperCase().startsWith("PF_")
+        ? spotOrPf.toUpperCase()
+        : spotPairToPfSymbol(spotOrPf);
+    if (!pf) return { ok: false, reason: "no_pf_symbol" };
+    const meta = await this.getInstrument(pf).catch(() => null);
+    let px = priceUsd ?? 0;
+    if (!(px > 0)) {
+      px = await this.getQuote(pf).then((q) => q.mid).catch(() => 0);
+    }
+    return sizeForNotionalUsd({
+      symbol: pf,
+      meta,
+      notionalUsd: notionalEur * eurUsd,
+      price: px,
+      eurUsd,
+    });
   }
 
   /** Size in contracts for EUR notional cap (converted to USD at spot EUR/USD). */

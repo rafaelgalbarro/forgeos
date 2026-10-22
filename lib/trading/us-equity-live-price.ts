@@ -238,5 +238,11 @@ export async function resolveUsEquityLivePrice(
   }
 
   const previousClose = await restMetadataPreviousClose(symbol);
-  return { ok: true, snap: snapshotFromWs(symbol, ws, previousClose) };
+  const snap = snapshotFromWs(symbol, ws, previousClose);
+  if (qc.reason.startsWith("ws-only")) {
+    // Price origin visible in [Premarket] logs: WS without 1m cross-check.
+    snap.quoteRoute = "EODHD-WS(ws-only)";
+    snap.quoteErrors = [qc.reason];
+  }
+  return { ok: true, snap };
 }

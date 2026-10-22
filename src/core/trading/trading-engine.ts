@@ -46,6 +46,7 @@ import {
   isStocksExecutionEuEnabled,
   isStocksExecutionPremarketEnabled,
   isStocksExecutionUsEnabled,
+  isSymbolBrokerBrakedToday,
   stocksExecutionPausedUntil,
 } from '@/lib/trading/stocks-execution-gate'
 import { isOtcPinkNonExecutable } from '@/lib/trading/otc-pink'
@@ -67,7 +68,7 @@ import {
   resolvePremarketShadowAtClose,
   resolvePremarketShadowAtOpen,
 } from '@/lib/trading/us-premarket'
-import { isEuropeanEurEquity } from '@/lib/trading/europe-equities'
+import { ibkrEurStocksAccountId, isEuropeanEurEquity } from '@/lib/trading/europe-equities'
 import {
   getEquityStrategySession,
   isEuropeanEurEquityRegularSession,
@@ -2604,6 +2605,18 @@ export class TradingEngine {
       }
     }
 
+    if (kind === 'stocks' && !isIbkrCryptoTicker(ticker) && isSymbolBrokerBrakedToday(ticker)) {
+      console.log(`[AutoExecute] ${ticker} → skip (BROKER_NO_ACK_BRAKE hoy UTC)`)
+      return {
+        status: 'SKIPPED',
+        ticker,
+        direction: 'HOLD',
+        reason: `${ticker}: bloqueado hoy por freno del broker (NO_ACK/rechazo)`,
+        signal: notAnalyzedSignal('BROKER_NO_ACK_BRAKE hoy'),
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     if (shouldSkipUntradeableTicker(ticker)) {
       console.log(`[AutoExecute] ${ticker} → skip permanente (junk / .OLD / .CVR)`)
       return {
@@ -3864,6 +3877,10 @@ export class TradingEngine {
     // Crypto IBKR always on dedicated PAXOS account (default U24225949)
     if (isIbkrCryptoTicker(params.ticker) && isIbkrCryptoEnabled()) {
       account = cryptoIbkrAccountId()
+    } else if (isEuropeanEurEquity(params.ticker)) {
+      // EU local listings (EUR) always go to the EUR cash account — never the
+      // "richest USD" account (REP was sent to U24225949 and rejected).
+      account = ibkrEurStocksAccountId()
     } else {
       // Always route to the account with most positive USD (never USD-negative)
       const richest = await pickIbkrAccountWithMostUsd().catch(() => ({

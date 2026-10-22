@@ -5,6 +5,11 @@
 import "server-only";
 
 import {
+  quantizeStopConservative,
+  signalPriceToContract,
+} from "@/lib/brokers/kraken-futures/order-math";
+
+import {
   getKrakenFuturesAdapter,
   isKrakenFuturesConfigured,
   spotPairToPfSymbol,
@@ -418,7 +423,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
 
   const pairs = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
   const needBars = pairs.filter(
-    (p) => getBars(p, "5").length < 20 || getBars(p, "60").length < 30,
+    (p) => getBars(p, "5").length < 30 || getBars(p, "15").length < 120 || getBars(p, "60").length < 60,
   );
   if (needBars.length) {
     await backfillFuturesUniverse(needBars, { delayMs: 120 }).catch(() => undefined);
@@ -473,16 +478,27 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     }
 
     const notional = cryptoLiveMaxNotionalEur();
-    const sizing = await adapter.sizeForNotionalEur(pf, notional, sig.entry);
-    if (!sizing) {
-      held.push(`${sig.pair}:min_contract`);
-      continue;
-    }
-
     const side = sig.direction === "SELL" ? "short" : "long";
     const orderSide = side === "long" ? "buy" : "sell";
+    // Signals come from spot EUR bars; size and price in the PF contract's USD space.
     const quote = await adapter.getQuote(pf).catch(() => null);
+    const sizing = await adapter.sizeForNotionalEurDetailed(pf, notional, quote?.mid);
+    if (!sizing.ok) {
+      held.push(`${pf}:${sig.strategyId}:${sizing.reason}`);
+      continue;
+    }
     const px = quote?.mid ?? sizing.price;
+    const meta = await adapter.getInstrument(pf).catch(() => null);
+    const stopUsd = quantizeStopConservative(
+      signalPriceToContract(sig.stopLoss, sig.entry, px),
+      meta?.tickSize ?? 0,
+      side,
+    );
+    const tpUsd = signalPriceToContract(sig.takeProfit, sig.entry, px);
+    if (side === "short" ? !(stopUsd > px) : !(stopUsd < px)) {
+      held.push(`${pf}:${sig.strategyId}:stop_wrong_side(stop=${stopUsd} mark=${px})`);
+      continue;
+    }
 
     if (!live) {
       const shQty = shadowSimQty(px);
@@ -504,8 +520,8 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
         shadow: true,
         open: true,
         signalKey: sig.signalKey,
-        stopLoss: sig.stopLoss,
-        takeProfit: sig.takeProfit,
+        stopLoss: stopUsd,
+        takeProfit: tpUsd,
         qty: shQty,
         venue: "futures",
         positionSide: side,
@@ -525,11 +541,11 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
         side: orderSide,
         size: sizing.size,
         limitPrice: limitPx,
-        stopPrice: sig.stopLoss,
+        stopPrice: stopUsd,
         postOnly: true,
       });
       if (!result.stopOrderId) {
-        held.push(`${sig.pair}:no_exchange_stop`);
+        held.push(`${pf}:${sig.strategyId}:no_exchange_stop`);
         if (result.orderId) await adapter.cancelOrder(result.orderId).catch(() => undefined);
         continue;
       }
@@ -551,8 +567,8 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
         shadow: false,
         open: true,
         signalKey: sig.signalKey,
-        stopLoss: sig.stopLoss,
-        takeProfit: sig.takeProfit,
+        stopLoss: stopUsd,
+        takeProfit: tpUsd,
         qty: sizing.size,
         orderId: result.orderId,
         venue: "futures",
@@ -564,12 +580,13 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
       });
       const line =
         `🟢 ${side.toUpperCase()} Futures ${pf} ${sizing.size} @ $${limitPx.toFixed(2)} | ` +
-        `${sig.strategyId} lev=${futuresMaxLeverage()} stop=$${sig.stopLoss.toFixed(2)}`;
+        `${sig.strategyId} lev=${futuresMaxLeverage()} stop=$${stopUsd}`;
       void sendTelegramMessage(line).catch(() => undefined);
       executed.push(`${pf}:${sig.strategyId}`);
     } catch (err) {
-      held.push(`${sig.pair}:ERR`);
-      console.warn("[Kraken/Futures]", err instanceof Error ? err.message : err);
+      const msg = err instanceof Error ? err.message : String(err);
+      held.push(`${pf}:${sig.strategyId}:ERR(${msg.slice(0, 160)})`);
+      console.warn(`[Kraken/Futures] order error ${pf} ${sig.strategyId}: ${msg}`);
     }
   }
 
@@ -583,12 +600,14 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     signals: ranked.length,
     orders: executed.length,
     shadow: shadow.length,
+    held: held.slice(0, 20),
   };
   publishFuturesEngineState({ lastCycle: lastCycleMeta });
   recordFuturesCycleMeta({ signals: ranked.length });
   const authNote = lastMarginAuthErrorAt ? " auth error" : "";
   console.log(
-    `[Kraken/Futures] cycle ${formatFuturesCycleMarginLog()} symbols=${pairs.length} ${dataAgeLog} signals=${ranked.length} orders=${executed.length} shadow=${shadow.length}${authNote}`,
+    `[Kraken/Futures] cycle ${formatFuturesCycleMarginLog()} symbols=${pairs.length} ${dataAgeLog} signals=${ranked.length} orders=${executed.length} shadow=${shadow.length}${authNote}` +
+      (held.length ? ` held=[${held.slice(0, 6).join(" | ")}]` : ""),
   );
   return { signals: ranked, executed, shadow, held };
   } finally {

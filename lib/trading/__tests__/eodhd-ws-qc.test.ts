@@ -63,4 +63,41 @@ describe("EODHD WS QC vs 1m candle", () => {
     expect(r.ok).toBe(true);
     expect(r.code).toBe("OK");
   });
+
+  it("premarket: stale 1m candle (EODHD lag) does not block a fresh WS book", async () => {
+    const now = Date.now();
+    patchEodhdWsQuote("NVDA", {
+      bid: 180,
+      ask: 180.2,
+      last: 180.1,
+      quoteUpdatedAtMs: now,
+      tradeUpdatedAtMs: now,
+      extendedHours: true,
+    });
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      // yesterday's last bar, 14 h old, 3% away
+      json: async () => [{ close: 175, timestamp: Math.floor(now / 1000) - 14 * 3600 }],
+    } as Response);
+
+    const r = await evaluateEodhdWsQuality("NVDA", { alert: false });
+    expect(r.ok).toBe(true);
+    expect(r.reason).toMatch(/^ws-only/);
+  });
+
+  it("no 1m and wide spread still blocks", async () => {
+    const now = Date.now();
+    patchEodhdWsQuote("XYZ", {
+      bid: 10,
+      ask: 11,
+      last: 10.5,
+      quoteUpdatedAtMs: now,
+      tradeUpdatedAtMs: now,
+      extendedHours: true,
+    });
+    vi.spyOn(global, "fetch").mockResolvedValue({ ok: true, json: async () => [] } as Response);
+    const r = await evaluateEodhdWsQuality("XYZ", { alert: false });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("NO_1M");
+  });
 });

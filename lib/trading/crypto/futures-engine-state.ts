@@ -30,6 +30,8 @@ export type KrakenFuturesEngineStateFile = {
     signals: number;
     orders: number;
     shadow: number;
+    /** Why ranked signals did not become orders (sizing, gate, API error…). */
+    held?: string[];
   } | null;
 };
 

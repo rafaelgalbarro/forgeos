@@ -25,6 +25,13 @@ const EVENTS_FILE = path.join(
   "ibkr-stocks-reject-events.json",
 );
 
+const BROKER_SYMBOL_DAY_FILE = path.join(
+  process.cwd(),
+  ".forgeos",
+  "cache",
+  "ibkr-broker-no-ack-symbol-day.json",
+);
+
 const WINDOW_MS = 30 * 60_000;
 const PAUSE_MS = 2 * 60 * 60_000;
 const MAX_EVENTS = 3;
@@ -282,4 +289,36 @@ export function __resetStocksExecutionGateForTests(): void {
   } catch {
     /* ignore */
   }
+}
+
+
+/**
+ * Symbols the IBKR broker blocked today (UTC) after a NO_ACK/reject
+ * (services/ibkr-broker/app/order_send_brakes.py). The cycle must not keep
+ * proposing them — the broker would only answer BROKER_NO_ACK_BRAKE again.
+ */
+export function brokerBrakedSymbolsToday(
+  filePath: string = BROKER_SYMBOL_DAY_FILE,
+  now: Date = new Date(),
+): Set<string> {
+  const out = new Set<string>();
+  try {
+    if (!fs.existsSync(filePath)) return out;
+    const raw = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
+    const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+    const blocks = (
+      obj.symbols && typeof obj.symbols === "object" ? obj.symbols : obj
+    ) as Record<string, unknown>;
+    const today = now.toISOString().slice(0, 10);
+    for (const [sym, day] of Object.entries(blocks)) {
+      if (String(day) === today) out.add(sym.trim().toUpperCase());
+    }
+  } catch {
+    /* unreadable → no blocks */
+  }
+  return out;
+}
+
+export function isSymbolBrokerBrakedToday(symbol: string): boolean {
+  return brokerBrakedSymbolsToday().has(symbol.trim().toUpperCase());
 }

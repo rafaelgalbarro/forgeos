@@ -91,40 +91,85 @@ export function ingestFuturesWsTicker(
   applyFuturesMarkTick(spot, snap.mark > 0 ? snap.mark : mid, Math.floor(now / 1000));
 }
 
-export async function backfillFuturesSpotPair(spotPair: string): Promise<void> {
+/** Bars kept per timeframe after backfill (strategies need ≥60–120; store caps at 300). */
+export const FUTURES_BACKFILL_BARS = 300;
+
+export type FuturesBackfillResult = {
+  pair: string;
+  pf: string | null;
+  bars: Partial<Record<Tf, number>>;
+  error?: string;
+};
+
+export async function backfillFuturesSpotPair(spotPair: string): Promise<FuturesBackfillResult> {
   const pf = spotPairToPfSymbol(spotPair);
-  if (!pf) return;
+  const out: FuturesBackfillResult = { pair: spotPair, pf, bars: {} };
+  if (!pf) return { ...out, error: "no_pf" };
   const adapter = getKrakenFuturesAdapter();
+  const errors: string[] = [];
   for (const [mins, tf] of [
     [5, "5"],
     [15, "15"],
     [60, "60"],
   ] as const) {
-    const candles = await adapter.getCandles(pf, mins).catch(() => []);
-    const bars = candles
-      .map(futuresCandleToBar)
-      .filter((b): b is Bar => b != null)
-      .sort((a, b) => a.time - b.time);
-    if (bars.length) setBars(spotPair, tf, bars);
+    try {
+      const candles = await adapter.getCandles(pf, mins, undefined, FUTURES_BACKFILL_BARS);
+      const fresh = candles
+        .map(futuresCandleToBar)
+        .filter((b): b is Bar => b != null);
+      if (fresh.length) {
+        // Merge: REST history + newer live (WS-built) bars, newest wins per bucket.
+        const byTime = new Map<number, Bar>();
+        for (const b of fresh) byTime.set(b.time, b);
+        for (const b of getBars(spotPair, tf)) {
+          if (b.time >= fresh[fresh.length - 1]!.time) byTime.set(b.time, b);
+        }
+        setBars(
+          spotPair,
+          tf,
+          [...byTime.values()].sort((a, b) => a.time - b.time).slice(-FUTURES_BACKFILL_BARS),
+        );
+      }
+      out.bars[tf] = getBars(spotPair, tf).length;
+    } catch (err) {
+      errors.push(`${tf}m:${err instanceof Error ? err.message : String(err)}`);
+      out.bars[tf] = getBars(spotPair, tf).length;
+    }
   }
   const q = await adapter.getQuote(pf).catch(() => null);
   if (q && q.mid > 0) {
     ingestFuturesWsTicker(pf, { bid: q.bid, ask: q.ask, mark: q.mark });
   }
+  if (errors.length) out.error = errors.join("; ").slice(0, 300);
+  return out;
 }
 
 export async function backfillFuturesUniverse(
   spotPairs: readonly string[],
   opts?: { delayMs?: number },
-): Promise<void> {
+): Promise<FuturesBackfillResult[]> {
   const delayMs = opts?.delayMs ?? 180;
-  let ok = 0;
+  const results: FuturesBackfillResult[] = [];
   for (const pair of spotPairs) {
-    await backfillFuturesSpotPair(pair).catch(() => undefined);
-    ok += 1;
-    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    const r = await backfillFuturesSpotPair(pair).catch((err) => ({
+      pair,
+      pf: null,
+      bars: {},
+      error: err instanceof Error ? err.message : String(err),
+    }));
+    results.push(r);
+    if (delayMs > 0) await new Promise((res) => setTimeout(res, delayMs));
   }
+  const ok = results.filter((r) => !r.error && (r.bars["60"] ?? 0) >= 60).length;
+  const minBars = (tf: Tf) =>
+    results.length ? Math.min(...results.map((r) => r.bars[tf] ?? 0)) : 0;
   console.log(
-    `[Kraken/Futures/REST] backfill 5/15/1h universe: ok=${ok} total=${spotPairs.length}`,
+    `[Kraken/Futures/REST] backfill 5/15/1h universe: ok=${ok} total=${spotPairs.length} ` +
+      `minBars 5m=${minBars("5")} 15m=${minBars("15")} 1h=${minBars("60")}`,
   );
+  const failed = results.filter((r) => r.error).slice(0, 3);
+  for (const f of failed) {
+    console.warn(`[Kraken/Futures/REST] backfill ${f.pf ?? f.pair} error: ${f.error}`);
+  }
+  return results;
 }

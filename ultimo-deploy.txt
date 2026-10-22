@@ -1,30 +1,28 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando a09ceff mt5 bridge: más margen al primer arranque (180 s) y no matar el terminal en cada fallo; logs legibles
+Desplegando 029d373 mt5: Python 3.12 + MetaTrader5 actual para el terminal build 6281
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261022-180854
-Updating 3b55eb0..a09ceff
+estado copiado en /root/forgeos-state-20261022-181716
+Updating a09ceff..029d373
 Fast-forward
- .github/workflows/server-remote.yml |  2 +-
- deploy/remote/forgeos-remote.sh     | 26 +++++++++++++++++++++++---
- services/mt5-bridge/mt5_bridge.py   | 20 ++++++++++++--------
- 3 files changed, 36 insertions(+), 12 deletions(-)
+ deploy/remote/mt5-bridge-run.sh | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.45s
+19 passed in 0.59s
 
 === BUILD ===
 procesos MT5 antes: terminal=1 puente=1 wine=5
-Mem:            7746        2490         546           8        5024        5255
-Swap:           4095        1147        2948
+Mem:            7746        2508        2344           5        3205        5237
+Swap:           4095        1150        2945
      0 MB COMMAND
-   409 MB next-server
+   445 MB next-server
    394 MB java
-   183 MB node
-   146 MB node
-   123 MB python3
+   178 MB node
+   158 MB node
+   114 MB node
 
 up to date in 1s
    Generating static pages (153/204) 

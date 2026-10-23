@@ -707,6 +707,11 @@ do_forex_playbook() {
   timeout 2400 node scripts/forex-bot.cjs playbook 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -40
 }
 
+do_forex_methods() {
+  sec "MÉTODOS PUBLICADOS (Raschke, Lien, Connors) — backtest con historia de OANDA"
+  timeout 2400 node scripts/forex-bot.cjs methods 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | grep -vE "velas: .*fetch failed" | tail -45
+}
+
 do_forex_bot() {
   sec "BOT FOREX"
   if ! pm2 describe forgeos-forex-bot >/dev/null 2>&1; then
@@ -880,6 +885,7 @@ case "$ACTION" in
   forex-bot) do_forex_bot ;;
   forex-optimize) do_forex_optimize "$ARG" ;;
   forex-playbook) do_forex_playbook ;;
+  forex-methods) do_forex_methods ;;
   mt5-setup) do_mt5_setup ;;
   mt5-status) do_mt5_status ;;
   mt5-wine9)

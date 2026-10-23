@@ -27,7 +27,7 @@ permissions:
 jobs:
   remote:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 70
     steps:
       - name: Preparar SSH
         env:

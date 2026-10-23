@@ -1,31 +1,38 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 722a163 forex-bot: techo de riesgo por lote mínimo configurable hasta 5 %
+Desplegando aabe177 workflow: timeout 70 min
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261023-144952
-Updating 573dd33..722a163
+estado copiado en /root/forgeos-state-20261023-150150
+Updating 722a163..aabe177
 Fast-forward
- deploy/remote/forgeos-remote.sh | 2 +-
- lib/forex-bot/config.ts         | 6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ .github/workflows/server-remote.yml          |   4 +-
+ deploy/remote/forgeos-remote.sh              |   6 ++
+ lib/forex-bot/ignition.ts                    | 150 +++++++++++++++++++++++++++
+ lib/trading/__tests__/forex-ignition.test.ts |  28 +++++
+ scripts/forex-bot.cjs                        |   2 +-
+ scripts/forex-ignition.ts                    | 142 +++++++++++++++++++++++++
+ 6 files changed, 329 insertions(+), 3 deletions(-)
+ create mode 100644 lib/forex-bot/ignition.ts
+ create mode 100644 lib/trading/__tests__/forex-ignition.test.ts
+ create mode 100644 scripts/forex-ignition.ts
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.49s
+19 passed in 0.52s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        3215         525           5        4318        4530
+Mem:            7746        3070        1239           5        3748        4675
 Swap:           4095        1125        2970
      0 MB COMMAND
-   535 MB java
-   438 MB next-server
-   287 MB node
+   540 MB java
+   433 MB next-server
+   295 MB node
    282 MB node
    257 MB node
 
-up to date in 2s
+up to date in 1s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

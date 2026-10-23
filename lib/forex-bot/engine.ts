@@ -217,7 +217,9 @@ export async function runForexBotCycle(): Promise<string> {
           const r = await mt5Close(String(still.ticket)).catch(() => null);
           if (r) {
             const c = await mt5Closed(String(still.ticket)).catch(() => null);
-            closeLocal(t, r.price, wk ? "WEEKEND" : "TIME", accountCurrency, rates, c?.pnl ?? null);
+            // OANDA fills asynchronously (close/order replies may carry price 0): prefer the deal price.
+            const px = c?.exitPrice || r.price || rates[t.instrument] || t.entry;
+            closeLocal(t, px, wk ? "WEEKEND" : "TIME", accountCurrency, rates, c?.pnl ?? null);
           }
         }
         continue;

@@ -82,14 +82,23 @@ def sym_info(symbol):
 
 
 def resolve(base):
-    """EUR_USD → broker symbol (EURUSD, EURUSD.pro, …)."""
+    """EUR_USD → tradable broker symbol. OANDA TMS lists EURUSD (view only, trade disabled) and
+    EURUSD.pro (tradable): prefer symbols whose trade mode is FULL, then the shortest name."""
     want = base.replace("_", "").replace("/", "").upper()
-    exact = mt5.symbol_info(want)
-    if exact is not None:
-        return want
-    cands = [s.name for s in (mt5.symbols_get("*" + want + "*") or [])]
-    cands.sort(key=lambda n: (len(n), n))
-    return cands[0] if cands else None
+    cands = []
+    for s in (mt5.symbols_get("*" + want + "*") or []):
+        name = s.name.upper()
+        if not name.startswith(want):
+            continue
+        cands.append(s)
+    if not cands:
+        exact = mt5.symbol_info(want)
+        return want if exact is not None else None
+    full = getattr(mt5, "SYMBOL_TRADE_MODE_FULL", 4)
+    cands.sort(key=lambda s: (0 if s.trade_mode == full else 1 if s.trade_mode != 0 else 2, len(s.name), s.name))
+    best = cands[0]
+    mt5.symbol_select(best.name, True)
+    return best.name
 
 
 def account():

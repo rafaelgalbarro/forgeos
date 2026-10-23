@@ -787,7 +787,7 @@ for p in json.load(sys.stdin):
       chown -R "$WU" /root/mt5-config/forgeos; echo "permisos ajustados a uid $WU"; MT5_RESTART=1
     fi
     curl -s --max-time 10 http://127.0.0.1:8004/health >/dev/null 2>&1 || echo "puente sin respuesta (puede estar arrancando)"
-    if [ "${MT5_RESTART:-0}" = 1 ] || [ "$(pm2 jlist 2>/dev/null | grep -c '"name":"forgeos-mt5-bridge".*errored')" != 0 ]; then
+    if [ "${MT5_RESTART:-0}" = 1 ] || [ "$(pm2 jlist 2>/dev/null | python3 -c 'import sys,json; print(next((p["pm2_env"]["status"] for p in json.load(sys.stdin) if p.get("name")=="forgeos-mt5-bridge"),""))')" != online ]; then
       pm2 restart forgeos-mt5-bridge --update-env >/dev/null 2>&1 || pm2 start ecosystem.config.js --only forgeos-mt5-bridge >/dev/null 2>&1
       echo "puente reiniciado; esperando 90 s…"; sleep 90
     fi

@@ -1,13 +1,13 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 3eb38e3 mt5: WebView2 en modo Windows 7 bajo Wine
+Desplegando 65c0298 mt5: aceptar automáticamente el aviso de riesgo de OANDA al arrancar el terminal
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261023-071911
-Updating 2596fd1..3eb38e3
+estado copiado en /root/forgeos-state-20261023-072633
+Updating 3eb38e3..65c0298
 Fast-forward
- deploy/remote/mt5-bridge-run.sh | 2 ++
- 1 file changed, 2 insertions(+)
+ deploy/remote/mt5-bridge-run.sh | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
@@ -15,16 +15,16 @@ Fast-forward
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2731        2079           8        3250        5014
-Swap:           4095        1055        3040
+Mem:            7746        2746        2375           8        2939        4999
+Swap:           4095        1104        2991
      0 MB COMMAND
-   504 MB java
-   408 MB next-server
-   228 MB node
+   475 MB java
+   423 MB next-server
+   227 MB node
    224 MB node
-   187 MB node
+   192 MB node
 
-up to date in 1s
+up to date in 2s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

@@ -260,6 +260,9 @@ async function markPx(pf: string, adapter: ReturnType<typeof getKrakenFuturesAda
   return q?.mid ?? null;
 }
 
+/** Closes already announced on Telegram (one message per open leg, whatever happens). */
+const announcedCloses = new Set<string>();
+
 async function finalizeFuturesClose(
   open: CryptoJournalTrade,
   exit: number,
@@ -297,7 +300,11 @@ async function finalizeFuturesClose(
     netPnlEur: net,
   });
   // Only real (non-shadow) closes reach Telegram.
-  if (!open.shadow) void sendTelegramMessage(`[KRAKEN] ${line}`, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
+  const closeKey = `${open.strategy}|${open.pair}|${open.signalKey ?? open.at}`;
+  if (!open.shadow && !announcedCloses.has(closeKey)) {
+    announcedCloses.add(closeKey);
+    void sendTelegramMessage(`[KRAKEN] ${line}`, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
+  }
 }
 
 async function runFuturesShadowExits(): Promise<void> {

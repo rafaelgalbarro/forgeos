@@ -169,6 +169,9 @@ do_deploy() {
   sec "REINICIO"
   pm2 restart forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker --update-env > /dev/null && echo "reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker"
   if pm2 describe forgeos-forex-bot >/dev/null 2>&1; then pm2 restart forgeos-forex-bot --update-env >/dev/null && echo "reiniciado: forgeos-forex-bot"; fi
+  for app in forgeos-eodhd-us-ws forgeos-alerts forgeos-scanner forgeos-reports; do
+    pm2 describe "$app" >/dev/null 2>&1 && pm2 restart "$app" --update-env >/dev/null 2>&1 && echo "reiniciado: $app"
+  done
   if [ "${MT5_STOPPED:-0}" = 1 ]; then pm2 restart forgeos-mt5-bridge --update-env >/dev/null && echo "reiniciado: forgeos-mt5-bridge"; fi
   sleep 20
   pm2 jlist 2>/dev/null | python3 -c '

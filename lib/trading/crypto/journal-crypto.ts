@@ -94,7 +94,9 @@ export function appendCryptoJournal(trade: CryptoJournalTrade): void {
   try {
     ensure();
     // Dedupe: same signalKey BUY open must not repeat
-    if (trade.signalKey && trade.side === "BUY") {
+    // (futures short closes are written as BUY legs with exitReason — those must never be skipped,
+    //  or the open leg stays "open" forever and the exit loop re-closes it every few seconds)
+    if (trade.signalKey && trade.side === "BUY" && !trade.exitReason) {
       if (hasSignalKey(trade.signalKey)) {
         console.log(
           `[CryptoJournal] skip duplicate signalKey=${trade.signalKey}`,

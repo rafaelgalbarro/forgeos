@@ -2021,7 +2021,7 @@ export class TradingEngine {
         `🟢 BUY ₿ KRAKEN ${pair} ${submitted.volume} @ €${submitted.price.toFixed(4)} | ` +
         `${buy.strategyId} conf=${(buy.confidence * 100).toFixed(0)}% SL €${buy.stopLoss.toFixed(4)} TP €${buy.takeProfit.toFixed(4)}`
       console.log(`[AutoExecute] ${buyLine}`)
-      void sendTelegramMessage(buyLine).catch(() => undefined)
+      void sendTelegramMessage(buyLine, undefined, { kind: 'trade', platform: 'KRAKEN' }).catch(() => undefined)
 
       return {
         status: 'EXECUTED',

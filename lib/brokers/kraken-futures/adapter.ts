@@ -442,6 +442,22 @@ export class KrakenFuturesAdapter {
     });
   }
 
+  /** Recent fills (Kraken returns the last ~100). */
+  async getRecentFills(): Promise<Array<{ symbol: string; side: "buy" | "sell"; size: number; price: number; time: number; fillType: string }>> {
+    const raw = await privateCall<{ fills?: Record<string, unknown>[] }>("GET", "/fills");
+    const rows = raw.fills ?? (Array.isArray(raw) ? (raw as Record<string, unknown>[]) : []);
+    return rows
+      .map((f) => ({
+        symbol: String(f.symbol ?? "").toUpperCase(),
+        side: (String(f.side ?? "").toLowerCase() === "sell" ? "sell" : "buy") as "buy" | "sell",
+        size: Math.abs(num(f.size)),
+        price: num(f.price),
+        time: Date.parse(String(f.fillTime ?? f.fill_time ?? "")),
+        fillType: String(f.fillType ?? f.fill_type ?? ""),
+      }))
+      .filter((f) => f.price > 0 && Number.isFinite(f.time));
+  }
+
   /** Open orders (reduce-only stops / take-profits included). */
   async getOpenOrders(): Promise<
     Array<{ orderId: string; symbol: string; side: string; orderType: string; reduceOnly: boolean; stopPrice: number | null; size: number }>

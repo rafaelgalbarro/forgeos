@@ -261,6 +261,31 @@ async function markPx(pf: string, adapter: ReturnType<typeof getKrakenFuturesAda
   return q?.mid ?? null;
 }
 
+let fillsCache: { at: number; fills: Awaited<ReturnType<ReturnType<typeof getKrakenFuturesAdapter>["getRecentFills"]>> } | null = null;
+
+/** Weighted exit price + reason from Kraken fills that closed this leg (opposite side, after entry). */
+async function closingFillsFor(
+  adapter: ReturnType<typeof getKrakenFuturesAdapter>,
+  pf: string,
+  open: CryptoJournalTrade,
+): Promise<{ price: number; reason: string; feesEur: number } | null> {
+  if (!fillsCache || Date.now() - fillsCache.at > 10_000) fillsCache = { at: Date.now(), fills: await adapter.getRecentFills() };
+  const side = open.positionSide ?? "long";
+  const closeSide = side === "short" ? "buy" : "sell";
+  const since = Date.parse(open.at) - 5_000;
+  const fills = fillsCache.fills.filter((f) => f.symbol === pf.toUpperCase() && f.side === closeSide && f.time >= since);
+  if (!fills.length) return null;
+  const qty = fills.reduce((a, f) => a + f.size, 0);
+  if (!(qty > 0)) return null;
+  const price = fills.reduce((a, f) => a + f.price * f.size, 0) / qty;
+  const types = fills.map((f) => f.fillType.toLowerCase()).join(",");
+  const reason = types.includes("liquidation") ? "LIQUIDATION"
+    : types.includes("take") ? "TAKE_PROFIT"
+      : types.includes("stop") ? "STOP_LOSS"
+        : "EXCHANGE_CLOSE";
+  return { price, reason, feesEur: price * qty * 0.0005 };
+}
+
 /** Closes already announced on Telegram (one message per open leg, whatever happens). */
 const announcedCloses = new Set<string>();
 
@@ -392,7 +417,15 @@ export async function runFuturesExitLoop(): Promise<void> {
       // A fresh entry may not be visible as a position yet: give it 3 minutes before calling it flat.
       const age = Date.now() - Date.parse(open.at);
       if (Number.isFinite(age) && age < 3 * 60_000) continue;
-      await finalizeFuturesClose(open, open.entry, "EXCHANGE_FLAT", 0);
+      // Real exit: the closing fills on Kraken after the entry (stop / take-profit / manual).
+      const exitInfo = await closingFillsFor(adapter, pf, open).catch(() => null);
+      if (exitInfo) {
+        await finalizeFuturesClose(open, exitInfo.price, exitInfo.reason, exitInfo.feesEur);
+      } else {
+        const q = await adapter.getQuote(pf).catch(() => null);
+        const mid = q && q.bid > 0 && q.ask > 0 ? (q.bid + q.ask) / 2 : null;
+        await finalizeFuturesClose(open, mid ?? open.entry, "EXCHANGE_FLAT", 0);
+      }
       continue;
     }
     // Every live position must have a reduce-only stop AND take-profit on the exchange.

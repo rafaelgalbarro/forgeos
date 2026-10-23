@@ -1,0 +1,57 @@
+
+=== MT5 ===
+mt5 Up 19 hours
+puente: online reinicios: 117
+--- diagnóstico contenedor
+drwxr-xr-x 4 abc abc 4096 Oct 23 08:25 /config/.wine
+/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
+/config/.wine/drive_c/Python312-64/python.exe
+/config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
+/config/.wine/drive_c/Python39-64/python.exe
+  45483       02:51 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  45490       02:50 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  45665       00:34 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  45673       00:34 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+--- logs del terminal
+## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
+NF	0	07:59:53.628	Trades	'242902': market sell 0.01 EURUSD.pro, close #155023765 buy 0.01 EURUSD.pro 1.11986 placed for execution
+RG	0	07:59:53.656	Trades	'242902': order #155023772 sell 0.01 / 0.01 EURUSD.pro at market done in 87.499 ms
+OD	0	07:59:53.660	Trades	'242902': deal #108667737 sell 0.01 EURUSD.pro at 1.11976 done (based on order #155023772)
+EH	0	08:25:11.485	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
+PP	0	08:25:11.675	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
+HP	0	08:25:11.676	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 4 / 7 Gb memory, 28 / 74 Gb disk, GMT+0
+IR	0	08:25:11.676	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
+OK	0	08:25:11.676	Terminal	launched with Z:\config\forgeos\start.ini
+NO	0	08:25:11.694	MCP	started on 127.0.0.1:22346
+OG	0	08:25:15.175	Network	'242902': authorized on OANDATMS-MT5 through Access Server GCP VM OANDA-EUW (ping: 53.90 ms, build 5830)
+CH	0	08:25:15.175	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.23 09:37:08
+EK	0	08:25:16.030	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
+RH	0	08:25:16.030	Network	'242902': trading has been enabled - hedging mode
+FK	0	08:25:16.030	Network	'242902': balance management has been enabled
+RL	0	08:27:14.108	Trade	'242902': high risk investment warning has been rejected
+--- herramientas X: xwd xdotool 
+--- /health
+{"ok": true, "state": {"initialized": true, "last_error": null, "login": 242902, "server": "OANDATMS-MT5"}, "account": {"login": 242902, "server": "OANDATMS-MT5", "currency": "EUR", "balance": 97.57, "equity": 97.57, "margin": 0.0, "margin_free": 97.57, "leverage": 100, "trade_allowed": false, "trade_expert": true, "terminal_trade_allowed": true, "connected": true, "demo": false, "margin_mode_netting": false}}
+
+--- /tradecheck
+{"ok": false, "retcode": 10017, "comment": "Trade disabled", "symbol": "EURUSD.pro"}
+
+--- /resolve?base=EUR_USD
+{"symbol": "EURUSD.pro"}
+
+--- /symbol EURUSD.pro
+{"symbol": "EURUSD.pro", "digits": 5, "point": 1e-05, "contract_size": 100000.0, "volume_min": 0.01, "volume_step": 0.01, "volume_max": 50.0, "tick_size": 1e-05, "tick_value": 0.8834858818956074, "tick_value_loss": 0.9026248330144059, "stops_level": 0, "filling_mode": 1, "trade_mode": 4, "currency_profit": "USD", "currency_base": "EUR", "bid": 0.0, "ask": 0.0, "time": 0}
+
+--- velas M15 (últimas 2)
+[{"time": 1792746900, "open": 1.1204, "high": 1.1204, "low": 1.1191200000000001, "close": 1.11939, "volume": 2306.0}, {"time": 1792747800, "open": 1.11939, "high": 1.12005, "low": 1.11923, "close": 1.11982, "volume": 2093.0}]
+
+2026-10-23 08:25:08 +00:00: wine: wine-11.10 (Staging)
+2026-10-23 08:25:08 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-10-23 08:26:24 +00:00: aceptando aviso de riesgo de OANDA (ventana 18874436)
+2026-10-23 08:27:12 +00:00: aceptando aviso de riesgo de OANDA (ventana 18874436)
+2026-10-23 08:27:26 +00:00: mt5 bridge listening on 8004
+2026-10-23 08:27:26 +00:00: init=True err=None
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

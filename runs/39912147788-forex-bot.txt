@@ -1,0 +1,19 @@
+
+=== BOT FOREX ===
+proceso: online reinicios: 19
+modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
+--- últimos ciclos
+2026-10-23 06:27:49 +00:00: 2026-10-23T06:27:48.398Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=98.72 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | sin órdenes reales: cuenta MT5 sin permiso de trading (OANDA)
+2026-10-23 06:28:49 +00:00: 2026-10-23T06:28:48.427Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=98.72 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | sin órdenes reales: cuenta MT5 sin permiso de trading (OANDA)
+2026-10-23 06:29:49 +00:00: 2026-10-23T06:29:48.457Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=98.72 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | sin órdenes reales: cuenta MT5 sin permiso de trading (OANDA)
+2026-10-23 06:30:50 +00:00: 2026-10-23T06:30:48.487Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=98.72 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | sin órdenes reales: cuenta MT5 sin permiso de trading (OANDA)
+2026-10-23 06:31:49 +00:00: 2026-10-23T06:31:48.515Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=98.72 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | sin órdenes reales: cuenta MT5 sin permiso de trading (OANDA)
+2026-10-23 06:32:49 +00:00: 2026-10-23T06:32:48.517Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=98.72 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | sin órdenes reales: cuenta MT5 sin permiso de trading (OANDA)
+--- operaciones
+shadow GBP_JPY short 4000 entrada 210.131 SL 210.46261 TP 209.5341 | cierre 2026-10-23T00:15:39.955Z TP P&L 12.981887778423479
+shadow AUD_NZD long 1047 entrada 1.23536 SL 1.23164 TP 1.2428 | cierre 2026-10-23T03:15:44.801Z SL P&L -2.117106269108135
+shadow AUD_NZD short 1030 entrada 1.23171 SL 1.23548 TP 1.22417 | cierre abierta None P&L None
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

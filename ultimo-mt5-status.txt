@@ -2,17 +2,16 @@
 === MT5 ===
 mt5 Up 17 hours
 puente: online reinicios: 115
-puente sin respuesta (puede estar arrancando)
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Oct 23 06:58 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Oct 23 06:59 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  41209       00:40 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  41215       00:40 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
-  41292       00:00 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
-  41309       00:00 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+  41209       01:02 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  41215       01:02 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  41292       00:22 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  41309       00:22 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
 GL	0	06:51:33.655	HistoryCenter	delete old files from C:\Program Files\OANDA TMS MT5 Terminal\bases\Default\history\EURUSD, last access time 2023.06.08 10:59
@@ -32,17 +31,20 @@ NO	0	06:58:05.872	Terminal	launched with Z:\config\forgeos\start.ini
 HK	0	06:58:05.880	MCP	started on 127.0.0.1:22346
 --- herramientas X: xwd 
 --- /health
+{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-6, 'Terminal: Authorization failed')", "login": null, "server": null}, "error": "initialize: (-6, 'Terminal: Authorization failed')"}
 
 --- /tradecheck
+{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-6, 'Terminal: Authorization failed')", "login": null, "server": null}, "error": "initialize: (-6, 'Terminal: Authorization failed')"}
 
 --- /resolve?base=EUR_USD
+{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-6, 'Terminal: Authorization failed')", "login": null, "server": null}, "error": "initialize: (-6, 'Terminal: Authorization failed')"}
 
-2026-10-23 06:55:40 +00:00: init=False err=initialize: (-6, 'Terminal: Authorization failed')
-2026-10-23 06:56:40 +00:00: init=False err=initialize: (-6, 'Terminal: Authorization failed')
 2026-10-23 06:58:01 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
 2026-10-23 06:58:02 +00:00: MetaTrader5 py: 5.0.6231
 2026-10-23 06:58:03 +00:00: wine: wine-11.10 (Staging)
 2026-10-23 06:58:03 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-10-23 06:58:45 +00:00: mt5 bridge listening on 8004
+2026-10-23 06:58:45 +00:00: init=False err=initialize: (-6, 'Terminal: Authorization failed')
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

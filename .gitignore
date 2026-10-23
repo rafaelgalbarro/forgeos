@@ -94,3 +94,7 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.forgeos/cache/kraken-fees.json
+.forgeos/cache/kraken-futures-daily-risk.json
+.forgeos/forex-bot/
+.forgeos/telegram-trades/

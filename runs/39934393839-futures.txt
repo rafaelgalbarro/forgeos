@@ -1,0 +1,60 @@
+
+=== KRAKEN FUTURES: diagnóstico de estrategias ===
+venue= futures shadow= False apalancamiento= 1 estrategias live= ['RS_VS_BTC_1H_SHORT', 'TREND_PULLBACK_1H_SHORT']
+margen= 13.111500000000007 último ciclo= None lastCycle= None
+riesgo diario= {'dayKey': '2026-10-23', 'dayStartCapital': 56.6619, 'dayPnl': -0.09710000000000463, 'exitsOnly': False, 'dailyLimitHit': False}
+diagnóstico actualizado= 2026-10-23T09:47:12.599Z último ciclo= 2026-10-23T09:44:05.708Z
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=66111  señales=34   casi=66077 | 34984×sin sweep de liquidez arriba; 30147×insuficientes barras; 661×vol n/a<1.5x
+  RS_VS_BTC_1H_SHORT           short intentos=66111  señales=5273 casi=60838 | 51100×no bottom-3 RS vs BTC; 7179×RS no negativo 1h+4h; 1434×sin pullback EMA20 15m
+  TREND_PULLBACK_1H_SHORT      short intentos=66111  señales=3306 casi=62805 | 42807×insuficientes barras 1h; 8930×no en EMA20; 5610×EMA20>=EMA50 1h
+  VWAP_BOUNCE_5M_SHORT         short intentos=66111  señales=147  casi=65964 | 34840×insuficientes barras; 17453×sin touch+reject VWAP arriba; 13577×1h no bajista
+puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
+
+=== KRAKEN FUTURES: /instruments (público) ===
+result= success filas= 231 claves= ['result', 'instruments', 'serverTime']
+PF_* = 209 ejemplos de símbolo: ['PF_XBTUSD', 'PF_ETHUSD', 'PF_ADAUSD', 'PF_XRPUSD', 'PF_SOLUSD']
+PF_ETHUSD {'symbol': 'PF_ETHUSD', 'tradeable': True, 'tickSize': 0.1, 'contractSize': 1, 'contractValueTradePrecision': 3, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contractSize': 1, 'contractValueTradePrecision': 2, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+
+=== KRAKEN FUTURES: cuenta, posiciones y órdenes (API privada) ===
+margen disponible: 13.112000000000002 | valor cartera: 56.421300976017896 | PnL: -0.14162603891109934
+posiciones: [('PF_ZECUSD', 'short', 0.01, 1215.04), ('PF_NEARUSD', 'short', 3, 4.8976), ('PF_SOLUSD', 'short', 0.16, 103.81)]
+  orden: a30caf05-a82f-484e-9b9e-1e9c393aecb2 PF_ZECUSD buy take_profit size= 0.01 lmt= None stop= 1151.42 reduceOnly= True
+  orden: a30caf05-7c86-4554-bec7-26608112a38c PF_NEARUSD buy take_profit size= 3 lmt= None stop= 4.6642 reduceOnly= True
+  orden: a30cad37-cdf8-4ecb-aeb3-eb992c2ce302 PF_SOLUSD buy take_profit size= 0.16 lmt= None stop= 101.62 reduceOnly= True
+  orden: a30cad30-e208-42db-ba24-9dfa856e4eb6 PF_SOLUSD buy stop size= 0.16 lmt= None stop= 104.9 reduceOnly= True
+  orden: a30cacd5-813f-4396-96e1-46ad1d13a17b PF_NEARUSD buy stop size= 3 lmt= None stop= 5.0116 reduceOnly= True
+  orden: a30cacd5-3080-48a3-88f0-d46104d2ee60 PF_ZECUSD buy stop size= 0.01 lmt= None stop= 1246.51 reduceOnly= True
+órdenes abiertas: 6
+
+=== KRAKEN FUTURES: últimas líneas del motor ===
+2026-10-23 09:42:05 +00:00: [Kraken/Futures] cycle margin=13.1035 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=0 held=[PF_ZECUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_ETHUSD:TREND_PULLBACK_1H_SHORT:notional_16.76>margin_x1 | PF_XBTUSD:TREND_PULLBACK_1H_SHORT:notional_16.31>margin_x1]
+2026-10-23 09:43:05 +00:00: [Kraken/Futures] cycle margin=13.1055 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=0 held=[PF_ZECUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_ETHUSD:TREND_PULLBACK_1H_SHORT:notional_16.77>margin_x1 | PF_XBTUSD:TREND_PULLBACK_1H_SHORT:notional_16.31>margin_x1]
+2026-10-23 09:44:05 +00:00: [Kraken/Futures] cycle margin=13.1065 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=0 held=[PF_ZECUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XBTUSD:TREND_PULLBACK_1H_SHORT:notional_16.31>margin_x1]
+--- errores de órdenes
+2026-10-23 09:37:58 +00:00: [CryptoEngine] arranque pid=1969682 venue=futures analysis=60000ms exits=5s
+2026-10-23 09:40:10 +00:00: [Kraken/Futures] TP en exchange PF_SOLUSD short trigger=101.62 id=a30cad37-cdf8-4ecb-aeb3-eb992c2ce302
+2026-10-23 09:45:05 +00:00: [CryptoEngine] arranque pid=1971439 venue=futures analysis=60000ms exits=5s
+2026-10-23 09:45:13 +00:00: [Kraken/Futures] TP en exchange PF_NEARUSD short trigger=4.6642 id=a30caf05-7c86-4554-bec7-26608112a38c
+2026-10-23 09:45:13 +00:00: [Kraken/Futures] TP en exchange PF_ZECUSD short trigger=1151.42 id=a30caf05-a82f-484e-9b9e-1e9c393aecb2
+--- últimas 15 líneas del motor (sin ciclos)
+2026-10-23 09:39:10 +00:00: [Telegram] sendMessage OK message_id=24657
+2026-10-23 09:40:06 +00:00: [Telegram] sendMessage intento chatId=1156860156 chars=94 buttons=0 «[KRAKEN] 🟢 SHORT Futures PF_SOLUSD 0.16 @ $103.81 | TREND_PULLBACK_1H»
+2026-10-23 09:40:06 +00:00: [Telegram] sendMessage OK message_id=24658
+2026-10-23 09:40:10 +00:00: [Kraken/Futures] TP en exchange PF_SOLUSD short trigger=101.62 id=a30cad37-cdf8-4ecb-aeb3-eb992c2ce302
+2026-10-23 09:45:03 +00:00: [CryptoEngine] SIGINT — salida
+2026-10-23 09:45:04 +00:00: [CryptoEngine] FORGEOS_ROOT=/var/www/forgeos
+2026-10-23 09:45:04 +00:00: [CryptoEngine] FORGEOS_CACHE_DIR=/var/www/forgeos/.forgeos/cache
+2026-10-23 09:45:04 +00:00: [CryptoEngine] boot pid=1971423 broker=kraken analysis=60000ms
+2026-10-23 09:45:05 +00:00: [CryptoEngine] arranque pid=1971439 venue=futures analysis=60000ms exits=5s
+2026-10-23 09:45:06 +00:00: [Kraken/Futures/WS] conectado — 11 PF símbolos
+2026-10-23 09:45:06 +00:00: [Kraken/Futures] started shadow=false levCap=1
+2026-10-23 09:45:10 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=11 total=11 minBars 5m=300 15m=300 1h=300
+2026-10-23 09:45:11 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=11 total=11 minBars 5m=300 15m=300 1h=300
+2026-10-23 09:45:13 +00:00: [Kraken/Futures] TP en exchange PF_NEARUSD short trigger=4.6642 id=a30caf05-7c86-4554-bec7-26608112a38c
+2026-10-23 09:45:13 +00:00: [Kraken/Futures] TP en exchange PF_ZECUSD short trigger=1151.42 id=a30caf05-a82f-484e-9b9e-1e9c393aecb2
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

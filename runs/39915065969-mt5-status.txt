@@ -1,0 +1,45 @@
+
+=== MT5 ===
+mt5 Up 17 hours
+puente: stopped reinicios: 116
+puente sin respuesta (puede estar arrancando)
+--- diagnóstico contenedor
+drwxr-xr-x 4 abc abc 4096 Oct 23 07:00 /config/.wine
+/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
+/config/.wine/drive_c/Python312-64/python.exe
+/config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
+/config/.wine/drive_c/Python39-64/python.exe
+--- logs del terminal
+## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
+DE	0	06:58:05.872	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
+NO	0	06:58:05.872	Terminal	launched with Z:\config\forgeos\start.ini
+HK	0	06:58:05.880	MCP	started on 127.0.0.1:22346
+QR	2	06:58:11.182	Network	'242902': authorization on OANDATMS-MT5 failed (Invalid account)
+GE	0	07:00:12.251	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
+DG	0	07:00:12.405	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
+OL	0	07:00:12.406	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 4 / 7 Gb memory, 30 / 74 Gb disk, GMT+0
+QE	0	07:00:12.406	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
+GL	0	07:00:12.406	Terminal	launched with Z:\config\forgeos\start.ini
+FJ	0	07:00:12.413	MCP	started on 127.0.0.1:22346
+DR	0	07:00:15.527	Network	'242902': authorized on OANDATMS-MT5 through Access Server GCP VM OANDA-EUW (ping: 53.90 ms, build 5830)
+HO	0	07:00:15.527	Network	'242902': previous successful authorization performed from 89.35.151.207 on 2026.10.23 08:59:37
+RN	0	07:00:16.463	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 1 positions, 0 orders, 846 symbols, 0 spreads
+NO	0	07:00:16.463	Network	'242902': trading has been enabled - hedging mode
+NH	0	07:00:16.463	Network	'242902': balance management has been enabled
+--- herramientas X: xwd 
+--- /health
+
+--- /tradecheck
+
+--- /resolve?base=EUR_USD
+
+2026-10-23 06:58:45 +00:00: init=False err=initialize: (-6, 'Terminal: Authorization failed')
+2026-10-23 06:59:45 +00:00: init=False err=initialize: (-6, 'Terminal: Authorization failed')
+2026-10-23 07:00:07 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
+2026-10-23 07:00:08 +00:00: MetaTrader5 py: 5.0.6231
+2026-10-23 07:00:09 +00:00: wine: wine-11.10 (Staging)
+2026-10-23 07:00:09 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

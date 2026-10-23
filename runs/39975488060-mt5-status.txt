@@ -1,0 +1,57 @@
+
+=== MT5 ===
+mt5 Up 25 hours
+puente: online reinicios: 117
+--- diagnóstico contenedor
+drwxr-xr-x 4 abc abc 4096 Oct 23 15:05 /config/.wine
+/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
+/config/.wine/drive_c/Python312-64/python.exe
+/config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
+/config/.wine/drive_c/Python39-64/python.exe
+  57056       02:11 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  57062       02:11 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  57295       00:16 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  57302       00:16 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+--- logs del terminal
+## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
+DR	0	14:53:07.577	Network	'242902': trading has been enabled - hedging mode
+PE	0	14:53:07.577	Network	'242902': balance management has been enabled
+HR	0	14:54:45.278	Trade	'242902': high risk investment warning has been accepted
+DP	0	15:05:03.250	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
+DH	0	15:05:03.467	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
+GH	0	15:05:03.467	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 4 / 7 Gb memory, 26 / 74 Gb disk, GMT+0
+LJ	0	15:05:03.467	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
+FS	0	15:05:03.467	Terminal	launched with Z:\config\forgeos\start.ini
+NG	0	15:05:03.475	MCP	started on 127.0.0.1:22346
+IO	0	15:05:07.015	Network	'242902': authorized on OANDATMS-MT5 through Access Server GCP VM OANDA-EUW (ping: 53.90 ms, build 5830)
+KP	0	15:05:07.015	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.23 16:53:06
+JS	0	15:05:08.016	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
+MP	0	15:05:08.016	Network	'242902': trading has been enabled - hedging mode
+IS	0	15:05:08.016	Network	'242902': balance management has been enabled
+FD	0	15:06:45.427	Trade	'242902': high risk investment warning has been accepted
+--- herramientas X: xwd xdotool 
+--- /health
+{"ok": true, "state": {"initialized": true, "last_error": null, "login": 242902, "server": "OANDATMS-MT5"}, "account": {"login": 242902, "server": "OANDATMS-MT5", "currency": "EUR", "balance": 98.11, "equity": 98.11, "margin": 0.0, "margin_free": 98.11, "leverage": 100, "trade_allowed": true, "trade_expert": true, "terminal_trade_allowed": true, "connected": true, "demo": false, "margin_mode_netting": false}}
+
+--- /tradecheck
+{"ok": true, "retcode": 0, "comment": "Done", "symbol": "EURUSD.pro"}
+
+--- /resolve?base=EUR_USD
+{"symbol": "EURUSD.pro"}
+
+--- /symbol EURUSD.pro
+{"symbol": "EURUSD.pro", "digits": 5, "point": 1e-05, "contract_size": 100000.0, "volume_min": 0.01, "volume_step": 0.01, "volume_max": 50.0, "tick_size": 1e-05, "tick_value": 0.8929607900917073, "tick_value_loss": 0.8930405351098888, "stops_level": 0, "filling_mode": 1, "trade_mode": 4, "currency_profit": "USD", "currency_base": "EUR", "bid": 1.11977, "ask": 1.11987, "time": 1792775232}
+
+--- velas M15 (últimas 2)
+[{"time": 1792773000, "open": 1.1199, "high": 1.12018, "low": 1.11968, "close": 1.12016, "volume": 2669.0}, {"time": 1792773900, "open": 1.12016, "high": 1.1206, "low": 1.12006, "close": 1.12039, "volume": 2865.0}]
+
+2026-10-23 15:05:00 +00:00: wine: wine-11.10 (Staging)
+2026-10-23 15:05:00 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-10-23 15:06:41 +00:00: aceptando aviso de riesgo de OANDA (ventana 18874436)
+2026-10-23 15:06:56 +00:00: mt5 bridge listening on 8004
+2026-10-23 15:06:56 +00:00: init=True err=None
+2026-10-23 15:07:05 +00:00: trading verificado: {"ok": true, "retcode": 0, "comment": "Done", "symbol": "EURUSD.pro"}
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

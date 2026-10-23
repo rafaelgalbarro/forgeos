@@ -1,48 +1,29 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 494daed Telegram solo con compras/ventas reales (OANDA, IB, Kraken) + resumen diario 22:00; backtest de las fichas de la guía
+Desplegando 07a4b59 mt5: aceptar el aviso una sola vez tras cargar y verificar con order_check; si no, reinicio completo
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261023-082157
-Updating 8339bb6..494daed
+estado copiado en /root/forgeos-state-20261023-082846
+Updating 494daed..07a4b59
 Fast-forward
- .github/workflows/server-remote.yml          |   2 +-
- deploy/remote/forgeos-remote.sh              |  24 ++
- lib/forex-bot/engine.ts                      |  15 +-
- lib/forex-bot/mt5.ts                         |   2 +-
- lib/forex-bot/playbook.ts                    | 397 +++++++++++++++++++++++++++
- lib/notifications/daily-summary.ts           | 102 +++++++
- lib/notifications/telegram-bot.ts            |  40 ++-
- lib/notifications/telegram-handler.ts        |  67 ++---
- lib/notifications/trade-ledger.ts            |  38 +++
- lib/trading/__tests__/forex-playbook.test.ts |  50 ++++
- lib/trading/crypto/engine.ts                 |   6 +-
- lib/trading/crypto/futures-engine.ts         |   5 +-
- lib/trading/exit-manager.ts                  |  10 +-
- scripts/forex-bot-main.ts                    |   5 +
- scripts/forex-bot.cjs                        |   2 +-
- scripts/forex-playbook.ts                    |  72 +++++
- 16 files changed, 787 insertions(+), 50 deletions(-)
- create mode 100644 lib/forex-bot/playbook.ts
- create mode 100644 lib/notifications/daily-summary.ts
- create mode 100644 lib/notifications/trade-ledger.ts
- create mode 100644 lib/trading/__tests__/forex-playbook.test.ts
- create mode 100644 scripts/forex-playbook.ts
+ deploy/remote/mt5-bridge-run.sh    | 38 ++++++++++++++++++++++++++++++--------
+ src/core/trading/trading-engine.ts |  2 +-
+ 2 files changed, 31 insertions(+), 9 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.53s
+19 passed in 0.45s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2999         992           5        4067        4746
-Swap:           4095        1157        2938
+Mem:            7746        2928        2359           5        2770        4817
+Swap:           4095        1366        2729
      0 MB COMMAND
-   634 MB java
-   432 MB next-server
-   236 MB node
-   232 MB node
-   192 MB node
+   538 MB java
+   429 MB next-server
+   234 MB node
+   231 MB node
+   214 MB node
 
 up to date in 2s
    Generating static pages (153/204) 

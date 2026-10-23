@@ -3,54 +3,54 @@
 mt5 Up 18 hours
 puente: online reinicios: 117
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Oct 23 07:22 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Oct 23 07:30 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  43367       03:48 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  43373       03:48 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
-  43426       03:08 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
-  43432       03:08 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+  43704       03:23 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  43710       03:23 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  43819       02:25 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  43825       02:25 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
-EQ	0	07:16:20.971	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.23 09:10:11
-OQ	0	07:16:21.955	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 1 positions, 0 orders, 846 symbols, 0 spreads
-KQ	0	07:16:21.955	Network	'242902': trading has been enabled - hedging mode
-KR	0	07:16:21.955	Network	'242902': balance management has been enabled
-DK	0	07:22:08.914	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
-MQ	0	07:22:09.062	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
-GQ	0	07:22:09.062	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 4 / 7 Gb memory, 29 / 74 Gb disk, GMT+0
-IS	0	07:22:09.062	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
-OJ	0	07:22:09.062	Terminal	launched with Z:\config\forgeos\start.ini
-PH	0	07:22:09.079	MCP	started on 127.0.0.1:22346
-CD	0	07:22:12.673	Network	'242902': authorized on OANDATMS-MT5 through Access Server GCP VM OANDA-EUW (ping: 53.90 ms, build 5830)
-HI	0	07:22:12.673	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.23 09:16:20
-GH	0	07:22:13.618	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 1 positions, 0 orders, 846 symbols, 0 spreads
 CI	0	07:22:13.618	Network	'242902': trading has been enabled - hedging mode
 CJ	0	07:22:13.618	Network	'242902': balance management has been enabled
+GO	0	07:25:27.886	Trade	'242902': high risk investment warning has been accepted
+RE	0	07:29:38.152	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
+QF	0	07:29:38.306	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
+LO	0	07:29:38.307	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 4 / 7 Gb memory, 29 / 74 Gb disk, GMT+0
+FD	0	07:29:38.307	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
+LL	0	07:29:38.307	Terminal	launched with Z:\config\forgeos\start.ini
+MJ	0	07:29:38.316	MCP	started on 127.0.0.1:22346
+GR	0	07:29:41.755	Network	'242902': authorized on OANDATMS-MT5 through Access Server GCP VM OANDA-EUW (ping: 53.90 ms, build 5830)
+JN	0	07:29:41.755	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.23 09:22:12
+FN	0	07:29:42.694	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 1 positions, 0 orders, 846 symbols, 0 spreads
+RO	0	07:29:42.694	Network	'242902': trading has been enabled - hedging mode
+JI	0	07:29:42.694	Network	'242902': balance management has been enabled
+PN	0	07:30:26.678	Trade	'242902': high risk investment warning has been rejected
 --- herramientas X: xwd xdotool 
 --- /health
-{"ok": true, "state": {"initialized": true, "last_error": null, "login": 242902, "server": "OANDATMS-MT5"}, "account": {"login": 242902, "server": "OANDATMS-MT5", "currency": "EUR", "balance": 98.72, "equity": 96.91, "margin": 33.33, "margin_free": 63.58, "leverage": 100, "trade_allowed": true, "trade_expert": true, "terminal_trade_allowed": true, "connected": true, "demo": false, "margin_mode_netting": false}}
+{"ok": true, "state": {"initialized": true, "last_error": null, "login": 242902, "server": "OANDATMS-MT5"}, "account": {"login": 242902, "server": "OANDATMS-MT5", "currency": "EUR", "balance": 98.72, "equity": 97.15, "margin": 33.33, "margin_free": 63.82, "leverage": 100, "trade_allowed": false, "trade_expert": true, "terminal_trade_allowed": true, "connected": true, "demo": false, "margin_mode_netting": false}}
 
 --- /tradecheck
-{"ok": true, "retcode": 0, "comment": "Done", "symbol": "EURUSD.pro"}
+{"ok": false, "retcode": 10017, "comment": "Trade disabled", "symbol": "EURUSD.pro"}
 
 --- /resolve?base=EUR_USD
 {"symbol": "EURUSD.pro"}
 
 --- /symbol EURUSD.pro
-{"symbol": "EURUSD.pro", "digits": 5, "point": 1e-05, "contract_size": 100000.0, "volume_min": 0.01, "volume_step": 0.01, "volume_max": 50.0, "tick_size": 1e-05, "tick_value": 0.8934075457201311, "tick_value_loss": 0.8934873705560172, "stops_level": 0, "filling_mode": 1, "trade_mode": 4, "currency_profit": "USD", "currency_base": "EUR", "bid": 1.11921, "ask": 1.11931, "time": 1792747555}
+{"symbol": "EURUSD.pro", "digits": 5, "point": 1e-05, "contract_size": 100000.0, "volume_min": 0.01, "volume_step": 0.01, "volume_max": 50.0, "tick_size": 1e-05, "tick_value": 0.893184112041015, "tick_value_loss": 0.8932638969530767, "stops_level": 0, "filling_mode": 1, "trade_mode": 4, "currency_profit": "USD", "currency_base": "EUR", "bid": 1.11949, "ask": 1.11959, "time": 1792747980}
 
 --- velas M15 (últimas 2)
-[{"time": 1792745100, "open": 1.12125, "high": 1.12133, "low": 1.12085, "close": 1.12102, "volume": 1390.0}, {"time": 1792746000, "open": 1.12102, "high": 1.12122, "low": 1.12038, "close": 1.1204, "volume": 1926.0}]
+[{"time": 1792746000, "open": 1.12102, "high": 1.12122, "low": 1.12038, "close": 1.1204, "volume": 1926.0}, {"time": 1792746900, "open": 1.1204, "high": 1.1204, "low": 1.1191200000000001, "close": 1.11939, "volume": 2306.0}]
 
-2026-10-23 07:22:02 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
-2026-10-23 07:22:03 +00:00: MetaTrader5 py: 5.0.6231
-2026-10-23 07:22:06 +00:00: wine: wine-11.10 (Staging)
-2026-10-23 07:22:06 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-2026-10-23 07:22:47 +00:00: mt5 bridge listening on 8004
-2026-10-23 07:22:47 +00:00: init=True err=None
+2026-10-23 07:29:35 +00:00: wine: wine-11.10 (Staging)
+2026-10-23 07:29:35 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-10-23 07:30:15 +00:00: aceptando aviso de riesgo de OANDA (ventana 18874436)
+2026-10-23 07:30:24 +00:00: aceptando aviso de riesgo de OANDA (ventana 18874436)
+2026-10-23 07:30:35 +00:00: mt5 bridge listening on 8004
+2026-10-23 07:30:35 +00:00: init=True err=None
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

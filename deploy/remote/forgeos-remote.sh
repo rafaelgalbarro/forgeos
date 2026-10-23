@@ -892,6 +892,30 @@ case "$ACTION" in
   forex-playbook) do_forex_playbook ;;
   forex-methods) do_forex_methods ;;
   forex-meanrev) do_forex_meanrev ;;
+  forex-lock)
+    # Owner confirmation: lock a validated strategy so it may trade real money (ARG = strategy id).
+    ID="$ARG" python3 - <<'PY'
+import json, os, glob
+want = os.environ["ID"].upper()
+d = "/var/www/forgeos/.forgeos/forex-bot"
+hit = False
+for name in ("meanrev-latest.json", "methods-latest.json", "playbook-latest.json"):
+    p = os.path.join(d, name)
+    if not os.path.exists(p):
+        continue
+    j = json.load(open(p))
+    for r in j.get("results", []):
+        if r.get("id", "").upper() == want:
+            if not r.get("liveEligible"):
+                print("NO: %s no pasó la validación (%s)" % (r["id"], r.get("reason")))
+            else:
+                r["locked"] = True; hit = True
+                print("confirmada para real: %s (%s)" % (r["id"], r.get("name")))
+    json.dump(j, open(p, "w"), indent=2)
+if not hit:
+    print("sin cambios para %s" % want)
+PY
+    ;;
   mt5-setup) do_mt5_setup ;;
   mt5-status) do_mt5_status ;;
   mt5-wine9)

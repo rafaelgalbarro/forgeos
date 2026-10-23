@@ -1,0 +1,19 @@
+
+=== BOT FOREX ===
+proceso: online reinicios: 21
+modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
+--- últimos ciclos
+2026-10-23 06:56:04 +00:00: 2026-10-23T06:56:03.655Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: MT5 /resolve?base=EUR_USD HTTP 503: initialize: (-6, 'Terminal: Authorization fa | GBP_USD MT5: MT5 /resolve?base=GBP_USD HTTP 503: initialize: (-6, 'Terminal: Authorization fa | USD_JPY MT5: MT5 /resolve?base=USD_JPY 
+2026-10-23 06:57:04 +00:00: 2026-10-23T06:57:03.679Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: MT5 /resolve?base=EUR_USD HTTP 503: initialize: (-6, 'Terminal: Authorization fa | GBP_USD MT5: MT5 /resolve?base=GBP_USD HTTP 503: initialize: (-6, 'Terminal: Authorization fa | USD_JPY MT5: MT5 /resolve?base=USD_JPY 
+2026-10-23 06:58:03 +00:00: 2026-10-23T06:58:03.707Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
+2026-10-23 06:59:04 +00:00: 2026-10-23T06:59:03.738Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: MT5 /resolve?base=EUR_USD HTTP 503: initialize: (-6, 'Terminal: Authorization fa | GBP_USD MT5: MT5 /resolve?base=GBP_USD HTTP 503: initialize: (-6, 'Terminal: Authorization fa | USD_JPY MT5: MT5 /resolve?base=USD_JPY 
+2026-10-23 07:00:20 +00:00: 2026-10-23T07:00:03.766Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
+2026-10-23 07:01:03 +00:00: 2026-10-23T07:01:03.781Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
+--- operaciones
+shadow GBP_JPY short 4000 entrada 210.131 SL 210.46261 TP 209.5341 | cierre 2026-10-23T00:15:39.955Z TP P&L 12.981887778423479
+shadow AUD_NZD long 1047 entrada 1.23536 SL 1.23164 TP 1.2428 | cierre 2026-10-23T03:15:44.801Z SL P&L -2.117106269108135
+shadow AUD_NZD short 1030 entrada 1.23171 SL 1.23548 TP 1.22417 | cierre abierta None P&L None
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

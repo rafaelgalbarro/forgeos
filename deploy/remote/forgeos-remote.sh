@@ -962,6 +962,24 @@ case "$ACTION" in
     docker exec mt5 sh -c 'DISPLAY=:1 xdotool search --onlyvisible --name . getwindowname %@ 2>/dev/null' | sort -u | head -12
     do_mt5_shot ;;
   mt5-shot) do_mt5_shot ;;
+  mt5-test-order)
+    # Real end-to-end test requested by the owner: BUY 0.01 EURUSD with SL/TP 20 pips, then close it.
+    K="$(mt5_key)"; B=http://127.0.0.1:8004
+    S="$(curl -s --max-time 30 "$B/resolve?base=EUR_USD" -H "X-Bridge-Key: $K" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("symbol") or "")')"
+    Q="$(curl -s --max-time 30 "$B/symbol?symbol=$S" -H "X-Bridge-Key: $K")"
+    echo "símbolo: $S"; echo "$Q" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("bid/ask:", d["bid"], d["ask"], "spread:", round((d["ask"]-d["bid"])/d["point"]/10,1), "pips")'
+    echo "--- comprobación en seco"; curl -s --max-time 30 "$B/tradecheck" -H "X-Bridge-Key: $K"; echo
+    BODY="$(echo "$Q" | python3 -c 'import sys,json; d=json.load(sys.stdin); a=d["ask"]; p=d["point"]; print(json.dumps({"symbol":d["symbol"],"side":"long","volume":0.01,"sl":round(a-200*p,d["digits"]),"tp":round(a+200*p,d["digits"]),"comment":"forgeos test"}))')"
+    echo "--- orden: $BODY"
+    R="$(curl -s --max-time 60 -X POST "$B/order" -H "X-Bridge-Key: $K" -H 'Content-Type: application/json' -d "$BODY")"; echo "$R"
+    T="$(echo "$R" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("order") or "")' 2>/dev/null)"
+    if [ -n "$T" ]; then
+      sleep 5
+      echo "--- posición abierta"; curl -s --max-time 30 "$B/positions" -H "X-Bridge-Key: $K" | python3 -c "import sys,json; [print(p) for p in json.load(sys.stdin) if str(p['ticket'])=='$T']"
+      echo "--- cierre"; curl -s --max-time 60 -X POST "$B/close" -H "X-Bridge-Key: $K" -H 'Content-Type: application/json' -d "{\"ticket\": $T}"; echo
+      sleep 3
+      echo "--- resultado"; curl -s --max-time 30 "$B/closed?ticket=$T" -H "X-Bridge-Key: $K"; echo
+    fi ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

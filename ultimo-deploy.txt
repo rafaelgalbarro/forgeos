@@ -1,36 +1,32 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando aabe177 workflow: timeout 70 min
+Desplegando 5a3d288 remote: telegram-summary (enviar el resumen del día ahora) y ver envíos del resumen
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261023-150150
-Updating 722a163..aabe177
+estado copiado en /root/forgeos-state-20261023-202237
+Updating aabe177..5a3d288
 Fast-forward
- .github/workflows/server-remote.yml          |   4 +-
- deploy/remote/forgeos-remote.sh              |   6 ++
- lib/forex-bot/ignition.ts                    | 150 +++++++++++++++++++++++++++
- lib/trading/__tests__/forex-ignition.test.ts |  28 +++++
- scripts/forex-bot.cjs                        |   2 +-
- scripts/forex-ignition.ts                    | 142 +++++++++++++++++++++++++
- 6 files changed, 329 insertions(+), 3 deletions(-)
- create mode 100644 lib/forex-bot/ignition.ts
- create mode 100644 lib/trading/__tests__/forex-ignition.test.ts
- create mode 100644 scripts/forex-ignition.ts
+ .github/workflows/server-remote.yml |  2 +-
+ deploy/remote/forgeos-remote.sh     |  4 ++++
+ scripts/daily-summary.ts            | 18 ++++++++++++++++++
+ scripts/forex-bot.cjs               |  2 +-
+ 4 files changed, 24 insertions(+), 2 deletions(-)
+ create mode 100644 scripts/daily-summary.ts
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.52s
+19 passed in 0.49s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        3070        1239           5        3748        4675
-Swap:           4095        1125        2970
+Mem:            7746        3333         877           5        3852        4412
+Swap:           4095        1098        2997
      0 MB COMMAND
-   540 MB java
-   433 MB next-server
-   295 MB node
-   282 MB node
-   257 MB node
+   556 MB java
+   450 MB next-server
+   314 MB node
+   294 MB node
+   280 MB node
 
 up to date in 1s
    Generating static pages (153/204) 

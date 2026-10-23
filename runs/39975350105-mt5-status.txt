@@ -1,0 +1,47 @@
+
+=== MT5 ===
+mt5 Up 25 hours
+puente: online reinicios: 117
+puente sin respuesta (puede estar arrancando)
+--- diagnóstico contenedor
+drwxr-xr-x 4 abc abc 4096 Oct 23 15:05 /config/.wine
+/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
+/config/.wine/drive_c/Python312-64/python.exe
+/config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
+/config/.wine/drive_c/Python39-64/python.exe
+  57056       01:13 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  57062       01:13 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+--- logs del terminal
+## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
+GR	0	14:53:07.577	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
+DR	0	14:53:07.577	Network	'242902': trading has been enabled - hedging mode
+PE	0	14:53:07.577	Network	'242902': balance management has been enabled
+HR	0	14:54:45.278	Trade	'242902': high risk investment warning has been accepted
+DP	0	15:05:03.250	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
+DH	0	15:05:03.467	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
+GH	0	15:05:03.467	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 4 / 7 Gb memory, 26 / 74 Gb disk, GMT+0
+LJ	0	15:05:03.467	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
+FS	0	15:05:03.467	Terminal	launched with Z:\config\forgeos\start.ini
+NG	0	15:05:03.475	MCP	started on 127.0.0.1:22346
+IO	0	15:05:07.015	Network	'242902': authorized on OANDATMS-MT5 through Access Server GCP VM OANDA-EUW (ping: 53.90 ms, build 5830)
+KP	0	15:05:07.015	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.23 16:53:06
+JS	0	15:05:08.016	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
+MP	0	15:05:08.016	Network	'242902': trading has been enabled - hedging mode
+IS	0	15:05:08.016	Network	'242902': balance management has been enabled
+--- herramientas X: xwd xdotool 
+--- /health
+
+--- /tradecheck
+
+--- /resolve?base=EUR_USD
+
+2026-10-23 14:54:57 +00:00: init=True err=None
+2026-10-23 14:55:05 +00:00: trading verificado: {"ok": true, "retcode": 0, "comment": "Done", "symbol": "EURUSD.pro"}
+2026-10-23 15:04:58 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
+2026-10-23 15:04:59 +00:00: MetaTrader5 py: 5.0.6231
+2026-10-23 15:05:00 +00:00: wine: wine-11.10 (Staging)
+2026-10-23 15:05:00 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

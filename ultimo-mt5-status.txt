@@ -9,8 +9,10 @@ drwxr-xr-x 4 abc abc 4096 Oct 23 06:58 /config/.wine
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  41209       00:17 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  41215       00:17 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  41209       00:40 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  41215       00:40 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  41292       00:00 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  41309       00:00 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
 GL	0	06:51:33.655	HistoryCenter	delete old files from C:\Program Files\OANDA TMS MT5 Terminal\bases\Default\history\EURUSD, last access time 2023.06.08 10:59

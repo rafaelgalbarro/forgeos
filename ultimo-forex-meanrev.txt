@@ -1,0 +1,63 @@
+
+=== RSI2 EN TENDENCIA (Connors) H1/H4 — backtest con historia de OANDA ===
+[RSI2] MR_EURUSD_H4_LMT: ops=249 acierto=64% PF=1.57 media=0.108R → APTA
+[RSI2] MR_GBPUSD_H4_LMT: ops=261 acierto=67% PF=1.25 media=0.057R → APTA
+# RSI2 en tendencia (Connors) — H1/H4 — backtest 2026-10-23
+Datos OANDA (MT5). Entrada limitada 0,25 ATR mejor que el cierre (variante principal); la de mercado se muestra para comparar.
+Apta: ≥60 ops, PF ≥ 1.15, media ≥ 0.03 R, positiva en ambas mitades y con costes ×1.5.
+| Instrumento | Marco | Ops | Acierto | Gan. media | Pérd. media | PF | Media R | 1ª mitad | 2ª mitad | Costes ×1.5 | Mercado (PF / media) | ¿Apta? |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| EUR_USD | H1 | 919 | 62% | 0.41R | -0.68R | 0.98 | -0.006 | -0.031 | 0.017 | -0.034 | 0.92 / -0.020 | no (PF=0.98<1.15; media=-0.006R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_USD | H4 | 249 | 64% | 0.46R | -0.53R | 1.57 | 0.108 | 0.092 | 0.124 | 0.099 | 1.44 / 0.083 | sí |
+| GBP_USD | H1 | 887 | 60% | 0.41R | -0.65R | 0.94 | -0.016 | 0.009 | -0.042 | -0.037 | 0.87 / -0.032 | no (PF=0.94<1.15; media=-0.016R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GBP_USD | H4 | 261 | 67% | 0.42R | -0.67R | 1.25 | 0.057 | 0.099 | 0.018 | 0.048 | 1.01 / 0.001 | sí |
+| USD_JPY | H1 | 928 | 60% | 0.42R | -0.68R | 0.93 | -0.020 | -0.024 | -0.015 | -0.038 | 0.89 / -0.028 | no (PF=0.93<1.15; media=-0.020R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| USD_JPY | H4 | 262 | 60% | 0.46R | -0.62R | 1.10 | 0.026 | 0.078 | -0.015 | 0.015 | 0.98 / -0.006 | no (PF=1.10<1.15; media=0.026R<0.03; no gana en las dos mitades) |
+| AUD_USD | H1 | 912 | 58% | 0.42R | -0.64R | 0.88 | -0.033 | -0.053 | -0.012 | -0.064 | 0.83 / -0.044 | no (PF=0.88<1.15; media=-0.033R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| AUD_USD | H4 | 229 | 58% | 0.40R | -0.62R | 0.88 | -0.031 | -0.027 | -0.035 | -0.037 | 1.16 / 0.034 | no (PF=0.88<1.15; media=-0.031R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| USD_CAD | H1 | 836 | 57% | 0.43R | -0.70R | 0.82 | -0.053 | -0.094 | -0.009 | -0.100 | 0.83 / -0.043 | no (PF=0.82<1.15; media=-0.053R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| USD_CAD | H4 | 239 | 61% | 0.41R | -0.63R | 1.00 | 0.001 | 0.082 | -0.088 | -0.015 | 0.83 / -0.044 | no (PF=1.00<1.15; media=0.001R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| USD_CHF | H1 | 832 | 56% | 0.40R | -0.69R | 0.75 | -0.074 | -0.044 | -0.101 | -0.118 | 0.70 / -0.081 | no (PF=0.75<1.15; media=-0.074R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| USD_CHF | H4 | 228 | 58% | 0.40R | -0.62R | 0.89 | -0.030 | 0.012 | -0.068 | -0.056 | 0.99 / -0.002 | no (PF=0.89<1.15; media=-0.030R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| NZD_USD | H1 | 842 | 56% | 0.38R | -0.66R | 0.73 | -0.079 | -0.084 | -0.075 | -0.121 | 0.72 / -0.075 | no (PF=0.73<1.15; media=-0.079R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| NZD_USD | H4 | 238 | 61% | 0.38R | -0.67R | 0.89 | -0.029 | -0.032 | -0.027 | -0.060 | 0.92 / -0.019 | no (PF=0.89<1.15; media=-0.029R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_GBP | H1 | 750 | 54% | 0.44R | -0.73R | 0.71 | -0.098 | -0.083 | -0.115 | -0.157 | 0.68 / -0.091 | no (PF=0.71<1.15; media=-0.098R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_GBP | H4 | 229 | 59% | 0.36R | -0.62R | 0.84 | -0.041 | -0.086 | 0.003 | -0.059 | 0.77 / -0.055 | no (PF=0.84<1.15; media=-0.041R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_JPY | H1 | 897 | 58% | 0.42R | -0.70R | 0.83 | -0.049 | -0.069 | -0.032 | -0.070 | 0.85 / -0.039 | no (PF=0.83<1.15; media=-0.049R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_JPY | H4 | 252 | 56% | 0.39R | -0.67R | 0.73 | -0.079 | -0.106 | -0.047 | -0.102 | 0.63 / -0.108 | no (PF=0.73<1.15; media=-0.079R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GBP_JPY | H1 | 869 | 57% | 0.42R | -0.67R | 0.82 | -0.051 | -0.058 | -0.044 | -0.075 | 0.79 / -0.057 | no (PF=0.82<1.15; media=-0.051R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GBP_JPY | H4 | 241 | 56% | 0.39R | -0.59R | 0.82 | -0.048 | -0.095 | 0.000 | -0.055 | 0.72 / -0.077 | no (PF=0.82<1.15; media=-0.048R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_CHF | H1 | 707 | 55% | 0.42R | -0.71R | 0.75 | -0.080 | -0.062 | -0.096 | -0.140 | 0.74 / -0.068 | no (PF=0.75<1.15; media=-0.080R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_CHF | H4 | 234 | 62% | 0.36R | -0.58R | 1.03 | 0.007 | 0.078 | -0.059 | -0.019 | 0.75 / -0.059 | no (PF=1.03<1.15; media=0.007R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_AUD | H1 | 879 | 55% | 0.41R | -0.64R | 0.78 | -0.062 | -0.079 | -0.043 | -0.093 | 0.73 / -0.074 | no (PF=0.78<1.15; media=-0.062R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_AUD | H4 | 252 | 60% | 0.41R | -0.62R | 0.98 | -0.004 | 0.010 | -0.020 | -0.022 | 0.95 / -0.011 | no (PF=0.98<1.15; media=-0.004R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_CAD | H1 | 785 | 57% | 0.42R | -0.67R | 0.83 | -0.048 | -0.043 | -0.053 | -0.086 | 0.75 / -0.067 | no (PF=0.83<1.15; media=-0.048R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| EUR_CAD | H4 | 237 | 59% | 0.39R | -0.59R | 0.92 | -0.019 | 0.000 | -0.039 | -0.035 | 0.81 / -0.046 | no (PF=0.92<1.15; media=-0.019R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GBP_CHF | H1 | 728 | 56% | 0.42R | -0.72R | 0.73 | -0.086 | -0.044 | -0.129 | -0.159 | 0.70 / -0.083 | no (PF=0.73<1.15; media=-0.086R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GBP_CHF | H4 | 227 | 54% | 0.40R | -0.60R | 0.79 | -0.058 | -0.096 | -0.029 | -0.095 | 0.75 / -0.064 | no (PF=0.79<1.15; media=-0.058R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GBP_AUD | H1 | 811 | 58% | 0.39R | -0.64R | 0.81 | -0.051 | -0.077 | -0.026 | -0.085 | 0.80 / -0.051 | no (PF=0.81<1.15; media=-0.051R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GBP_AUD | H4 | 246 | 62% | 0.37R | -0.62R | 0.95 | -0.012 | -0.001 | -0.022 | -0.033 | 0.94 / -0.013 | no (PF=0.95<1.15; media=-0.012R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| AUD_JPY | H1 | 881 | 55% | 0.39R | -0.66R | 0.74 | -0.078 | -0.112 | -0.048 | -0.102 | 0.71 / -0.082 | no (PF=0.74<1.15; media=-0.078R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| AUD_JPY | H4 | 253 | 60% | 0.41R | -0.73R | 0.82 | -0.052 | -0.037 | -0.066 | -0.072 | 0.84 / -0.043 | no (PF=0.82<1.15; media=-0.052R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| AUD_NZD | H1 | 731 | 52% | 0.40R | -0.58R | 0.75 | -0.070 | -0.029 | -0.108 | -0.118 | 0.68 / -0.083 | no (PF=0.75<1.15; media=-0.070R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| AUD_NZD | H4 | 211 | 50% | 0.38R | -0.59R | 0.64 | -0.107 | -0.119 | -0.094 | -0.143 | 0.79 / -0.052 | no (PF=0.64<1.15; media=-0.107R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| AUD_CAD | H1 | 794 | 55% | 0.36R | -0.65R | 0.68 | -0.095 | -0.089 | -0.100 | -0.155 | 0.64 / -0.100 | no (PF=0.68<1.15; media=-0.095R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| AUD_CAD | H4 | 237 | 63% | 0.37R | -0.60R | 1.06 | 0.014 | 0.014 | 0.014 | -0.005 | 1.08 / 0.017 | no (PF=1.06<1.15; media=0.014R<0.03; pierde con costes ×1.5) |
+| CAD_JPY | H1 | 876 | 57% | 0.40R | -0.71R | 0.77 | -0.069 | -0.073 | -0.065 | -0.102 | 0.74 / -0.070 | no (PF=0.77<1.15; media=-0.069R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| CAD_JPY | H4 | 266 | 56% | 0.42R | -0.57R | 0.93 | -0.019 | -0.029 | -0.009 | -0.044 | 0.80 / -0.051 | no (PF=0.93<1.15; media=-0.019R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| CHF_JPY | H1 | 768 | 56% | 0.38R | -0.66R | 0.74 | -0.077 | -0.072 | -0.081 | -0.140 | 0.68 / -0.083 | no (PF=0.74<1.15; media=-0.077R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| CHF_JPY | H4 | 248 | 56% | 0.41R | -0.61R | 0.85 | -0.042 | -0.028 | -0.056 | -0.070 | 0.87 / -0.033 | no (PF=0.85<1.15; media=-0.042R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| NZD_JPY | H1 | 821 | 53% | 0.39R | -0.65R | 0.70 | -0.091 | -0.094 | -0.089 | -0.137 | 0.66 / -0.097 | no (PF=0.70<1.15; media=-0.091R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| NZD_JPY | H4 | 225 | 56% | 0.41R | -0.69R | 0.76 | -0.074 | -0.066 | -0.082 | -0.086 | 0.81 / -0.052 | no (PF=0.76<1.15; media=-0.074R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GOLD | H1 | 911 | 60% | 0.42R | -0.67R | 0.93 | -0.019 | -0.026 | -0.011 | -0.047 | 0.95 / -0.012 | no (PF=0.93<1.15; media=-0.019R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| GOLD | H4 | 229 | 58% | 0.42R | -0.61R | 0.93 | -0.018 | -0.011 | -0.027 | -0.031 | 1.02 / 0.005 | no (PF=0.93<1.15; media=-0.018R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| US500 | H1 | 915 | 61% | 0.49R | -0.73R | 1.05 | 0.013 | 0.012 | 0.014 | -0.013 | 0.98 / -0.005 | no (PF=1.05<1.15; media=0.013R<0.03; pierde con costes ×1.5) |
+| US500 | H4 | 254 | 56% | 0.46R | -0.72R | 0.80 | -0.064 | -0.092 | -0.041 | -0.088 | 0.87 / -0.036 | no (PF=0.80<1.15; media=-0.064R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| US100 | H1 | 954 | 58% | 0.50R | -0.70R | 1.02 | 0.005 | -0.016 | 0.025 | -0.004 | 0.97 / -0.008 | no (PF=1.02<1.15; media=0.005R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| US100 | H4 | 254 | 58% | 0.45R | -0.71R | 0.89 | -0.033 | -0.052 | -0.014 | -0.034 | 1.00 / 0.001 | no (PF=0.89<1.15; media=-0.033R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| DE30 | H1 | 572 | 57% | 0.40R | -0.68R | 0.77 | -0.068 | -0.073 | -0.063 | -0.085 | 0.73 / -0.074 | no (PF=0.77<1.15; media=-0.068R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+| DE30 | H4 | 272 | 61% | 0.45R | -0.67R | 1.04 | 0.010 | 0.065 | -0.043 | -0.004 | 0.83 / -0.044 | no (PF=1.04<1.15; media=0.010R<0.03; no gana en las dos mitades; pierde con costes ×1.5) |
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -9,8 +9,8 @@ drwxr-xr-x 4 abc abc 4096 Oct 23 12:31 /config/.wine
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  52334       00:48 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  52341       00:48 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  52334       01:08 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  52341       01:08 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
 QO	0	12:08:11.352	MCP	started on 127.0.0.1:22346

@@ -1,0 +1,30 @@
+
+=== RESÚMENES DE CICLO DE ACCIONES (últimos) ===
+[Cycle/stocks] fase=EUROPA analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=1 rechazadas=0 | euSess SAN:09:35✓[3] IBE:09:35✓[3] SAP:09:35✓[3]
+[Cycle/stocks] fase=EUROPA analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=1 rechazadas=0 | euSess SAN:09:40✓[3] IBE:09:40✓[3] SAP:09:40✓[3]
+[Cycle/stocks] fase=EUROPA analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=1 rechazadas=0 | euSess SAN:09:43✓[3] IBE:09:43✓[3] SAP:09:43✓[3]
+[Cycle/stocks] fase=EUROPA analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=1 rechazadas=0 | euSess SAN:09:46✓[3] IBE:09:46✓[3] SAP:09:46✓[3]
+[Cycle/stocks] fase=EUROPA analizados=29 señales=1 BUY=1 enviadas=0 sin_capital=1 rechazadas=0 | euSess SAN:09:49✓[3] IBE:09:49✓[3] SAP:09:49✓[3]
+[Cycle/stocks] fase=EUROPA analizados=29 señales=0 BUY=0 enviadas=0 sin_capital=0 rechazadas=0 | euSess SAN:09:52✓[3] IBE:09:52✓[3] SAP:09:52✓[3]
+[Cycle/stocks] fase=EUROPA analizados=29 señales=0 BUY=0 enviadas=0 sin_capital=0 rechazadas=0 | euSess SAN:09:55✓[3] IBE:09:55✓[3] SAP:09:55✓[3]
+[Cycle/stocks] fase=EUROPA analizados=29 señales=0 BUY=0 enviadas=0 sin_capital=0 rechazadas=0 | euSess SAN:09:59✓[3] IBE:09:59✓[3] SAP:09:59✓[3]
+
+=== SEÑALES BUY Y SU DESTINO (hoy, agrupado) ===
+      8 [Signal] ASML: SIGNAL_NO_CAPITAL conf=N% price=€N cuenta UN cuenta UN | EUR cash €N (USD $N no usado para compras EUR)
+      3 [Telegram] sendMessage intento chatId=N chars=N buttons=N «💡 OPORTUNIDAD 🇪🇺 ASML BUY N% @ €N — sin capital (cuenta UN»
+
+=== ÚLTIMAS 30 SEÑALES BUY CON DETALLE ===
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1420.40 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1423.20 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1423.20 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1426.60 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1426.20 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1426.20 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1422.60 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+[Signal] ASML: SIGNAL_NO_CAPITAL conf=70% price=€1422.60 cuenta U15513057 cuenta U15513057 | EUR cash €221.01 (USD $35.52 no usado para compras EUR)
+
+=== MOTIVOS DE «ninguna señal» (estrategias, agrupado) ===
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=1

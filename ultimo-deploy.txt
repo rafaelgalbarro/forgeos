@@ -1,33 +1,32 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 36ba19d mt5: comprobación de trading en seco (order_check) cuando el flag de la cuenta dice que no
+Desplegando 2596fd1 mt5: argumentos de WebView2 para Wine (diálogos visibles)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261023-064404
-Updating 03a70df..36ba19d
+estado copiado en /root/forgeos-state-20261023-071320
+Updating 36ba19d..2596fd1
 Fast-forward
- deploy/remote/forgeos-remote.sh   |  2 +-
- lib/forex-bot/engine.ts           |  8 ++++++--
- lib/forex-bot/mt5.ts              |  5 +++++
- services/mt5-bridge/mt5_bridge.py | 22 ++++++++++++++++++++++
- 4 files changed, 34 insertions(+), 3 deletions(-)
+ .github/workflows/server-remote.yml |  2 +-
+ deploy/remote/forgeos-remote.sh     | 71 +++++++++++++++++++++++++++----------
+ deploy/remote/mt5-bridge-run.sh     |  2 +-
+ 3 files changed, 54 insertions(+), 21 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
 19 passed in 0.42s
 
 === BUILD ===
-procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2733        2357           5        2967        5012
-Swap:           4095        1027        3068
+procesos MT5 antes: terminal=6 puente=1 wine=5
+Mem:            7746        2863        2608           7        2588        4882
+Swap:           4095        1055        3040
      0 MB COMMAND
-   517 MB java
-   404 MB next-server
-   221 MB node
-   194 MB node
-   191 MB node
+   503 MB java
+   406 MB next-server
+   245 MB node
+   223 MB node
+   223 MB node
 
-up to date in 1s
+up to date in 2s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

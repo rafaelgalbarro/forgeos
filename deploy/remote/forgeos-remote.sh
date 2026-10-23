@@ -717,6 +717,11 @@ do_forex_meanrev() {
   timeout 2700 node scripts/forex-bot.cjs meanrev 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|velas: " | grep -E "^\\||^#|Apta|Datos|\\[RSI2\\] .*(APTA|sin historia)|error" | tail -70
 }
 
+do_forex_ignition() {
+  sec "IGNICIÓN DE MOMENTO + NOTICIAS (FX/CFD por MT5, cripto por Kraken) — backtest"
+  timeout 3300 node scripts/forex-bot.cjs ignition 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | grep -E "APTA|noticias:|sin historia|error|^\\| " | tail -110
+}
+
 do_forex_bot() {
   sec "BOT FOREX"
   if ! pm2 describe forgeos-forex-bot >/dev/null 2>&1; then
@@ -892,6 +897,7 @@ case "$ACTION" in
   forex-playbook) do_forex_playbook ;;
   forex-methods) do_forex_methods ;;
   forex-meanrev) do_forex_meanrev ;;
+  forex-ignition) do_forex_ignition ;;
   forex-lock)
     # Owner confirmation: lock a validated strategy so it may trade real money (ARG = strategy id).
     ID="$ARG" python3 - <<'PY'

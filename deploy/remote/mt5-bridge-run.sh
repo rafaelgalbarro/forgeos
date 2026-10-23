@@ -62,17 +62,39 @@ sleep 40
 # OANDA shows a "High Risk Investment Warning" (WebView, renders black under Wine). Until it is
 # accepted the terminal refuses orders ("Trade disabled"). Accept it with the keyboard:
 # focus the dialog, Tab → tick the checkbox, Tab → Enter (accept).
-# The WebView page loads slowly under Wine: wait for the window, then give it 35 s before typing.
-for _ in $(seq 1 12); do
+# The WebView page loads slowly under Wine: wait for the window, give it 60 s, then ONE attempt
+# (repeating would untick the checkbox). Success is verified below with a dry-run order check.
+for _ in $(seq 1 18); do
   docker exec "$C" sh -c 'DISPLAY=:1 xdotool search --name "High Risk Investment Warning" >/dev/null 2>&1' && break
   sleep 5
 done
-for _ in 1 2 3; do
-  W="$(docker exec "$C" sh -c 'DISPLAY=:1 xdotool search --name "High Risk Investment Warning" 2>/dev/null | head -1')"
-  [ -z "$W" ] && break
-  sleep 35
+W="$(docker exec "$C" sh -c 'DISPLAY=:1 xdotool search --name "High Risk Investment Warning" 2>/dev/null | head -1')"
+if [ -n "$W" ]; then
+  sleep 60
   echo "aceptando aviso de riesgo de OANDA (ventana $W)"
-  docker exec "$C" sh -c "DISPLAY=:1 xdotool windowactivate --sync $W 2>/dev/null; eval \$(DISPLAY=:1 xdotool getwindowgeometry --shell $W); DISPLAY=:1 xdotool mousemove \$((X + WIDTH / 2)) \$((Y + HEIGHT / 2)) click 1; sleep 1; DISPLAY=:1 xdotool key Tab; sleep 0.5; DISPLAY=:1 xdotool key space; sleep 0.5; DISPLAY=:1 xdotool key Tab; sleep 0.5; DISPLAY=:1 xdotool key Return" || true
+  docker exec "$C" sh -c "DISPLAY=:1 xdotool windowactivate --sync $W 2>/dev/null; eval \$(DISPLAY=:1 xdotool getwindowgeometry --shell $W); DISPLAY=:1 xdotool mousemove \$((X + WIDTH / 2)) \$((Y + HEIGHT / 2)) click 1; sleep 1; DISPLAY=:1 xdotool key Tab; sleep 1; DISPLAY=:1 xdotool key space; sleep 1; DISPLAY=:1 xdotool key Tab; sleep 1; DISPLAY=:1 xdotool key Return" || true
   sleep 10
+fi
+# Run the bridge, then verify trading really works (order_check, nothing is sent). If the terminal
+# still refuses orders, restart everything (PM2 restarts this runner after the pause).
+docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py' &
+BRIDGE=$!
+KEY="$(cat /root/mt5-config/forgeos/bridge-key.txt 2>/dev/null)"
+OK=""
+for _ in $(seq 1 30); do
+  sleep 10
+  R="$(curl -s --max-time 20 http://127.0.0.1:8004/tradecheck -H "X-Bridge-Key: $KEY" 2>/dev/null)"
+  case "$R" in
+    *'"ok": true'*) OK=1; echo "trading verificado: $R"; break ;;
+    *'"retcode": 10017'*) echo "terminal sin permiso de trading (aviso no aceptado): $R"; break ;;
+    *'"retcode"'*) OK=1; echo "trading habilitado (check: $R)"; break ;;
+  esac
 done
-exec docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'
+if [ -z "$OK" ]; then
+  echo "reinicio completo del terminal en 2 min para reintentar la aceptación"
+  sleep 120
+  kill "$BRIDGE" 2>/dev/null; pkill -f mt5_bridge.py; pkill -f terminal64.exe
+  exit 1
+fi
+wait "$BRIDGE"
+exit $?

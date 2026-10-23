@@ -1,4 +1,4 @@
-confirmada para real: MR_GBPUSD_H4_LMT (GBP/USD · RSI2 en tendencia H4 (limitada))
+confirmada para real: R2_US500 (US500 · Improved R2 (Connors, diario))
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

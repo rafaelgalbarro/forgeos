@@ -180,6 +180,26 @@ def order(body):
     return {"order": res.order, "deal": res.deal, "price": res.price, "volume": res.volume, "position": getattr(res, "order", None)}
 
 
+def trade_check():
+    """Dry-run (order_check, nothing is sent): can this account actually trade right now?"""
+    symbol = resolve("EUR_USD")
+    info = sym_info(symbol)
+    tick = mt5.symbol_info_tick(symbol)
+    if info is None or tick is None:
+        return {"ok": False, "retcode": None, "comment": "sin cotización %s" % symbol}
+    d = 50 * 10 * info.point
+    req = {
+        "action": mt5.TRADE_ACTION_DEAL, "symbol": symbol, "volume": float(info.volume_min),
+        "type": mt5.ORDER_TYPE_BUY, "price": tick.ask, "sl": round(tick.ask - d, info.digits),
+        "tp": round(tick.ask + d, info.digits), "deviation": 10, "magic": 26102026,
+        "type_time": mt5.ORDER_TIME_GTC, "type_filling": filling_for(info),
+    }
+    r = mt5.order_check(req)
+    if r is None:
+        return {"ok": False, "retcode": None, "comment": str(mt5.last_error())}
+    return {"ok": r.retcode == 0, "retcode": r.retcode, "comment": r.comment, "symbol": symbol}
+
+
 def positions():
     out = []
     for p in mt5.positions_get() or []:
@@ -264,6 +284,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200 if p else 404, p or {"error": "símbolo no encontrado"})
                 if url.path == "/rates":
                     return self._send(200, rates(q["symbol"], q.get("tf", "M15"), int(q.get("count", 400))))
+                if url.path == "/tradecheck":
+                    return self._send(200, trade_check())
                 if url.path == "/positions":
                     return self._send(200, positions())
                 if url.path == "/closed":

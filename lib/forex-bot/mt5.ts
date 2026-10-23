@@ -135,3 +135,8 @@ export async function mt5Closed(ticket: string): Promise<{ closed: boolean; pnl:
   );
   return { closed: r.closed, pnl: r.pnl, exitPrice: r.exit_price, reason: r.reason };
 }
+
+/** Dry-run order check (nothing is sent): can the account really trade right now? */
+export async function mt5TradeCheck(): Promise<{ ok: boolean; retcode: number | null; comment: string }> {
+  return call<{ ok: boolean; retcode: number | null; comment: string }>("/tradecheck");
+}

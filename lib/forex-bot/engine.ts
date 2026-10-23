@@ -42,7 +42,7 @@ import {
   oandaTradeDetails,
   type OandaPrice,
 } from "./oanda";
-import { mt5Account, mt5Candles, mt5Close, mt5Closed, mt5Configured, mt5Order, mt5Positions, mt5SymbolInfo, type Mt5SymbolInfo } from "./mt5";
+import { mt5Account, mt5Candles, mt5Close, mt5Closed, mt5Configured, mt5Order, mt5Positions, mt5SymbolInfo, mt5TradeCheck, type Mt5SymbolInfo } from "./mt5";
 import { convert, fxPnlAccount, sizeFxLots, sizeFxPosition, type FxRates } from "./risk";
 import { isFxEntryWindow, isWeekendFlattenTime, londonDayKey } from "./sessions";
 import { evaluateLondonBreakout, evaluateTrendPullback } from "./strategies";
@@ -158,7 +158,11 @@ export async function runForexBotCycle(): Promise<string> {
         accountCurrency = acct.currency.toUpperCase();
         if (mode === "live" && acct.demo) brokerBlock = "modo live pero la cuenta MT5 es demo";
         else if (mode === "practice" && !acct.demo) brokerBlock = "modo practice pero la cuenta MT5 es REAL";
-        else if (!acct.trade_allowed) brokerBlock = "cuenta MT5 sin permiso de trading (OANDA)";
+        else if (!acct.trade_allowed) {
+          // The flag can lag behind the server: confirm with a dry-run order check.
+          const chk = await mt5TradeCheck().catch(() => null);
+          if (!chk?.ok) brokerBlock = `cuenta MT5 sin permiso de trading (OANDA)${chk ? ` [${chk.retcode} ${chk.comment}]` : ""}`;
+        }
         else if (acct.terminal_trade_allowed === false) brokerBlock = "MT5: 'Algo Trading' desactivado";
       } else {
         const acct = await oandaAccount();

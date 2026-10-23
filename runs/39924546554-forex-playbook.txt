@@ -1,0 +1,46 @@
+
+=== FICHAS POR INSTRUMENTO (guía) — backtest con historia de OANDA ===
+[Playbook] PB_WTI_NY_RANGE USOIL 54000: fetch failed
+[Playbook] PB_WTI_NY_RANGE USOIL 27000: fetch failed
+[Playbook] PB_WTI_NY_RANGE: sin historia
+[Playbook] PB_BRENT_LDN_RANGE OILBRENT 90000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE OILBRENT 54000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE OILBRENT 27000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE BRENT 90000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE BRENT 54000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE BRENT 27000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE UKOIL 90000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE UKOIL 54000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE UKOIL 27000: fetch failed
+[Playbook] PB_BRENT_LDN_RANGE: sin historia
+[Playbook] PB_US100_NY_ORB US100 90000: fetch failed
+[Playbook] PB_US100_NY_ORB US100 54000: fetch failed
+[Playbook] PB_US100_NY_ORB US100 27000: fetch failed
+[Playbook] PB_US100_NY_ORB NAS100 90000: fetch failed
+[Playbook] PB_US100_NY_ORB NAS100 54000: fetch failed
+[Playbook] PB_US100_NY_ORB NAS100 27000: fetch failed
+[Playbook] PB_US100_NY_ORB USTEC 90000: fetch failed
+[Playbook] PB_US100_NY_ORB USTEC 54000: fetch failed
+[Playbook] PB_US100_NY_ORB USTEC 27000: fetch failed
+[Playbook] PB_US100_NY_ORB: sin historia
+[Playbook] PB_US500_CLOSE_MOM US500 90000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM US500 54000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM US500 27000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM SPX500 90000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM SPX500 54000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM SPX500 27000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM US500 90000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM US500 54000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM US500 27000: fetch failed
+[Playbook] PB_US500_CLOSE_MOM: sin historia
+# Fichas por instrumento — backtest 2026-10-23
+
+Datos OANDA (MT5). Reglas fijas de la guía, sin optimizar: toda la historia es prueba.
+Apta: ≥40 ops, PF ≥ 1.15, media ≥ 0.05 R, positiva en ambas mitades y con spread ×1.5.
+
+| Ficha | Periodo | Ops | Acierto | PF | Media R | Total R | DD máx R | 1ª mitad | 2ª mitad | Spread ×1.5 | ¿Apta? |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

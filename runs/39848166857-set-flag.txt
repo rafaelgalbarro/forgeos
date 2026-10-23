@@ -1,9 +1,0 @@
-
-=== AJUSTE FOREX_BOT_MODE ===
-antes: 
-FOREX_BOT_MODE=live
-forgeos-forex-bot reiniciado
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0

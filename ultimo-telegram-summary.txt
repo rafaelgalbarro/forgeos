@@ -1,0 +1,31 @@
+
+=== RESUMEN DEL DÍA → TELEGRAM ===
+📊 Resumen del día 2026-10-23
+
+💱 OANDA: 2 avisos · cerradas 1 (+0.24 €) · abiertas 0
+📈 IB: 4 avisos · P&L día -4.29 · NAV 574.82 · posiciones 2
+₿ Kraken: 1742 avisos · P&L día -0.64 $ · margen 56.02 $
+
+Operaciones de hoy
+11:38 [KRAKEN] 🔴 SHORT EXIT Futures PF_ZROUSD @ 1.8605 | RS_VS_BTC_1H_SHORT EXCHANGE_FLAT lev=1 funding=€-0.0004 ne
+11:39 [KRAKEN] 🟢 SHORT Futures PF_ZECUSD 0.01 @ $1215.04 | TREND_PULLBACK_1H_SHORT lev=1 stop=$1246.51
+11:39 [KRAKEN] 🟢 SHORT Futures PF_NEARUSD 3 @ $4.90 | TREND_PULLBACK_1H_SHORT lev=1 stop=$5.0116
+11:39 [KRAKEN] 🔴 SHORT EXIT Futures PF_NEARUSD @ 4.8976 | TREND_PULLBACK_1H_SHORT EXCHANGE_FLAT lev=1 funding=€-0.0
+11:39 [KRAKEN] 🔴 SHORT EXIT Futures PF_ZECUSD @ 1215.0400 | TREND_PULLBACK_1H_SHORT EXCHANGE_FLAT lev=1 funding=€-0
+11:40 [KRAKEN] 🟢 SHORT Futures PF_SOLUSD 0.16 @ $103.81 | TREND_PULLBACK_1H_SHORT lev=1 stop=$104.9
+15:47 [KRAKEN] 🔴 SHORT EXIT Futures PF_SOLUSD @ 103.8100 | TREND_PULLBACK_1H_SHORT EXCHANGE_FLAT lev=1 funding=€-0.
+15:48 [KRAKEN] 🔴 SHORT EXIT Futures PF_ZECUSD @ 1215.0400 | TREND_PULLBACK_1H_SHORT EXCHANGE_FLAT lev=1 funding=€0.
+15:48 [IB] ✅ [EJECUTADO] 🇺🇸 USA
+15:55 [IB] 🔴 VENTA SMCI (stop) × 1 @ 33.44
+15:55 [IB] 🔴 STOP LOSS 🇺🇸 SELL SMCI 1 @ $33.44 | -1.6% ($0.55)
+16:42 [IB] ✅ [EJECUTADO] 🇺🇸 USA
+17:04 [KRAKEN] 🟢 SHORT Futures PF_ZECUSD 0.01 @ $1226.16 | TREND_PULLBACK_1H_SHORT lev=1 stop=$1259.98
+18:19 [OANDA] 💱 compra GBP_USD (REAL)
+21:01 [OANDA] 🟢 FX cerrada GBP_USD (REAL) WEEKEND
+[Telegram] sendMessage intento chatId=1156860156 chars=1517 buttons=0 «📊 Resumen del día 2026-10-23 💱 OANDA: 2 avisos · cerradas 1 (+0.24 €»
+[Telegram] sendMessage OK message_id=24670
+[Resumen] enviado a Telegram (message_id=24670)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

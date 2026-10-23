@@ -1,0 +1,62 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 494daed Telegram solo con compras/ventas reales (OANDA, IB, Kraken) + resumen diario 22:00; backtest de las fichas de la guía
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261023-082157
+Updating 8339bb6..494daed
+Fast-forward
+ .github/workflows/server-remote.yml          |   2 +-
+ deploy/remote/forgeos-remote.sh              |  24 ++
+ lib/forex-bot/engine.ts                      |  15 +-
+ lib/forex-bot/mt5.ts                         |   2 +-
+ lib/forex-bot/playbook.ts                    | 397 +++++++++++++++++++++++++++
+ lib/notifications/daily-summary.ts           | 102 +++++++
+ lib/notifications/telegram-bot.ts            |  40 ++-
+ lib/notifications/telegram-handler.ts        |  67 ++---
+ lib/notifications/trade-ledger.ts            |  38 +++
+ lib/trading/__tests__/forex-playbook.test.ts |  50 ++++
+ lib/trading/crypto/engine.ts                 |   6 +-
+ lib/trading/crypto/futures-engine.ts         |   5 +-
+ lib/trading/exit-manager.ts                  |  10 +-
+ scripts/forex-bot-main.ts                    |   5 +
+ scripts/forex-bot.cjs                        |   2 +-
+ scripts/forex-playbook.ts                    |  72 +++++
+ 16 files changed, 787 insertions(+), 50 deletions(-)
+ create mode 100644 lib/forex-bot/playbook.ts
+ create mode 100644 lib/notifications/daily-summary.ts
+ create mode 100644 lib/notifications/trade-ledger.ts
+ create mode 100644 lib/trading/__tests__/forex-playbook.test.ts
+ create mode 100644 scripts/forex-playbook.ts
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.53s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        2999         992           5        4067        4746
+Swap:           4095        1157        2938
+     0 MB COMMAND
+   634 MB java
+   432 MB next-server
+   236 MB node
+   232 MB node
+   192 MB node
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

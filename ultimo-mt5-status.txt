@@ -9,8 +9,8 @@ drwxr-xr-x 4 abc abc 4096 Oct 23 12:31 /config/.wine
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  52334       01:27 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  52341       01:27 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  52334       01:45 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  52341       01:45 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
 PK	0	12:08:15.867	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
@@ -35,12 +35,12 @@ KI	0	12:30:47.144	Network	'242902': balance management has been enabled
 
 --- /resolve?base=EUR_USD
 
-2026-10-23 12:10:05 +00:00: init=True err=None
 2026-10-23 12:10:13 +00:00: trading verificado: {"ok": true, "retcode": 0, "comment": "Done", "symbol": "EURUSD.pro"}
 2026-10-23 12:30:38 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
 2026-10-23 12:30:38 +00:00: MetaTrader5 py: 5.0.6231
 2026-10-23 12:30:39 +00:00: wine: wine-11.10 (Staging)
 2026-10-23 12:30:39 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-10-23 12:32:20 +00:00: aceptando aviso de riesgo de OANDA (ventana 18874436)
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -712,6 +712,11 @@ do_forex_methods() {
   timeout 2400 node scripts/forex-bot.cjs methods 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | grep -vE "velas: .*fetch failed" | tail -45
 }
 
+do_forex_meanrev() {
+  sec "RSI2 EN TENDENCIA (Connors) H1/H4 — backtest con historia de OANDA"
+  timeout 2700 node scripts/forex-bot.cjs meanrev 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|velas: " | grep -E "^\\||^#|Apta|Datos|\\[RSI2\\] .*(APTA|sin historia)|error" | tail -70
+}
+
 do_forex_bot() {
   sec "BOT FOREX"
   if ! pm2 describe forgeos-forex-bot >/dev/null 2>&1; then
@@ -886,6 +891,7 @@ case "$ACTION" in
   forex-optimize) do_forex_optimize "$ARG" ;;
   forex-playbook) do_forex_playbook ;;
   forex-methods) do_forex_methods ;;
+  forex-meanrev) do_forex_meanrev ;;
   mt5-setup) do_mt5_setup ;;
   mt5-status) do_mt5_status ;;
   mt5-wine9)

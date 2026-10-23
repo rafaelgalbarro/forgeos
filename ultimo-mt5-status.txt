@@ -4,13 +4,15 @@ mt5 Up 17 hours
 puente: online reinicios: 113
 puente sin respuesta (puede estar arrancando)
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Oct 23 06:37 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Oct 23 06:42 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  40405       00:20 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  40411       00:20 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  40405       00:41 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  40411       00:41 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  40488       00:01 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  40495       00:00 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
 CJ	0	06:37:11.712	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 4 / 7 Gb memory, 30 / 74 Gb disk, GMT+0

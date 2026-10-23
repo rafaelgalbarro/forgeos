@@ -32,6 +32,7 @@ import {
 import { fxCandles } from "./data";
 import { pipSize } from "./indicators";
 import { fxEligibleStrategies, loadFxState, loadFxTrades, loadPairChoices, saveFxState, saveFxTrades } from "./journal";
+import { loadNews, newsBlockReason } from "./news";
 import { computeIndicators, signalAt, TF_SEC, type FxTf, type PairChoice } from "./pair-strategies";
 import {
   oandaAccount,
@@ -273,6 +274,7 @@ export async function runForexBotCycle(): Promise<string> {
   const SHADOW_MAX = 8;
   let entries = 0;
   const eligible = fxEligibleStrategies();
+  const news = await loadNews().catch(() => null);
   const pairChoices = new Map<string, PairChoice>(
     (loadPairChoices()?.choices ?? []).filter((c) => c.spec).map((c) => [c.instrument, c]),
   );
@@ -284,6 +286,8 @@ export async function runForexBotCycle(): Promise<string> {
     for (const p of pairs) {
       const d = data.get(p);
       if (!d || d.m15.length < 60) continue;
+      const nb = newsBlockReason(p, news?.events ?? null, news?.ageMs ?? Infinity);
+      if (nb) { if (!notes.some((x) => x.startsWith("noticias"))) notes.push(`noticias: ${p} ${nb}`); continue; }
       const lastBar = d.m15[d.m15.length - 1]!;
       if (state.lastCandleByPair[p] === lastBar.time) continue; // one decision per closed bar
       state.lastCandleByPair[p] = lastBar.time;

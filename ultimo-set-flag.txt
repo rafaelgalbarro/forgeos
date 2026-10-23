@@ -1,7 +1,7 @@
 
-=== AJUSTE FOREX_BOT_MODE ===
+=== AJUSTE FOREX_BOT_MIN_LOT_MAX_RISK_PCT ===
 antes: 
-FOREX_BOT_MODE=live
+FOREX_BOT_MIN_LOT_MAX_RISK_PCT=5
 forgeos-forex-bot reiniciado
 --- preparación ---
 líneas clave: 7

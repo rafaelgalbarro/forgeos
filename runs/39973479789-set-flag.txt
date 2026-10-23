@@ -1,0 +1,9 @@
+
+=== AJUSTE FOREX_BOT_MIN_LOT_MAX_RISK_PCT ===
+antes: 
+FOREX_BOT_MIN_LOT_MAX_RISK_PCT=5
+forgeos-forex-bot reiniciado
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

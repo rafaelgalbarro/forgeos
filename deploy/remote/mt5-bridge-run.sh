@@ -54,7 +54,7 @@ else
 fi
 echo "terminal: $TERM_EXE"
 # Start the terminal ourselves (detached, on the VNC display); the bridge then attaches to it.
-docker exec -d -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" "$C" \
+docker exec -d -u "$U" -e "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--no-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" "$C" \
   wine "$TERM_EXE" '/config:Z:\config\forgeos\start.ini'
 sleep 40
 exec docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'

@@ -8,13 +8,12 @@ drwxr-xr-x 4 abc abc 4096 Oct 23 06:59 /config/.wine
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
-  41209       01:02 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-  41215       01:02 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
-  41292       00:22 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
-  41309       00:22 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+  41209       01:28 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+  41215       01:28 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+  41292       00:48 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+  41309       00:48 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261023.log
-GL	0	06:51:33.655	HistoryCenter	delete old files from C:\Program Files\OANDA TMS MT5 Terminal\bases\Default\history\EURUSD, last access time 2023.06.08 10:59
 EQ	0	06:51:33.656	HistoryCenter	delete old files from C:\Program Files\OANDA TMS MT5 Terminal\bases\Default\history\GBPUSD, last access time 2023.06.08 10:59
 PD	0	06:51:33.657	HistoryCenter	delete old files from C:\Program Files\OANDA TMS MT5 Terminal\bases\Default\history\USDCHF, last access time 2023.06.08 10:59
 RH	0	06:51:33.659	HistoryCenter	delete old files from C:\Program Files\OANDA TMS MT5 Terminal\bases\Default\history\USDJPY, last access time 2023.06.08 10:59
@@ -29,6 +28,7 @@ FL	0	06:58:05.872	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-g
 DE	0	06:58:05.872	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
 NO	0	06:58:05.872	Terminal	launched with Z:\config\forgeos\start.ini
 HK	0	06:58:05.880	MCP	started on 127.0.0.1:22346
+QR	2	06:58:11.182	Network	'242902': authorization on OANDATMS-MT5 failed (Invalid account)
 --- herramientas X: xwd 
 --- /health
 {"ok": false, "state": {"initialized": false, "last_error": "initialize: (-6, 'Terminal: Authorization failed')", "login": null, "server": null}, "error": "initialize: (-6, 'Terminal: Authorization failed')"}

@@ -1,28 +1,28 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 65c0298 mt5: aceptar automáticamente el aviso de riesgo de OANDA al arrancar el terminal
+Desplegando 8339bb6 mt5: esperar a que cargue el aviso de riesgo antes de aceptarlo
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261023-072633
-Updating 3eb38e3..65c0298
+estado copiado en /root/forgeos-state-20261023-073401
+Updating 65c0298..8339bb6
 Fast-forward
- deploy/remote/mt5-bridge-run.sh | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ deploy/remote/mt5-bridge-run.sh | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.44s
+19 passed in 0.46s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2746        2375           8        2939        4999
-Swap:           4095        1104        2991
+Mem:            7746        2757        1115           8        4188        4988
+Swap:           4095        1112        2983
      0 MB COMMAND
-   475 MB java
-   423 MB next-server
+   501 MB java
+   422 MB next-server
    227 MB node
    224 MB node
-   192 MB node
+   187 MB node
 
 up to date in 2s
    Generating static pages (153/204) 

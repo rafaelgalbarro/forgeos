@@ -29,6 +29,7 @@ import {
   syncFuturesDailyRisk,
 } from "@/lib/trading/crypto/futures-daily-risk";
 import {
+  readCryptoJournal,
   appendCryptoJournal,
   closeCryptoJournalOpen,
   formatFuturesCloseTelegram,
@@ -357,15 +358,40 @@ export async function runFuturesExitLoop(): Promise<void> {
   await runFuturesShadowExits().catch(() => undefined);
   const adapter = getKrakenFuturesAdapter();
   const positions = await adapter.getOpenPositions().catch(() => []);
-  const opens = listOpenCryptoJournal({ shadow: false }).filter(
+  let opens = listOpenCryptoJournal({ shadow: false }).filter(
     (t) => t.venue === "futures" && t.open,
   );
+  // Exchange positions with no open journal leg (e.g. marked flat before the fill was visible):
+  // re-open the latest real leg for that contract so stop/TP management resumes.
+  const journalPfs = new Set(opens.map((o) => (o.pfSymbol ?? spotPairToPfSymbol(o.pair) ?? o.pair).toUpperCase()));
+  const orphans = positions.filter((p) => !journalPfs.has(p.symbol.toUpperCase()));
+  if (orphans.length) {
+    const recent = readCryptoJournal(5000).filter((t) => !t.shadow && t.venue === "futures");
+    for (const p of orphans) {
+      const pf = p.symbol.toUpperCase();
+      const leg = [...recent].reverse().find((t) => {
+        const tpf = (t.pfSymbol ?? spotPairToPfSymbol(t.pair) ?? t.pair).toUpperCase();
+        const isOpenLeg = !t.exitReason && (t.side === "BUY" || (t.positionSide === "short" && t.side === "SELL"));
+        return tpf === pf && isOpenLeg && (t.positionSide ?? "long") === p.side;
+      });
+      if (!leg) {
+        console.warn(`[Kraken/Futures] posición ${pf} sin entrada en el journal — revisar a mano`);
+        continue;
+      }
+      appendCryptoJournal({ ...leg, open: true, exit: null, exitReason: null, signalKey: `${leg.signalKey ?? leg.at}#reopen` });
+      console.warn(`[Kraken/Futures] ${pf}: posición viva sin journal abierto → reabierta (${leg.strategy})`);
+    }
+    opens = listOpenCryptoJournal({ shadow: false }).filter((t) => t.venue === "futures" && t.open);
+  }
   const openOrders = opens.length ? await adapter.getOpenOrders().catch(() => null) : [];
   const tpHandled = new Set<string>();
   for (const open of [...opens].reverse()) {
     const pf = (open.pfSymbol ?? spotPairToPfSymbol(open.pair) ?? open.pair).toUpperCase();
     const pos = positions.find((p) => p.symbol === pf);
     if (!pos) {
+      // A fresh entry may not be visible as a position yet: give it 3 minutes before calling it flat.
+      const age = Date.now() - Date.parse(open.at);
+      if (Number.isFinite(age) && age < 3 * 60_000) continue;
       await finalizeFuturesClose(open, open.entry, "EXCHANGE_FLAT", 0);
       continue;
     }

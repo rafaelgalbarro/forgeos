@@ -911,6 +911,9 @@ case "$ACTION" in
       pkill -f terminal64.exe
     fi
     pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado" ;;
+  mt5-stop)
+    pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
+    echo "puente y terminal MT5 parados (sin reintentos de login)" ;;
   mt5-shot)
     docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
     if false; then :

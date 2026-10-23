@@ -182,7 +182,8 @@ export type PlaybookTrade = {
   r: number | null;
 };
 
-export function scanPlaybook(spec: PlaybookSpec, bars: readonly FxCandle[], spread = spec.spread): PlaybookTrade[] {
+/** `spread` drives the filters (cost ≤ 0.10 R); `costSpread` is what each trade pays (stress tests). */
+export function scanPlaybook(spec: PlaybookSpec, bars: readonly FxCandle[], spread = spec.spread, costSpread = spread): PlaybookTrade[] {
   const tfSec = spec.tfMin * 60;
   const n = bars.length;
   if (n < 100) return [];
@@ -233,7 +234,7 @@ export function scanPlaybook(spec: PlaybookSpec, bars: readonly FxCandle[], spre
     }
     const nx = bars[i + 1]!;
     if (Math.abs(nx.open - sigClose) > 0.25 * a) return; // entry too far from confirmation
-    const entry = nx.open + (dir * spread) / 2;
+    const entry = nx.open + (dir * costSpread) / 2;
     const risk = Math.abs(entry - stopPx);
     if (!(risk > 0) || (side === "long" ? stopPx >= entry : stopPx <= entry)) return;
     if (risk < spec.stopAtr[0] * a || risk > spec.stopAtr[1] * a) return;
@@ -247,9 +248,9 @@ export function scanPlaybook(spec: PlaybookSpec, bars: readonly FxCandle[], spre
       const b = bars[j]!;
       const hitSl = side === "long" ? b.low <= stopPx : b.high >= stopPx;
       const hitTp = target != null && (side === "long" ? b.high >= target : b.low <= target);
-      if (hitSl) { exit = stopPx - (dir * spread) / 2; reason = "SL"; exitTime = b.time + tfSec; break; }
-      if (hitTp) { exit = target! - (dir * spread) / 2; reason = "TP"; exitTime = b.time + tfSec; break; }
-      if (b.time + tfSec >= exitAt) { exit = b.close - (dir * spread) / 2; reason = "SESSION"; exitTime = b.time + tfSec; break; }
+      if (hitSl) { exit = stopPx - (dir * costSpread) / 2; reason = "SL"; exitTime = b.time + tfSec; break; }
+      if (hitTp) { exit = target! - (dir * costSpread) / 2; reason = "TP"; exitTime = b.time + tfSec; break; }
+      if (b.time + tfSec >= exitAt) { exit = b.close - (dir * costSpread) / 2; reason = "SESSION"; exitTime = b.time + tfSec; break; }
     }
     out.push({ spec: spec.id, day, side, signalIndex: i, signalTime: bars[i]!.time, entryTime: nx.time, entry, stop: stopPx, target, exitAt, exitTime, exit, reason,
       r: exit != null ? ((exit - entry) * dir) / risk : null });
@@ -386,7 +387,8 @@ export function evaluatePlaybook(spec: PlaybookSpec, bars: readonly FxCandle[], 
   const all = pbStats(t);
   const firstHalf = pbStats(t.filter((x) => x.entryTime < mid));
   const secondHalf = pbStats(t.filter((x) => x.entryTime >= mid));
-  const stressed = pbStats(scanPlaybook(spec, bars, spread * PB_GATE.stressSpread));
+  // same trades, 50 % higher costs
+  const stressed = pbStats(scanPlaybook(spec, bars, spread, spread * PB_GATE.stressSpread));
   const r: string[] = [];
   if (all.trades < PB_GATE.minTrades) r.push(`ops=${all.trades}<${PB_GATE.minTrades}`);
   if (all.pf < PB_GATE.minPF) r.push(`PF=${all.pf.toFixed(2)}<${PB_GATE.minPF}`);

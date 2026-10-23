@@ -770,6 +770,26 @@ do_mt5_setup() {
   echo "credenciales: $( [ -s "$MT5_DIR/forgeos/mt5-credentials.json" ] && echo guardadas || echo 'PENDIENTES (comando oculto)')"
 }
 
+do_mt5_shot() {
+    docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
+    if false; then :
+    else python3 -c "import PIL" 2>/dev/null || pip3 install -q --break-system-packages pillow >/dev/null 2>&1
+      python3 - <<'PY'
+import struct
+from PIL import Image
+d = open("/tmp/mt5.xwd", "rb").read()
+h = struct.unpack(">25I", d[:100])
+hsize, w, ht, border, bpp, bpl, ncolors = h[0], h[4], h[5], h[7], h[11], h[12], h[19]
+off = hsize + ncolors * 12
+raw = d[off:off + bpl * ht]
+mode = "BGRX" if border == 0 else "XRGB"
+im = Image.frombytes("RGB", (w, ht), raw, "raw", mode, bpl)
+im.thumbnail((1280, 1280)); im.save("/tmp/mt5.png")
+PY
+    fi
+    echo "PNG-BEGIN"; base64 -w0 /tmp/mt5.png; echo; echo "PNG-END" 
+}
+
 do_mt5_status() {
   sec "MT5"
   docker ps --format '{{.Names}} {{.Status}}' | grep -E '^mt5 ' || echo "contenedor mt5 no está en marcha"
@@ -914,24 +934,34 @@ case "$ACTION" in
   mt5-stop)
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
     echo "puente y terminal MT5 parados (sin reintentos de login)" ;;
-  mt5-shot)
-    docker exec mt5 sh -c 'xwd -root -silent -display :1' > /tmp/mt5.xwd 2>/dev/null
-    if false; then :
-    else python3 -c "import PIL" 2>/dev/null || pip3 install -q --break-system-packages pillow >/dev/null 2>&1
-      python3 - <<'PY'
-import struct
-from PIL import Image
-d = open("/tmp/mt5.xwd", "rb").read()
-h = struct.unpack(">25I", d[:100])
-hsize, w, ht, border, bpp, bpl, ncolors = h[0], h[4], h[5], h[7], h[11], h[12], h[19]
-off = hsize + ncolors * 12
-raw = d[off:off + bpl * ht]
-mode = "BGRX" if border == 0 else "XRGB"
-im = Image.frombytes("RGB", (w, ht), raw, "raw", mode, bpl)
-im.thumbnail((1280, 1280)); im.save("/tmp/mt5.png")
-PY
-    fi
-    echo "PNG-BEGIN"; base64 -w0 /tmp/mt5.png; echo; echo "PNG-END" ;;
+  mt5-webview)
+    # MT5 dialogs (login, risk warning) are WebView2 pages: install the Edge WebView2 runtime + xdotool.
+    WU="$(stat -c %u /root/mt5-config/.wine)"
+    docker exec mt5 sh -c 'command -v xdotool >/dev/null || (apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xdotool >/dev/null 2>&1); command -v xdotool && echo "xdotool ok"'
+    docker exec -u "$WU" -e HOME=/config -e WINEPREFIX=/config/.wine -e DISPLAY=:1 -e WINEDEBUG=-all mt5 sh -c '
+      cd /tmp && curl -sSLo wv2.exe "https://go.microsoft.com/fwlink/?linkid=2124701" && ls -la wv2.exe &&
+      timeout 900 wine wv2.exe /silent /install; echo "instalador WebView2 terminado: $?"
+      find /config/.wine/drive_c -maxdepth 6 -iname msedgewebview2.exe 2>/dev/null | head -2'
+    pm2 restart forgeos-mt5-bridge >/dev/null 2>&1; echo "puente reiniciado (el terminal se reabre)" ;;
+  mt5-ui)
+    # Drive the MT5 window: ARG like CLICK:500:300-TAB-ENTER-SPACE-ESC-WAIT (then a screenshot).
+    for step in $(echo "$ARG" | tr '-' ' '); do
+      case "$step" in
+        CLICK:*) xy="${step#CLICK:}"; docker exec mt5 sh -c "DISPLAY=:1 xdotool mousemove ${xy%%:*} ${xy##*:} click 1" ;;
+        DCLICK:*) xy="${step#DCLICK:}"; docker exec mt5 sh -c "DISPLAY=:1 xdotool mousemove ${xy%%:*} ${xy##*:} click --repeat 2 1" ;;
+        TAB) docker exec mt5 sh -c 'DISPLAY=:1 xdotool key Tab' ;;
+        ENTER) docker exec mt5 sh -c 'DISPLAY=:1 xdotool key Return' ;;
+        SPACE) docker exec mt5 sh -c 'DISPLAY=:1 xdotool key space' ;;
+        ESC) docker exec mt5 sh -c 'DISPLAY=:1 xdotool key Escape' ;;
+        WAIT) sleep 5 ;;
+        *) echo "paso desconocido: $step" ;;
+      esac
+      sleep 1
+    done
+    sleep 3
+    docker exec mt5 sh -c 'DISPLAY=:1 xdotool search --onlyvisible --name . getwindowname %@ 2>/dev/null' | sort -u | head -12
+    do_mt5_shot ;;
+  mt5-shot) do_mt5_shot ;;
   cancel-order) do_cancel_order "$ARG" ;;
   update-script)
     git fetch -q origin && git show "origin/$BRANCH:deploy/remote/forgeos-remote.sh" > /tmp/forgeos-remote.new \

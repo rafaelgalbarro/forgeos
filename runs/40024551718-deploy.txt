@@ -1,0 +1,47 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando a58f4ff Kraken: precio y motivo de cierre reales desde las ejecuciones (fills) en vez del precio de entrada
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261023-210837
+Updating 5a3d288..a58f4ff
+Fast-forward
+ lib/brokers/kraken-futures/adapter.ts | 16 ++++++++++++++++
+ lib/trading/crypto/futures-engine.ts  | 35 ++++++++++++++++++++++++++++++++++-
+ 2 files changed, 50 insertions(+), 1 deletion(-)
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.52s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        2896        1065           4        4095        4849
+Swap:           4095        1390        2705
+     0 MB COMMAND
+   411 MB java
+   402 MB next-server
+   340 MB node
+   309 MB node
+   240 MB node
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

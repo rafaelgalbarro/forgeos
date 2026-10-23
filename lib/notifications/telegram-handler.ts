@@ -5,6 +5,11 @@ import {
   sendTelegramMessage,
 } from "@/lib/notifications/telegram-bot";
 import { publishInvestmentEvent } from "@/lib/notifications/investment-events";
+
+/** Replies to the owner's own Telegram commands always pass the "trades only" filter. */
+function reply(text: string, buttons?: Parameters<typeof sendTelegramMessage>[1]): Promise<number | null> {
+  return sendTelegramMessage(text, buttons, { kind: "reply" });
+}
 import { fetchTradingAccountSnapshot } from "@/lib/trading/ibkr-data";
 import { ibkrServiceFetch } from "@/lib/ibkr/service-client";
 import { OrderApprovalGate } from "@/src/core/trading/order-approval";
@@ -118,27 +123,27 @@ export async function handleTelegramCommand(text: string): Promise<void> {
 
   switch (cmd) {
     case "/help":
-      await sendTelegramMessage(helpText());
+      await reply(helpText());
       break;
     case "/status":
-      await sendTelegramMessage(await statusText());
+      await reply(await statusText());
       break;
     case "/portfolio":
-      await sendTelegramMessage(await portfolioText());
+      await reply(await portfolioText());
       break;
     case "/pause":
       updateTradingState((s) => ({ ...s, tradingPaused: true }));
-      await sendTelegramMessage("⏸ Trading automático pausado");
+      await reply("⏸ Trading automático pausado");
       publishInvestmentEvent({ type: "system_paused", at: new Date().toISOString() });
       break;
     case "/resume":
       RiskManager.getInstance().resume();
       updateTradingState((s) => ({ ...s, tradingPaused: false }));
-      await sendTelegramMessage("▶️ Sistema reanudado");
+      await reply("▶️ Sistema reanudado");
       publishInvestmentEvent({ type: "system_resumed", at: new Date().toISOString() });
       break;
     case "/cycle":
-      await sendTelegramMessage("🚀 Ejecutando ciclo manual…");
+      await reply("🚀 Ejecutando ciclo manual…");
       try {
         const engine = await getTradingEngine();
         const { resolveTradingCycleTickersAsync } = await import("@/lib/investment/cycle-universe");
@@ -153,14 +158,14 @@ export async function handleTelegramCommand(text: string): Promise<void> {
         });
         publishInvestmentEvent({ type: "cycle_complete", at: new Date().toISOString(), payload: result });
       } catch (err) {
-        await sendTelegramMessage(`❌ Ciclo falló: ${err instanceof Error ? err.message : "error"}`);
+        await reply(`❌ Ciclo falló: ${err instanceof Error ? err.message : "error"}`);
       }
       break;
     case "/signals":
-      await sendTelegramMessage(signalsText());
+      await reply(signalsText());
       break;
     default:
-      if (text.startsWith("/")) await sendTelegramMessage("Comando desconocido. /help");
+      if (text.startsWith("/")) await reply("Comando desconocido. /help");
   }
 }
 
@@ -171,7 +176,7 @@ export async function handleTelegramCallback(
 ): Promise<void> {
   if (chatId != null && !isFounderTelegramChat(chatId)) {
     await answerCallbackQuery(callbackQueryId, "Solo founder");
-    await sendTelegramMessage("⛔ Solo el founder puede aprobar órdenes.");
+    await reply("⛔ Solo el founder puede aprobar órdenes.");
     return;
   }
 
@@ -180,13 +185,13 @@ export async function handleTelegramCallback(
   if (data === "resume_trading") {
     RiskManager.getInstance().resume();
     updateTradingState((s) => ({ ...s, tradingPaused: false }));
-    await sendTelegramMessage("▶️ Sistema reanudado");
+    await reply("▶️ Sistema reanudado");
     publishInvestmentEvent({ type: "system_resumed", at: new Date().toISOString() });
     return;
   }
 
   if (data === "view_portfolio" || data === "report_portfolio") {
-    await sendTelegramMessage(await portfolioText());
+    await reply(await portfolioText());
     return;
   }
 
@@ -196,7 +201,7 @@ export async function handleTelegramCallback(
   }
 
   if (data === "view_settings") {
-    await sendTelegramMessage(await statusText());
+    await reply(await statusText());
     return;
   }
 
@@ -204,23 +209,23 @@ export async function handleTelegramCallback(
     const { loadOptimizerState } = await import("@/src/core/trading/portfolio-optimizer");
     const rows = loadOptimizerState().closedOutcomes.slice(0, 10);
     if (rows.length === 0) {
-      await sendTelegramMessage("📈 Sin operaciones cerradas recientes.");
+      await reply("📈 Sin operaciones cerradas recientes.");
       return;
     }
     const lines = rows.map(
       (o) =>
         `${(o.pnlUSD ?? 0) >= 0 ? "🟢" : "🔴"} ${o.ticker} ${o.kind} | P&L ${(o.pnlPct ?? 0).toFixed(1)}% | $${(o.pnlUSD ?? 0).toFixed(2)}`,
     );
-    await sendTelegramMessage(["📈 <b>HISTÓRICO RECIENTE</b>", ...lines].join("\n"));
+    await reply(["📈 <b>HISTÓRICO RECIENTE</b>", ...lines].join("\n"));
     return;
   }
 
   if (data === "committee_run") {
-    await sendTelegramMessage("🧠 Ejecutando AI Committee…");
+    await reply("🧠 Ejecutando AI Committee…");
     try {
       await runPortfolioCommitteeAnalysis();
     } catch (err) {
-      await sendTelegramMessage(
+      await reply(
         `❌ Committee failed: ${err instanceof Error ? err.message : "error"}`,
       );
     }
@@ -232,7 +237,7 @@ export async function handleTelegramCallback(
       /\/$/,
       "",
     );
-    await sendTelegramMessage(
+    await reply(
       [
         "📊 <b>Dashboard ForgeOS</b>",
         await statusText(),
@@ -249,7 +254,7 @@ export async function handleTelegramCallback(
   const payload = colonIdx >= 0 ? data.slice(colonIdx + 1) : "";
 
   if (action === "alert_analyze" || action === "watch_analyze") {
-    await sendTelegramMessage(
+    await reply(
       `📊 Análisis <b>${payload}</b> — abre Markets en el dashboard:\n/investment/markets?t=${payload}`,
     );
     return;
@@ -260,11 +265,11 @@ export async function handleTelegramCallback(
     try {
       const engine = await getTradingEngine();
       const result = await engine.runCycle([payload], { explicitTickers: true });
-      await sendTelegramMessage(
+      await reply(
         `➕ Ciclo ejecutado para <b>${payload}</b> — ${result.orders.length} resultado(s)`,
       );
     } catch (err) {
-      await sendTelegramMessage(
+      await reply(
         `➕ ${payload} en cola de ciclo. Error al ejecutar: ${err instanceof Error ? err.message : "error"}`,
       );
     }
@@ -275,10 +280,10 @@ export async function handleTelegramCallback(
     if (payload.startsWith("watch_")) {
       const ticker = payload.replace(/^watch_/, "").toUpperCase();
       removeWatchlistTicker(ticker);
-      await sendTelegramMessage(`🔕 Watchlist ${ticker} quitada`);
+      await reply(`🔕 Watchlist ${ticker} quitada`);
     } else {
       disableAlertById(payload);
-      await sendTelegramMessage(`🔕 Alerta desactivada: ${payload}`);
+      await reply(`🔕 Alerta desactivada: ${payload}`);
     }
     return;
   }
@@ -286,13 +291,13 @@ export async function handleTelegramCallback(
   if (action === "committee_view") {
     const analysis = getCommitteeAnalysis(payload);
     if (!analysis) {
-      await sendTelegramMessage("⚠️ Análisis no encontrado o expirado");
+      await reply("⚠️ Análisis no encontrado o expirado");
       return;
     }
     const lines = analysis.positions.slice(0, 40).map((p) => {
       return `${p.governor.decision === "VENDER" ? "🔴" : "🟢"} ${p.symbol} | PnL ${p.pnl_pct.toFixed(1)}% | Conf ${(p.governor.confidence * 100).toFixed(0)}% | ${p.governor.reason}`;
     });
-    await sendTelegramMessage(
+    await reply(
       ["📋 <b>ANÁLISIS COMPLETO COMMITTEE</b>", ...lines].join("\n"),
     );
     return;
@@ -301,11 +306,11 @@ export async function handleTelegramCallback(
   if (action === "committee_execute") {
     try {
       const result = await executeCommitteeSales(payload);
-      await sendTelegramMessage(
+      await reply(
         `✅ Vendidas ${result.sold} posiciones | Capital liberado: $${result.capitalFreed.toFixed(2)}`,
       );
     } catch (err) {
-      await sendTelegramMessage(
+      await reply(
         `❌ Committee execute failed: ${err instanceof Error ? err.message : "error"}`,
       );
     }
@@ -313,13 +318,13 @@ export async function handleTelegramCallback(
   }
 
   if (action === "committee_cancel") {
-    await sendTelegramMessage("❌ Comité cancelado por usuario");
+    await reply("❌ Comité cancelado por usuario");
     return;
   }
 
   const approvalId = payload;
   if (!approvalId || approvalId === "none") {
-    await sendTelegramMessage("⚠️ Señal sin approvalId — usa el dashboard");
+    await reply("⚠️ Señal sin approvalId — usa el dashboard");
     return;
   }
 
@@ -330,12 +335,12 @@ export async function handleTelegramCallback(
       chatId,
     });
     if (!result.ok && result.error) {
-      await sendTelegramMessage(`❌ ${result.error}`);
+      await reply(`❌ ${result.error}`);
     }
     return;
   }
 
-  await sendTelegramMessage(`⚠️ Acción desconocida: ${action}`);
+  await reply(`⚠️ Acción desconocida: ${action}`);
 }
 
 export function recordSignalForTelegram(record: RecentSignalRecord): void {

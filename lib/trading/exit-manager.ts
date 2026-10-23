@@ -531,7 +531,10 @@ export class ExitManager {
           durationMs: null,
           shadow: false,
         });
-        void sendTelegramMessage(line).catch((err) =>
+        void sendTelegramMessage(`[${channel === "crypto" ? "KRAKEN" : "IB"}] ${line}`, undefined, {
+          kind: "trade",
+          platform: channel === "crypto" ? "KRAKEN" : "IB",
+        }).catch((err) =>
           console.warn(
             `[Exit/${channel}] Telegram:`,
             err instanceof Error ? err.message : err,
@@ -682,7 +685,10 @@ export class ExitManager {
 
   async notifyExit(action: ExitAction, _phase?: unknown): Promise<void> {
     const channel: ExitChannel = isAlpacaCryptoTicker(action.symbol) ? "crypto" : "stocks";
-    await sendTelegramMessage(telegramLine(channel, action));
+    await sendTelegramMessage(`[${channel === "crypto" ? "KRAKEN" : "IB"}] ${telegramLine(channel, action)}`, undefined, {
+      kind: "trade",
+      platform: channel === "crypto" ? "KRAKEN" : "IB",
+    });
   }
 }
 

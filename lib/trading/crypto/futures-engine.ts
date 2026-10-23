@@ -296,7 +296,8 @@ async function finalizeFuturesClose(
     fundingPaidEur: fundingPaid,
     netPnlEur: net,
   });
-  void sendTelegramMessage(line).catch(() => undefined);
+  // Only real (non-shadow) closes reach Telegram.
+  if (!open.shadow) void sendTelegramMessage(`[KRAKEN] ${line}`, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
 }
 
 async function runFuturesShadowExits(): Promise<void> {
@@ -634,7 +635,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
       const line =
         `🟢 ${side.toUpperCase()} Futures ${pf} ${sizing.size} @ $${limitPx.toFixed(2)} | ` +
         `${sig.strategyId} lev=${futuresMaxLeverage()} stop=$${stopUsd}`;
-      void sendTelegramMessage(line).catch(() => undefined);
+      void sendTelegramMessage(`[KRAKEN] ${line}`, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
       executed.push(`${pf}:${sig.strategyId}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

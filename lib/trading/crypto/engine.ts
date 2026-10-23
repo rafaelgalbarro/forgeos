@@ -564,7 +564,7 @@ export async function runKrakenFastAnalysisCycle(): Promise<{
           `⚡ BUY FAST ₿ KRAKEN ${sig.pair} ${fillQty} @ €${order.price.toFixed(4)} | ` +
           `${sig.strategyId} fee €${fillFee.toFixed(4)} SL €${sig.stopLoss.toFixed(4)} TP €${sig.takeProfit.toFixed(4)}`;
         console.log(`[Kraken/Fast] ${buyLine}`);
-        void sendTelegramMessage(buyLine).catch(() => undefined);
+        void sendTelegramMessage(buyLine, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
         break; // max 1 fast position
       } catch (err) {
         await reservation.release(sig.pair);
@@ -786,7 +786,7 @@ async function runKrakenExits(): Promise<void> {
         `${reason} ${strategy} neto €${net.toFixed(2)} fee €${fees.toFixed(4)} ` +
         `(entry €${entry.toFixed(4)} SL €${stop.toFixed(4)} TP €${tp.toFixed(4)})`;
       console.log(`[Kraken/Exit] ${line}`);
-      void sendTelegramMessage(line).catch(() => undefined);
+      void sendTelegramMessage(line, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
     } catch (err) {
       console.warn(
         `[Kraken/Exit] sell ${pos.symbol}:`,
@@ -1156,7 +1156,7 @@ export async function runKrakenAnalysisCycle(): Promise<{
         `${sig.strategyId} SL €${sig.stopLoss.toFixed(4)} TP €${sig.takeProfit.toFixed(4)} ` +
         `fee €${filled.fee.toFixed(4)} notional≈€${(order.volume * order.price).toFixed(2)}`;
       console.log(`[Kraken/Cycle] ${line}`);
-      void sendTelegramMessage(line).catch(() => undefined);
+      void sendTelegramMessage(line, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
       executed.push(`${sig.pair}:${sig.strategyId}`);
     } catch (err) {
       await reservation.release(sig.pair);

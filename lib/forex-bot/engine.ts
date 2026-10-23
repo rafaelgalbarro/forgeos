@@ -78,8 +78,10 @@ function ccys(instrument: string): [string, string] {
   return [a ?? "", b ?? ""];
 }
 
-function tg(text: string): void {
-  void sendTelegramMessage(text).catch(() => undefined);
+/** Only real OANDA buys/sells reach Telegram (simulated trades never do). */
+function tg(text: string, real = false): void {
+  if (!real) return;
+  void sendTelegramMessage(`[OANDA] ${text}`, undefined, { kind: "trade", platform: "OANDA" }).catch(() => undefined);
 }
 
 function modeLabel(mode: string): string {
@@ -412,10 +414,11 @@ export async function runForexBotCycle(): Promise<string> {
         trades.push(trade);
         stillOpen.push(trade);
         entries += 1;
-        if (tradeMode !== "shadow" || !shadowQuiet) tg(
+        tg(
           `💱 <b>FX ${ev.side === "long" ? "compra" : "venta"} ${p}</b> (${modeLabel(tradeMode)})\n` +
             `${size.lots != null ? `${size.lots} lotes (${size.units} uds)` : `${size.units} uds`} @ ${trade.entry} · SL ${trade.stop.toFixed(5)} · TP ${trade.takeProfit.toFixed(5)}\n` +
             `riesgo ≈ ${size.riskAccount.toFixed(2)} ${accountCurrency} (${((size.riskAccount / (tradeMode === "shadow" ? shadowNav : nav)) * 100).toFixed(1)}%) · apal. ${size.leverage.toFixed(1)}x · ${s}\n${ev.reason}`,
+          tradeMode !== "shadow",
         );
         break;
       }
@@ -460,9 +463,11 @@ function closeLocal(
   t.rMultiple = risk > 0 ? ((t.side === "long" ? exit - t.entry : t.entry - exit) / risk) : null;
   const icon = (t.pnl ?? 0) >= 0 ? "🟢" : "🔴";
   if (quiet) return;
+  const real = t.mode !== "shadow";
   tg(
     `${icon} <b>FX cerrada ${t.instrument}</b> (${modeLabel(t.mode)}) ${reason}\n` +
       `${t.side === "long" ? "compra" : "venta"} ${t.units} uds ${t.entry} → ${exit} · ` +
       `P&L ${(t.pnl ?? 0).toFixed(2)} ${accountCurrency} (${(t.rMultiple ?? 0).toFixed(2)}R)`,
+    real,
   );
 }

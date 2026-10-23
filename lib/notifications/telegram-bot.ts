@@ -73,11 +73,34 @@ function notifyEnabled(flag: "signal" | "execution" | "halt" | "alert"): boolean
 }
 
 /** Sends a plain text message to the configured chat. */
+export type TelegramPlatform = "OANDA" | "IB" | "KRAKEN";
+
+/**
+ * TELEGRAM_TRADES_ONLY (default true): only real buys/sells on OANDA, IB and Kraken
+ * (kind "trade"), the daily summary (kind "summary") and replies to the owner's own
+ * commands (kind "reply") reach Telegram. Everything else is logged and dropped.
+ */
+export function telegramTradesOnly(): boolean {
+  return (process.env.TELEGRAM_TRADES_ONLY ?? "true").trim().toLowerCase() !== "false";
+}
+
 export async function sendTelegramMessage(
   text: string,
   buttons?: TelegramInlineButton[][],
-  options?: { plain?: boolean },
+  options?: { plain?: boolean; kind?: "trade" | "summary" | "reply"; platform?: TelegramPlatform },
 ): Promise<number | null> {
+  if (telegramTradesOnly() && !options?.kind) {
+    console.log(`[Telegram] filtrado (solo operaciones): «${telegramPreview(text, 80)}»`);
+    return null;
+  }
+  if (options?.kind === "trade") {
+    try {
+      const { recordTradeMessage } = await import("@/lib/notifications/trade-ledger");
+      recordTradeMessage(options.platform ?? null, text);
+    } catch {
+      /* ledger is best-effort */
+    }
+  }
   const { chatId, enabled } = cfg();
   if (!chatId) {
     console.warn("[Telegram] sendMessage omitido — TELEGRAM_CHAT_ID vacío");
@@ -88,7 +111,7 @@ export async function sendTelegramMessage(
     return null;
   }
 
-  if (!buttons?.length && shouldSkipDuplicateTelegram(text)) {
+  if (!buttons?.length && options?.kind !== "trade" && shouldSkipDuplicateTelegram(text)) {
     console.log(`[Telegram] duplicado omitido (<60 min): «${telegramPreview(text, 70)}»`);
     return null;
   }
@@ -338,7 +361,9 @@ export async function notifyInstantExecution(params: {
     `🎯 Stop: $${slFmt} | Target: $${tpFmt} (+${tpPct}%)`,
     `⏱ ${timeMadrid} Madrid`,
   ];
-  await sendTelegramMessage(lines.join("\n"));
+  const ch = (params.channel ?? "stocks").toLowerCase();
+  const platform: TelegramPlatform = ch === "crypto" ? "KRAKEN" : ch === "forex" ? "OANDA" : "IB";
+  await sendTelegramMessage(`[${platform}] ${lines.join("\n")}`, undefined, { kind: "trade", platform });
 }
 
 /** Circuit breaker — solo alerta crítica si pérdida ≥10% NAV. */
@@ -441,8 +466,13 @@ export async function notifyPositionClosed(params: {
     price: params.exitPrice ?? price,
     kind: params.kind,
   });
-  console.log(
-    `[Telegram] ${params.kind} Filled → bucket horario (sin alerta): ${params.ticker}`,
+  const icon = params.pnlUSD >= 0 ? "🟢" : "🔴";
+  await sendTelegramMessage(
+    `[IB] ${icon} <b>VENTA ${params.ticker}</b> (${params.kind === "TP" ? "objetivo" : "stop"})` +
+      `${params.shares ? ` × ${params.shares}` : ""}${params.exitPrice ? ` @ ${params.exitPrice.toFixed(2)}` : ""}\n` +
+      `P&L ${params.pnlUSD >= 0 ? "+" : ""}${params.pnlUSD.toFixed(2)} (${params.pnlPct >= 0 ? "+" : ""}${params.pnlPct.toFixed(2)}%)`,
+    undefined,
+    { kind: "trade", platform: "IB" },
   );
   void params.navUSD;
   void params.inherited;

@@ -736,6 +736,7 @@ for p in json.load(sys.stdin):
   echo "modo: $(grep -E '^FOREX_BOT_MODE=' .env.local | cut -d= -f2 || true) (vacío = shadow) · OANDA: $(grep -qE '^OANDA_API_TOKEN=.+' .env.local && echo configurado || echo 'no configurado') · entorno: $(grep -E '^OANDA_ENV=' .env.local | cut -d= -f2)"
   echo "--- últimos ciclos"
   grep -hE "\[ForexBot\]" logs/forgeos-forex-bot-out.log 2>/dev/null | tail -6 | cut -c1-400
+  echo "--- resumen diario"; grep -hE "\[Resumen\]" logs/forgeos-forex-bot-out.log logs/forgeos-forex-bot-error.log 2>/dev/null | tail -4 | cut -c1-200
   tail -5 logs/forgeos-forex-bot-error.log 2>/dev/null | cut -c1-300
   echo "--- operaciones"
   python3 - <<'PY'
@@ -898,6 +899,9 @@ case "$ACTION" in
   forex-methods) do_forex_methods ;;
   forex-meanrev) do_forex_meanrev ;;
   forex-ignition) do_forex_ignition ;;
+  telegram-summary)
+    sec "RESUMEN DEL DÍA → TELEGRAM"
+    timeout 300 node scripts/forex-bot.cjs summary 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -40 ;;
   forex-lock)
     # Owner confirmation: lock a validated strategy so it may trade real money (ARG = strategy id).
     ID="$ARG" python3 - <<'PY'

@@ -59,4 +59,14 @@ dx wine reg add 'HKCU\Software\Wine\AppDefaults\msedgewebview2.exe' /v Version /
 docker exec -d -u "$U" -e "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--no-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" "$C" \
   wine "$TERM_EXE" '/config:Z:\config\forgeos\start.ini'
 sleep 40
+# OANDA shows a "High Risk Investment Warning" (WebView, renders black under Wine). Until it is
+# accepted the terminal refuses orders ("Trade disabled"). Accept it with the keyboard:
+# focus the dialog, Tab → tick the checkbox, Tab → Enter (accept).
+for _ in 1 2 3; do
+  W="$(docker exec "$C" sh -c 'DISPLAY=:1 xdotool search --name "High Risk Investment Warning" 2>/dev/null | head -1')"
+  [ -z "$W" ] && break
+  echo "aceptando aviso de riesgo de OANDA (ventana $W)"
+  docker exec "$C" sh -c "DISPLAY=:1 xdotool windowactivate --sync $W 2>/dev/null; eval \$(DISPLAY=:1 xdotool getwindowgeometry --shell $W); DISPLAY=:1 xdotool mousemove \$((X + WIDTH / 2)) \$((Y + HEIGHT / 2)) click 1; sleep 1; DISPLAY=:1 xdotool key Tab; sleep 0.5; DISPLAY=:1 xdotool key space; sleep 0.5; DISPLAY=:1 xdotool key Tab; sleep 0.5; DISPLAY=:1 xdotool key Return" || true
+  sleep 6
+done
 exec docker exec -u "$U" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" -w /config/forgeos "$C" wine "$WINPY" 'Z:\config\forgeos\mt5_bridge.py'

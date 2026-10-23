@@ -33,6 +33,7 @@ import { fxCandles } from "./data";
 import { pipSize } from "./indicators";
 import { fxEligibleStrategies, loadFxState, loadFxTrades, loadPairChoices, saveFxState, saveFxTrades } from "./journal";
 import { loadNews, newsBlockReason } from "./news";
+import { runExtraStrategies } from "./engine-extra";
 import { computeIndicators, signalAt, TF_SEC, type FxTf, type PairChoice } from "./pair-strategies";
 import {
   oandaAccount,
@@ -426,6 +427,21 @@ export async function runForexBotCycle(): Promise<string> {
         );
         break;
       }
+    }
+  }
+
+  // Validated non-pair strategies (RSI2 in trend H1/H4 on FX/gold/indices, Connors R2 US500).
+  const allowExtraEntries = state.haltedDay !== day && isFxEntryWindow(now);
+  if (allowExtraEntries || trades.some((t) => !t.closedAt)) {
+    try {
+      entries += await runExtraStrategies({
+        mode, liveMode, brokerBlock, brokerReachable, nav, shadowNav, accountCurrency, rates, trades, notes, news,
+        allowEntries: allowExtraEntries,
+        closeLocal: (t, exit, reason, pnl) => closeLocal(t, exit, reason, accountCurrency, rates, pnl ?? null, t.mode === "shadow" && shadowQuiet),
+        announce: (text, real) => tg(text, real),
+      });
+    } catch (err) {
+      notes.push(`extra: ${err instanceof Error ? err.message.slice(0, 80) : err}`);
     }
   }
 

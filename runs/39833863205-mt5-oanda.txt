@@ -1,9 +1,0 @@
-instalador OANDA: https://download.mql5.com/cdn/web/oanda.tms.brokers/mt5/oandatms5setup.exe
--rw-r--r-- 1 abc abc 4663784 Oct 22 18:43 oanda5setup.exe
-/config/.wine/drive_c/Program Files/OANDA TMS MT5 Terminal/terminal64.exe
-/config/.wine/drive_c/Program Files/OANDA TMS MT5 Terminal/Config/servers.dat
-puente reiniciado
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0

@@ -53,6 +53,8 @@ else
   TERM_EXE='C:\Program Files\MetaTrader 5\terminal64.exe'
 fi
 echo "terminal: $TERM_EXE"
+# WebView2 (MT5 login / risk-warning dialogs) renders under Wine only in Windows 7 mode.
+dx wine reg add 'HKCU\Software\Wine\AppDefaults\msedgewebview2.exe' /v Version /d win7 /f >/dev/null 2>&1 || true
 # Start the terminal ourselves (detached, on the VNC display); the bridge then attaches to it.
 docker exec -d -u "$U" -e "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--no-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu" -e DISPLAY=:1 -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=-all -e "WINEDLLOVERRIDES=mscoree=d;mshtml=d" "$C" \
   wine "$TERM_EXE" '/config:Z:\config\forgeos\start.ini'

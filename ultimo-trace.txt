@@ -1,67 +1,67 @@
 
-=== TRAZA FER en forgeos (últimas 6000 líneas) ===
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
-11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] FER precio EODHD €44.75 Δ0.77% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] FER → precio: $44.75 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:31 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
-11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
-11|forgeos | [PreOrder] FER BUY
-11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
-11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
-11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] FER precio EODHD €44.80 Δ0.88% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] FER → precio: $44.80 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:38 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
-11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
-11|forgeos | [PreOrder] FER BUY
-11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
-11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
-11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] FER precio EODHD €44.80 Δ0.88% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] FER → precio: $44.80 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:47 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
-11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
-11|forgeos | [PreOrder] FER BUY
-11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
-11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
-11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] FER precio EODHD €44.86 Δ1.01% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] FER → precio: $44.86 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:55 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
-11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
-11|forgeos | [PreOrder] FER BUY
-11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
-11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
+=== TRAZA IAG en forgeos (últimas 6000 líneas) ===
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [AutoExecute] IAG → skip (timeout IBKR)
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [FillConfirm] IAG ibkrId=2279 status=SUBMITTED
+11|forgeos | [AutoExecute] IAG → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] IAG precio EODHD €4.82 Δ2.03% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] IAG → precio: $4.82 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] IAG: EU_LOCAL Madrid/BM 09:55 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] IAG: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] IAG: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
 
-=== TRAZA FER en broker ===
+=== TRAZA IAG en broker ===
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -1,7 +1,7 @@
 
 === ÓRDENES ABIERTAS EN IBKR ===
-id=2247 padre=0 SELL TEF STP EUR qty=42.0 lmt=None aux=3.371 estado=PreSubmitted cuenta=U15513057 tif=GTC
-id=2246 padre=0 SELL TEF LMT EUR qty=42.0 lmt=3.645 aux=None estado=Submitted cuenta=U15513057 tif=GTC
+id=2266 padre=2264 SELL FER STP EUR qty=3.0 lmt=None aux=43.89 estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2265 padre=2264 SELL FER LMT EUR qty=3.0 lmt=47.46 aux=None estado=Submitted cuenta=U15513057 tif=GTC
 total: 2
 --- preparación ---
 líneas clave: 7

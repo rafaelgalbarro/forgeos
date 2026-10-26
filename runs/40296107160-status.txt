@@ -1,0 +1,82 @@
+
+=== GIT ===
+HEAD: a58f4ff Kraken: precio y motivo de cierre reales desde las ejecuciones (fills) en vez del precio de entrada
+GitHub: a58f4ff Kraken: precio y motivo de cierre reales desde las ejecuciones (fills) en vez del precio de entrada
+Commits del servidor que no están en GitHub:
+Commits de GitHub pendientes de desplegar:
+Cambios locales sin commit (sin .forgeos):
+ M package-lock.json
+
+=== PM2 ===
+forgeos-scanner              online   reinicios=26 uptime=3588m mem=58MB
+forgeos-alerts               online   reinicios=26 uptime=3588m mem=59MB
+forgeos-reports              online   reinicios=11 uptime=3588m mem=59MB
+forgeos-forex                stopped  reinicios=6 uptime=0m mem=0MB
+forgeos                      online   reinicios=592 uptime=3588m mem=35MB
+forgeos-watchdog             online   reinicios=1 uptime=86491m mem=2MB
+forgeos-scheduler            online   reinicios=88 uptime=3588m mem=73MB
+ibkr-broker                  online   reinicios=123 uptime=264m mem=127MB
+forgeos-crypto-engine        online   reinicios=177 uptime=3588m mem=56MB
+forgeos-crypto-backtest      stopped  reinicios=0 uptime=0m mem=0MB
+forgeos-eodhd-us-ws          online   reinicios=9 uptime=3588m mem=57MB
+pm2-logrotate                online   reinicios=3 uptime=9891m mem=46MB
+forgeos-forex-bot            online   reinicios=38 uptime=3588m mem=56MB
+forgeos-mt5-bridge           online   reinicios=117 uptime=3588m mem=3MB
+
+=== BROKER IBKR ===
+conectado= True estado= CONNECTED cuentas= ['U15513057', 'U24225949']
+  error 10089 Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more de
+  error 300 Can't find EId with tickerId:10101
+  error 10089 Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more de
+  error 300 Can't find EId with tickerId:10102
+  error 322 Error processing request.-'D' : cause - Duplicate ticker ID for API historical data query
+tiempo de respuesta /status: 90 ms
+
+=== ÚLTIMAS PROPUESTAS IBKR ===
+2026-10-26T08:47:05 EXECUTED  BUY  IAG    qty=18.0 lmt=4.809 sl=4.71282 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:38:29 EXECUTED  BUY  IAG    qty=18.0 lmt=4.81 sl=4.713799999999999 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:22:31 REJECTED  BUY  INGA   qty=4.0 lmt=28.73 sl=28.1554 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-26T08:22:30 REJECTED  BUY  MBG    qty=3.0 lmt=41.3 sl=40.474 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-26T08:22:30 REJECTED  BUY  BAS    qty=4.0 lmt=51.76 sl=51.6014 cuenta=U15513057 ibkr=NO_ACK motivo=10311 This order will be directly routed to IBIS. Direct routed orders may result in highe
+2026-10-26T08:22:29 EXECUTED  BUY  FER    qty=3.0 lmt=44.78 sl=43.8844 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:13:38 EXECUTED  BUY  FER    qty=3.0 lmt=44.41 sl=43.5218 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:05:13 EXECUTED  BUY  FER    qty=3.0 lmt=44.41 sl=43.5218 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-23T14:41:27 EXECUTED  BUY  SMCI   qty=1.0 lmt=34.075 sl=33.3935 cuenta=U24225949 ibkr=Submitted motivo=
+2026-10-23T13:55:08 EXECUTED  SELL SMCI   qty=1.0 lmt=33.435 sl=None cuenta=U24225949 ibkr=Filled motivo=
+2026-10-23T13:48:15 EXECUTED  BUY  SMCI   qty=1.0 lmt=33.985 sl=33.305299999999995 cuenta=U24225949 ibkr=Submitted motivo=
+2026-10-22T09:58:37 EXECUTED  BUY  TEF    qty=25.0 lmt=3.433 sl=3.36434 cuenta=U15513057 ibkr=Submitted motivo=
+
+=== KRAKEN FUTURES ===
+2026-10-26 08:56:47 +00:00: [Kraken/Futures] cycle margin=28.1555 symbols=8 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=4 held=[PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion]
+2026-10-26 08:56:47 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 held=1 1248ms
+2026-10-26 08:57:47 +00:00: [Kraken/Futures] cycle margin=28.1565 symbols=8 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=4 held=[PF_SOLUSD:VWAP_BOUNCE_5M_SHORT:ya_hay_posicion]
+2026-10-26 08:57:47 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 held=1 990ms
+2026-10-26 08:58:47 +00:00: [Kraken/Futures] cycle margin=28.1570 symbols=8 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=4 held=[PF_SOLUSD:VWAP_BOUNCE_5M_SHORT:ya_hay_posicion]
+2026-10-26 08:58:47 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 held=1 1044ms
+
+=== PANEL /investment ===
+web: live= True readOnly= False modo= LIVE
+broker: CONNECTED IBKR_LIVE_READ_ONLY error= None
+accountSummary: CONNECTED error= None
+positions: None error= None
+portfolioSummary: CONNECTED error= None
+LIVE_TRADING_ENABLED en .env.local: true
+IBKR_READ_ONLY en .env.local: false
+
+=== ACCIONES: CICLO Y PRE-MERCADO (últimas líneas) ===
+11|forgeos | [Premarket] SMCI price-source=EODHD-WS-realtime $32.76 bid=32.70 ask=32.82
+11|forgeos | [Premarket] MRVL price-source=EODHD-WS-realtime $227.12 bid=226.71 ask=227.52
+11|forgeos | [Premarket] JPM price-source=EODHD-WS-realtime $332.28 bid=332.00 ask=332.57
+11|forgeos | [Premarket] BAC price-source=EODHD-WS-realtime $50.75 bid=50.70 ask=50.80
+11|forgeos | [Premarket] MS price-source=discarded — MS: WS sin datos 12m (>2m)
+11|forgeos | [Premarket] WFC price-source=discarded — WFC: WS sin datos 4m (>2m)
+11|forgeos | [Premarket] BLK price-source=discarded — BLK: WS sin datos 58m (>2m)
+11|forgeos | [Premarket] SCHW price-source=discarded — SCHW: WS sin datos 43m (>2m)
+11|forgeos | [Premarket] C price-source=discarded — C: WS sin datos 15m (>2m)
+11|forgeos | [Premarket] AXP price-source=discarded — AXP: WS sin datos 3m (>2m)
+11|forgeos | [Premarket] V price-source=discarded — V: WS sin datos 23m (>2m)
+11|forgeos | [Premarket] GS price-source=EODHD-WS-realtime $879.40 bid=876.41 ask=882.40
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

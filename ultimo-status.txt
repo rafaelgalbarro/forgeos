@@ -1,58 +1,58 @@
 
 === GIT ===
-HEAD: c662a1b Kraken Futures: una sola posición por contrato y TP que cubre todo el tamaño de la posición
-GitHub: 241e7bb Acción remota gateway-logs
+HEAD: a58f4ff Kraken: precio y motivo de cierre reales desde las ejecuciones (fills) en vez del precio de entrada
+GitHub: a58f4ff Kraken: precio y motivo de cierre reales desde las ejecuciones (fills) en vez del precio de entrada
 Commits del servidor que no están en GitHub:
 Commits de GitHub pendientes de desplegar:
-241e7bb Acción remota gateway-logs
-9891946 Acción remota gateway-rollback (guarda Jts de ambos contenedores y compara)
 Cambios locales sin commit (sin .forgeos):
  M package-lock.json
 
 === PM2 ===
-forgeos-scanner              online   reinicios=17 uptime=97990m mem=74MB
-forgeos-alerts               online   reinicios=17 uptime=97990m mem=75MB
-forgeos-reports              online   reinicios=2 uptime=97990m mem=68MB
+forgeos-scanner              online   reinicios=26 uptime=3588m mem=58MB
+forgeos-alerts               online   reinicios=26 uptime=3588m mem=59MB
+forgeos-reports              online   reinicios=11 uptime=3588m mem=59MB
 forgeos-forex                stopped  reinicios=6 uptime=0m mem=0MB
-forgeos                      online   reinicios=452 uptime=10m mem=81MB
-forgeos-watchdog             online   reinicios=1 uptime=80867m mem=3MB
-forgeos-scheduler            online   reinicios=47 uptime=10m mem=96MB
-ibkr-broker                  online   reinicios=78 uptime=7m mem=75MB
-forgeos-crypto-engine        online   reinicios=136 uptime=10m mem=76MB
+forgeos                      online   reinicios=592 uptime=3588m mem=35MB
+forgeos-watchdog             online   reinicios=1 uptime=86491m mem=2MB
+forgeos-scheduler            online   reinicios=88 uptime=3588m mem=73MB
+ibkr-broker                  online   reinicios=123 uptime=264m mem=127MB
+forgeos-crypto-engine        online   reinicios=177 uptime=3588m mem=56MB
 forgeos-crypto-backtest      stopped  reinicios=0 uptime=0m mem=0MB
-forgeos-eodhd-us-ws          online   reinicios=0 uptime=4238m mem=86MB
-pm2-logrotate                online   reinicios=3 uptime=4267m mem=90MB
+forgeos-eodhd-us-ws          online   reinicios=9 uptime=3588m mem=57MB
+pm2-logrotate                online   reinicios=3 uptime=9891m mem=46MB
+forgeos-forex-bot            online   reinicios=38 uptime=3588m mem=56MB
+forgeos-mt5-bridge           online   reinicios=117 uptime=3588m mem=3MB
 
 === BROKER IBKR ===
 conectado= True estado= CONNECTED cuentas= ['U15513057', 'U24225949']
-  error 2100 API client has been unsubscribed from account data.
-  error 2100 API client has been unsubscribed from account data.
-  error 2100 API client has been unsubscribed from account data.
-  error 2100 API client has been unsubscribed from account data.
-  error 2100 API client has been unsubscribed from account data.
-tiempo de respuesta /status: 31 ms
+  error 10089 Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more de
+  error 300 Can't find EId with tickerId:10101
+  error 10089 Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more de
+  error 300 Can't find EId with tickerId:10102
+  error 322 Error processing request.-'D' : cause - Duplicate ticker ID for API historical data query
+tiempo de respuesta /status: 90 ms
 
 === ÚLTIMAS PROPUESTAS IBKR ===
+2026-10-26T08:47:05 EXECUTED  BUY  IAG    qty=18.0 lmt=4.809 sl=4.71282 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:38:29 EXECUTED  BUY  IAG    qty=18.0 lmt=4.81 sl=4.713799999999999 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:22:31 REJECTED  BUY  INGA   qty=4.0 lmt=28.73 sl=28.1554 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-26T08:22:30 REJECTED  BUY  MBG    qty=3.0 lmt=41.3 sl=40.474 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-26T08:22:30 REJECTED  BUY  BAS    qty=4.0 lmt=51.76 sl=51.6014 cuenta=U15513057 ibkr=NO_ACK motivo=10311 This order will be directly routed to IBIS. Direct routed orders may result in highe
+2026-10-26T08:22:29 EXECUTED  BUY  FER    qty=3.0 lmt=44.78 sl=43.8844 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:13:38 EXECUTED  BUY  FER    qty=3.0 lmt=44.41 sl=43.5218 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-26T08:05:13 EXECUTED  BUY  FER    qty=3.0 lmt=44.41 sl=43.5218 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-23T14:41:27 EXECUTED  BUY  SMCI   qty=1.0 lmt=34.075 sl=33.3935 cuenta=U24225949 ibkr=Submitted motivo=
+2026-10-23T13:55:08 EXECUTED  SELL SMCI   qty=1.0 lmt=33.435 sl=None cuenta=U24225949 ibkr=Filled motivo=
+2026-10-23T13:48:15 EXECUTED  BUY  SMCI   qty=1.0 lmt=33.985 sl=33.305299999999995 cuenta=U24225949 ibkr=Submitted motivo=
 2026-10-22T09:58:37 EXECUTED  BUY  TEF    qty=25.0 lmt=3.433 sl=3.36434 cuenta=U15513057 ibkr=Submitted motivo=
-2026-10-22T09:47:59 REJECTED  BUY  DTE    qty=5.0 lmt=25.71 sl=25.195800000000002 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
-2026-10-22T09:47:58 EXECUTED  BUY  TEF    qty=42.0 lmt=3.439 sl=3.37022 cuenta=U15513057 ibkr=Filled motivo=
-2026-10-22T07:39:22 REJECTED  BUY  REP    qty=7.0 lmt=29.52 sl=28.5803 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:29:54 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:26:46 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:23:38 REJECTED  BUY  REP    qty=7.0 lmt=29.55 sl=28.5815 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:20:29 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:17:21 REJECTED  BUY  REP    qty=7.0 lmt=29.54 sl=28.5811 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:14:08 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:10:56 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-22T07:07:43 REJECTED  BUY  REP    qty=7.0 lmt=29.36 sl=28.574 cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol REP: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
 
 === KRAKEN FUTURES ===
-2026-10-22 11:03:57 +00:00: [Kraken/Futures] cycle margin=28.1514 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=2
-2026-10-22 11:03:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 687ms
-2026-10-22 11:04:57 +00:00: [Kraken/Futures] cycle margin=28.1484 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=2
-2026-10-22 11:04:57 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=0 603ms
-2026-10-22 11:05:20 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
-2026-10-22 11:05:21 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=16 total=16 minBars 5m=300 15m=300 1h=300
+2026-10-26 08:56:47 +00:00: [Kraken/Futures] cycle margin=28.1555 symbols=8 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=4 held=[PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion]
+2026-10-26 08:56:47 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 held=1 1248ms
+2026-10-26 08:57:47 +00:00: [Kraken/Futures] cycle margin=28.1565 symbols=8 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=4 held=[PF_SOLUSD:VWAP_BOUNCE_5M_SHORT:ya_hay_posicion]
+2026-10-26 08:57:47 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 held=1 990ms
+2026-10-26 08:58:47 +00:00: [Kraken/Futures] cycle margin=28.1570 symbols=8 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 shadow=4 held=[PF_SOLUSD:VWAP_BOUNCE_5M_SHORT:ya_hay_posicion]
+2026-10-26 08:58:47 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=5 orders=0 held=1 1044ms
 
 === PANEL /investment ===
 web: live= True readOnly= False modo= LIVE
@@ -64,18 +64,18 @@ LIVE_TRADING_ENABLED en .env.local: true
 IBKR_READ_ONLY en .env.local: false
 
 === ACCIONES: CICLO Y PRE-MERCADO (últimas líneas) ===
-11|forgeos | [Premarket] JNJ price-source=EODHD-WS-realtime $259.85 bid=259.69 ask=260.00
-11|forgeos | [Premarket] PFE price-source=discarded — PFE: sin cotización WS
-11|forgeos | [Premarket] AMGN price-source=discarded — AMGN: sin cotización WS
-11|forgeos | [Premarket] GILD price-source=discarded — GILD: sin cotización WS
-11|forgeos | [Premarket] MRNA price-source=discarded — MRNA: sin cotización WS
-11|forgeos | [Premarket] ISRG price-source=discarded — ISRG: sin cotización WS
-11|forgeos | [Premarket] ABBV price-source=EODHD-WS-realtime $286.93 bid=286.65 ask=287.21
-11|forgeos | [Universe] TXN price-source=ws $283.50 bid=282.99 ask=284.00
-11|forgeos | [Universe] MSTR price-source=ws $145.29 bid=145.15 ask=145.43
-11|forgeos | [AutoExecute] REP → skip (BROKER_NO_ACK_BRAKE hoy UTC)
-11|forgeos | [Universe] MRK price-source=ws $150.77 bid=150.60 ask=150.95
-11|forgeos | [Universe] NVDA price-source=ws $217.86 bid=217.75 ask=217.96
+11|forgeos | [Premarket] SMCI price-source=EODHD-WS-realtime $32.76 bid=32.70 ask=32.82
+11|forgeos | [Premarket] MRVL price-source=EODHD-WS-realtime $227.12 bid=226.71 ask=227.52
+11|forgeos | [Premarket] JPM price-source=EODHD-WS-realtime $332.28 bid=332.00 ask=332.57
+11|forgeos | [Premarket] BAC price-source=EODHD-WS-realtime $50.75 bid=50.70 ask=50.80
+11|forgeos | [Premarket] MS price-source=discarded — MS: WS sin datos 12m (>2m)
+11|forgeos | [Premarket] WFC price-source=discarded — WFC: WS sin datos 4m (>2m)
+11|forgeos | [Premarket] BLK price-source=discarded — BLK: WS sin datos 58m (>2m)
+11|forgeos | [Premarket] SCHW price-source=discarded — SCHW: WS sin datos 43m (>2m)
+11|forgeos | [Premarket] C price-source=discarded — C: WS sin datos 15m (>2m)
+11|forgeos | [Premarket] AXP price-source=discarded — AXP: WS sin datos 3m (>2m)
+11|forgeos | [Premarket] V price-source=discarded — V: WS sin datos 23m (>2m)
+11|forgeos | [Premarket] GS price-source=EODHD-WS-realtime $879.40 bid=876.41 ask=882.40
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

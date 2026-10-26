@@ -1,0 +1,46 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 07630cc IBKR: acciones siempre por ruta SMART con su mercado principal (evita el rechazo 10311 de órdenes directas a IBIS)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261026-091209
+Updating a58f4ff..07630cc
+Fast-forward
+ services/ibkr-broker/app/main.py | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.54s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        4256        1050           5        2751        3489
+Swap:           4095        1041        3054
+     0 MB COMMAND
+   763 MB node
+   691 MB java
+   580 MB node
+   536 MB node
+   354 MB next-server
+
+up to date in 1s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

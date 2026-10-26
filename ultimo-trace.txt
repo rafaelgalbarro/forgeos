@@ -1,83 +1,68 @@
 
-=== TRAZA HOOD en forgeos (últimas 6000 líneas) ===
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.65 bid=97.51 ask=97.79
-11|forgeos | [AutoExecute] HOOD → precio: $97.65 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 07:26 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [ProStrategy] HOOD: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.72 bid=97.56 ask=97.89
-11|forgeos | [AutoExecute] HOOD → precio: $97.72 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 07:34 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.91 bid=97.88 ask=97.94
-11|forgeos | [AutoExecute] HOOD → precio: $97.91 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 07:41 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [ProStrategy] HOOD: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.57 bid=97.40 ask=97.74
-11|forgeos | [AutoExecute] HOOD → precio: $97.57 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 07:56 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [ProStrategy] HOOD: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.23 bid=97.17 ask=97.30
-11|forgeos | [AutoExecute] HOOD → precio: $97.23 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 08:04 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [ProStrategy] HOOD: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.29 bid=97.23 ask=97.35
-11|forgeos | [AutoExecute] HOOD → precio: $97.29 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 08:12 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [ProStrategy] HOOD: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.38 bid=97.20 ask=97.55
-11|forgeos | [AutoExecute] HOOD → precio: $97.38 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 08:19 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [ProStrategy] HOOD: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [AutoExecute] HOOD → obteniendo precio (premarket EODHD-WS + 1m QC)…
-11|forgeos | [Premarket] HOOD price-source=EODHD-WS-realtime $97.43 bid=97.30 ask=97.56
-11|forgeos | [AutoExecute] HOOD → precio: $97.43 (EODHD-WS(ws-only))
-11|forgeos | [ProStrategy] HOOD: US_LISTED 08:27 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
-11|forgeos | [History] HOOD: EODHD directo (191 barras)
-11|forgeos | [AutoExecute] HOOD → skip (timeout IBKR)
-11|forgeos | [ProStrategy] HOOD: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+=== TRAZA FER en forgeos (últimas 6000 líneas) ===
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [FillConfirm] FER ibkrId=2264 status=SUBMITTED
+11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] FER precio EODHD €44.75 Δ0.77% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] FER → precio: $44.75 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:31 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] FER BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
+11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
+11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] FER precio EODHD €44.80 Δ0.88% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] FER → precio: $44.80 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:38 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] FER BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
+11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
+11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] FER precio EODHD €44.80 Δ0.88% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] FER → precio: $44.80 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:47 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] FER BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
+11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
+11|forgeos | [AutoExecute] FER → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] FER precio EODHD €44.86 Δ1.01% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] FER → precio: $44.86 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] FER: EU_LOCAL Madrid/BM 09:55 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] FER: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [Signal] FER BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [Capital] FER EUR → U15513057 utilizable €217.67 (cuenta U15513057 | EUR cash €217.67 (USD $35.52 no usado para compras EUR))
+11|forgeos | [PreOrder] FER BUY
+11|forgeos |   ❌ RECHAZADO: posición duplicada en FER
+11|forgeos | [Signal] FER: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en FER
 
-=== TRAZA HOOD en broker ===
-18|ibkr-br | INFO:     127.0.0.1:40614 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:40614 - "GET /api/ibkr/historical?symbol=HOOD&duration=10%20D&barSize=1%20hour&bar=1%20hour&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:40612 - "GET /api/ibkr/historical?symbol=HOOD&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:35118 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:35108 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:54622 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:59678 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:47668 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:47652 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:43120 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:45344 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:45584 - "GET /api/ibkr/history?symbol=HOOD&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:55414 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:55436 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:43944 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:52820 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:44222 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:44196 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:51696 - "GET /api/ibkr/market-data?symbol=HOOD&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:51714 - "GET /api/ibkr/price/HOOD?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+=== TRAZA FER en broker ===
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0
+codigo_salida=1

@@ -1,0 +1,70 @@
+
+=== TRAZA TEF en forgeos (últimas 6000 líneas) ===
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.42 Δ-1.73% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.42 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:05 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.42 Δ-1.73% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.42 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:13 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.15 Δ-7.81% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.15 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:22 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.15 Δ-7.67% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.15 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:31 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.16 Δ-7.58% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.16 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:38 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.17 Δ-7.08% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.17 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:47 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] TEF precio EODHD €3.18 Δ-6.97% (EU — sin IBKR quotes)
+11|forgeos | [AutoExecute] TEF → precio: $3.18 (EODHD-REALTIME)
+11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:55 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
+11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+
+=== TRAZA TEF en broker ===
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br | 09:00:28 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 136223371071824: ConId: 30314159, Symbol: TEF, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: BM, PrimaryExchange: , Currency: EUR, LocalSym
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br | 09:00:38 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 136223371070288: ConId: 30314159, Symbol: TEF, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: BM, PrimaryExchange: , Currency: EUR, LocalSym
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

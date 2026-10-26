@@ -1566,7 +1566,9 @@ class IBKRClient(EWrapper, EClient):
                 c.symbol = cached.get("symbol") or symbol
                 c.secType = "STK"
                 c.currency = cached.get("currency") or currency
-                c.exchange = cached.get("exchange") or "SMART"
+                # Always route stocks via SMART (keeps primaryExchange): a direct exchange such as
+                # IBIS triggers IB's "direct routed order" precaution (10311) and the order is rejected.
+                c.exchange = "SMART"
                 if cached.get("primaryExchange"):
                     c.primaryExchange = cached["primaryExchange"]
                 log.info(
@@ -1618,11 +1620,16 @@ class IBKRClient(EWrapper, EClient):
                 if qualified is None:
                     continue
                 long_name = str(getattr(details, "longName", "") or "")
+                # SMART routing with the qualified primary exchange (never direct-route: IB 10311).
+                q_primary = getattr(qualified, "primaryExchange", "") or primary
+                if q_primary:
+                    qualified.primaryExchange = q_primary
+                qualified.exchange = "SMART"
                 cache[cache_key] = {
                     "conId": int(getattr(qualified, "conId", 0) or 0),
                     "symbol": getattr(qualified, "symbol", symbol),
                     "currency": getattr(qualified, "currency", currency),
-                    "exchange": getattr(qualified, "exchange", "SMART") or "SMART",
+                    "exchange": "SMART",
                     "primaryExchange": getattr(qualified, "primaryExchange", primary) or primary,
                     "longName": long_name[:120],
                     "companyName": long_name[:120],

@@ -1,39 +1,40 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 9349188 forex-bot: interruptor de seguridad por resultados reales, sin entradas en la apertura semanal, acción forex-unlock
+Desplegando 524fda4 Estrategias de foros en real desde el primer minuto (decisión del propietario): EUR/USD Asia M15 y oro H1 (MT5); Kraken: estacionalidad 22 UTC, RSI2 en tendencia 1h/15m y reversión por funding extremo
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261027-073540
-Updating 07630cc..9349188
+estado copiado en /root/forgeos-state-20261027-075432
+Updating 9349188..524fda4
 Fast-forward
- .github/workflows/server-remote.yml            |  2 +-
- deploy/remote/forgeos-remote.sh                | 31 ++++++++++++++++++++++---
- lib/forex-bot/engine-extra.ts                  |  5 +++-
- lib/forex-bot/engine.ts                        |  5 +++-
- lib/forex-bot/killswitch.ts                    | 32 ++++++++++++++++++++++++++
- lib/forex-bot/sessions.ts                      |  6 +++--
- lib/trading/__tests__/forex-bot.test.ts        |  4 +++-
- lib/trading/__tests__/forex-killswitch.test.ts | 21 +++++++++++++++++
- 8 files changed, 97 insertions(+), 9 deletions(-)
- create mode 100644 lib/forex-bot/killswitch.ts
- create mode 100644 lib/trading/__tests__/forex-killswitch.test.ts
+ lib/forex-bot/engine-extra.ts                  |  47 ++++++++---
+ lib/forex-bot/shortterm.ts                     | 104 ++++++++++++++++++++++++
+ lib/trading/__tests__/futures-extra.test.ts    |  29 +++++++
+ lib/trading/crypto/futures-backtest-gate.ts    |   3 +
+ lib/trading/crypto/futures-config.ts           |  13 +++
+ lib/trading/crypto/futures-engine.ts           |  26 ++++++
+ lib/trading/crypto/futures-strategy-eval.ts    |  20 +++++
+ lib/trading/crypto/strategies/futures-extra.ts | 106 +++++++++++++++++++++++++
+ 8 files changed, 335 insertions(+), 13 deletions(-)
+ create mode 100644 lib/forex-bot/shortterm.ts
+ create mode 100644 lib/trading/__tests__/futures-extra.test.ts
+ create mode 100644 lib/trading/crypto/strategies/futures-extra.ts
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.41s
+19 passed in 0.65s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        4814         311           4        2931        2931
-Swap:           4095        1194        2901
+Mem:            7746        3917         874           4        3265        3828
+Swap:           4095        1808        2287
      0 MB COMMAND
-  1043 MB node
-   770 MB node
-   726 MB node
-   590 MB java
-   370 MB next-server
+   901 MB node
+   633 MB node
+   515 MB node
+   423 MB next-server
+   240 MB node
 
-up to date in 1s
+up to date in 2s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

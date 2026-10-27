@@ -510,7 +510,8 @@ do_set_flag() {
     val="$(echo "$val" | sed 's/^TRUE$/true/; s/^FALSE$/false/')"
     case "$val" in true|false) ;; *[!0-9.]*|"") echo "valor no permitido: $val"; exit 2;; esac
   fi
-  if [ "$key" = "FUTURES_MAX_LEVERAGE" ] && [ "${val%%.*}" -gt 1 ] 2>/dev/null; then echo "FUTURES_MAX_LEVERAGE > 1 no permitido por esta vía"; exit 2; fi
+  # Owner approved 2x on 27-10-2026; the engine caps leverage at 2 anyway.
+  if [ "$key" = "FUTURES_MAX_LEVERAGE" ] && [ "${val%%.*}" -gt 2 ] 2>/dev/null; then echo "FUTURES_MAX_LEVERAGE > 2 no permitido"; exit 2; fi
   sec "AJUSTE $key"
   echo "antes: $(grep -E "^$key=" .env.local | cut -d= -f2)"
   set_env_flag "$key" "$val"

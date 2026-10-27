@@ -745,9 +745,12 @@ try:
     t = json.load(open(".forgeos/forex-bot/trades.json"))
 except Exception:
     print("sin operaciones todavía"); raise SystemExit
-for x in t[-12:]:
-    print(x.get("mode"), x.get("instrument"), x.get("side"), x.get("units"), "entrada", x.get("entry"), "SL", round(x.get("stop", 0), 5), "TP", round(x.get("takeProfit", 0), 5),
-          "| cierre", x.get("closedAt", "abierta"), x.get("exitReason"), "P&L", x.get("pnl"))
+real = [x for x in t if x.get("mode") != "shadow"]
+sim = [x for x in t if x.get("mode") == "shadow"]
+print("reales:", len(real), "· simuladas:", len(sim))
+for x in real[-15:] + sim[-6:]:
+    print(x.get("mode"), x.get("strategy"), x.get("instrument"), x.get("side"), x.get("lots") or x.get("units"), "abierta", (x.get("openedAt") or "")[:16], "entrada", x.get("entry"), "SL", round(x.get("stop", 0), 5), "TP", round(x.get("takeProfit", 0), 5),
+          "| cierre", (x.get("closedAt") or "abierta")[:16], x.get("exitReason"), "P&L", x.get("pnl") if x.get("pnl") is None else round(x.get("pnl"), 2), "R", x.get("rMultiple") if x.get("rMultiple") is None else round(x.get("rMultiple"), 2))
 PY
 }
 

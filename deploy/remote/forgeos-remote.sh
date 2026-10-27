@@ -902,6 +902,28 @@ case "$ACTION" in
   forex-methods) do_forex_methods ;;
   forex-meanrev) do_forex_meanrev ;;
   forex-ignition) do_forex_ignition ;;
+  forex-unlock)
+    # Back to simulation (no real orders) for a strategy id or a pair's per-pair strategy (ARG).
+    ID="$ARG" python3 - <<'PY'
+import json, os
+want = os.environ["ID"].upper()
+d = "/var/www/forgeos/.forgeos/forex-bot"
+hit = False
+for name, key in (("meanrev-latest.json", "results"), ("methods-latest.json", "results"), ("playbook-latest.json", "results"), ("pair-strategies.json", "choices")):
+    p = os.path.join(d, name)
+    if not os.path.exists(p):
+        continue
+    j = json.load(open(p))
+    for r in j.get(key, []):
+        ids = {str(r.get("id", "")).upper(), str(r.get("instrument", "")).upper(), str((r.get("spec") or {}).get("id", "")).upper()}
+        if want in ids and r.get("locked"):
+            r["locked"] = False; hit = True
+            print("a simulación:", r.get("id") or r.get("instrument"), "·", r.get("name") or r.get("description"))
+    json.dump(j, open(p, "w"), indent=2)
+if not hit:
+    print("sin cambios para", want)
+PY
+    ;;
   telegram-summary)
     sec "RESUMEN DEL DÍA → TELEGRAM"
     timeout 300 node scripts/forex-bot.cjs summary 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -40 ;;

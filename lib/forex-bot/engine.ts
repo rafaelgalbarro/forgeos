@@ -34,6 +34,7 @@ import { pipSize } from "./indicators";
 import { fxEligibleStrategies, loadFxState, loadFxTrades, loadPairChoices, saveFxState, saveFxTrades } from "./journal";
 import { loadNews, newsBlockReason } from "./news";
 import { runExtraStrategies } from "./engine-extra";
+import { killSwitchState } from "./killswitch";
 import { computeIndicators, signalAt, TF_SEC, type FxTf, type PairChoice } from "./pair-strategies";
 import {
   oandaAccount,
@@ -296,8 +297,10 @@ export async function runForexBotCycle(): Promise<string> {
       const evals: Array<{ s: string; ev: FxEvaluation; maxHoldMin: number | null; holdWeekend: boolean }> = [];
       const choice = pairChoices.get(p);
       // Real money only for validated pairs; everything else is simulated (shadow).
+      const ks = choice?.spec ? killSwitchState(trades, choice.spec.id) : { demoted: false, reason: null };
+      if (ks.demoted && choice?.locked) notes.push(`${p}: en simulación por ${ks.reason}`);
       const tradeMode: FxTrade["mode"] =
-        liveMode && !brokerBlock && (mode !== "live" || (choice?.liveEligible && choice.locked)) ? mode : "shadow";
+        liveMode && !brokerBlock && !ks.demoted && (mode !== "live" || (choice?.liveEligible && choice.locked)) ? mode : "shadow";
       const sameMode = stillOpen.filter((t) => t.mode === tradeMode);
       if (sameMode.length >= (tradeMode === "shadow" ? SHADOW_MAX : fxMaxPositions())) continue;
       // Never stack exposure on the same currency (within real or within shadow).

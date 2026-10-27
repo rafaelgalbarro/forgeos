@@ -21,6 +21,7 @@ import { mt5Candles, mt5Close, mt5Closed, mt5Order, mt5Positions, mt5SymbolInfo,
 import { convert, sizeFxLots, type FxRates } from "./risk";
 import { newsBlockReason, type NewsEvent } from "./news";
 import { isWeekendFlattenTime } from "./sessions";
+import { killSwitchState } from "./killswitch";
 import type { FxCandle, FxSide, FxTrade } from "./types";
 
 type Mode = FxTrade["mode"];
@@ -240,7 +241,9 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
     if (!p || nb) continue;
     const i = await info(a.instrument);
     const bid = i?.bid ?? null; const ask = i?.ask ?? null;
-    const real = a.real && !ctx.brokerBlock;
+    const ks = killSwitchState(ctx.trades, a.id);
+    if (ks.demoted && a.real) ctx.notes.push(`${a.id}: en simulación por ${ks.reason}`);
+    const real = a.real && !ctx.brokerBlock && !ks.demoted;
     let px: number | null = null;
     if (real || (bid && ask)) {
       if (!bid || !ask) continue;

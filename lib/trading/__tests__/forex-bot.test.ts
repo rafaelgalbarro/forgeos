@@ -79,7 +79,9 @@ describe("forex bot: strategy & sessions", () => {
     expect(isFxEntryWindow(new Date("2026-10-21T02:00:00Z"), "24h")).toBe(true); // Wed 03:00 London
     expect(isFxEntryWindow(new Date("2026-10-21T02:00:00Z"), "london")).toBe(false);
     expect(isFxEntryWindow(new Date("2026-10-21T20:30:00Z"), "24h")).toBe(false); // rollover 21:30 London
-    expect(isFxEntryWindow(new Date("2026-10-25T23:30:00Z"), "24h")).toBe(true); // Sun 23:30 London (GMT)
+    expect(isFxEntryWindow(new Date("2026-10-25T23:30:00Z"), "24h")).toBe(false); // Sun 23:30 London: thin weekly open
+    expect(isFxEntryWindow(new Date("2026-10-26T01:30:00Z"), "24h")).toBe(false); // Mon 01:30
+    expect(isFxEntryWindow(new Date("2026-10-26T02:30:00Z"), "24h")).toBe(true); // Mon 02:30
     expect(isWeekendFlattenTime(new Date("2026-10-23T19:30:00Z"))).toBe(true); // Fri 20:30 London
   });
 

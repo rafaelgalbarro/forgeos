@@ -34,7 +34,7 @@ export function fxSessionMode(): FxSessionMode {
 /**
  * Entries allowed.
  *  london: Mon–Fri 07:00–16:30 London (Fri until 14:00).
- *  24h:    Sun 23:00 → Fri 19:00 London, except the daily rollover 21:00–23:00 (wide spreads).
+ *  24h:    Mon 02:00 → Fri 19:00 London (not the thin weekly open), except the daily rollover 21:00–23:00.
  */
 export function isFxEntryWindow(at: Date = new Date(), mode: FxSessionMode = fxSessionMode()): boolean {
   const { weekday, minutes } = londonParts(at);
@@ -44,7 +44,9 @@ export function isFxEntryWindow(at: Date = new Date(), mode: FxSessionMode = fxS
     return minutes >= 7 * 60 && minutes < 16 * 60 + 30;
   }
   if (weekday === 6) return false;
-  if (weekday === 0) return minutes >= 23 * 60;
+  // No entries in the thin first hours after the weekly open (Sun 22:00 London): spreads are wide.
+  if (weekday === 0) return false;
+  if (weekday === 1 && minutes < 2 * 60) return false;
   if (minutes >= 21 * 60 && minutes < 23 * 60) return false;
   if (weekday === 5) return minutes < 19 * 60;
   return true;

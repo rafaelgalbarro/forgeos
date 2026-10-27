@@ -1,14 +1,14 @@
 
 === BOT FOREX ===
-proceso: online reinicios: 38
+proceso: online reinicios: 39
 modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
 --- últimos ciclos
-2026-10-26 08:56:24 +00:00: 2026-10-26T08:56:23.811Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=96.60 EUR abiertas=0 simuladas=0 entradas=0 pnlHoy=-1.75
-2026-10-26 08:57:24 +00:00: 2026-10-26T08:57:23.817Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=96.60 EUR abiertas=0 simuladas=0 entradas=0 pnlHoy=-1.75
-2026-10-26 08:58:24 +00:00: 2026-10-26T08:58:23.823Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=96.60 EUR abiertas=0 simuladas=0 entradas=0 pnlHoy=-1.75
-2026-10-26 08:59:24 +00:00: 2026-10-26T08:59:23.829Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=96.60 EUR abiertas=0 simuladas=0 entradas=0 pnlHoy=-1.75
-2026-10-26 09:00:26 +00:00: 2026-10-26T09:00:23.835Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=96.60 EUR abiertas=0 simuladas=0 entradas=0 pnlHoy=-1.75
-2026-10-26 09:01:24 +00:00: 2026-10-26T09:01:23.840Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=96.60 EUR abiertas=0 simuladas=0 entradas=0 pnlHoy=-1.75
+2026-10-27 07:26:26 +00:00: 2026-10-27T07:26:25.516Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=93.22 EUR abiertas=1 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-27 07:27:26 +00:00: 2026-10-27T07:27:25.526Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=93.26 EUR abiertas=1 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-27 07:28:26 +00:00: 2026-10-27T07:28:25.538Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=93.17 EUR abiertas=1 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-27 07:29:25 +00:00: 2026-10-27T07:29:25.548Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=93.37 EUR abiertas=1 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-27 07:30:26 +00:00: 2026-10-27T07:30:25.559Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=93.31 EUR abiertas=1 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-27 07:31:26 +00:00: 2026-10-27T07:31:25.570Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=93.38 EUR abiertas=1 simuladas=1 entradas=0 pnlHoy=0.00
 --- resumen diario
 --- operaciones
 shadow GBP_JPY short 4000 entrada 210.131 SL 210.46261 TP 209.5341 | cierre 2026-10-23T00:15:39.955Z TP P&L 12.981887778423479
@@ -16,6 +16,9 @@ shadow AUD_NZD long 1047 entrada 1.23536 SL 1.23164 TP 1.2428 | cierre 2026-10-2
 shadow AUD_NZD short 1030 entrada 1.23171 SL 1.23548 TP 1.22417 | cierre 2026-10-23T19:01:00.130Z WEEKEND P&L -1.5079463675509353
 live GBP_USD long 1000 entrada 1.33682 SL 1.33192 TP 1.34417 | cierre 2026-10-23T19:01:00.305Z WEEKEND P&L 0.24
 live AUD_NZD short 1000 entrada 1.2328999999999999 SL 1.23634 TP 1.22602 | cierre 2026-10-26T08:23:24.108Z SL P&L -1.75
+live AUD_NZD long 1000 entrada 1.23664 SL 1.23312 TP 1.24369 | cierre 2026-10-26T21:57:21.581Z SL P&L -1.83
+live GBP_USD long 1000 entrada 1.33437 SL 1.32954 TP 1.34161 | cierre abierta None P&L None
+shadow USD_CHF long 442 entrada 0.82755 SL 0.82353 TP 0.83358 | cierre abierta None P&L None
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -23,6 +23,11 @@ import {
   evaluateVwapBounce5mShort,
 } from "@/lib/trading/crypto/strategies/futures-short-strategies";
 import { topRsPairsVsBtc } from "@/lib/trading/crypto/strategies/rs-vs-btc-1h";
+import {
+  evaluateFundingReversal,
+  evaluateRsi2Trend,
+  evaluateSeasonal22,
+} from "@/lib/trading/crypto/strategies/futures-extra";
 import type { CryptoStrategySignal } from "@/lib/trading/crypto/strategies/types";
 import {
   FUTURES_DEFAULT_MAKER,
@@ -99,6 +104,8 @@ export function evaluateFuturesStrategiesForPair(
   opts: EvaluatePairOpts & {
     fees?: FuturesFeeRates;
     allPairs?: string[];
+    /** relative funding per hour by spot pair (Kraken tickers) */
+    fundingByPair?: Map<string, number>;
   },
 ): CryptoStrategySignal[] {
   const fees = opts.fees ?? {
@@ -154,6 +161,19 @@ export function evaluateFuturesStrategiesForPair(
   }
   for (const s of shortsRaw) {
     const ok = filterFuturesSignal(s, pair, "short", spread, fees, shortRegimeOk);
+    if (ok) out.push(ok);
+  }
+
+  // Extra strategies (own trend logic → no regime filter; stop cap + cost filter still apply).
+  const extras = [
+    evaluateSeasonal22(pair, bars1h),
+    evaluateRsi2Trend("RSI2_TREND_1H", bars1h, 3600),
+    evaluateRsi2Trend("RSI2_TREND_15M", bars15, 900),
+    evaluateFundingReversal(bars1h, opts.fundingByPair?.get(pair.toUpperCase()) ?? null),
+  ];
+  for (const s of extras) {
+    if (!s) continue;
+    const ok = filterFuturesSignal(s, pair, s.direction === "SELL" ? "short" : "long", spread, fees, true);
     if (ok) out.push(ok);
   }
 

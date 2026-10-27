@@ -22,6 +22,7 @@ import { convert, sizeFxLots, type FxRates } from "./risk";
 import { newsBlockReason, type NewsEvent } from "./news";
 import { isWeekendFlattenTime } from "./sessions";
 import { killSwitchState } from "./killswitch";
+import { e1Signal, g1Signal } from "./shortterm";
 import type { FxCandle, FxSide, FxTrade } from "./types";
 
 type Mode = FxTrade["mode"];
@@ -46,18 +47,22 @@ export type ExtraCtx = {
 
 type Active = {
   id: string;
-  kind: "MR" | "R2";
+  kind: "MR" | "R2" | "ST";
   instrument: string;
-  tf: "H1" | "H4" | "D1";
+  tf: "M15" | "H1" | "H4" | "D1";
   name: string;
   real: boolean;
   mr?: MrSpec;
 };
 
-type Pending = { id: string; side: FxSide; level: number; atr: number; until: number; barTime: number };
+type Pending = {
+  id: string; side: FxSide; level: number; atr: number; until: number; barTime: number;
+  /** ST rules: absolute stop / target and time exit (bars) decided by the signal */
+  stop?: number; target?: number; maxBars?: number;
+};
 
-const TF_SEC = { H1: 3600, H4: 14400, D1: 86400 } as const;
-const MAX_BARS = { H1: 24, H4: 10, D1: 30 } as const;
+const TF_SEC = { M15: 900, H1: 3600, H4: 14400, D1: 86400 } as const;
+const MAX_BARS = { M15: 12, H1: 24, H4: 10, D1: 30 } as const;
 
 function readJson<T>(name: string): T | null {
   try {
@@ -96,11 +101,16 @@ export function activeExtraStrategies(liveMode: boolean): Active[] {
     if (!r.liveEligible || !spec || spec.kind !== "R2") continue;
     out.push({ id: r.id, kind: "R2", instrument: r.instrument, tf: "D1", name: r.name, real: liveMode && Boolean(r.locked) });
   }
+  // Short-term forum rules — owner decision: real money from the first minute (kill switch applies).
+  if ((process.env.FOREX_SHORTTERM_ENABLED ?? "true").toLowerCase() !== "false") {
+    out.push({ id: "ST_E1_EURUSD_M15", kind: "ST", instrument: "EUR_USD", tf: "M15", name: "EUR/USD · reversión sesión asiática M15 (E1)", real: liveMode });
+    out.push({ id: "ST_G1_GOLD_H1", kind: "ST", instrument: "GOLD", tf: "H1", name: "Oro · reversión RSI+Bollinger+ADX H1 (G1)", real: liveMode });
+  }
   return out;
 }
 
 const barCache = new Map<string, { bucket: number; bars: FxCandle[] }>();
-async function closedBars(instrument: string, tf: "H1" | "H4" | "D1"): Promise<FxCandle[]> {
+async function closedBars(instrument: string, tf: "M15" | "H1" | "H4" | "D1"): Promise<FxCandle[]> {
   const bucket = Math.floor(Date.now() / 1000 / Math.min(TF_SEC[tf], 3600));
   const key = `${instrument}:${tf}`;
   const hit = barCache.get(key);
@@ -202,9 +212,11 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
       }
       if (!newBar) continue;
       const held = (Date.now() - Date.parse(open.openedAt)) / 1000 / TF_SEC[a.tf];
-      const ruleOut = a.kind === "MR" ? mrExit(bars, mrIndicators(bars, a.tf as "H1" | "H4"), bars.length - 1, open.side) : r2Exit(bars);
-      const weekend = a.kind === "MR" && isWeekendFlattenTime(new Date());
-      if (ruleOut || weekend || held >= MAX_BARS[a.tf]) {
+      const ruleOut = a.kind === "MR" ? mrExit(bars, mrIndicators(bars, a.tf as "H1" | "H4"), bars.length - 1, open.side)
+        : a.kind === "R2" ? r2Exit(bars) : false;
+      const weekend = a.kind !== "R2" && isWeekendFlattenTime(new Date());
+      const maxBarsOpen = open.maxHoldMin ? open.maxHoldMin / (TF_SEC[a.tf] / 60) : MAX_BARS[a.tf];
+      if (ruleOut || weekend || held >= maxBarsOpen) {
         const why: FxTrade["exitReason"] = ruleOut ? "TP" : weekend ? "WEEKEND" : "TIME";
         if (isReal && open.brokerTradeId) {
           const r = await mt5Close(open.brokerTradeId).catch(() => null);
@@ -225,7 +237,10 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
     if (newBar && !nb) {
       pending = pending.filter((x) => x.id !== a.id); // a new bar replaces an unfilled level
       const a14 = atr14(bars);
-      if (a.kind === "MR" && a14) {
+      if (a.kind === "ST" && a14) {
+        const sig = a.id.includes("_E1_") ? e1Signal(bars) : g1Signal(bars);
+        if (sig) pending.push({ id: a.id, side: sig.side, level: Infinity, atr: a14, until: last.time + 2 * TF_SEC[a.tf], barTime: last.time, stop: sig.stop, target: sig.target, maxBars: sig.maxBars });
+      } else if (a.kind === "MR" && a14) {
         const side = mrSignal(bars, mrIndicators(bars, a.tf as "H1" | "H4"), bars.length - 1);
         if (side) {
           const dir = side === "long" ? 1 : -1;
@@ -259,8 +274,14 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
     const dir = p.side === "long" ? 1 : -1;
     const stopMult = a.kind === "R2" ? 3 : 2;
     const digits = i?.digits ?? 5;
-    const stop = Number((px - dir * stopMult * p.atr).toFixed(digits));
-    const tp = Number((px + dir * (a.kind === "R2" ? 6 : 3) * p.atr).toFixed(digits));
+    let stop = Number((px - dir * stopMult * p.atr).toFixed(digits));
+    let tp = Number((px + dir * (a.kind === "R2" ? 6 : 3) * p.atr).toFixed(digits));
+    if (a.kind === "ST" && p.stop != null && p.target != null) {
+      stop = Number(p.stop.toFixed(digits));
+      tp = Number(p.target.toFixed(digits));
+      // the market may already be past the target or the stop by the time we execute
+      if ((p.side === "long" && (tp <= px || stop >= px)) || (p.side === "short" && (tp >= px || stop <= px))) continue;
+    }
     const realOpen = ctx.trades.filter((t) => !t.closedAt && t.mode !== "shadow").length;
     const mode: Mode = real && realOpen < fxMaxPositions() ? ctx.mode : "shadow";
     let lots: number | null = null;
@@ -281,7 +302,7 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
     }
     const trade: FxTrade = {
       id: `${a.id}-${p.barTime}`, strategy: a.id, instrument: a.instrument, side: p.side, units, lots,
-      maxHoldMin: (MAX_BARS[a.tf] * TF_SEC[a.tf]) / 60, holdWeekend: a.kind === "R2",
+      maxHoldMin: ((p.maxBars ?? MAX_BARS[a.tf]) * TF_SEC[a.tf]) / 60, holdWeekend: a.kind === "R2",
       broker: mode === "shadow" ? "shadow" : "mt5", entry: px, stop, takeProfit: tp,
       openedAt: new Date().toISOString(), mode, brokerTradeId: null,
     };

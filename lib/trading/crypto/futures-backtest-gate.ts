@@ -2,6 +2,7 @@
  * Live futures activation gate from latest persisted OOS backtest report.
  */
 
+import { futuresExtraLive, isFuturesExtraStrategy } from "@/lib/trading/crypto/futures-config";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -88,6 +89,8 @@ export function futuresLiveGateForStrategy(
   strategyId: string,
   direction: "long" | "short",
 ): { ok: boolean; reason?: string } {
+  // Forum strategies live by owner decision (no backtest gate); FUTURES_EXTRA_LIVE=false disables.
+  if (isFuturesExtraStrategy(strategyId) && futuresExtraLive()) return { ok: true };
   const report = loadLatestFuturesBacktestReport();
   if (!report) return { ok: false, reason: "no_backtest_report" };
   const g = report.gates[gateKey(strategyId, direction)];

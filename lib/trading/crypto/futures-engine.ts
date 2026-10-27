@@ -286,6 +286,30 @@ async function closingFillsFor(
   return { price, reason, feesEur: price * qty * 0.0005 };
 }
 
+let fundingCache: { at: number; map: Map<string, number> } | null = null;
+
+/** Relative funding rate per hour by spot pair, from the public Kraken Futures tickers (5 min cache). */
+async function fundingBySpotPair(pairs: readonly string[]): Promise<Map<string, number>> {
+  if (fundingCache && Date.now() - fundingCache.at < 5 * 60_000) return fundingCache.map;
+  const res = await fetch("https://futures.kraken.com/derivatives/api/v3/tickers", { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  const body = (await res.json()) as { tickers?: Array<Record<string, unknown>> };
+  const byPf = new Map<string, number>();
+  for (const t of body.tickers ?? []) {
+    const sym = String(t.symbol ?? "").toUpperCase();
+    const mark = Number(t.markPrice ?? 0);
+    const rel = t.relativeFundingRate != null ? Number(t.relativeFundingRate) : mark > 0 ? Number(t.fundingRate ?? NaN) / mark : NaN;
+    if (sym && Number.isFinite(rel)) byPf.set(sym, rel);
+  }
+  const map = new Map<string, number>();
+  for (const p of pairs) {
+    const pf = spotPairToPfSymbol(p);
+    const v = pf ? byPf.get(pf.toUpperCase()) : undefined;
+    if (v != null) map.set(p.toUpperCase(), v);
+  }
+  fundingCache = { at: Date.now(), map };
+  return map;
+}
+
 /** Closes already announced on Telegram (one message per open leg, whatever happens). */
 const announcedCloses = new Set<string>();
 
@@ -536,12 +560,14 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     takerPct: 0.0005,
     source: "default" as const,
   }));
+  const fundingByPair = await fundingBySpotPair(pairs).catch(() => new Map<string, number>());
   const collected: RankedSignal[] = [];
   for (const pair of pairs) {
     const raw = evaluateFuturesStrategiesForPair(pair, {
       openGridLevels: 0,
       allPairs: pairs,
       fees: { makerPct: feeRow.makerPct, takerPct: feeRow.takerPct },
+      fundingByPair,
     }).map((s) => ({ ...s, pair }));
     collected.push(...rankSignals(raw, strategyReliabilityMap()));
   }

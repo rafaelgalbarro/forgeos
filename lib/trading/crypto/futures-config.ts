@@ -56,8 +56,21 @@ export function parseFuturesLiveStrategiesList(): Set<string> {
   return out;
 }
 
+/** Owner decision (27-10-2026): forum strategies trade real money from the first minute. */
+export function futuresExtraLive(): boolean {
+  const raw = readCryptoEnvLocal("FUTURES_EXTRA_LIVE") ?? process.env.FUTURES_EXTRA_LIVE ?? "true";
+  return !["0", "false", "no", "off"].includes(raw.trim().toLowerCase());
+}
+
+const EXTRA_IDS = new Set(["BTC_SEASONAL_22UTC", "RSI2_TREND_1H", "RSI2_TREND_15M", "FUNDING_REVERSAL_1H"]);
+
+export function isFuturesExtraStrategy(strategyId: string): boolean {
+  return EXTRA_IDS.has(strategyId.trim().toUpperCase());
+}
+
 export function isFuturesStrategyLive(strategyId: string): boolean {
   const list = parseFuturesLiveStrategiesList();
+  if (futuresExtraLive() && isFuturesExtraStrategy(strategyId)) return true;
   return list.has(strategyId.trim().toUpperCase());
 }
 

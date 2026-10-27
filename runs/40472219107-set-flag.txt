@@ -1,4 +1,8 @@
-confirmada para real: MR_EURUSD_H4_LMT (EUR/USD · RSI2 en tendencia H4 (limitada))
+
+=== AJUSTE FUTURES_MAX_LEVERAGE ===
+antes: 1
+FUTURES_MAX_LEVERAGE=2
+forgeos-crypto-engine reiniciado
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

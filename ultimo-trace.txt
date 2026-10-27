@@ -55,26 +55,26 @@
 11|forgeos | [PositionMonitor] TEF qty=0 en IBKR — eliminada del registro
 
 === TRAZA TEF en broker ===
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br | 08:33:01 [ibkr-broker] INFO OPEN ORDER orderId=2298 SELL TEF LMT qty=44 lmt=3.412 status=Submitted acct=U15513057 initMargin= maintMargin=
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br | 08:33:01 [ibkr-broker] INFO OPEN ORDER orderId=2299 SELL TEF STP qty=44 lmt=0.0 status=PreSubmitted acct=U15513057 initMargin= maintMargin=
+18|ibkr-br |   symbol: "TEF"
+18|ibkr-br |   localSymbol: "TEF"
+18|ibkr-br |   tradingClass: "TEF"
+18|ibkr-br | 08:33:12 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 134623638278992: ConId: 30314159, Symbol: TEF, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: BM, PrimaryExchange: , Currency: EUR, LocalSym
 18|ibkr-br |   symbol: "TEF"
 18|ibkr-br |   localSymbol: "TEF"
 18|ibkr-br |   tradingClass: "TEF"
 18|ibkr-br |   symbol: "TEF"
 18|ibkr-br |   localSymbol: "TEF"
 18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br | 08:28:51 [ibkr-broker] INFO OPEN ORDER orderId=2298 SELL TEF LMT qty=44 lmt=3.412 status=Submitted acct=U15513057 initMargin= maintMargin=
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br | 08:28:51 [ibkr-broker] INFO OPEN ORDER orderId=2299 SELL TEF STP qty=44 lmt=0.0 status=PreSubmitted acct=U15513057 initMargin= maintMargin=
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

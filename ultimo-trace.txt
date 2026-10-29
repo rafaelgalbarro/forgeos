@@ -1,80 +1,87 @@
 
-=== TRAZA TEF en forgeos (últimas 6000 líneas) ===
-11|forgeos | [AutoExecute] TEF → timeout de análisis ignorado; esperando submit IBKR (hasta 60000ms)…
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.20 Δ0.00% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.20 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:04 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.20 Δ0.00% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.20 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:11 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.20 Δ0.06% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.20 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:19 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE_OPEN) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.22 Δ0.66% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.22 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 09:26 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [Signal] TEF BUY agents=MOMENTUM+TECHNICAL conf=65%
-11|forgeos | [Capital] TEF EUR → U15513057 utilizable €357.05 (cuenta U15513057 | EUR cash €357.05 (USD $35.52 no usado para compras EUR))
-11|forgeos | [PreOrder] TEF BUY
-11|forgeos | [AutoExecute] TEF → account=U15513057 cashEUR €357.05 | deployable $285.64 usable $285.64 | precio $3.22 | qty 44
-11|forgeos | [AutoExecute] TEF BUY qty=44 precio=$3.22 SL=$3.15 TP=$3.41
-11|forgeos | [SmartExecution] checklist TEF PASS — spread=PASS volume=PASS macro=NO_DATA earnings=NO_DATA correlation=WARN
-11|forgeos | [SmartExecution] plan smart_1793089595390_pdvb0 TEF REAL=[LMT entry, monitor bracket/OCO] PLANNED=[ibkr_native_bracket, ibkr_native_oco, vwap_multi_slice_transmit, iceberg_display_size, atr_trailing_distance]
-11|forgeos | [AutoExecute] TEF BUY qty=44 precio=$3.22 SL=$3.15 TP=$3.41
-11|forgeos | [Signal] TEF → auto-ejecutar instantáneo (notional=$142)
-11|forgeos | [Signal] TEF: MOMENTUM+TECHNICAL conf=65% → auto-ejecutar
-11|forgeos | [AutoExecute] TEF BUY conf=65% qty=44 limit=$3.22 → llamando approveAndExecute/submitSupervisedLiveLimitOrder
-11|forgeos | [AutoExecute] TEF BUY → llamando submitSupervisedLiveLimitOrder qty=44 limitSuggested=$3.219 account=U15513057 outsideRth=true
-11|forgeos | [AutoExecute] TEF → precio obtenido: $3.2190
-11|forgeos | [AutoExecute] TEF → creando propuesta ibkr-broker (BUY qty=44 LMT=€3.219 ccy=EUR primary=BM account=U15513057)…
-11|forgeos | [AutoExecute] TEF → propuesta creada: id=6b0cf2f5-3656-423d-be6c-d1124f0c7cb6
-11|forgeos | [AutoExecute] TEF → aprobando propuesta…
-11|forgeos | [AutoExecute] TEF → propuesta aprobada: token=7b2265787022…
-11|forgeos | [AutoExecute] TEF → ejecutando orden IBKR…
-11|forgeos | [AutoExecute] TEF → EJECUTADO ibkrId=2297 status=Filled ✅
-11|forgeos | [AutoExecute] TEF → orden enviada ibkrId=2297 proposal=6b0cf2f5-3656-423d-be6c-d1124f0c7cb6
-11|forgeos |   ticker: 'TEF',
-11|forgeos | [FillConfirm] TEF BUY ibkrId=2297 — espera 30s…
-11|forgeos | [PositionMonitor] Registrada TEF qty=44 entry=$3.22 SL=$3.15 TP=$3.41
-11|forgeos | [Telegram] BUY Filled → bucket horario (sin alerta): TEF ibkrId=2297
-11|forgeos | [AutoExecute] TEF → Filled ibkrId=2297 registrado
-11|forgeos | [AutoExecute] TEF → EJECUTADO ibkrId=2297 ✅
-11|forgeos | [Signal] TEF: EXECUTED conf=65%
-11|forgeos | [Telegram] sendMessage intento chatId=1156860156 chars=154 buttons=0 «[IB] ✅ [EJECUTADO] 🌅 PRE-MARKET BUY TEF × 44 @ $3.22 📊 Confianza: 65»
-11|forgeos | [PositionMonitor] TEF qty=0 en IBKR — eliminada del registro
+=== TRAZA AAPL en forgeos (últimas 6000 líneas) ===
+11|forgeos | [Universe] AAPL price-source=ws $350.33 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $350.33 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:10 America/New_York usPhase=REGULAR strategyPhase=USA_OPEN forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROS
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_OPEN) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARN
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $350.07 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $350.07 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:15 America/New_York usPhase=REGULAR strategyPhase=USA_OPEN forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROS
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_OPEN) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARN
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $349.96 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $349.96 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:18 America/New_York usPhase=REGULAR strategyPhase=USA_OPEN forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROS
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_OPEN) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARN
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $349.57 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $349.57 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:23 America/New_York usPhase=REGULAR strategyPhase=USA_OPEN forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROS
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_OPEN) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARN
+11|forgeos | [NewsAggregator] AAPL → 5 items (Yahoo RSS)
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $349.89 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $349.89 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:26 America/New_York usPhase=REGULAR strategyPhase=USA_OPEN forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROS
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_OPEN) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARN
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $350.10 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $350.10 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:31 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $349.90 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $349.90 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:34 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $349.92 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $349.92 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:39 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $349.18 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $349.18 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [NewsAggregator] AAPL → 5 items (Yahoo RSS)
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $349.21 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $349.21 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:45 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $348.96 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $348.96 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:50 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] AAPL → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] AAPL price-source=ws $348.62 (EODHD-WS)
+11|forgeos | [AutoExecute] AAPL → precio: $348.62 (EODHD-WS)
+11|forgeos | [ProStrategy] AAPL: US_LISTED 10:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [ProStrategy] AAPL: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
 
-=== TRAZA TEF en broker ===
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br | 08:33:01 [ibkr-broker] INFO OPEN ORDER orderId=2298 SELL TEF LMT qty=44 lmt=3.412 status=Submitted acct=U15513057 initMargin= maintMargin=
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br | 08:33:01 [ibkr-broker] INFO OPEN ORDER orderId=2299 SELL TEF STP qty=44 lmt=0.0 status=PreSubmitted acct=U15513057 initMargin= maintMargin=
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br | 08:33:12 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 134623638278992: ConId: 30314159, Symbol: TEF, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: BM, PrimaryExchange: , Currency: EUR, LocalSym
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
+=== TRAZA AAPL en broker ===
+18|ibkr-br | INFO:     127.0.0.1:34022 - "GET /api/ibkr/market-data?symbol=AAPL&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34106 - "GET /api/ibkr/price/AAPL?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34110 - "GET /api/ibkr/historical?symbol=AAPL&duration=10%20D&barSize=1%20hour&bar=1%20hour&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34022 - "GET /api/ibkr/historical?symbol=AAPL&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:33784 - "GET /api/ibkr/market-data?symbol=AAPL&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:33802 - "GET /api/ibkr/price/AAPL?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:59260 - "GET /api/ibkr/market-data?symbol=AAPL&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:59326 - "GET /api/ibkr/price/AAPL?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:54906 - "GET /api/ibkr/historical?symbol=AAPL&duration=10%20D&barSize=1%20hour&bar=1%20hour&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:42168 - "GET /api/ibkr/historical?symbol=AAPL&duration=1%20Y&barSize=1%20day&bar=1%20day&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:49010 - "GET /api/ibkr/market-data?symbol=AAPL&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:49092 - "GET /api/ibkr/price/AAPL?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:49076 - "GET /api/ibkr/historical?symbol=AAPL&duration=10%20D&barSize=1%20hour&bar=1%20hour&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:49092 - "GET /api/ibkr/historical?symbol=AAPL&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:57520 - "GET /api/ibkr/market-data?symbol=AAPL&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:57602 - "GET /api/ibkr/price/AAPL?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:56862 - "GET /api/ibkr/market-data?symbol=AAPL&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:56852 - "GET /api/ibkr/price/AAPL?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:56906 - "GET /api/ibkr/historical?symbol=AAPL&duration=10%20D&barSize=1%20hour&bar=1%20hour&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:56862 - "GET /api/ibkr/historical?symbol=AAPL&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

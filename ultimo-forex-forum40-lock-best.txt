@@ -1,0 +1,13 @@
+candidatas robustas: 21
+REAL: F24_YEN_US100_H4             ops= 163 acierto=48% PF=1.56 media=0.230R mitades=0.317/0.116 spread1.5=0.228  EMA8 cruza SMA21 de máximos/mínimos + ADX>15 subiendo y DI a favor
+REAL: F26_BULLDOZER_GOLD_H4        ops= 142 acierto=45% PF=1.47 media=0.180R mitades=0.174/0.187 spread1.5=0.165  Bulldozer: cierre sobre EMA70 con EMA21 aún debajo + AO verde subiendo
+REAL: F07_MACD_AO_DE30_H4          ops= 157 acierto=45% PF=1.45 media=0.177R mitades=0.095/0.249 spread1.5=0.169  MACD(34,89,9) por encima de señal y cero + AO gira a verde
+REAL: F04_KUMO_USDJPY_H1           ops= 531 acierto=37% PF=1.32 media=0.166R mitades=0.137/0.194 spread1.5=0.140  Ruptura de Kumo (8,29,34) + giro del AO
+REAL: F04_KUMO_AUDNZD_H4           ops= 150 acierto=51% PF=1.48 media=0.162R mitades=0.096/0.233 spread1.5=0.131  Ruptura de Kumo (8,29,34) + giro del AO
+REAL: F35_SARDAR_EURJPY_H4         ops= 139 acierto=45% PF=1.38 media=0.156R mitades=0.245/0.073 spread1.5=0.145  Sardar: RVI(10) cruza 0 con RSI y desviación típica subiendo
+REAL: F10_BB_RSI_ADX_CADJPY_H4     ops= 128 acierto=59% PF=1.42 media=0.141R mitades=0.081/0.193 spread1.5=0.118  Bollinger + RSI(7) en extremo con ADX < 32 (rango)
+REAL: F10_BB_RSI_ADX_AUDCAD_H4     ops= 135 acierto=59% PF=1.40 media=0.125R mitades=0.129/0.120 spread1.5=0.104  Bollinger + RSI(7) en extremo con ADX < 32 (rango)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

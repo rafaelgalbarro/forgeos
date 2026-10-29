@@ -1,8 +1,43 @@
 
-=== MOMENTO POR % DE SUBIDA (preapertura y primera hora) — backtest 250 sesiones ===
-[gap] 250 sesiones 2025-11-13 → 2026-10-28
-[gap] candidatos (gap ≥5 %, top 20/día): 4784
+=== MOMENTO POR % DE SUBIDA (preapertura y primera hora) — backtest 150 sesiones ===
+[gap] 150 sesiones 2026-04-02 → 2026-10-28
+[gap] candidatos (gap ≥5 %, top 12/día): 1732
+[pm] con velas: 0 · con datos de preapertura: 0
+aptas: 0 de 108
+| Variante | Ops | Acierto | PF | Media neta % | 1ª mitad % | 2ª mitad % | Costes altos % | ¿Apta? |
+|---|---|---|---|---|---|---|---|---|
+| PM8h_5_AT_TP2_SL1.5_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_AT_TP2_SL1.5_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_BREAK_TP2_SL1.5_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_BREAK_TP2_SL1.5_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_AT_TP2_SL1.5_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_AT_TP2_SL1.5_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_BREAK_TP2_SL1.5_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_BREAK_TP2_SL1.5_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN945_5_TP2_SL1.5_X1100 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN945_5_TP2_SL1.5_XEOD | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN1000_5_TP2_SL1.5_X1100 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN1000_5_TP2_SL1.5_XEOD | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_AT_TP3_SL2_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_AT_TP3_SL2_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_BREAK_TP3_SL2_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_BREAK_TP3_SL2_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_AT_TP3_SL2_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_AT_TP3_SL2_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_BREAK_TP3_SL2_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM9h_5_BREAK_TP3_SL2_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN945_5_TP3_SL2_X1100 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN945_5_TP3_SL2_XEOD | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN1000_5_TP3_SL2_X1100 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| OPEN1000_5_TP3_SL2_XEOD | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+| PM8h_5_AT_TP5_SL3_X935 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes altos) |
+… peores:
+| PM9h_20_BREAK_TP5_SL3_X1000 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no |
+| OPEN945_20_TP5_SL3_X1100 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no |
+| OPEN945_20_TP5_SL3_XEOD | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no |
+| OPEN1000_20_TP5_SL3_X1100 | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no |
+| OPEN1000_20_TP5_SL3_XEOD | 0 | 0% | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | no |
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=124
+codigo_salida=0

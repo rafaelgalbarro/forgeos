@@ -1,0 +1,66 @@
+
+=== GAP & GO (acciones EE. UU. que abren con hueco al alza) — backtest 250 sesiones ===
+[gap] /intraday/SGRY.US: HTTP 402
+[gap] /intraday/CLRO.US: HTTP 402
+[gap] /intraday/RENT.US: HTTP 402
+[gap] /intraday/XNCR.US: HTTP 402
+[gap] /intraday/BRAI.US: HTTP 402
+[gap] /intraday/SZKMF.US: HTTP 402
+[gap] /intraday/SMFNF.US: HTTP 402
+[gap] /intraday/MACI.US: HTTP 402
+[gap] /intraday/NUWE.US: HTTP 402
+[gap] /intraday/BRAI.US: HTTP 402
+[gap] /intraday/AIOK.US: HTTP 402
+[gap] /intraday/MFIC.US: HTTP 402
+[gap] /intraday/SOFA.US: HTTP 402
+[gap] /intraday/SOFX.US: HTTP 402
+[gap] /intraday/CLRO.US: HTTP 402
+[gap] /intraday/JBLU.US: HTTP 402
+[gap] /intraday/DRMKY.US: HTTP 402
+[gap] /intraday/POM.US: HTTP 402
+[gap] /intraday/IMSR.US: HTTP 402
+[gap] /intraday/MRVSY.US: HTTP 402
+[gap] /intraday/ATII.US: HTTP 402
+[gap] /intraday/ULBI.US: HTTP 402
+[gap] /intraday/BRAI.US: HTTP 402
+[gap] /intraday/CHSN.US: HTTP 402
+[gap] /intraday/VRTL.US: HTTP 402
+[gap] /intraday/AIOK.US: HTTP 402
+[gap] /intraday/DAVI.US: HTTP 402
+[gap] /intraday/BOOM.US: HTTP 402
+[gap] /intraday/AXGN.US: HTTP 402
+[gap] /intraday/LUNG.US: HTTP 402
+[gap] /intraday/BKYI.US: HTTP 402
+[gap] /intraday/SKHU.US: HTTP 402
+[gap] con velas 5m: 2258 · con noticia antes de la apertura: 569
+
+| Variante | Ops | Acierto | PF | Media neta % | Total % | 1ª mitad % | 2ª mitad % | Costes altos % | ¿Apta? |
+|---|---|---|---|---|---|---|---|---|---|
+| GAP5_ORB5_R1 | 1084 | 50% | 0.78 | -0.87 | -942.15 | -1.06 | -0.65 | -1.54 | no (PF=0.78; no gana en las dos mitades; pierde con costes altos) |
+| GAP5_ORB5_R1_NEWS | 285 | 44% | 0.61 | -1.65 | -469.60 | -2.08 | -0.93 | -2.26 | no (PF=0.61; no gana en las dos mitades; pierde con costes altos) |
+| GAP5_ORB5_R2 | 1084 | 38% | 0.83 | -0.79 | -853.96 | -1.45 | -0.03 | -1.51 | no (PF=0.83; no gana en las dos mitades; pierde con costes altos) |
+| GAP5_ORB5_R2_NEWS | 285 | 35% | 0.67 | -1.58 | -451.52 | -2.53 | -0.01 | -2.24 | no (PF=0.67; no gana en las dos mitades; pierde con costes altos) |
+| GAP5_ORB15_R1 | 691 | 46% | 0.79 | -0.83 | -570.64 | -0.99 | -0.62 | -1.50 | no (PF=0.79; no gana en las dos mitades; pierde con costes altos) |
+| GAP5_ORB15_R1_NEWS | 185 | 39% | 0.63 | -1.67 | -309.29 | -2.42 | -0.19 | -2.49 | no (PF=0.63; no gana en las dos mitades; pierde con costes altos) |
+| GAP5_ORB15_R2 | 691 | 37% | 0.78 | -1.01 | -696.31 | -1.39 | -0.52 | -1.80 | no (PF=0.78; no gana en las dos mitades; pierde con costes altos) |
+| GAP5_ORB15_R2_NEWS | 185 | 34% | 0.68 | -1.51 | -279.99 | -2.56 | 0.57 | -2.59 | no (PF=0.68; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB5_R1 | 1074 | 50% | 0.77 | -0.90 | -968.50 | -1.10 | -0.67 | -1.57 | no (PF=0.77; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB5_R1_NEWS | 284 | 44% | 0.61 | -1.65 | -467.86 | -2.08 | -0.93 | -2.26 | no (PF=0.61; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB5_R2 | 1074 | 38% | 0.83 | -0.82 | -881.39 | -1.50 | -0.05 | -1.54 | no (PF=0.83; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB5_R2_NEWS | 284 | 36% | 0.67 | -1.58 | -449.77 | -2.54 | -0.01 | -2.24 | no (PF=0.67; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB15_R1 | 683 | 46% | 0.79 | -0.83 | -566.15 | -1.02 | -0.59 | -1.50 | no (PF=0.79; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB15_R1_NEWS | 184 | 39% | 0.63 | -1.66 | -305.16 | -2.40 | -0.19 | -2.48 | no (PF=0.63; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB15_R2 | 683 | 37% | 0.78 | -0.99 | -672.91 | -1.38 | -0.49 | -1.78 | no (PF=0.78; no gana en las dos mitades; pierde con costes altos) |
+| GAP10_ORB15_R2_NEWS | 184 | 34% | 0.68 | -1.50 | -275.86 | -2.55 | 0.57 | -2.58 | no (PF=0.68; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB5_R1 | 721 | 47% | 0.71 | -1.32 | -949.36 | -1.44 | -1.20 | -1.98 | no (PF=0.71; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB5_R1_NEWS | 191 | 40% | 0.55 | -2.25 | -428.85 | -2.80 | -1.47 | -2.87 | no (PF=0.55; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB5_R2 | 721 | 36% | 0.76 | -1.28 | -925.40 | -2.21 | -0.39 | -1.98 | no (PF=0.76; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB5_R2_NEWS | 191 | 32% | 0.61 | -2.15 | -411.35 | -3.52 | -0.25 | -2.82 | no (PF=0.61; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB15_R1 | 423 | 44% | 0.75 | -1.11 | -471.26 | -1.36 | -0.84 | -1.77 | no (PF=0.75; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB15_R1_NEWS | 116 | 40% | 0.59 | -2.09 | -242.13 | -3.14 | -0.37 | -2.88 | no (PF=0.59; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB15_R2 | 423 | 35% | 0.75 | -1.29 | -545.49 | -2.02 | -0.48 | -2.06 | no (PF=0.75; no gana en las dos mitades; pierde con costes altos) |
+| GAP20_ORB15_R2_NEWS | 116 | 36% | 0.70 | -1.63 | -189.21 | -3.08 | 0.74 | -2.75 | no (PF=0.70; no gana en las dos mitades; pierde con costes altos) |
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

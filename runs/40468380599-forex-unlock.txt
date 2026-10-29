@@ -1,5 +1,0 @@
-a simulación: AUD_NZD · H4: cruce EMA12/EMA26 a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0

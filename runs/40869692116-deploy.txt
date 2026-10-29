@@ -1,0 +1,53 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando ac2c66f Acciones: universo ampliado (100 por ciclo, ganadores y más negociadas > 5 $); backtest de momento por % de subida en preapertura y primera hora
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261029-120007
+Updating 1f099b7..ac2c66f
+Fast-forward
+ deploy/remote/forgeos-remote.sh           |   9 ++-
+ lib/trading/__tests__/pm-momentum.test.ts |  24 +++++++
+ lib/trading/pm-momentum.ts                | 109 ++++++++++++++++++++++++++++++
+ lib/trading/stocks-universe.ts            |  16 +++--
+ scripts/gap-backtest.ts                   |  66 +++++++++++++++++-
+ src/core/trading/trading-engine.ts        |   4 +-
+ 6 files changed, 215 insertions(+), 13 deletions(-)
+ create mode 100644 lib/trading/__tests__/pm-momentum.test.ts
+ create mode 100644 lib/trading/pm-momentum.ts
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.94s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        5120         962           4        1973        2625
+Swap:           4095        1813        2282
+     0 MB COMMAND
+  1317 MB node
+   991 MB node
+   896 MB node
+   406 MB next-server
+   294 MB java
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

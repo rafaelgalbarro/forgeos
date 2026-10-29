@@ -1,36 +1,35 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 1f099b7 IB: la cuenta en euros puede comprar acciones de EE. UU.; filtro de comisiones configurable; backtest Gap & Go (huecos al alza con y sin noticia)
+Desplegando ac2c66f Acciones: universo ampliado (100 por ciclo, ganadores y más negociadas > 5 $); backtest de momento por % de subida en preapertura y primera hora
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261029-112712
-Updating 3fb009e..1f099b7
+estado copiado en /root/forgeos-state-20261029-120007
+Updating 1f099b7..ac2c66f
 Fast-forward
- deploy/remote/forgeos-remote.sh          |  22 +++-
- lib/trading/__tests__/gap-and-go.test.ts |  31 ++++++
- lib/trading/gap-and-go.ts                | 166 +++++++++++++++++++++++++++++++
- lib/trading/stock-account-capital.ts     |  43 ++++++++
- scripts/forex-bot.cjs                    |   2 +-
- scripts/gap-backtest.ts                  | 164 ++++++++++++++++++++++++++++++
- 6 files changed, 426 insertions(+), 2 deletions(-)
- create mode 100644 lib/trading/__tests__/gap-and-go.test.ts
- create mode 100644 lib/trading/gap-and-go.ts
- create mode 100644 scripts/gap-backtest.ts
+ deploy/remote/forgeos-remote.sh           |   9 ++-
+ lib/trading/__tests__/pm-momentum.test.ts |  24 +++++++
+ lib/trading/pm-momentum.ts                | 109 ++++++++++++++++++++++++++++++
+ lib/trading/stocks-universe.ts            |  16 +++--
+ scripts/gap-backtest.ts                   |  66 +++++++++++++++++-
+ src/core/trading/trading-engine.ts        |   4 +-
+ 6 files changed, 215 insertions(+), 13 deletions(-)
+ create mode 100644 lib/trading/__tests__/pm-momentum.test.ts
+ create mode 100644 lib/trading/pm-momentum.ts
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.52s
+19 passed in 0.94s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        5301         744           4        2011        2444
-Swap:           4095        1618        2477
+Mem:            7746        5120         962           4        1973        2625
+Swap:           4095        1813        2282
      0 MB COMMAND
-  1258 MB node
-  1033 MB node
-   759 MB node
-   487 MB next-server
-   351 MB java
+  1317 MB node
+   991 MB node
+   896 MB node
+   406 MB next-server
+   294 MB java
 
 up to date in 2s
    Generating static pages (153/204) 

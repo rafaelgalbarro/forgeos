@@ -974,6 +974,29 @@ case "$ACTION" in
   gap-backtest) do_gap_backtest "$ARG" ;;
   pm-backtest) do_pm_backtest "$ARG" ;;
   forex-forum40) do_forex_forum40 ;;
+  forex-forum40-lock-best)
+    # Robust subset of the 40-list: ≥120 trades, both halves ≥ +0.05R, ≥ +0.08R with 1.5× spread,
+    # best per instrument, at most 8 → real money (locked). Everything else stays in shadow.
+    python3 - <<'PY'
+import json
+p = "/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"
+j = json.load(open(p))
+cand = [r for r in j["results"] if r.get("liveEligible") and r["all"]["trades"] >= 120
+        and min(r["firstHalf"]["meanR"], r["secondHalf"]["meanR"]) >= 0.05 and r["stressed"]["meanR"] >= 0.08]
+best = {}
+for r in sorted(cand, key=lambda r: -r["all"]["meanR"]):
+    best.setdefault(r["instrument"], r)
+pick = sorted(best.values(), key=lambda r: -r["all"]["meanR"])[:8]
+ids = {r["id"] for r in pick}
+for r in j["results"]:
+    r["locked"] = r["id"] in ids
+json.dump(j, open(p, "w"), indent=2)
+print("candidatas robustas:", len(cand))
+for r in pick:
+    a = r["all"]
+    print("REAL: %-28s ops=%4d acierto=%2.0f%% PF=%.2f media=%.3fR mitades=%.3f/%.3f spread1.5=%.3f  %s" % (r["id"], a["trades"], a["winRate"]*100, a["pf"], a["meanR"], r["firstHalf"]["meanR"], r["secondHalf"]["meanR"], r["stressed"]["meanR"], r["name"]))
+PY
+    ;;
   forex-forum40-report)
     python3 - <<'PY'
 import json, collections

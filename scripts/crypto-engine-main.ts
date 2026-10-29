@@ -87,6 +87,7 @@ async function analysisTick(): Promise<void> {
     console.error(
       "[CryptoEngine] analysis error:",
       err instanceof Error ? err.message : err,
+      err instanceof Error ? (err.stack ?? "").split("\n").slice(1, 4).join(" | ") : "",
     );
   } finally {
     heartbeat();

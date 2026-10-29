@@ -69,7 +69,7 @@ export function sizeForNotionalUsd(args: {
       minNotionalEur: minEur,
     };
   }
-  const size = Number(q.toFixed(meta.contractValueTradePrecision));
+  const size = Number(q.toFixed(Math.max(0, Math.min(10, meta.contractValueTradePrecision))));
   return {
     ok: true,
     symbol: args.symbol,

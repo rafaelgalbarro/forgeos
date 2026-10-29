@@ -635,6 +635,65 @@ do_protect() {
   sleep 3; do_orders
 }
 
+# trades-review [DÍAS] — operaciones reales recientes de las 3 plataformas (por defecto 10 días).
+do_trades_review() {
+  local days="${1:-10}"
+  DAYS="$days" python3 - <<'PY'
+import json, os, glob, sqlite3, datetime as dt
+days = int(os.environ.get("DAYS") or 10)
+since = dt.datetime.utcnow() - dt.timedelta(days=days)
+print("\n=== TELEGRAM: mensajes de operaciones reales (ledger) ===")
+for f in sorted(glob.glob(".forgeos/telegram-trades/*.jsonl")):
+    day = os.path.basename(f)[:10]
+    try:
+        if dt.datetime.strptime(day, "%Y-%m-%d") < since - dt.timedelta(days=1): continue
+    except Exception: continue
+    for l in open(f):
+        try: r = json.loads(l)
+        except Exception: continue
+        print(r.get("at","")[:16], r.get("platform"), "|", " ".join(str(r.get("text","")).split())[:230])
+print("\n=== KRAKEN: diario cripto (reales cerradas y abiertas) ===")
+p = ".forgeos/journal/crypto-trades.jsonl"
+rows = []
+if os.path.exists(p):
+    for l in open(p):
+        try: r = json.loads(l)
+        except Exception: continue
+        if r.get("shadow"): continue
+        try: at = dt.datetime.fromisoformat(str(r.get("at")).replace("Z","+00:00")).replace(tzinfo=None)
+        except Exception: continue
+        if at < since: continue
+        rows.append(r)
+tot = 0.0; byS = {}
+for r in rows:
+    n = r.get("netPnlEur")
+    if r.get("exitReason") and n is not None:
+        tot += n; s = byS.setdefault(r.get("strategy"), [0,0,0.0]); s[0]+=1; s[1]+= 1 if n>0 else 0; s[2]+=n
+    print(str(r.get("at"))[:16], r.get("strategy"), r.get("pfSymbol") or r.get("pair"), r.get("positionSide") or r.get("side"),
+          "entrada", r.get("entry"), "salida", r.get("exit"), "motivo", r.get("exitReason"), "neto€", None if n is None else round(n,3),
+          "dur_min", None if not r.get("durationMs") else round(r["durationMs"]/60000), "mae%", r.get("maePct"), "mfe%", r.get("mfePct"),
+          "abierta" if r.get("open") and not r.get("exitReason") else "")
+print("total neto cerradas €:", round(tot,2))
+for k,v in sorted(byS.items(), key=lambda x: x[1][2]):
+    print("  ", k, "ops", v[0], "ganadas", v[1], "neto€", round(v[2],2))
+print("\n=== IBKR: propuestas ejecutadas (broker) ===")
+try:
+    c = sqlite3.connect("services/ibkr-broker/forgeos_ibkr.sqlite3")
+    cols = [x[1] for x in c.execute("PRAGMA table_info(proposals)")]
+    q = "SELECT created_at,status,payload,ibkr_status,reject_reason FROM proposals WHERE created_at >= ? ORDER BY created_at"
+    for ca, st, pl, ist, rr in c.execute(q, (since.isoformat(),)):
+        try: j = json.loads(pl or "{}")
+        except Exception: j = {}
+        if st not in ("executed","EXECUTED","filled","FILLED") and ist not in ("Filled",) and not rr: continue
+        print(str(ca)[:16], st, ist, j.get("side") or j.get("action"), j.get("symbol") or j.get("ticker"), "qty", j.get("quantity") or j.get("qty"),
+              "lmt", j.get("limit_price") or j.get("limitPrice"), "|", (rr or "")[:120])
+except Exception as e:
+    print("sin acceso:", e)
+PY
+  sec "IBKR: ventas/cierres en logs (monitor)"
+  pm2 logs forgeos --lines 40000 --nostream 2>&1 | grep -E "PositionMonitor\] .*(tocado|SELL|cerrad)|position closed|Posición cerrada|SELL Filled|\[IB\].*(VENTA|SELL)" | cut -c1-230 | tail -40
+}
+
 do_telegram_stats() {
   sec "TELEGRAM: envíos por proceso (logs actuales de PM2)"
   local f n
@@ -894,6 +953,7 @@ case "$ACTION" in
   gateway-logs) do_gateway_logs ;;
   protect) do_protect "$ARG" ;;
   telegram-stats) do_telegram_stats ;;
+  trades-review) do_trades_review "$ARG" ;;
   screenshot) do_screenshot "$ARG" ;;
   signals) do_signals ;;
   forex-backtest) do_forex_backtest "$ARG" ;;

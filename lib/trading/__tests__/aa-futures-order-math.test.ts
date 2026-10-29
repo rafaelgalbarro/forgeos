@@ -39,6 +39,13 @@ describe("AA futures: orders=0 causes", () => {
     if (r.ok) expect(r.size).toBeCloseTo(0.6, 6);
   });
 
+  it("sizes instruments with negative precision (lots of 10 contracts) without throwing", () => {
+    const pepe = { ...LINK, symbol: "PF_PEPEUSD", tickSize: 0.0000001, contractValueTradePrecision: -1, minSize: 10 };
+    const r = sizeForNotionalUsd({ symbol: "PF_PEPEUSD", meta: pepe, notionalUsd: 30, price: 0.5, eurUsd: 1.12 });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.size).toBe(60);
+  });
+
   it("rejected sendorder statuses are detected", () => {
     expect(isAcceptedSendStatus("placed")).toBe(true);
     expect(isAcceptedSendStatus("invalidPrice")).toBe(false);

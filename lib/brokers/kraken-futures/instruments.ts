@@ -87,7 +87,7 @@ export function quantizeFuturesSize(
   const q = Math.floor(raw / step) * step;
   const min = instrumentMinContracts(meta);
   if (q < min) return 0;
-  return Number(q.toFixed(meta.contractValueTradePrecision));
+  return Number(q.toFixed(Math.max(0, Math.min(10, meta.contractValueTradePrecision))));
 }
 
 export function quantizeFuturesPrice(price: number, tickSize: number): number {

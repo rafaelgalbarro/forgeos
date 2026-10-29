@@ -1,0 +1,54 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 1f099b7 IB: la cuenta en euros puede comprar acciones de EE. UU.; filtro de comisiones configurable; backtest Gap & Go (huecos al alza con y sin noticia)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261029-112712
+Updating 3fb009e..1f099b7
+Fast-forward
+ deploy/remote/forgeos-remote.sh          |  22 +++-
+ lib/trading/__tests__/gap-and-go.test.ts |  31 ++++++
+ lib/trading/gap-and-go.ts                | 166 +++++++++++++++++++++++++++++++
+ lib/trading/stock-account-capital.ts     |  43 ++++++++
+ scripts/forex-bot.cjs                    |   2 +-
+ scripts/gap-backtest.ts                  | 164 ++++++++++++++++++++++++++++++
+ 6 files changed, 426 insertions(+), 2 deletions(-)
+ create mode 100644 lib/trading/__tests__/gap-and-go.test.ts
+ create mode 100644 lib/trading/gap-and-go.ts
+ create mode 100644 scripts/gap-backtest.ts
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.52s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        5301         744           4        2011        2444
+Swap:           4095        1618        2477
+     0 MB COMMAND
+  1258 MB node
+  1033 MB node
+   759 MB node
+   487 MB next-server
+   351 MB java
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

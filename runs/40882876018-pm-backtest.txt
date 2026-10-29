@@ -1,0 +1,8 @@
+
+=== MOMENTO POR % DE SUBIDA (preapertura y primera hora) — backtest 250 sesiones ===
+[gap] 250 sesiones 2025-11-13 → 2026-10-28
+[gap] candidatos (gap ≥5 %, top 20/día): 4784
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=124

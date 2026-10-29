@@ -1,9 +1,5 @@
-
-=== AJUSTE FOREX_BOT_MAX_POSITIONS ===
-antes: 
-FOREX_BOT_MAX_POSITIONS=3
-forgeos-forex-bot reiniciado
+valor no permitido: 
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0
+codigo_salida=2

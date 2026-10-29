@@ -36,7 +36,7 @@ import { inPlaySymbolSet } from "@/lib/trading/stocks-in-play/store";
 import { runnersSymbolSet } from "@/lib/trading/stocks-in-play/runners/store";
 
 /** Final tickers analyzed per stocks cycle. */
-export const MAX_STOCKS_CYCLE_TICKERS = 50;
+export const MAX_STOCKS_CYCLE_TICKERS = Math.max(20, Math.min(200, Number(process.env.STOCKS_CYCLE_MAX_TICKERS ?? 100) || 100));
 const MIN_VOLUME = 500_000;
 const MIN_PRICE = 2;
 /** No hard $500 cap — cash + risk sizing bound max price. */
@@ -170,12 +170,14 @@ export async function resolveStocksCycleUniverse(at: Date = new Date()): Promise
   let screener: Awaited<ReturnType<typeof screenerUsGainers>> = [];
   if (plan.includeUsRegular || plan.includeUsPremarketAnalysis) {
     try {
-      screener = await screenerUsGainers({
-        minVolume: MIN_VOLUME,
-        minPrice: MIN_PRICE,
-        maxPrice: SCREEN_MAX_PRICE,
-        limit: 50,
-      });
+      // Owner 29/10: analyse more liquid US stocks (> $5, high volume): yesterday's top gainers
+      // plus the most traded names, on top of the curated sector lists.
+      const [gainers, liquid] = await Promise.all([
+        screenerUsGainers({ minVolume: MIN_VOLUME, minPrice: 5, maxPrice: SCREEN_MAX_PRICE, limit: 100 }),
+        screenerUsGainers({ minVolume: 2_000_000, minPrice: 5, maxPrice: SCREEN_MAX_PRICE, limit: 100, sort: "avgvol_200d-desc" }).catch(() => []),
+      ]);
+      const seen = new Set<string>();
+      screener = [...gainers, ...liquid].filter((r) => (seen.has(r.symbol) ? false : (seen.add(r.symbol), true)));
     } catch (err) {
       console.warn(
         "[StocksUniverse] EODHD screener error:",

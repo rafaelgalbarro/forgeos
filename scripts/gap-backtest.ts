@@ -16,6 +16,7 @@ import {
   type Bar5,
   type GapTrade,
 } from "@/lib/trading/gap-and-go";
+import { DEFAULT_PM_COST, pmVariants, simulatePm, type PmTrade } from "@/lib/trading/pm-momentum";
 
 const KEY = process.env.EODHD_API_KEY?.trim() ?? "";
 const ROOT = process.env.FORGEOS_ROOT || process.cwd();
@@ -44,6 +45,9 @@ async function get<T>(url: string, cacheName: string): Promise<T | null> {
 }
 
 type BulkRow = { code: string; open: number; high: number; low: number; close: number; volume: number };
+
+// Candidate pool: gap at the open ≥ 5 % (≥ 3 % in PM mode, to dilute the selection bias).
+let GAP_MIN_POOL = 0.05;
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -75,10 +79,12 @@ async function main(): Promise<void> {
   if (!KEY) throw new Error("EODHD_API_KEY no configurada");
   const nDays = Math.max(20, Math.min(500, Number(process.argv[2] ?? 250) || 250));
   const days = tradingDays(nDays);
-  const perDay = 12;
+  if ((process.env.GAP_MODE ?? "").toLowerCase() === "pm") GAP_MIN_POOL = 0.03;
+  const PM_MODE = (process.env.GAP_MODE ?? "").toLowerCase() === "pm";
+  const perDay = PM_MODE ? 20 : 12;
   console.log(`[gap] ${days.length - 1} sesiones ${days[1]} → ${days[days.length - 1]}`);
   let prev: Map<string, BulkRow> | null = null;
-  type Cand = { day: string; code: string; gapPct: number };
+  type Cand = { day: string; code: string; gapPct: number; prevClose: number };
   const cands: Cand[] = [];
   for (const day of days) {
     const rows = await get<BulkRow[]>(`/eod-bulk-last-day/US?date=${day}`, `bulk-${day}.json`);
@@ -92,7 +98,7 @@ async function main(): Promise<void> {
         if (!(p.close > 0) || !(r.open >= 1) || r.open > 50) continue;
         if (p.close * p.volume < 200_000) continue; // liquid the day before (known pre-open)
         const g = r.open / p.close - 1;
-        if (g >= 0.05) list.push({ day, code, gapPct: g });
+        if (g >= GAP_MIN_POOL) list.push({ day, code, gapPct: g, prevClose: p.close });
       }
       list.sort((a, b) => b.gapPct - a.gapPct);
       cands.push(...list.slice(0, perDay));
@@ -101,6 +107,10 @@ async function main(): Promise<void> {
   }
   console.log(`[gap] candidatos (gap ≥5 %, top ${perDay}/día): ${cands.length}`);
 
+  if (PM_MODE) {
+    await runPm(cands, days);
+    return;
+  }
   const trades = new Map<string, GapTrade[]>();
   const stressed = new Map<string, GapTrade[]>();
   const variants = gapVariants();
@@ -156,6 +166,56 @@ async function main(): Promise<void> {
   for (const r of rows) {
     console.log(`| ${r.id} | ${r.all.trades} | ${(r.all.winRate * 100).toFixed(0)}% | ${p(r.all.pf)} | ${p(r.all.meanPct)} | ${p(r.all.totalPct)} | ${p(r.h1.meanPct)} | ${p(r.h2.meanPct)} | ${p(r.st.meanPct)} | ${r.liveEligible ? "APTA" : `no (${r.reason})`} |`);
   }
+}
+
+async function runPm(cands: Array<{ day: string; code: string; gapPct: number; prevClose: number }>, days: string[]): Promise<void> {
+  const variants = pmVariants();
+  const trades = new Map<string, PmTrade[]>();
+  const stressed = new Map<string, PmTrade[]>();
+  let withPm = 0;
+  let withBars = 0;
+  await pool(cands, 4, async (c) => {
+    const d0 = Date.parse(`${c.day}T00:00:00Z`) / 1000;
+    const raw = await get<Array<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }>>(
+      `/intraday/${c.code}.US?interval=5m&from=${d0 + 8 * 3600}&to=${d0 + 22 * 3600}`,
+      `i5pm-${c.code}-${c.day}.json`,
+    );
+    const bars: Bar5[] = (raw ?? []).filter((b) => b && b.open > 0).map((b) => ({ t: b.timestamp, o: b.open, h: b.high, l: b.low, c: b.close, v: b.volume ?? 0 }));
+    if (bars.length < 10) return;
+    withBars += 1;
+    if (bars.some((b) => nyMinutes(b.t) < 9 * 60 + 30 && nyMinutes(b.t) >= 4 * 60)) withPm += 1;
+    for (const v of variants) {
+      const t = simulatePm({ day: c.day, code: c.code, prevClose: c.prevClose, bars, v });
+      if (t) { const a = trades.get(v.id) ?? []; a.push(t); trades.set(v.id, a); }
+      const ts = simulatePm({ day: c.day, code: c.code, prevClose: c.prevClose, bars, v, cost: { ...DEFAULT_PM_COST, slipPm: DEFAULT_PM_COST.slipPm * 2, slipRth: DEFAULT_PM_COST.slipRth * 2, commissionMult: 1.5 } });
+      if (ts) { const a = stressed.get(v.id) ?? []; a.push(ts); stressed.set(v.id, a); }
+    }
+  });
+  console.log(`[pm] con velas: ${withBars} · con datos de preapertura: ${withPm}`);
+  const mid = days[Math.floor(days.length / 2)]!;
+  const st = (t: readonly PmTrade[]) => {
+    const gp = t.filter((x) => x.netPct > 0).reduce((a, x) => a + x.netPct, 0);
+    const gl = -t.filter((x) => x.netPct <= 0).reduce((a, x) => a + x.netPct, 0);
+    return { n: t.length, win: t.length ? t.filter((x) => x.netPct > 0).length / t.length : 0, pf: gl > 0 ? gp / gl : gp > 0 ? 99 : 0, mean: t.length ? (gp - gl) / t.length : 0 };
+  };
+  const rows = variants.map((v) => {
+    const t = trades.get(v.id) ?? [];
+    const a = st(t); const h1 = st(t.filter((x) => x.day < mid)); const h2 = st(t.filter((x) => x.day >= mid)); const s2 = st(stressed.get(v.id) ?? []);
+    const why: string[] = [];
+    if (a.n < 60) why.push(`ops=${a.n}`);
+    if (a.pf < 1.15) why.push(`PF=${a.pf.toFixed(2)}`);
+    if (!(h1.mean > 0 && h2.mean > 0)) why.push("no gana en las dos mitades");
+    if (!(s2.mean > 0)) why.push("pierde con costes altos");
+    return { id: v.id, v, a, h1, h2, s2, ok: why.length === 0, why: why.join("; ") || "ok" };
+  }).sort((x, y) => y.a.mean - x.a.mean);
+  fs.writeFileSync(path.join(ROOT, ".forgeos", "pm-backtest-latest.json"), JSON.stringify({ generatedAt: new Date().toISOString(), rows }, null, 2));
+  const p = (x: number) => x.toFixed(2);
+  console.log(`aptas: ${rows.filter((r) => r.ok).length} de ${rows.length}`);
+  console.log(`| Variante | Ops | Acierto | PF | Media neta % | 1ª mitad % | 2ª mitad % | Costes altos % | ¿Apta? |`);
+  console.log(`|---|---|---|---|---|---|---|---|---|`);
+  for (const r of rows.slice(0, 25)) console.log(`| ${r.id} | ${r.a.n} | ${(r.a.win * 100).toFixed(0)}% | ${p(r.a.pf)} | ${p(r.a.mean)} | ${p(r.h1.mean)} | ${p(r.h2.mean)} | ${p(r.s2.mean)} | ${r.ok ? "APTA" : `no (${r.why})`} |`);
+  console.log(`… peores:`);
+  for (const r of rows.slice(-5)) console.log(`| ${r.id} | ${r.a.n} | ${(r.a.win * 100).toFixed(0)}% | ${p(r.a.pf)} | ${p(r.a.mean)} | ${p(r.h1.mean)} | ${p(r.h2.mean)} | ${p(r.s2.mean)} | no |`);
 }
 
 main().then(() => process.exit(0)).catch((err) => {

@@ -197,7 +197,7 @@ import { evaluateCryptoIntradayStrategies } from '@/lib/trading/crypto/intraday-
 
 /** Max tickers per automatic background cycle. */
 /** Analyze up to 50 tickers per automatic / typed cycle; explicit cycles are uncapped. */
-export const MAX_AUTO_CYCLE_TICKERS = 50;
+export const MAX_AUTO_CYCLE_TICKERS = Math.max(20, Math.min(200, Number(process.env.STOCKS_CYCLE_MAX_TICKERS ?? 100) || 100));
 
 /** Automatic / typed cycle wall-clock cap. */
 export const CYCLE_TIMEOUT_MS = 120 * 1000;
@@ -711,7 +711,7 @@ export class TradingEngine {
   private static readonly TICKER_TIMEOUT_MS = 15_000
   /** Once live submit started, allow longer for IBKR ack. */
   private static readonly AUTO_EXECUTE_TIMEOUT_MS = 60_000
-  private static readonly CYCLE_CONCURRENCY = 5
+  private static readonly CYCLE_CONCURRENCY = 8
   /** Auto-execute without Telegram when notional ≤ this and conf ≥ threshold. */
   private static readonly INSTANT_EXEC_MAX_NOTIONAL_USD = 250
   private static readonly MANUAL_APPROVAL_CONFIDENCE = 0.65

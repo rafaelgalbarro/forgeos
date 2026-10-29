@@ -48,4 +48,27 @@ describe("forex per-pair strategies", () => {
     expect(c.liveEligible).toBe(false);
     expect(c.reason.length).toBeGreaterThan(0);
   });
+
+  it("new families (29/10) are in the grid and the Asia breakout fires at most once per day", () => {
+    const g = specGrid("M15");
+    for (const f of ["STOCH_TREND", "KELTNER_BREAK", "INSIDE_BAR", "ADX_RSI_PULLBACK", "ASIA_BREAKOUT"]) {
+      expect(g.some((x) => x.family === f)).toBe(true);
+    }
+    // 5 days of M15: flat Asia, then a rally after 07:00 London each day
+    const bars = series(96 * 5, (i) => {
+      const m = (i % 96) * 15;
+      return 1.1 + (m > 8 * 60 ? (m - 8 * 60) * 0.00001 : 0);
+    });
+    const ind = computeIndicators(bars, 900);
+    const s = g.find((x) => x.family === "ASIA_BREAKOUT")!;
+    const days = new Map<number, number>();
+    bars.forEach((b, i) => {
+      if (signalAt(s, ind, i)) days.set(Math.floor(b.time / 86400), (days.get(Math.floor(b.time / 86400)) ?? 0) + 1);
+    });
+    expect(days.size).toBeGreaterThan(0);
+    for (const n of days.values()) expect(n).toBe(1);
+    for (const sp of g.filter((x) => ["STOCH_TREND", "KELTNER_BREAK", "INSIDE_BAR", "ADX_RSI_PULLBACK"].includes(x.family))) {
+      expect(() => bars.map((_, i) => signalAt(sp, ind, i))).not.toThrow();
+    }
+  });
 });

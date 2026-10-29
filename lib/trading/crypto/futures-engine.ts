@@ -97,6 +97,7 @@ let exitTimer: ReturnType<typeof setInterval> | null = null;
 let backfillTimer: ReturnType<typeof setInterval> | null = null;
 let marginTimer: ReturnType<typeof setInterval> | null = null;
 let cycleBusy = false;
+let cycleBusySince = 0;
 
 function liquidationDistancePct(
   side: "long" | "short",
@@ -279,10 +280,16 @@ async function closingFillsFor(
   if (!(qty > 0)) return null;
   const price = fills.reduce((a, f) => a + f.price * f.size, 0) / qty;
   const types = fills.map((f) => f.fillType.toLowerCase()).join(",");
+  // fillType is maker/taker/stop/takeProfit/liquidation… — "taker" contains "take", which labelled
+  // every market/stop exit as TAKE_PROFIT. Classify by type first, then by the nearest level.
+  const sl = Number(open.stopLoss ?? 0);
+  const tp = Number(open.takeProfit ?? 0);
+  const byLevel =
+    sl > 0 && tp > 0 ? (Math.abs(price - sl) <= Math.abs(price - tp) ? "STOP_LOSS" : "TAKE_PROFIT") : "EXCHANGE_CLOSE";
   const reason = types.includes("liquidation") ? "LIQUIDATION"
-    : types.includes("take") ? "TAKE_PROFIT"
-      : types.includes("stop") ? "STOP_LOSS"
-        : "EXCHANGE_CLOSE";
+    : /takeprofit|take_profit/.test(types) ? "TAKE_PROFIT"
+      : /(^|,)stop/.test(types) ? "STOP_LOSS"
+        : byLevel;
   return { price, reason, feesEur: price * qty * 0.0005 };
 }
 
@@ -357,6 +364,61 @@ async function finalizeFuturesClose(
   }
 }
 
+function futuresEntryTtlMs(): number {
+  const m = Number(process.env.FUTURES_ENTRY_TTL_MIN ?? "10");
+  return (Number.isFinite(m) && m > 0 ? m : 10) * 60_000;
+}
+
+/** Was any part of the entry filled (fills on the opening side since the entry)? */
+async function entryEverFilled(
+  adapter: ReturnType<typeof getKrakenFuturesAdapter>,
+  pf: string,
+  open: CryptoJournalTrade,
+): Promise<boolean> {
+  try {
+    if (!fillsCache || Date.now() - fillsCache.at > 10_000) fillsCache = { at: Date.now(), fills: await adapter.getRecentFills() };
+  } catch {
+    return true; // unknown → keep the old behaviour (treat as a real position)
+  }
+  const openSide = (open.positionSide ?? "long") === "short" ? "sell" : "buy";
+  const since = Date.parse(open.at) - 5_000;
+  return fillsCache.fills.some((f) => f.symbol === pf.toUpperCase() && f.side === openSide && f.time >= since);
+}
+
+/** Reduce-only stops / take-profits left behind for a contract with no position. */
+async function cancelStaleReduceOnly(
+  adapter: ReturnType<typeof getKrakenFuturesAdapter>,
+  pf: string,
+  openOrders: Array<{ orderId: string; symbol: string; reduceOnly: boolean }>,
+): Promise<void> {
+  for (const o of openOrders.filter((x) => x.symbol === pf && x.reduceOnly && x.orderId)) {
+    await adapter.cancelOrder(o.orderId).catch(() => undefined);
+  }
+}
+
+/** Entry never filled within the TTL: cancel it (and its stop) and close the journal leg at 0. */
+async function cancelFuturesEntry(
+  adapter: ReturnType<typeof getKrakenFuturesAdapter>,
+  pf: string,
+  open: CryptoJournalTrade,
+  openOrders: Array<{ orderId: string; symbol: string; reduceOnly: boolean }>,
+): Promise<void> {
+  for (const o of openOrders.filter((x) => x.symbol === pf && x.orderId)) {
+    if (!o.reduceOnly && open.orderId && o.orderId !== open.orderId) continue;
+    await adapter.cancelOrder(o.orderId).catch(() => undefined);
+  }
+  closeCryptoJournalOpen({ open, exit: open.entry, exitReason: "ENTRY_NOT_FILLED", feesEur: 0, fundingPaidEur: 0 });
+  const key = `${open.strategy}|${open.pair}|${open.signalKey ?? open.at}`;
+  if (!open.shadow && !announcedCloses.has(key)) {
+    announcedCloses.add(key);
+    void sendTelegramMessage(
+      `[KRAKEN] ⚪ Entrada no ejecutada y cancelada: ${(open.positionSide ?? "long").toUpperCase()} ${pf} | ${open.strategy}`,
+      undefined,
+      { kind: "trade", platform: "KRAKEN" },
+    ).catch(() => undefined);
+  }
+}
+
 async function runFuturesShadowExits(): Promise<void> {
   const opens = listOpenCryptoJournal({ shadow: true }).filter(
     (t) => t.venue === "futures",
@@ -406,7 +468,12 @@ export async function runFuturesExitLoop(): Promise<void> {
   if (!isKrakenFuturesConfigured()) return;
   await runFuturesShadowExits().catch(() => undefined);
   const adapter = getKrakenFuturesAdapter();
-  const positions = await adapter.getOpenPositions().catch(() => []);
+  // An API error is NOT "no positions": treating it as flat closed 4 live trades at 08:00 on 29/10.
+  const positions = await adapter.getOpenPositions().catch((err) => {
+    console.warn(`[Kraken/Futures] openpositions falló — salidas aplazadas: ${err instanceof Error ? err.message : err}`);
+    return null;
+  });
+  if (!positions) return;
   let opens = listOpenCryptoJournal({ shadow: false }).filter(
     (t) => t.venue === "futures" && t.open,
   );
@@ -441,14 +508,29 @@ export async function runFuturesExitLoop(): Promise<void> {
       // A fresh entry may not be visible as a position yet: give it 3 minutes before calling it flat.
       const age = Date.now() - Date.parse(open.at);
       if (Number.isFinite(age) && age < 3 * 60_000) continue;
+      if (!openOrders) continue; // cannot tell a resting entry from a closed trade
+      // The post-only entry limit may still be resting on the book (not filled yet).
+      const entryOrder = openOrders.find(
+        (o) => o.symbol === pf && !o.reduceOnly && (!open.orderId || o.orderId === open.orderId),
+      );
+      if (entryOrder) {
+        if (Number.isFinite(age) && age < futuresEntryTtlMs()) continue;
+        await cancelFuturesEntry(adapter, pf, open, openOrders);
+        continue;
+      }
       // Real exit: the closing fills on Kraken after the entry (stop / take-profit / manual).
       const exitInfo = await closingFillsFor(adapter, pf, open).catch(() => null);
       if (exitInfo) {
         await finalizeFuturesClose(open, exitInfo.price, exitInfo.reason, exitInfo.feesEur);
+        await cancelStaleReduceOnly(adapter, pf, openOrders);
+      } else if (!(await entryEverFilled(adapter, pf, open))) {
+        // Entry expired/cancelled without a fill: not a trade.
+        await cancelFuturesEntry(adapter, pf, open, openOrders);
       } else {
         const q = await adapter.getQuote(pf).catch(() => null);
         const mid = q && q.bid > 0 && q.ask > 0 ? (q.bid + q.ask) / 2 : null;
         await finalizeFuturesClose(open, mid ?? open.entry, "EXCHANGE_FLAT", 0);
+        await cancelStaleReduceOnly(adapter, pf, openOrders);
       }
       continue;
     }
@@ -486,7 +568,12 @@ export async function runFuturesExitLoop(): Promise<void> {
         console.warn(`[Kraken/Futures] ⚠ ${pf} sin stop reduce-only en el exchange`);
       }
     }
-    const dist = liquidationDistancePct(pos.side, pos.markPrice, pos.liquidationPrice);
+    // /openpositions carries no mark: a 0 exit price booked a fake +€13.62 on NEAR (27/10).
+    const markNow =
+      pos.markPrice > 0
+        ? pos.markPrice
+        : await adapter.getQuote(pf).then((q) => q.mark || q.mid).catch(() => 0);
+    const dist = liquidationDistancePct(pos.side, markNow, pos.liquidationPrice);
     if (dist != null && dist < 0.5) {
       await adapter
         .sendOrder({
@@ -497,7 +584,7 @@ export async function runFuturesExitLoop(): Promise<void> {
           reduceOnly: true,
         })
         .catch(() => undefined);
-      await finalizeFuturesClose(open, pos.markPrice, "LIQ_PROXIMITY_50", 0);
+      await finalizeFuturesClose(open, markNow > 0 ? markNow : open.entry, "LIQ_PROXIMITY_50", 0);
     }
     const maxHold = maxHoldMsForStrategy(String(open.strategy));
     if (maxHold > 0 && Date.now() - Date.parse(open.at) > maxHold) {
@@ -510,9 +597,43 @@ export async function runFuturesExitLoop(): Promise<void> {
           reduceOnly: true,
         })
         .catch(() => undefined);
-      await finalizeFuturesClose(open, pos.markPrice, "TIME_EXIT", 0);
+      const exitInfo = await new Promise((r) => setTimeout(r, 2_000))
+        .then(() => {
+          fillsCache = null;
+          return closingFillsFor(adapter, pf, open);
+        })
+        .catch(() => null);
+      await finalizeFuturesClose(
+        open,
+        exitInfo?.price ?? (markNow > 0 ? markNow : open.entry),
+        "TIME_EXIT",
+        exitInfo?.feesEur ?? 0,
+      );
     }
   }
+}
+
+function futuresMinStopPct(): number {
+  const v = Number(process.env.FUTURES_MIN_STOP_PCT ?? "0.6");
+  return Number.isFinite(v) && v >= 0 ? v : 0.6;
+}
+
+/** pfSymbol → time until which new entries are paused after a real stop-out. */
+function recentStopOuts(): Map<string, number> {
+  const min = Number(process.env.FUTURES_REENTRY_COOLDOWN_MIN ?? "90");
+  const ms = (Number.isFinite(min) && min >= 0 ? min : 90) * 60_000;
+  const out = new Map<string, number>();
+  if (!(ms > 0)) return out;
+  for (const t of readCryptoJournal(3000)) {
+    if (t.shadow || t.venue !== "futures" || !t.exitReason) continue;
+    const loss = t.exitReason === "STOP_LOSS" || (t.netPnlEur != null && t.netPnlEur < 0);
+    if (!loss) continue;
+    const at = Date.parse(t.at) + (t.durationMs ?? 0);
+    if (!Number.isFinite(at)) continue;
+    const pf = String(t.pfSymbol ?? spotPairToPfSymbol(t.pair) ?? t.pair).toUpperCase();
+    out.set(pf, Math.max(out.get(pf) ?? 0, at + ms));
+  }
+  return out;
 }
 
 export async function runKrakenFuturesAnalysisCycle(): Promise<{
@@ -522,9 +643,15 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   held: string[];
 }> {
   if (cycleBusy) {
-    return { signals: [], executed: [], shadow: [], held: ["cycle_busy"] };
+    // A hung API call kept the flag set and stopped all cycles for 50+ min on 29/10: free it.
+    if (cycleBusySince && Date.now() - cycleBusySince > 10 * 60_000) {
+      console.warn(`[Kraken/Futures] ciclo bloqueado ${Math.round((Date.now() - cycleBusySince) / 60_000)} min — se libera`);
+    } else {
+      return { signals: [], executed: [], shadow: [], held: ["cycle_busy"] };
+    }
   }
   cycleBusy = true;
+  cycleBusySince = Date.now();
   const executed: string[] = [];
   const shadow: string[] = [];
   const held: string[] = [];
@@ -594,7 +721,14 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
       .filter((t) => t.venue === "futures" && t.open)
       .map((t) => String(t.pfSymbol ?? spotPairToPfSymbol(t.pair) ?? t.pair).toUpperCase()),
   );
-  for (const p of await adapter.getOpenPositions().catch(() => [])) openPfSymbols.add(p.symbol.toUpperCase());
+  const exPositions = await adapter.getOpenPositions().catch(() => null);
+  const exOrders = await adapter.getOpenOrders().catch(() => null);
+  const exchangeKnown = exPositions != null && exOrders != null;
+  for (const p of exPositions ?? []) openPfSymbols.add(p.symbol.toUpperCase());
+  // A resting (unfilled) entry limit also counts: a second signal used to stack another one.
+  for (const o of exOrders ?? []) if (!o.reduceOnly) openPfSymbols.add(o.symbol.toUpperCase());
+  const cooldown = recentStopOuts();
+  const minStopPct = futuresMinStopPct();
   for (const sig of ranked.slice(0, 8)) {
     const pf = spotPairToPfSymbol(sig.pair);
     if (!pf) {
@@ -603,6 +737,15 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     }
     if (openPfSymbols.has(pf)) {
       held.push(`${pf}:${sig.strategyId}:ya_hay_posicion`);
+      continue;
+    }
+    if (!exchangeKnown) {
+      held.push(`${pf}:${sig.strategyId}:exchange_no_responde`);
+      continue;
+    }
+    const cdUntil = cooldown.get(pf);
+    if (cdUntil && cdUntil > Date.now()) {
+      held.push(`${pf}:${sig.strategyId}:pausa_tras_stop_${Math.ceil((cdUntil - Date.now()) / 60_000)}min`);
       continue;
     }
     const legDir = sig.direction === "SELL" ? "short" : "long";
@@ -637,6 +780,12 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     const tpUsd = signalPriceToContract(sig.takeProfit, sig.entry, px);
     if (side === "short" ? !(stopUsd > px) : !(stopUsd < px)) {
       held.push(`${pf}:${sig.strategyId}:stop_wrong_side(stop=${stopUsd} mark=${px})`);
+      continue;
+    }
+    // Stops of 0.3–0.4 % (RS_VS_BTC, 27–28/10) were hit by noise: 30 of 56 trades lost.
+    const stopPct = (Math.abs(stopUsd - px) / px) * 100;
+    if (stopPct < minStopPct) {
+      held.push(`${pf}:${sig.strategyId}:stop_${stopPct.toFixed(2)}%<${minStopPct}%`);
       continue;
     }
 

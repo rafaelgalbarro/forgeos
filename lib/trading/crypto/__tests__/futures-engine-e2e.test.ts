@@ -53,6 +53,7 @@ vi.mock("@/lib/brokers/kraken-futures", () => ({
     enterWithExchangeStop,
     cancelOrder: vi.fn(async () => undefined),
     getOpenPositions: async () => [],
+    getOpenOrders: async () => [],
   }),
   spotPairToPfSymbol: (pair: string) =>
     pair === "XBTEUR" ? "PF_XBTUSD" : null,

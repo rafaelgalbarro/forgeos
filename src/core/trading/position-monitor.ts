@@ -59,6 +59,7 @@ const STALE_HOURS = 24;
 const TRAILING_STOP_PCT = TRADING_CONFIG.risk.trailingStopPct;
 const DEFAULT_SL_PCT = 0.03; // -3%
 const DEFAULT_TP_PCT = 0.08; // +8%
+const TRAIL_ACTIVATE_PCT = Number(process.env.STOCKS_TRAIL_ACTIVATE_PCT ?? "0.03") || 0.03;
 const HARD_STOP_LOSS_PCT = -5;
 const PROFIT_APPROVAL_PCT = 8;
 const MADRID_TZ = "Europe/Madrid";
@@ -759,7 +760,9 @@ function applyTrailingStop(pos: MonitoredPosition, currentPrice: number): Monito
   }
 
   let trailSl = floorSl;
-  if (pos.trailingStopPct != null) {
+  // Trailing only once the trade is at breakeven (+3%): a 1.5% trail from entry turned the
+  // 2% stop into ~0.5–1% exits (SMCI/INTC 23–26/10) that commissions made into losses.
+  if (pos.trailingStopPct != null && unrealizedPct >= TRAIL_ACTIVATE_PCT) {
     trailSl = Math.max(trailSl, highest * (1 - (pos.trailingStopPct ?? TRAILING_STOP_PCT)));
   }
 

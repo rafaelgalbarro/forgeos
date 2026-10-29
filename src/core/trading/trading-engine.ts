@@ -4,6 +4,7 @@
  * Solo servidor (API routes) â€” llama IBKR FastAPI directamente, sin loopback HTTP a Next.js.
  */
 
+import { ibkrCostGate } from '@/lib/trading/costs/ibkr-stock-costs'
 import 'server-only'
 
 import { RiskManager } from './risk/risk-manager'
@@ -3258,6 +3259,25 @@ export class TradingEngine {
         reasoning: signal.reasoning,
         urgency: signal.urgency,
       })
+    }
+    if (kind === 'stocks' && (process.env.IB_COST_GATE ?? 'true').trim().toLowerCase() !== 'false') {
+      const gate = ibkrCostGate({
+        ccy: sizingCurrency === 'EUR' ? 'EUR' : 'USD',
+        shares: resolvedShares,
+        price: priceData.currentPrice,
+        targetPrice: riskOk.takeProfitPrice,
+      })
+      if (!gate.ok) {
+        console.log(`[AutoExecute] ${ticker} → skip (coste): ${gate.reason}`)
+        return {
+          status: 'HOLD',
+          ticker,
+          direction: 'HOLD',
+          reason: gate.reason,
+          signal: analysisSnap,
+          timestamp: new Date().toISOString(),
+        }
+      }
     }
     const orderValueUSD = resolvedShares * priceData.currentPrice
     const cashLabel =

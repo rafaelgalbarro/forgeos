@@ -351,7 +351,14 @@ export class KrakenFuturesAdapter {
       last,
       mid: bid > 0 && ask > 0 ? (bid + ask) / 2 : last,
       mark,
-      fundingRate: num(row.fundingRate ?? row.relativeFundingRate),
+      // Relative rate per 8h (Kraken's `fundingRate` is absolute USD per contract per hour: using it
+      // as a fraction booked €0.5–1 of "funding" on a €15 ZEC trade).
+      fundingRate:
+        row.relativeFundingRate != null
+          ? num(row.relativeFundingRate) * 8
+          : mark > 0
+            ? (num(row.fundingRate) / mark) * 8
+            : 0,
       updatedAt: new Date().toISOString(),
     };
   }

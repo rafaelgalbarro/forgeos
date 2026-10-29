@@ -14,6 +14,11 @@
  *   DONCHIAN_BREAK close breaks the N-bar high/low, in the direction of EMA200.
  *   RSI_REVERT     RSI leaves an extreme zone (back inside), mean reversion.
  *   BB_REVERT      close back inside Bollinger(20,2) after closing outside, mean reversion.
+ *   STOCH_TREND    Stochastic(14,3) %K crosses back above 20 (below 80) in the EMA200 trend.
+ *   KELTNER_BREAK  close beyond EMA20 ± k×ATR(14) in the EMA200 trend (momentum).
+ *   INSIDE_BAR     previous bar inside its mother bar; close breaks the mother bar, EMA200 trend.
+ *   ADX_RSI_PULLBACK ADX(14) > 25, RSI(14) dips below 40 (above 60) and turns back, EMA50 trend.
+ *   ASIA_BREAKOUT  (M15/H1) first close beyond the 00–07 London range between 07:00 and 10:00.
  * Stop = atrMult × ATR(14); take profit = rr × stop; time exit after maxBars; flat for the weekend.
  */
 
@@ -21,7 +26,10 @@ import { pipSize } from "./indicators";
 import { isFxEntryWindow, isWeekendFlattenTime, londonMinutes } from "./sessions";
 import type { FxCandle, FxSide } from "./types";
 
-export type FxFamily = "EMA_CROSS" | "MACD_TREND" | "DONCHIAN_BREAK" | "RSI_REVERT" | "BB_REVERT" | "PULLBACK";
+export type FxFamily =
+  | "EMA_CROSS" | "MACD_TREND" | "DONCHIAN_BREAK" | "RSI_REVERT" | "BB_REVERT" | "PULLBACK"
+  // added 29/10: more entry types (trend pullbacks / momentum / session breakout)
+  | "STOCH_TREND" | "KELTNER_BREAK" | "INSIDE_BAR" | "ADX_RSI_PULLBACK" | "ASIA_BREAKOUT";
 
 /** Entry session (London clock at the signal bar close). */
 export type FxSession = "all" | "asia" | "london" | "ny";
@@ -58,7 +66,7 @@ const MAX_BARS: Record<FxTf, { trend: number; revert: number }> = {
 
 function spec(tf: FxTf, family: FxFamily, p: Record<string, number>, atrMult: number, rr: number, session: FxSession = "all"): FxSpec {
   const ps = Object.entries(p).map(([k, v]) => `${k}${v}`).join("_");
-  const revert = family === "RSI_REVERT" || family === "BB_REVERT";
+  const revert = family === "RSI_REVERT" || family === "BB_REVERT" || family === "STOCH_TREND" || family === "ADX_RSI_PULLBACK" || family === "ASIA_BREAKOUT";
   const maxBars = MAX_BARS[tf][revert ? "revert" : "trend"];
   const ss = session === "all" ? "" : `_S${session}`;
   return { id: `${tf}_${family}${ps ? `_${ps}` : ""}_A${atrMult}_R${rr}${ss}`, tf, family, p, atrMult, rr, maxBars, session };
@@ -79,9 +87,19 @@ export function specGrid(tf: FxTf = "M15", withSessions = tf === "M15" || tf ===
   for (const a of [1.5, 2]) for (const r of [1.5, 2]) base.push(["PULLBACK", {}, a, r]);
   for (const [lo, hi] of [[30, 70], [25, 75]] as const) for (const r of [1, 1.5]) base.push(["RSI_REVERT", { lo, hi }, 1.5, r]);
   for (const r of [1, 1.5]) base.push(["BB_REVERT", {}, 1.5, r]);
+  for (const a of [1.5, 2]) for (const r of [1, 1.5]) base.push(["STOCH_TREND", {}, a, r]);
+  for (const k of [2, 2.5]) for (const r of [1.5, 2]) base.push(["KELTNER_BREAK", { k }, 1.5, r]);
+  for (const a of [1, 1.5]) for (const r of [1.5, 2]) base.push(["INSIDE_BAR", {}, a, r]);
+  for (const a of [1.5, 2]) for (const r of [1, 1.5]) base.push(["ADX_RSI_PULLBACK", {}, a, r]);
+  if (tf === "M15" || tf === "H1") for (const a of [1, 1.5]) for (const r of [1, 1.5, 2]) base.push(["ASIA_BREAKOUT", {}, a, r]);
   const sessions: FxSession[] = withSessions ? ["all", "asia", "london", "ny"] : ["all"];
   const out: FxSpec[] = [];
-  for (const ss of sessions) for (const [f, p, a, r] of base) out.push(spec(tf, f, p, a, r, ss));
+  for (const ss of sessions) {
+    for (const [f, p, a, r] of base) {
+      if (f === "ASIA_BREAKOUT" && ss !== "all") continue; // has its own time window
+      out.push(spec(tf, f, p, a, r, ss));
+    }
+  }
   return out;
 }
 
@@ -151,12 +169,78 @@ export type FxIndicators = {
   bbSd: Arr;
   donHi: (n: number) => Arr;
   donLo: (n: number) => Arr;
+  stochK: Arr;
+  adx14: Arr;
+  /** Asia range (00–07 London, same day) known at bar i, or null outside 07:00–10:00 */
+  asiaHi: Arr;
+  asiaLo: Arr;
+  /** first bar index of the current 07–10 window that already broke the range (one trade/day) */
+  asiaBroke: boolean[];
   /** per bar (by bar close time): entries allowed (24h window) / weekend flatten */
   entryOk: boolean[];
   weekend: boolean[];
   /** London minutes-of-day at each bar close */
   lonMin: number[];
 };
+
+/** Slow stochastic %K: SMA3 of raw %K(14). */
+function stochKArr(b: readonly FxCandle[], n = 14, smooth = 3): Arr {
+  const raw: Arr = new Array(b.length).fill(null);
+  for (let i = n - 1; i < b.length; i += 1) {
+    let hi = -Infinity; let lo = Infinity;
+    for (let j = i - n + 1; j <= i; j += 1) { hi = Math.max(hi, b[j]!.high); lo = Math.min(lo, b[j]!.low); }
+    raw[i] = hi > lo ? ((b[i]!.close - lo) / (hi - lo)) * 100 : 50;
+  }
+  const out: Arr = new Array(b.length).fill(null);
+  for (let i = n - 1 + smooth - 1; i < b.length; i += 1) {
+    let s = 0;
+    for (let j = i - smooth + 1; j <= i; j += 1) s += raw[j]!;
+    out[i] = s / smooth;
+  }
+  return out;
+}
+
+/** Wilder ADX(14). */
+function adxArr(b: readonly FxCandle[], n = 14): Arr {
+  const out: Arr = new Array(b.length).fill(null);
+  if (b.length < 2 * n + 2) return out;
+  let trS = 0; let pS = 0; let mS = 0;
+  const dx: number[] = [];
+  for (let i = 1; i < b.length; i += 1) {
+    const up = b[i]!.high - b[i - 1]!.high;
+    const dn = b[i - 1]!.low - b[i]!.low;
+    const pdm = up > dn && up > 0 ? up : 0;
+    const mdm = dn > up && dn > 0 ? dn : 0;
+    const tr = Math.max(b[i]!.high - b[i]!.low, Math.abs(b[i]!.high - b[i - 1]!.close), Math.abs(b[i]!.low - b[i - 1]!.close));
+    if (i <= n) { trS += tr; pS += pdm; mS += mdm; if (i < n) continue; }
+    else { trS = trS - trS / n + tr; pS = pS - pS / n + pdm; mS = mS - mS / n + mdm; }
+    const pdi = trS > 0 ? (100 * pS) / trS : 0;
+    const mdi = trS > 0 ? (100 * mS) / trS : 0;
+    dx.push(pdi + mdi > 0 ? (100 * Math.abs(pdi - mdi)) / (pdi + mdi) : 0);
+    if (dx.length === n) out[i] = dx.reduce((a, x) => a + x, 0) / n;
+    else if (dx.length > n) out[i] = (out[i - 1]! * (n - 1) + dx[dx.length - 1]!) / n;
+  }
+  return out;
+}
+
+/** Asia range (bars closing 00:00–07:00 London) usable from 07:00 to 10:00 London. */
+function asiaRange(b: readonly FxCandle[], lonMin: readonly number[], close: readonly number[]): { asiaHi: Arr; asiaLo: Arr; asiaBroke: boolean[] } {
+  const asiaHi: Arr = new Array(b.length).fill(null);
+  const asiaLo: Arr = new Array(b.length).fill(null);
+  const asiaBroke: boolean[] = new Array(b.length).fill(false);
+  let hi = -Infinity; let lo = Infinity; let have = false; let broke = false;
+  for (let i = 0; i < b.length; i += 1) {
+    const m = lonMin[i]!;
+    const prev = i > 0 ? lonMin[i - 1]! : -1;
+    if (m < prev || (m > 0 && m <= 60 && prev > 60)) { hi = -Infinity; lo = Infinity; have = false; broke = false; } // new London day
+    if (m > 0 && m <= 7 * 60) { hi = Math.max(hi, b[i]!.high); lo = Math.min(lo, b[i]!.low); have = true; continue; }
+    if (have && m > 7 * 60 && m <= 10 * 60) {
+      asiaHi[i] = hi; asiaLo[i] = lo; asiaBroke[i] = broke;
+      if (close[i]! > hi || close[i]! < lo) broke = true;
+    }
+  }
+  return { asiaHi, asiaLo, asiaBroke };
+}
 
 export function computeIndicators(bars: readonly FxCandle[], barSec = 900): FxIndicators {
   const close = bars.map((b) => b.close);
@@ -212,10 +296,12 @@ export function computeIndicators(bars: readonly FxCandle[], barSec = 900): FxIn
     weekend.push(isWeekendFlattenTime(end));
     lonMin.push(londonMinutes(end));
   }
+  const { asiaHi, asiaLo, asiaBroke } = asiaRange(bars, lonMin, close);
   return {
     entryOk, weekend, lonMin,
     bars, close, ema, rsi14: rsiArr(close), atr14: atrArr(bars), macd, macdSig, bbMid, bbSd,
     donHi: (n) => don(n, true), donLo: (n) => don(n, false),
+    stochK: stochKArr(bars), adx14: adxArr(bars), asiaHi, asiaLo, asiaBroke,
   };
 }
 
@@ -271,6 +357,45 @@ export function signalAt(s: FxSpec, ind: FxIndicators, i: number): FxSide | null
       if (r[i - 1]! > s.p.hi! && r[i]! <= s.p.hi!) return "short";
       return null;
     }
+    case "STOCH_TREND": {
+      const k = ind.stochK;
+      if (k[i] == null || k[i - 1] == null) return null;
+      if (trendUp && k[i - 1]! < 20 && k[i]! >= 20) return "long";
+      if (trendDn && k[i - 1]! > 80 && k[i]! <= 80) return "short";
+      return null;
+    }
+    case "KELTNER_BREAK": {
+      const e20 = ind.ema(20); const a = ind.atr14;
+      if (e20[i] == null || e20[i - 1] == null || a[i] == null || a[i - 1] == null) return null;
+      const k = s.p.k ?? 2;
+      const up1 = e20[i]! + k * a[i]!; const up0 = e20[i - 1]! + k * a[i - 1]!;
+      const dn1 = e20[i]! - k * a[i]!; const dn0 = e20[i - 1]! - k * a[i - 1]!;
+      if (trendUp && c[i]! > up1 && c[i - 1]! <= up0) return "long";
+      if (trendDn && c[i]! < dn1 && c[i - 1]! >= dn0) return "short";
+      return null;
+    }
+    case "INSIDE_BAR": {
+      if (i < 2) return null;
+      const m = ind.bars[i - 2]!; const ib = ind.bars[i - 1]!;
+      if (!(ib.high < m.high && ib.low > m.low)) return null;
+      if (trendUp && c[i]! > m.high) return "long";
+      if (trendDn && c[i]! < m.low) return "short";
+      return null;
+    }
+    case "ADX_RSI_PULLBACK": {
+      const adx = ind.adx14[i]; const r = ind.rsi14; const e50 = ind.ema(50)[i];
+      if (adx == null || adx < 25 || e50 == null || r[i] == null || r[i - 1] == null || t200 == null) return null;
+      if (e50 > t200 && c[i]! > t200 && r[i - 1]! < 40 && r[i]! >= 40) return "long";
+      if (e50 < t200 && c[i]! < t200 && r[i - 1]! > 60 && r[i]! <= 60) return "short";
+      return null;
+    }
+    case "ASIA_BREAKOUT": {
+      const hi = ind.asiaHi[i]; const lo = ind.asiaLo[i];
+      if (hi == null || lo == null || ind.asiaBroke[i]) return null;
+      if (c[i]! > hi) return "long";
+      if (c[i]! < lo) return "short";
+      return null;
+    }
     case "BB_REVERT": {
       const m = ind.bbMid; const sd = ind.bbSd;
       if (m[i] == null || sd[i] == null || m[i - 1] == null || sd[i - 1] == null) return null;
@@ -291,6 +416,11 @@ export function describeSpec(s: FxSpec): string {
         : s.family === "DONCHIAN_BREAK" ? `ruptura del máximo/mínimo de ${p.n} velas a favor de EMA200`
           : s.family === "PULLBACK" ? "retroceso a EMA20 en tendencia (EMA50 vs EMA200)"
           : s.family === "RSI_REVERT" ? `RSI(14) sale de ${p.lo}/${p.hi} (reversión)`
+          : s.family === "STOCH_TREND" ? "Estocástico(14,3) sale de 20/80 a favor de EMA200"
+          : s.family === "KELTNER_BREAK" ? `ruptura de Keltner EMA20±${p.k}×ATR a favor de EMA200`
+          : s.family === "INSIDE_BAR" ? "ruptura de vela madre tras inside bar a favor de EMA200"
+          : s.family === "ADX_RSI_PULLBACK" ? "ADX>25 y RSI(14) gira desde 40/60 a favor de la tendencia"
+          : s.family === "ASIA_BREAKOUT" ? "ruptura del rango asiático (00–07 Londres) entre 07:00 y 10:00"
             : "vuelta dentro de Bollinger(20,2) (reversión)";
   const h = (s.maxBars * TF_SEC[s.tf]) / 3600;
   const ses = s.session && s.session !== "all" ? ` · solo sesión ${s.session === "asia" ? "Asia" : s.session === "london" ? "Londres" : "Nueva York"}` : "";

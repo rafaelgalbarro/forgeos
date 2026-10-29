@@ -4,13 +4,13 @@ mt5 Up 6 days
 puente: online reinicios: 117
 puente sin respuesta (puede estar arrancando)
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Oct 29 10:24 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Oct 29 10:25 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
- 277424       00:42 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
- 277431       00:41 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+ 277424       01:00 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+ 277431       01:00 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261029.log
 CQ	0	10:15:00.633	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads

@@ -1,14 +1,14 @@
 
 === BOT FOREX ===
-proceso: online reinicios: 44
+proceso: online reinicios: 47
 modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
 --- últimos ciclos
-2026-10-29 10:14:43 +00:00: [ForexBot] boot pid=2718790 entry=forex-bot-main.ts mode=live
-2026-10-29 10:14:45 +00:00: [ForexBot] arranque intervalo=60000ms
-2026-10-29 10:14:53 +00:00: 2026-10-29T10:14:45.382Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
-2026-10-29 10:15:53 +00:00: 2026-10-29T10:15:45.821Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
-2026-10-29 10:16:45 +00:00: 2026-10-29T10:16:45.844Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
-2026-10-29 10:17:47 +00:00: 2026-10-29T10:17:45.875Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=90.34 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-29 10:36:52 +00:00: 2026-10-29T10:36:52.245Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=90.34 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-29 10:37:52 +00:00: 2026-10-29T10:37:52.275Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=90.34 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-29 10:38:52 +00:00: 2026-10-29T10:38:52.304Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=90.34 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00
+2026-10-29 10:39:08 +00:00: [ForexBot] boot pid=2725680 entry=forex-bot-main.ts mode=live
+2026-10-29 10:39:09 +00:00: [ForexBot] arranque intervalo=60000ms
+2026-10-29 10:39:14 +00:00: 2026-10-29T10:39:09.339Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=90.34 EUR abiertas=0 simuladas=1 entradas=0 pnlHoy=0.00
 --- resumen diario
 --- operaciones
 reales: 4 · simuladas: 6

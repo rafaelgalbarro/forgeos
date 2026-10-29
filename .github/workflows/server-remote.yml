@@ -15,7 +15,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order, futures, set-flag, gateway-info, gateway-check, gateway-upgrade, gateway-rollback, gateway-logs, protect, telegram-stats, screenshot, signals, forex-backtest, forex-bot, mt5-setup, mt5-status, mt5-shot, mt5-wine9, mt5-wine-staging, mt5-oanda, forex-optimize, mt5-stop, mt5-webview, mt5-ui, mt5-test-order, forex-playbook, forex-methods, forex-meanrev, forex-lock, forex-ignition, telegram-summary, forex-unlock, trades-review, gap-backtest, pm-backtest]
+        options: [status, deploy, patches, broker-proposals, diff, align, readiness, update-script, trace, cycle-trace, install-twsapi, fractional-on, fractional-off, unblock-eu, orders, cancel-order, futures, set-flag, gateway-info, gateway-check, gateway-upgrade, gateway-rollback, gateway-logs, protect, telegram-stats, screenshot, signals, forex-backtest, forex-bot, mt5-setup, mt5-status, mt5-shot, mt5-wine9, mt5-wine-staging, mt5-oanda, forex-optimize, mt5-stop, mt5-webview, mt5-ui, mt5-test-order, forex-playbook, forex-methods, forex-meanrev, forex-lock, forex-ignition, telegram-summary, forex-unlock, trades-review, gap-backtest, pm-backtest, forex-forum40]
 
 concurrency:
   group: forgeos-server

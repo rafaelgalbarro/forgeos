@@ -1,0 +1,28 @@
+pruebas: 1650 aptas: 81 bloqueadas: 0
+F01_WILLIAMS       pruebas>=60ops  25  media>0  10  aptas  4  GBP_USD H1, USD_JPY H1, USD_CHF H1, US100 H1
+F02_SIDUS          pruebas>=60ops  75  media>0  22  aptas  9  GBP_USD D1, USD_JPY H4, NZD_USD D1, GBP_JPY D1, EUR_AUD D1, AUD_NZD D1, US100 H4, DE30 H4, DE30 D1
+F03_PURIA          pruebas>=60ops  51  media>0   9  aptas  1  DE30 H4
+F04_KUMO           pruebas>=60ops  52  media>0  14  aptas  3  USD_JPY H1, AUD_NZD H4, DE30 H1
+F05_ELDER_MOM      pruebas>=60ops  75  media>0  21  aptas  3  USD_JPY H1, USD_CHF D1, US500 D1
+F07_MACD_AO        pruebas>=60ops  55  media>0  19  aptas  3  NZD_JPY H4, US100 H1, DE30 H4
+F09_BB_STOCH       pruebas>=60ops  67  media>0  19  aptas  4  EUR_GBP D1, EUR_CAD D1, GBP_AUD H4, CAD_JPY H4
+F10_BB_RSI_ADX     pruebas>=60ops  50  media>0   8  aptas  2  AUD_CAD H4, CAD_JPY H4
+F12_PSAR_MACD      pruebas>=60ops  75  media>0  25  aptas  8  GBP_USD D1, USD_CAD D1, USD_CHF H4, GBP_JPY D1, EUR_AUD D1, GBP_CHF D1, CAD_JPY D1, US500 D1
+F17_TWO_STOCH      pruebas>=60ops  50  media>0  10  aptas  5  EUR_USD H4, EUR_JPY H4, GBP_JPY H4, AUD_JPY H4, US100 H4
+F20_EMA_RVI        pruebas>=60ops  52  media>0  14  aptas  4  USD_CHF H4, AUD_NZD H4, US100 H1, DE30 H4
+F22_SMA_GROUPS     pruebas>=60ops  50  media>0  15  aptas  3  NZD_JPY H4, US500 H4, DE30 H1
+F24_YEN            pruebas>=60ops  51  media>0  18  aptas  3  USD_JPY H4, AUD_NZD H4, US100 H4
+F25_THREE_RSI      pruebas>=60ops  75  media>0  16  aptas  5  USD_JPY H4, GBP_CHF D1, GOLD D1, US500 D1, DE30 H4
+F26_BULLDOZER      pruebas>=60ops  52  media>0  13  aptas  3  USD_JPY H1, AUD_NZD H4, GOLD H4
+F27_4UJ            pruebas>=60ops  75  media>0  26  aptas  4  AUD_JPY D1, AUD_NZD H4, US500 D1, US100 D1
+F31_3EMA_STOCH     pruebas>=60ops  25  media>0   7  aptas  1  CAD_JPY H1
+F33_DOUBLE_MACD    pruebas>=60ops  65  media>0  24  aptas  6  USD_JPY H1, USD_JPY H4, AUD_JPY H1, CAD_JPY D1, GOLD H4, DE30 H4
+F35_SARDAR         pruebas>=60ops  50  media>0   9  aptas  4  USD_JPY H4, USD_CHF H4, EUR_JPY H4, DE30 H1
+F36_RANGER         pruebas>=60ops   0  media>0   0  aptas  0  
+F37_UMI            pruebas>=60ops  75  media>0  20  aptas  6  USD_JPY H1, USD_CAD D1, AUD_NZD D1, US500 D1, US100 D1, DE30 H4
+F39_ENV_MACD       pruebas>=60ops  26  media>0   7  aptas  0  
+aptas por instrumento: {'USD_JPY': 11, 'DE30': 11, 'US100': 8, 'AUD_NZD': 7, 'US500': 6, 'USD_CHF': 5, 'CAD_JPY': 5, 'GBP_USD': 3, 'GBP_JPY': 3, 'AUD_JPY': 3, 'GOLD': 3, 'USD_CAD': 2, 'EUR_JPY': 2, 'EUR_AUD': 2, 'GBP_CHF': 2, 'NZD_JPY': 2, 'EUR_USD': 1, 'NZD_USD': 1, 'EUR_GBP': 1, 'EUR_CAD': 1, 'GBP_AUD': 1, 'AUD_CAD': 1}
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

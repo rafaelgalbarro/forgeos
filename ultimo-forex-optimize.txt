@@ -1,19 +1,14 @@
 
 === ESTRATEGIAS POR PAR (historia de OANDA vía MT5, marcos M15:H1:H4) ===
-[FX optimize] USD_JPY H1 30000 velas: fetch failed
-[FX optimize] USD_JPY H1 19800 velas: fetch failed
-[FX optimize] USD_JPY H1 12000 velas: fetch failed
-[FX optimize] USD_JPY H1 6000 velas: fetch failed
-[FX optimize] USD_JPY H4 8000 velas: fetch failed
-[FX optimize] USD_JPY H4 5280 velas: fetch failed
-[FX optimize] USD_JPY H4 3200 velas: fetch failed
-[FX optimize] USD_JPY H4 1600 velas: fetch failed
-[FX optimize] USD_JPY: M15:17511 H1:0✗ H4:0✗ → M15_RSI_REVERT_lo30_hi70_A1.5_R1.5_Sny APTA
-[FX optimize] AUD_USD M15 25000 velas: fetch failed
-[FX optimize] AUD_USD M15 16500 velas: fetch failed
-[FX optimize] AUD_USD M15 10000 velas: fetch failed
-[FX optimize] AUD_USD M15 5000 velas: fetch failed
-[FX optimize] AUD_USD: M15:17514 H1:30000 H4:8000 → H1_BB_REVERT_A1.5_R1.5_Sasia (oos_PF=0.89<1.15; oos_media=-0.066R<0.05; oos_pierde_con_spread×1.5)
+[ForexBot] boot pid=2724299 entry=forex-optimize.ts mode=live
+[FX optimize] estrategias confirmadas (se mantienen): AUD_CAD
+[FX optimize] EUR_USD M15 25000 velas: fetch failed
+[FX optimize] EUR_USD M15 25000 velas: fetch failed
+[FX optimize] EUR_USD M15 25000 velas: fetch failed
+[FX optimize] EUR_USD: M15:25000 H1:30000 H4:8000 → M15_ADX_RSI_PULLBACK_A2_R1.5 (oos_PF=0.58<1.15; oos_media=-0.266R<0.05; oos_pierde_con_spread×1.5)
+[FX optimize] GBP_USD: M15:25000 H1:30000 H4:8000 → H1_KELTNER_BREAK_k2.5_A1.5_R1.5 (oos_PF=1.01<1.15; oos_media=0.007R<0.05; oos_pierde_con_spread×1.5)
+[FX optimize] USD_JPY: M15:25000 H1:30000 H4:8000 → H4_KELTNER_BREAK_k2.5_A1.5_R2 (oos_PF=0.70<1.15; oos_media=-0.177R<0.05; oos_pierde_con_spread×1.5)
+[FX optimize] AUD_USD: M15:25000 H1:30000 H4:8000 → H1_BB_REVERT_A1.5_R1.5_Sasia (oos_PF=0.89<1.15; oos_media=-0.066R<0.05; oos_pierde_con_spread×1.5)
 [FX optimize] USD_CAD: M15:25000 H1:30000 H4:8000 → M15_STOCH_TREND_A2_R1.5_Sny APTA
 [FX optimize] USD_CHF: M15:25000 H1:30000 H4:8000 → M15_ADX_RSI_PULLBACK_A2_R1.5 (oos_PF=0.90<1.15; oos_media=-0.062R<0.05; oos_pierde_con_spread×1.5)
 [FX optimize] NZD_USD: M15:25000 H1:30000 H4:8000 → H1_EMA_CROSS_fast12_slow26_A2_R2_Slondon (oos_PF=0.84<1.15; oos_media=-0.109R<0.05; oos_pierde_con_spread×1.5)
@@ -33,15 +28,15 @@
 [FX optimize] NZD_JPY: M15:25000 H1:30000 H4:8000 → H1_PULLBACK_A2_R2_Sny (oos_PF=0.75<1.15; oos_media=-0.159R<0.05; oos_pierde_con_spread×1.5)
 # Estrategias por par — 2026-10-29
 
-Datos: EODHD, MT5 (OANDA) · M15 + H1 + H4 · 206 reglas candidatas por par · spread típico cobrado.
+Datos: MT5 (OANDA) · M15 + H1 + H4 · 462 reglas candidatas por par · spread típico cobrado.
 Elección con los primeros 2/3 de la historia; validación con el último 1/3 (OOS).
 Apta para real: ≥20 ops OOS, PF ≥ 1.15, media ≥ 0.05 R y sigue ganando con spread ×1.5.
 
 | Par | Estrategia | Periodo | Ops IS | PF IS | Ops OOS | Acierto OOS | PF OOS | Media OOS | ¿Real? |
 |---|---|---|---|---|---|---|---|---|---|
-| EUR_USD | M15: RSI(14) sale de 25/75 (reversión) · solo sesión Nueva York · SL 1.5×ATR · TP 1.5R · máx 12 h | 2026-02-05→2026-10-29 | 46 | 1.63 | 21 | 52% | 1.32 | 0.158 R | sí |
-| GBP_USD | M15: RSI(14) sale de 25/75 (reversión) · solo sesión Nueva York · SL 1.5×ATR · TP 1.5R · máx 12 h | 2026-02-05→2026-10-29 | 55 | 1.35 | 24 | 42% | 0.87 | -0.079 R | no (oos_PF=0.87<1.15; oos_media=-0.079R<0.05) |
-| USD_JPY | M15: RSI(14) sale de 30/70 (reversión) · solo sesión Nueva York · SL 1.5×ATR · TP 1.5R · máx 12 h | 2026-02-05→2026-10-29 | 111 | 1.25 | 41 | 54% | 1.59 | 0.275 R | sí |
+| EUR_USD | M15: ADX>25 y RSI(14) gira desde 40/60 a favor de la tendencia · SL 2×ATR · TP 1.5R · máx 12 h | 2025-10-27→2026-10-28 | 71 | 1.44 | 49 | 39% | 0.58 | -0.266 R | no (oos_PF=0.58<1.15; oos_media=-0.266R<0.05; oos_pierde_con_spread×1.5) |
+| GBP_USD | H1: ruptura de Keltner EMA20±2.5×ATR a favor de EMA200 · SL 1.5×ATR · TP 1.5R · máx 3 d | 2022-01-03→2026-10-29 | 293 | 1.22 | 158 | 41% | 1.01 | 0.007 R | no (oos_PF=1.01<1.15; oos_media=0.007R<0.05; oos_pierde_con_spread×1.5) |
+| USD_JPY | H4: ruptura de Keltner EMA20±2.5×ATR a favor de EMA200 · SL 1.5×ATR · TP 2R · máx 5 d | 2021-11-09→2026-10-29 | 92 | 1.84 | 36 | 31% | 0.70 | -0.177 R | no (oos_PF=0.70<1.15; oos_media=-0.177R<0.05; oos_pierde_con_spread×1.5) |
 | AUD_USD | H1: vuelta dentro de Bollinger(20,2) (reversión) · solo sesión Asia · SL 1.5×ATR · TP 1.5R · máx 36 h | 2022-01-03→2026-10-29 | 206 | 1.26 | 127 | 40% | 0.89 | -0.066 R | no (oos_PF=0.89<1.15; oos_media=-0.066R<0.05; oos_pierde_con_spread×1.5) |
 | USD_CAD | M15: Estocástico(14,3) sale de 20/80 a favor de EMA200 · solo sesión Nueva York · SL 2×ATR · TP 1.5R · máx 12 h | 2025-10-27→2026-10-29 | 141 | 1.50 | 62 | 50% | 1.31 | 0.156 R | sí |
 | USD_CHF | M15: ADX>25 y RSI(14) gira desde 40/60 a favor de la tendencia · SL 2×ATR · TP 1.5R · máx 12 h | 2025-10-27→2026-10-29 | 62 | 1.58 | 44 | 43% | 0.90 | -0.062 R | no (oos_PF=0.90<1.15; oos_media=-0.062R<0.05; oos_pierde_con_spread×1.5) |

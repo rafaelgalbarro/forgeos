@@ -1,29 +1,28 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 4b103f9 forex: validación por par más exigente (≥20 ops OOS y rentable con spread ×1,5)
+Desplegando 3fb009e forex-optimize: espera al puente MT5 en vez de mezclar datos de EODHD
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261029-102118
-Updating 00d66e9..4b103f9
+estado copiado en /root/forgeos-state-20261029-102844
+Updating 4b103f9..3fb009e
 Fast-forward
- lib/forex-bot/pair-strategies.ts | 16 +++++++++++++---
- scripts/forex-optimize.ts        |  2 +-
- 2 files changed, 14 insertions(+), 4 deletions(-)
+ scripts/forex-optimize.ts | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.49s
+19 passed in 0.56s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        4520         420           4        3116        3225
-Swap:           4095        2028        2067
+Mem:            7746        5222         624           5        2212        2523
+Swap:           4095        1889        2206
      0 MB COMMAND
-   957 MB node
-   881 MB node
-   781 MB node
-   418 MB next-server
-   302 MB java
+  1071 MB node
+  1009 MB node
+   988 MB node
+   459 MB next-server
+   311 MB node
 
 up to date in 2s
    Generating static pages (153/204) 

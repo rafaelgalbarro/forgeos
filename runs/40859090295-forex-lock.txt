@@ -1,0 +1,5 @@
+confirmada para real: USD_CAD → M15: Estocástico(14,3) sale de 20/80 a favor de EMA200 · solo sesión Nueva York · SL 2×ATR · TP 1.5R · máx 12 h
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

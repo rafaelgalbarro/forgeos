@@ -21,13 +21,22 @@ async function history(pair: string, tf: FxTf): Promise<{ bars: FxCandle[]; sour
   if (mt5Configured()) {
     // The terminal may hold less history than asked for ("Call failed"): retry with fewer bars.
     for (const n of [count, Math.floor(count * 0.66), Math.floor(count * 0.4), Math.floor(count * 0.2)]) {
-      try {
-        const bars = await mt5Candles(pair, tf, n);
-        if (bars.length >= 1000) return { bars, source: "MT5 (OANDA)" };
-      } catch (err) {
-        console.warn(`[FX optimize] ${pair} ${tf} ${n} velas: ${err instanceof Error ? err.message.slice(0, 90) : err}`);
+      // "fetch failed" = the bridge is restarting (e.g. right after a deploy): wait for it instead
+      // of mixing in another data source (29/10 runs gave different picks with EODHD fallback).
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        try {
+          const bars = await mt5Candles(pair, tf, n);
+          if (bars.length >= 1000) return { bars, source: "MT5 (OANDA)" };
+          break;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[FX optimize] ${pair} ${tf} ${n} velas: ${msg.slice(0, 90)}`);
+          if (!/fetch failed|ECONNREFUSED|aborted|timeout/i.test(msg)) break;
+          await new Promise((r) => setTimeout(r, 30_000));
+        }
       }
     }
+    return { bars: [], source: "—" };
   }
   if (tf !== "M15") return { bars: [], source: "—" };
   const m5 = await eodhdIntraday5m(pair, Math.ceil(count / 96) + 5);

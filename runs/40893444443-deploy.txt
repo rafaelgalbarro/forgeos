@@ -1,28 +1,29 @@
-respaldo del estado actual: rama local server-backup-20261027-082936 (524fda4)
-package-lock.json local guardado en git stash
-HEAD ahora = 5154918 remote: permitir apalancamiento de futuros hasta 2x (aprobado por el propietario)
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 5154918 remote: permitir apalancamiento de futuros hasta 2x (aprobado por el propietario)
+Desplegando 300af91 pm-backtest: 12 candidatos/día y 10 descargas en paralelo
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261027-082938
-Already up to date.
+estado copiado en /root/forgeos-state-20261029-143820
+Updating 8ab97f5..300af91
+Fast-forward
+ deploy/remote/forgeos-remote.sh | 18 ++++++++++++++++++
+ scripts/gap-backtest.ts         |  4 ++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.82s
+19 passed in 0.98s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        4982         353           5        2722        2763
-Swap:           4095        1430        2665
+Mem:            7746        5305         474           4        2276        2440
+Swap:           4095        1655        2440
      0 MB COMMAND
-   914 MB node
-   906 MB node
-   769 MB node
-   519 MB java
-   461 MB next-server
+  1158 MB node
+  1046 MB node
+   795 MB node
+   419 MB java
+   385 MB next-server
 
 up to date in 2s
    Generating static pages (153/204) 

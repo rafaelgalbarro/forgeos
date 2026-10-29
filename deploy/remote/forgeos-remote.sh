@@ -1008,6 +1008,19 @@ for name in ("meanrev-latest.json", "methods-latest.json", "playbook-latest.json
                 r["locked"] = True; hit = True
                 print("confirmada para real: %s (%s)" % (r["id"], r.get("name")))
     json.dump(j, open(p, "w"), indent=2)
+# Per-pair strategies (pair-strategies.json): ARG = instrument (EUR_USD) or the spec id.
+p = os.path.join(d, "pair-strategies.json")
+if os.path.exists(p):
+    j = json.load(open(p))
+    for c in j.get("choices", []):
+        ids = {str(c.get("instrument", "")).upper(), str((c.get("spec") or {}).get("id", "")).upper()}
+        if want in ids:
+            if not c.get("spec") or not c.get("liveEligible"):
+                print("NO: %s no pasó la validación (%s)" % (c.get("instrument"), c.get("reason")))
+            else:
+                c["locked"] = True; hit = True
+                print("confirmada para real: %s → %s" % (c["instrument"], c.get("description")))
+    json.dump(j, open(p, "w"), indent=2)
 if not hit:
     print("sin cambios para %s" % want)
 PY

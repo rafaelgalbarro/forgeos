@@ -1,38 +1,32 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 524fda4 Estrategias de foros en real desde el primer minuto (decisión del propietario): EUR/USD Asia M15 y oro H1 (MT5); Kraken: estacionalidad 22 UTC, RSI2 en tendencia 1h/15m y reversión por funding extremo
+Desplegando da9c483 Kraken: instrumentos con precisión negativa ya no rompen el ciclo (toFixed); acción remota trades-review
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261027-075432
-Updating 9349188..524fda4
+estado copiado en /root/forgeos-state-20261029-100157
+Updating 5154918..da9c483
 Fast-forward
- lib/forex-bot/engine-extra.ts                  |  47 ++++++++---
- lib/forex-bot/shortterm.ts                     | 104 ++++++++++++++++++++++++
- lib/trading/__tests__/futures-extra.test.ts    |  29 +++++++
- lib/trading/crypto/futures-backtest-gate.ts    |   3 +
- lib/trading/crypto/futures-config.ts           |  13 +++
- lib/trading/crypto/futures-engine.ts           |  26 ++++++
- lib/trading/crypto/futures-strategy-eval.ts    |  20 +++++
- lib/trading/crypto/strategies/futures-extra.ts | 106 +++++++++++++++++++++++++
- 8 files changed, 335 insertions(+), 13 deletions(-)
- create mode 100644 lib/forex-bot/shortterm.ts
- create mode 100644 lib/trading/__tests__/futures-extra.test.ts
- create mode 100644 lib/trading/crypto/strategies/futures-extra.ts
+ deploy/remote/forgeos-remote.sh                    | 60 ++++++++++++++++++++++
+ lib/brokers/kraken-futures/instruments.ts          |  2 +-
+ lib/brokers/kraken-futures/order-math.ts           |  2 +-
+ .../__tests__/aa-futures-order-math.test.ts        |  7 +++
+ scripts/crypto-engine-main.ts                      |  1 +
+ 5 files changed, 70 insertions(+), 2 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.65s
+19 passed in 0.52s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        3917         874           4        3265        3828
-Swap:           4095        1808        2287
+Mem:            7746        5794         388           8        1877        1951
+Swap:           4095         913        3182
      0 MB COMMAND
-   901 MB node
-   633 MB node
-   515 MB node
-   423 MB next-server
-   240 MB node
+  1198 MB node
+   963 MB node
+   874 MB node
+   639 MB java
+   504 MB next-server
 
 up to date in 2s
    Generating static pages (153/204) 

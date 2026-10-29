@@ -487,7 +487,7 @@ export function specStats(t: readonly SpecTrade[]): SpecStats {
 }
 
 /** Selection on in-sample, validation on out-of-sample. */
-export const PAIR_GATE = { minIsTrades: 40, minOosTrades: 15, minOosPF: 1.15, minOosMeanR: 0.05 } as const;
+export const PAIR_GATE = { minIsTrades: 40, minOosTrades: 20, minOosPF: 1.15, minOosMeanR: 0.05, stress: 1.5 } as const;
 
 export type PairChoice = {
   instrument: string;
@@ -513,7 +513,7 @@ export function choosePairStrategy(
   const sets: Array<[FxTf, readonly FxCandle[]]> = Array.isArray(data)
     ? [["M15", data as readonly FxCandle[]]]
     : (Object.entries(data) as Array<[FxTf, readonly FxCandle[]]>).filter(([, b]) => b && b.length > 0);
-  let best: { s: FxSpec; is: SpecStats; oos: SpecStats; score: number; from: number; to: number; bars: number } | null = null;
+  let best: { s: FxSpec; is: SpecStats; oos: SpecStats; oosStress: SpecStats; score: number; from: number; to: number; bars: number } | null = null;
   let candidates = 0;
   let from = Infinity;
   let to = 0;
@@ -532,7 +532,16 @@ export function choosePairStrategy(
       if (is.trades < PAIR_GATE.minIsTrades || is.pf <= 1) continue;
       // score: expectancy, lightly rewarding sample size (avoids lucky tiny samples)
       const score = is.meanR * Math.sqrt(is.trades);
-      if (!best || score > best.score) best = { s, is, oos: specStats(tr.filter((x) => x.entryTime >= split)), score, from: f, to: t, bars: bars.length };
+      if (!best || score > best.score) {
+        // 462 candidates per pair: the best in-sample rule can pass OOS by luck, so it must also
+        // survive 1.5× spread in the OOS period.
+        const stressTr = backtestSpec(s, ind, instrument, spreadPips * PAIR_GATE.stress);
+        best = {
+          s, is, oos: specStats(tr.filter((x) => x.entryTime >= split)),
+          oosStress: specStats(stressTr.filter((x) => x.entryTime >= split)),
+          score, from: f, to: t, bars: bars.length,
+        };
+      }
     }
   }
   const base = { instrument, candidates, bars: nBars, from: Number.isFinite(from) ? from : 0, to };
@@ -541,6 +550,7 @@ export function choosePairStrategy(
   if (best.oos.trades < PAIR_GATE.minOosTrades) reasons.push(`oos_ops=${best.oos.trades}<${PAIR_GATE.minOosTrades}`);
   if (best.oos.pf < PAIR_GATE.minOosPF) reasons.push(`oos_PF=${best.oos.pf.toFixed(2)}<${PAIR_GATE.minOosPF}`);
   if (best.oos.meanR < PAIR_GATE.minOosMeanR) reasons.push(`oos_media=${best.oos.meanR.toFixed(3)}R<${PAIR_GATE.minOosMeanR}`);
+  if (!(best.oosStress.meanR > 0)) reasons.push(`oos_pierde_con_spread×${PAIR_GATE.stress}`);
   return {
     ...base,
     from: best.from,

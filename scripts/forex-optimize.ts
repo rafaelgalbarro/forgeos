@@ -80,7 +80,7 @@ async function main(): Promise<void> {
     ``,
     `Datos: ${[...sources].join(", ")} · ${tfs.join(" + ")} · ${choices[0]?.candidates ?? 0} reglas candidatas por par · spread típico cobrado.`,
     `Elección con los primeros 2/3 de la historia; validación con el último 1/3 (OOS).`,
-    `Apta para real: ≥${PAIR_GATE.minOosTrades} ops OOS, PF ≥ ${PAIR_GATE.minOosPF}, media ≥ ${PAIR_GATE.minOosMeanR} R.`,
+    `Apta para real: ≥${PAIR_GATE.minOosTrades} ops OOS, PF ≥ ${PAIR_GATE.minOosPF}, media ≥ ${PAIR_GATE.minOosMeanR} R y sigue ganando con spread ×${PAIR_GATE.stress}.`,
     ``,
     `| Par | Estrategia | Periodo | Ops IS | PF IS | Ops OOS | Acierto OOS | PF OOS | Media OOS | ¿Real? |`,
     `|---|---|---|---|---|---|---|---|---|---|`,

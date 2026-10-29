@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   const days = tradingDays(nDays);
   if ((process.env.GAP_MODE ?? "").toLowerCase() === "pm") GAP_MIN_POOL = 0.03;
   const PM_MODE = (process.env.GAP_MODE ?? "").toLowerCase() === "pm";
-  const perDay = PM_MODE ? 20 : 12;
+  const perDay = 12;
   console.log(`[gap] ${days.length - 1} sesiones ${days[1]} → ${days[days.length - 1]}`);
   let prev: Map<string, BulkRow> | null = null;
   type Cand = { day: string; code: string; gapPct: number; prevClose: number };
@@ -174,7 +174,7 @@ async function runPm(cands: Array<{ day: string; code: string; gapPct: number; p
   const stressed = new Map<string, PmTrade[]>();
   let withPm = 0;
   let withBars = 0;
-  await pool(cands, 4, async (c) => {
+  await pool(cands, 10, async (c) => {
     const d0 = Date.parse(`${c.day}T00:00:00Z`) / 1000;
     const raw = await get<Array<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }>>(
       `/intraday/${c.code}.US?interval=5m&from=${d0 + 8 * 3600}&to=${d0 + 22 * 3600}`,

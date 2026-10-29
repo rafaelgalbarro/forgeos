@@ -1,5 +1,9 @@
-valor no permitido: 
+
+=== AJUSTE IB_COST_GATE ===
+antes: 
+IB_COST_GATE=false
+forgeos y scheduler reiniciados
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=2
+codigo_salida=0

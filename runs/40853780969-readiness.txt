@@ -1,0 +1,215 @@
+
+=== CONFIGURACIÓN .env.local (sin secretos) ===
+ANTHROPIC_API_KEY=(definida)
+GROQ_API_KEY=(definida)
+TELEGRAM_BOT_TOKEN=(definida)
+TELEGRAM_CHAT_ID=(definida)
+IBKR_SERVICE_URL=http://127.0.0.1:8002
+IBKR_INTERNAL_API_KEY=(definida)
+LIVE_TRADING_ENABLED=true
+IBKR_READ_ONLY=false
+FOREX_ENABLED=true
+FOREX_MAX_SPREAD_PIPS=3
+FOREX_MAX_POSITIONS=3
+FOREX_RISK_PCT=2
+FOREX_STOP_PIPS=20
+FOREX_TP_PIPS=40
+FOREX_MIN_CONFIDENCE=0.75
+RESEND_API_KEY=(definida)
+IBKR_ACCOUNT_ID=U24225949
+POLYGON_API_KEY=(definida)
+FINNHUB_API_KEY=(definida)
+ALPHA_VANTAGE_API_KEY=(definida)
+FMP_API_KEY=(definida)
+ALPACA_API_KEY=(definida)
+ALPACA_SECRET=(definida)
+EODHD_API_KEY=(definida)
+KRAKEN_API_KEY=(definida)
+KRAKEN_API_SECRET=(definida)
+CRYPTO_BROKER=kraken
+CRYPTO_LIVE_MAX_NOTIONAL_EUR=15
+CRYPTO_LIVE_MAX_POSITIONS=4
+CRYPTO_ENGINE_EXTERNAL=1
+CRYPTO_LIVE_STRATEGIES=
+STOCKS_EXECUTION_ENABLED=true
+STOCKS_EXECUTION_US=true
+STOCKS_EXECUTION_EU=true
+IBKR_FRACTIONAL_ENABLED=false
+KRAKEN_FUTURES_API_KEY=(definida)
+KRAKEN_FUTURES_API_SECRET=(definida)
+STOCKS_EXECUTION_PREMARKET=true
+CRYPTO_VENUE=futures
+FUTURES_SHADOW_MODE=false
+FUTURES_MAX_LEVERAGE=2
+FUTURES_LIVE_STRATEGIES=RS_VS_BTC_1H_SHORT,TREND_PULLBACK_1H_SHORT
+US_PRICE_SOURCE=auto
+MT5_BRIDGE_KEY=(definida)
+FOREX_BOT_LIVE_CONFIRM=true
+FOREX_BOT_MODE=live
+FOREX_BOT_MIN_LOT_MAX_RISK_PCT=5
+
+=== CONFIGURACIÓN broker services/ibkr-broker/.env (sin secretos) ===
+INTERNAL_API_KEY=(definida)
+APPROVAL_SECRET=(definida)
+IBKR_HOST=127.0.0.1
+IBKR_PORT=4003
+IBKR_CLIENT_ID=10
+IBKR_READ_ONLY=false
+LIVE_TRADING_ENABLED=true
+MAX_ORDER_NOTIONAL=250
+MAX_ORDER_QUANTITY=100000
+ALLOWED_CURRENCIES=EUR,USD
+ALLOWED_EXCHANGES=SMART
+FOREX_ENABLED=true
+IBKR_ACCOUNT_ID=U24225949
+IBKR_CONNECT_TIMEOUT_SECONDS=30
+
+=== FRENOS Y BLOQUEOS ===
+--- ibkr-stocks-execution-pause.json
+(no existe)
+
+--- ibkr-broker-no-ack-symbol-day.json
+{
+  "updatedAt": "2026-10-28T13:23:17.914103+00:00",
+  "symbols": {
+    "HOOD": "2026-10-19",
+    "ORCL": "2026-10-19",
+    "AENA": "2026-10-20",
+    "BMW": "2026-10-20",
+    "REP": "2026-10-22",
+    "MBG": "2026-10-26",
+    "SAN": "2026-10-21",
+    "FER": "2026-10-21",
+    "INGA": "2026-10-26",
+    "DTE": "2026-10-27",
+    "BAS": "2026-10-28",
+    "BNP": "2026-10-28"
+  }
+}
+--- ibkr-non-tradable.json
+{
+  "updatedAt": "2026-10-29T08:20:46.515Z",
+  "entries": {
+    "HYDC": {
+      "symbol": "HYDC",
+      "code": null,
+      "message": "Posición antigua del usuario: no vender",
+      "ibkrStatus": "ManualBlock",
+      "addedAt": "2026-10-12T20:29:25.018746Z",
+      "telegramSent": true
+    },
+    "BNP": {
+      "symbol": "BNP",
+      "code": 460,
+      "message": "No trading permissions.",
+      "ibkrStatus": "NO_ACK",
+      "addedAt": "2026-10-28T13:23:17.924Z",
+      "telegramSent": true,
+      "expiresAt": "2026-10-29T13:23:17.924Z"
+    }
+  }
+}
+--- kraken-futures-daily-risk.json
+{
+  "dayKey": "2026-10-29",
+  "dayStartCapital": 52.8331,
+  "dayPnl": 1.7350999999999956,
+  "exitsOnly": false,
+  "dailyLimitHit": false
+}
+
+=== PRE-MERCADO: preparación para operar en real ===
+señales registradas=92 cerradas=92 mejoraron=72 → listo=True (requiere ≥20 cerradas y mayoría mejorando)
+
+=== CUENTAS IBKR (efectivo y posiciones) ===
+U15513057 base= EUR NAV= 388.25 Disponible= 244.97 USD= 35.52 EUR= 213.06
+U24225949 base= EUR NAV= 171.35 Disponible= 57.62 USD= 64.15 EUR= 0.00
+   U15513057 TEF 44.0 EUR coste= 3.26613635
+   U24225949 HYDC 2.0 USD coste= 2.0243
+   U24225949 INTC 1.0 USD coste= 93.0816
+   U15513057 GNLN 0.25 USD coste= 42.696
+   U15513057 CGBSF 2000.0 USD coste= 0.079049
+   U24225949 FLYX 0.8004 USD coste= 6.26274365
+   U24225949 INND 30000.0 USD coste= 0.000707
+   U24225949 RECX 2500.0 USD coste= 0.00808
+   U15513057 APTX.OLD 100.0 USD coste= 0.027348
+   U24225949 APLT.CVR 300.0 USD coste= 0.0137
+
+=== BROKER: último error de Python (Traceback) ===
+
+=== ACCIONES: decisiones recientes del ciclo ===
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+
+=== ACCIONES: resumen de ciclos ===
+11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=PRE_MARKET
+11|forgeos | [ProStrategy] Ciclo stocks_1793267566128: kind=stocks session=combined evaluando 30/30 tickers (max=50, concurrency=5, timeout=120s)
+11|forgeos | [ProStrategy] BAS: EU_LOCAL Xetra/IBIS 10:52 Europe/Berlin open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [Cycle/stocks] ✅ 30 results, pending=0 phase=PRE_MARKET
+11|forgeos | [StocksUniverse] plan=US_PREMARKET(alt-US_PREMARKET) phase=PRE_MARKET cycle#=6681 overlapFocus=US_PREMARKET
+11|forgeos | [ProStrategy] Ciclo forex_1793267747906: kind=forex session=forex evaluando 6/6 tickers (max=50, concurrency=5, timeout=120s)
+11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=PRE_MARKET
+11|forgeos | [StocksUniverse] phase=PRE_MARKET source=opp-scan+us-premarket+alt-US_PREMARKET → 50 equities (EU EUR + US; ETFs/crypto/forex excluded)
+11|forgeos | [ProStrategy] Ciclo stocks_1793267753697: kind=stocks session=combined evaluando 50/50 tickers (max=50, concurrency=5, timeout=120s)
+11|forgeos | [Cycle/stocks] ✅ 50 results, pending=0 phase=PRE_MARKET
+
+=== SCHEDULER ===
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-10-29T09:36:48.680Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-29T09:36:59.726Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-29T09:40:07.203Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-29T09:43:19.357Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-29T09:46:26.490Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-29T09:49:40.036Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-10-29T09:52:40.905Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-29T09:52:47.551Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-29T09:55:58.390Z ok=3 skipped=0 stocks, crypto, forex
+
+=== CRIPTO: motor ===
+2026-10-29 08:48:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1172ms
+2026-10-29 08:49:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1350ms
+2026-10-29 08:50:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1344ms
+2026-10-29 08:51:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1233ms
+2026-10-29 08:52:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1217ms
+2026-10-29 08:53:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1163ms
+2026-10-29 08:54:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1268ms
+2026-10-29 08:55:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1292ms
+2026-10-29 09:00:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1375ms
+2026-10-29 09:01:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1129ms
+2026-10-29 09:53:45 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+2026-10-29 09:54:45 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+2026-10-29 09:55:45 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+2026-10-29 09:56:45 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+2026-10-29 09:57:45 +00:00: [CryptoEngine] analysis error: toFixed() digits argument must be between 0 and 100
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

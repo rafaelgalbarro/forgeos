@@ -23,6 +23,7 @@ import { newsBlockReason, type NewsEvent } from "./news";
 import { isWeekendFlattenTime } from "./sessions";
 import { killSwitchState } from "./killswitch";
 import { e1Signal, g1Signal } from "./shortterm";
+import { F40_MAX_BARS, f40Rule, f40RuleExitOnLast, f40SignalOnLast, type F40Result } from "./forum40";
 import type { FxCandle, FxSide, FxTrade } from "./types";
 
 type Mode = FxTrade["mode"];
@@ -47,12 +48,14 @@ export type ExtraCtx = {
 
 type Active = {
   id: string;
-  kind: "MR" | "R2" | "ST";
+  kind: "MR" | "R2" | "ST" | "F40";
   instrument: string;
   tf: "M15" | "H1" | "H4" | "D1";
   name: string;
   real: boolean;
   mr?: MrSpec;
+  /** F40: rule id */
+  rule?: string;
 };
 
 type Pending = {
@@ -100,6 +103,12 @@ export function activeExtraStrategies(liveMode: boolean): Active[] {
     const spec = METHODS.find((x) => x.id === r.id);
     if (!r.liveEligible || !spec || spec.kind !== "R2") continue;
     out.push({ id: r.id, kind: "R2", instrument: r.instrument, tf: "D1", name: r.name, real: liveMode && Boolean(r.locked) });
+  }
+  // "40 estrategias" list (owner, 29/10): validated combinations; real only when locked.
+  const f40 = readJson<{ results: F40Result[] }>("forum40-latest.json")?.results ?? [];
+  for (const r of f40) {
+    if (!r.liveEligible || !f40Rule(r.rule)) continue;
+    out.push({ id: r.id, kind: "F40", instrument: r.instrument, tf: r.tf, name: `${r.instrument.replace("_", "/")} · ${r.name} ${r.tf}`, real: liveMode && Boolean(r.locked), rule: r.rule });
   }
   // Short-term forum rules — owner decision: real money from the first minute (kill switch applies).
   if ((process.env.FOREX_SHORTTERM_ENABLED ?? "true").toLowerCase() !== "false") {
@@ -213,8 +222,9 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
       if (!newBar) continue;
       const held = (Date.now() - Date.parse(open.openedAt)) / 1000 / TF_SEC[a.tf];
       const ruleOut = a.kind === "MR" ? mrExit(bars, mrIndicators(bars, a.tf as "H1" | "H4"), bars.length - 1, open.side)
-        : a.kind === "R2" ? r2Exit(bars) : false;
-      const weekend = a.kind !== "R2" && isWeekendFlattenTime(new Date());
+        : a.kind === "R2" ? r2Exit(bars)
+          : a.kind === "F40" && a.rule ? f40RuleExitOnLast(a.rule, bars, open.side) : false;
+      const weekend = !(a.kind === "R2" || (a.kind === "F40" && a.tf === "D1")) && isWeekendFlattenTime(new Date());
       const maxBarsOpen = open.maxHoldMin ? open.maxHoldMin / (TF_SEC[a.tf] / 60) : MAX_BARS[a.tf];
       if (ruleOut || weekend || held >= maxBarsOpen) {
         const why: FxTrade["exitReason"] = ruleOut ? "TP" : weekend ? "WEEKEND" : "TIME";
@@ -246,6 +256,17 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
           const dir = side === "long" ? 1 : -1;
           pending.push({ id: a.id, side, level: last.close - dir * 0.25 * a14, atr: a14, until: last.time + 2 * TF_SEC[a.tf], barTime: last.time });
         }
+      } else if (a.kind === "F40" && a.rule) {
+        const sig = f40SignalOnLast(a.rule, bars);
+        if (sig) {
+          const dir = sig.side === "long" ? 1 : -1;
+          const rr = f40Rule(a.rule)?.rr;
+          pending.push({
+            id: a.id, side: sig.side, level: Infinity, atr: sig.atr, until: last.time + 2 * TF_SEC[a.tf], barTime: last.time,
+            stop: last.close - dir * 2 * sig.atr, target: last.close + dir * (rr ? rr * 2 : 6) * sig.atr,
+            maxBars: F40_MAX_BARS[a.tf as "H1" | "H4" | "D1"],
+          });
+        }
       } else if (a.kind === "R2" && a14 && r2Signal(bars)) {
         pending.push({ id: a.id, side: "long", level: Infinity, atr: a14, until: last.time + 2 * TF_SEC.D1, barTime: last.time });
       }
@@ -276,6 +297,13 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
     const digits = i?.digits ?? 5;
     let stop = Number((px - dir * stopMult * p.atr).toFixed(digits));
     let tp = Number((px + dir * (a.kind === "R2" ? 6 : 3) * p.atr).toFixed(digits));
+    if (a.kind === "F40" && p.stop != null && p.target != null) {
+      // same distances as the backtest, measured from the actual fill
+      const sd = Math.abs(p.target - p.stop) > 0 ? 2 * p.atr : 0;
+      const rr = a.rule ? f40Rule(a.rule)?.rr : undefined;
+      stop = Number((px - dir * sd).toFixed(digits));
+      tp = Number((px + dir * (rr ? rr * 2 : 6) * p.atr).toFixed(digits));
+    }
     if (a.kind === "ST" && p.stop != null && p.target != null) {
       stop = Number(p.stop.toFixed(digits));
       tp = Number(p.target.toFixed(digits));
@@ -302,7 +330,7 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
     }
     const trade: FxTrade = {
       id: `${a.id}-${p.barTime}`, strategy: a.id, instrument: a.instrument, side: p.side, units, lots,
-      maxHoldMin: ((p.maxBars ?? MAX_BARS[a.tf]) * TF_SEC[a.tf]) / 60, holdWeekend: a.kind === "R2",
+      maxHoldMin: ((p.maxBars ?? MAX_BARS[a.tf]) * TF_SEC[a.tf]) / 60, holdWeekend: a.kind === "R2" || (a.kind === "F40" && a.tf === "D1"),
       broker: mode === "shadow" ? "shadow" : "mt5", entry: px, stop, takeProfit: tp,
       openedAt: new Date().toISOString(), mode, brokerTradeId: null,
     };

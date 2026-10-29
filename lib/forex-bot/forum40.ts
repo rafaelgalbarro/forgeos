@@ -527,25 +527,26 @@ export function evaluateF40(rule: Rule, instrument: string, tf: F40Tf, bars: rea
   return { id: `${rule.id}_${instrument.replace("_", "")}_${tf}`, rule: rule.id, name: rule.name, instrument, tf, bars: bars.length, all, firstHalf, secondHalf, stressed, liveEligible: r.length === 0, reason: r.join("; ") || "ok" };
 }
 
-/** Live: signal of `ruleId` on the last closed bar (index len-2 of a series whose last bar is forming). */
-export function f40SignalOnLastClosed(ruleId: string, bars: readonly FxCandle[]): { side: FxSide; atr: number } | null {
+/** Live: signal of `ruleId` on the last bar of `bars` (all bars closed). */
+export function f40SignalOnLast(ruleId: string, bars: readonly FxCandle[]): { side: FxSide; atr: number } | null {
   const rule = F40_RULES.find((r) => r.id === ruleId);
   if (!rule || bars.length < 150) return null;
   const x = f40Indicators(bars);
-  const i = bars.length - 2;
+  const i = bars.length - 1;
   const side = rule.entry(x, i, new Map());
   const a = x.atr14[i];
   return side && a != null && a > 0 ? { side, atr: a } : null;
 }
 
-export function f40RuleExitOnLastClosed(ruleId: string, bars: readonly FxCandle[], side: FxSide): boolean {
+export function f40RuleExitOnLast(ruleId: string, bars: readonly FxCandle[], side: FxSide): boolean {
   const rule = F40_RULES.find((r) => r.id === ruleId);
   if (!rule?.exit || bars.length < 150) return false;
-  const x = f40Indicators(bars);
-  return rule.exit(x, bars.length - 2, side, new Map());
+  return rule.exit(f40Indicators(bars), bars.length - 1, side, new Map());
 }
 
 export function f40Rule(ruleId: string): { id: string; name: string; rr?: number } | null {
   const r = F40_RULES.find((q) => q.id === ruleId);
   return r ? { id: r.id, name: r.name, rr: r.rr } : null;
 }
+
+export const F40_MAX_BARS = MAX_BARS;

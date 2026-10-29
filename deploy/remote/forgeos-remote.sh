@@ -500,7 +500,7 @@ PY
 do_set_flag() {
   local key="${1%%:*}" val="${1#*:}"
   case "$key" in
-    CRYPTO_LIVE_MAX_NOTIONAL_EUR|CRYPTO_LIVE_MAX_POSITIONS|FUTURES_MAX_LEVERAGE|STOCKS_EXECUTION_ENABLED|STOCKS_EXECUTION_US|STOCKS_EXECUTION_EU|STOCKS_EXECUTION_PREMARKET|STOCKS_MAX_POSITIONS_PER_ACCOUNT|FOREX_BOT_MODE|FOREX_BOT_LIVE_CONFIRM|FOREX_BOT_RISK_PCT|FOREX_BOT_MAX_POSITIONS|FOREX_BOT_MIN_LOT_MAX_RISK_PCT) ;;
+    CRYPTO_LIVE_MAX_NOTIONAL_EUR|CRYPTO_LIVE_MAX_POSITIONS|FUTURES_MAX_LEVERAGE|STOCKS_EXECUTION_ENABLED|STOCKS_EXECUTION_US|STOCKS_EXECUTION_EU|STOCKS_EXECUTION_PREMARKET|STOCKS_MAX_POSITIONS_PER_ACCOUNT|FOREX_BOT_MODE|FOREX_BOT_LIVE_CONFIRM|FOREX_BOT_RISK_PCT|FOREX_BOT_MAX_POSITIONS|FOREX_BOT_MIN_LOT_MAX_RISK_PCT|IB_COST_GATE|IB_MAX_ROUNDTRIP_COST_PCT|STOCKS_US_FROM_EUR_ACCOUNT|GAP_GO_ENABLED|GAP_GO_NOTIONAL_USD) ;;
     *) echo "clave no permitida: $key"; exit 2;;
   esac
   if [ "$key" = FOREX_BOT_MODE ]; then
@@ -762,6 +762,12 @@ do_forex_optimize() {
   timeout 2400 node scripts/forex-bot.cjs optimize "$tfs" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -60
 }
 
+do_gap_backtest() {
+  local days; days="$(echo "${1:-250}" | tr -cd '0-9')"; [ -n "$days" ] || days=250
+  sec "GAP & GO (acciones EE. UU. que abren con hueco al alza) — backtest $days sesiones"
+  timeout 3900 node scripts/forex-bot.cjs gap "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -60
+}
+
 do_forex_playbook() {
   sec "FICHAS POR INSTRUMENTO (guía) — backtest con historia de OANDA"
   timeout 2400 node scripts/forex-bot.cjs playbook 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -40
@@ -954,6 +960,7 @@ case "$ACTION" in
   protect) do_protect "$ARG" ;;
   telegram-stats) do_telegram_stats ;;
   trades-review) do_trades_review "$ARG" ;;
+  gap-backtest) do_gap_backtest "$ARG" ;;
   screenshot) do_screenshot "$ARG" ;;
   signals) do_signals ;;
   forex-backtest) do_forex_backtest "$ARG" ;;

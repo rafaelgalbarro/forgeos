@@ -83,7 +83,7 @@ process.env.FORGEOS_ROOT = process.env.FORGEOS_ROOT || root;
 process.chdir(root);
 
 const stub = path.join(__dirname, "stub-server-only.cjs");
-const ENTRIES = { backtest: "forex-backtest.ts", optimize: "forex-optimize.ts", playbook: "forex-playbook.ts", methods: "forex-methods.ts", meanrev: "forex-meanrev.ts", ignition: "forex-ignition.ts", summary: "daily-summary.ts" };
+const ENTRIES = { backtest: "forex-backtest.ts", optimize: "forex-optimize.ts", playbook: "forex-playbook.ts", methods: "forex-methods.ts", meanrev: "forex-meanrev.ts", ignition: "forex-ignition.ts", summary: "daily-summary.ts", gap: "gap-backtest.ts" };
 const mainTs = path.join(__dirname, ENTRIES[process.argv[2]] || "forex-bot-main.ts");
 console.log(`[ForexBot] boot pid=${process.pid} entry=${path.basename(mainTs)} mode=${process.env.FOREX_BOT_MODE || "shadow"}`);
 

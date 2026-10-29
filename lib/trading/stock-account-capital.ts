@@ -143,6 +143,23 @@ export function pickStockAccountCapitalFromMap(
   const preferKey = Object.keys(accountMap ?? {}).find(
     (k) => k.trim().toUpperCase() === usdTarget,
   );
+  // Owner 29/10: the EUR account may also buy US stocks (IBKR lends/converts the USD against the
+  // EUR cash). Use whichever account can fund the larger order.
+  const fromEur = usdBuyingPowerFromEurAccount(accountMap);
+  if (fromEur) {
+    const preferUsd = preferKey ? Math.max(0, extractAccountCashFromTags(accountMap[preferKey]).cashUsd) : 0;
+    if (fromEur.usableUsd > preferUsd) {
+      return {
+        accountId: fromEur.accountId,
+        currency: "USD",
+        cash: fromEur.usableUsd,
+        usableCash: fromEur.usableUsd,
+        cashUsd: fromEur.cashUsd,
+        cashEur: fromEur.cashEur,
+        detail: `cuenta ${fromEur.accountId} | ${fromEur.detail}`,
+      };
+    }
+  }
   if (preferKey) {
     const { cashUsd } = extractAccountCashFromTags(accountMap[preferKey]);
     if (cashUsd > 0) {
@@ -182,4 +199,30 @@ export function pickStockAccountCapitalFromMap(
         ? `cuenta ${bestId} | USD cash $${cash.toFixed(2)}`
         : "ninguna cuenta con USD cash > 0",
   };
+}
+
+/**
+ * USD buying power of the EUR stocks account for a US stock BUY:
+ * USD cash (or minus a USD loan) + 90 % of EUR cash at a conservative EUR/USD, capped by
+ * AvailableFunds. Disabled with STOCKS_US_FROM_EUR_ACCOUNT=false.
+ */
+export function usdBuyingPowerFromEurAccount(
+  accountMap: Record<string, Record<string, AccountTagRow>>,
+): { accountId: string; usableUsd: number; cashUsd: number; cashEur: number; detail: string } | null {
+  if ((process.env.STOCKS_US_FROM_EUR_ACCOUNT ?? "true").trim().toLowerCase() === "false") return null;
+  const target = ibkrEurStocksAccountId().trim().toUpperCase();
+  if (!target) return null;
+  const id = Object.keys(accountMap ?? {}).find((k) => k.trim().toUpperCase() === target);
+  if (!id) return null;
+  const { cashUsd, cashEur, availableFunds, availableFundsCurrency } = extractAccountCashFromTags(accountMap[id]);
+  const fx = eurUsdFxForMargin();
+  let usable = cashUsd + Math.max(0, cashEur) * fx * 0.9;
+  let detail = `USD $${cashUsd.toFixed(2)} + 90% de EUR €${Math.max(0, cashEur).toFixed(2)} @${fx.toFixed(2)}`;
+  const afUsd = availableFunds > 0 ? (availableFundsCurrency === "USD" ? availableFunds : availableFunds * fx) : 0;
+  if (afUsd > 0 && afUsd < usable) {
+    usable = afUsd;
+    detail += `; AvailableFunds ≈$${afUsd.toFixed(2)}`;
+  }
+  usable = Math.max(0, usable);
+  return { accountId: id, usableUsd: usable, cashUsd, cashEur, detail: `${detail} → utilizable $${usable.toFixed(2)}` };
 }

@@ -974,6 +974,24 @@ case "$ACTION" in
   gap-backtest) do_gap_backtest "$ARG" ;;
   pm-backtest) do_pm_backtest "$ARG" ;;
   forex-forum40) do_forex_forum40 ;;
+  forex-forum40-report)
+    python3 - <<'PY'
+import json, collections
+j = json.load(open("/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"))
+R = j["results"]
+ok = [r for r in R if r.get("liveEligible")]
+print("pruebas:", len(R), "aptas:", len(ok), "bloqueadas:", sum(1 for r in R if r.get("locked")))
+by = collections.defaultdict(list)
+for r in R: by[r["rule"]].append(r)
+for rule, rs in sorted(by.items()):
+    p = [r for r in rs if r.get("liveEligible")]
+    tested = [r for r in rs if r["all"]["trades"] >= 60]
+    pos = sum(1 for r in tested if r["all"]["meanR"] > 0)
+    print("%-18s pruebas>=60ops %3d  media>0 %3d  aptas %2d  %s" % (rule, len(tested), pos, len(p), ", ".join("%s %s" % (r["instrument"], r["tf"]) for r in p)))
+inst = collections.Counter(r["instrument"] for r in ok)
+print("aptas por instrumento:", dict(inst.most_common()))
+PY
+    ;;
   screenshot) do_screenshot "$ARG" ;;
   signals) do_signals ;;
   forex-backtest) do_forex_backtest "$ARG" ;;

@@ -1,8 +1,4 @@
-
-=== AJUSTE CRYPTO_LIVE_MAX_POSITIONS ===
-antes: 2
-CRYPTO_LIVE_MAX_POSITIONS=4
-forgeos-crypto-engine reiniciado
+script remoto actualizado a ac2c66f
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

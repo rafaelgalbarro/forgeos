@@ -774,6 +774,11 @@ do_pm_backtest() {
   GAP_MODE=pm timeout 3900 node scripts/forex-bot.cjs gap "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot|HTTP 402" | tail -45
 }
 
+do_forex_forum40() {
+  sec "40 ESTRATEGIAS (lista del propietario) — backtest con historia de OANDA"
+  timeout 3600 node scripts/forex-bot.cjs forum40 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | grep -vE "^\[F40\] .*ninguna" | tail -70
+}
+
 do_forex_playbook() {
   sec "FICHAS POR INSTRUMENTO (guía) — backtest con historia de OANDA"
   timeout 2400 node scripts/forex-bot.cjs playbook 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -40
@@ -968,6 +973,7 @@ case "$ACTION" in
   trades-review) do_trades_review "$ARG" ;;
   gap-backtest) do_gap_backtest "$ARG" ;;
   pm-backtest) do_pm_backtest "$ARG" ;;
+  forex-forum40) do_forex_forum40 ;;
   screenshot) do_screenshot "$ARG" ;;
   signals) do_signals ;;
   forex-backtest) do_forex_backtest "$ARG" ;;

@@ -1,0 +1,54 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 8ab97f5 forex: el motor ejecuta las combinaciones validadas de la lista de 40 (real solo si se confirman)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261029-131011
+Updating ac2c66f..8ab97f5
+Fast-forward
+ deploy/remote/forgeos-remote.sh             |   6 +
+ lib/forex-bot/engine-extra.ts               |  36 +-
+ lib/forex-bot/forum40.ts                    | 552 ++++++++++++++++++++++++++++
+ lib/trading/__tests__/forex-forum40.test.ts |  33 ++
+ scripts/forex-bot.cjs                       |   2 +-
+ scripts/forex-forum40.ts                    |  97 +++++
+ 6 files changed, 721 insertions(+), 5 deletions(-)
+ create mode 100644 lib/forex-bot/forum40.ts
+ create mode 100644 lib/trading/__tests__/forex-forum40.test.ts
+ create mode 100644 scripts/forex-forum40.ts
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.79s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        4994         693           4        2369        2751
+Swap:           4095        1574        2521
+     0 MB COMMAND
+  1152 MB node
+   962 MB node
+   767 MB node
+   466 MB next-server
+   271 MB java
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -1,0 +1,46 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 1b0e1e3 intraday-backtest: referencia sin costes y espera al puente MT5
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261030-121151
+Updating aa60720..1b0e1e3
+Fast-forward
+ scripts/stocks-intraday-backtest.ts | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.85s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        4290        1037           4        2729        3455
+Swap:           4095        2411        1684
+     0 MB COMMAND
+   755 MB node
+   739 MB node
+   497 MB node
+   483 MB java
+   439 MB next-server
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

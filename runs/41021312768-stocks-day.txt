@@ -1,0 +1,104 @@
+
+=== ACCIONES: señales y motivos (logs de forgeos) ===
+-rw-r--r-- 1 root root   877235 Oct 26 00:00 forgeos-out__2026-10-26_00-00-00.log
+-rw-r--r-- 1 root root  6342531 Oct 27 00:00 forgeos-out__2026-10-27_00-00-00.log
+-rw-r--r-- 1 root root  6703946 Oct 28 00:00 forgeos-out__2026-10-28_00-00-00.log
+-rw-r--r-- 1 root root  5342102 Oct 29 00:00 forgeos-out__2026-10-29_00-00-00.log
+-rw-r--r-- 1 root root  6638841 Oct 30 00:00 forgeos-out__2026-10-30_00-00-00.log
+desde: 2026-10-28T06:00:00  hasta: 2026-10-31T06:00:00
+--- ciclos de acciones con universo > 0:
+608
+--- tickers evaluados (ProStrategy ... evaluadas):
+11804
+--- señales BUY/SELL:
+     64 TEF BUY 65%
+     63 ASML BUY 65%
+     60 SIE BUY 65%
+     40 MSFT BUY 75%
+     33 PLTR BUY 70%
+     24 JPM BUY 65%
+     23 ORCL BUY 70%
+     22 SMCI BUY 70%
+     22 QCOM BUY 70%
+     19 C BUY 65%
+     15 JNJ BUY 65%
+     15 IAG BUY 65%
+     13 MBG BUY 65%
+     13 BNP BUY 65%
+     13 BAC BUY 65%
+     12 ARM BUY 70%
+     10 MRK BUY 65%
+      9 SNOW BUY 70%
+      9 AMD BUY 70%
+      8 MRVL BUY 70%
+      7 MSTR BUY 70%
+      6 WFC BUY 65%
+      6 NVDA BUY 75%
+      5 NVDA BUY 70%
+      5 MC BUY 65%
+      5 KLAC BUY 70%
+      4 MSFT BUY 70%
+      4 DTE BUY 65%
+      4 AVGO BUY 70%
+      3 XYZ BUY 65%
+--- qué pasó con ellas:
+    672 [AutoExecute] USDCHF → skip: precio EODHD forex no disponible
+    672 [AutoExecute] USDCAD → skip: precio EODHD forex no disponible
+    672 [AutoExecute] EURUSD → skip: precio EODHD forex no disponible
+    672 [AutoExecute] AUDUSD → skip: precio EODHD forex no disponible
+    671 [AutoExecute] USDJPY → skip: precio EODHD forex no disponible
+    671 [AutoExecute] GBPUSD → skip: precio EODHD forex no disponible
+     88 [AutoExecute] JNJ → skip (timeout IBKR)
+     87 [AutoExecute] UNH → skip (timeout IBKR)
+     87 [AutoExecute] LLY → skip (timeout IBKR)
+     87 [AutoExecute] ABBV → skip (timeout IBKR)
+     79 [AutoExecute] HOOD → skip (timeout IBKR)
+     69 [AutoExecute] MRVL → skip (timeout IBKR)
+     68 [AutoExecute] MRK → skip (timeout IBKR)
+     67 [AutoExecute] SOFI → skip (timeout IBKR)
+     63 [Signal] TEF: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en TEF
+     63   ❌ RECHAZADO: posición duplicada en TEF
+     61 [AutoExecute] JPM → skip (timeout IBKR)
+     60 [AutoExecute] PYPL → skip (timeout IBKR)
+     60 [AutoExecute] LRCX → skip (timeout IBKR)
+     59 [AutoExecute] KLAC → skip (timeout IBKR)
+     58   ❌ RECHAZADO: capital insuficiente — precio $X > presupuesto $X (utilizable≈$X)
+     52 [AutoExecute] AMAT → skip (timeout IBKR)
+     49 [AutoExecute] COIN → skip (timeout IBKR)
+     49 [AutoExecute] ARM → skip (timeout IBKR)
+     43 [AutoExecute] GS → skip (timeout IBKR)
+     40 [AutoExecute] SMCI → skip (timeout IBKR)
+     37 [AutoExecute] V → skip (timeout IBKR)
+     34 [AutoExecute] MA → skip (timeout IBKR)
+     31 [AutoExecute] AXP → skip (timeout IBKR)
+     29 [AutoExecute] C → skip (timeout IBKR)
+     26 [AutoExecute] MSTR → skip (timeout IBKR)
+     26 [AutoExecute] MS → skip (timeout IBKR)
+     23 [AutoExecute] BAC → skip (timeout IBKR)
+     21 [AutoExecute] TXN → skip (timeout IBKR)
+     20 [AutoExecute] BLK → skip (timeout IBKR)
+     18 [AutoExecute] XYZ → skip (timeout IBKR)
+     18 [AutoExecute] WFC → skip (timeout IBKR)
+     18 [AutoExecute] SCHW → skip (timeout IBKR)
+      6 [AutoExecute] NOW → skip (timeout IBKR)
+      3 [CryptoPermission] account=U24225949 code=460 granted=false msg=No trading permissions.
+--- estrategias que más rechazan (motivo HOLD):
+   7758 ninguna señal (USA_REGULAR)
+   1630 ninguna señal (EUROPE)
+   1427 skip (timeout IBKR)
+   1377 ninguna señal (USA_PREMARKET)
+    848 ninguna señal (USA_OPEN)
+    191 ninguna señal (EUROPE_OPEN)
+     24 skip (coste)
+     14 skip (ya subió 6.3% > 5%)
+     13 skip (ya subió 6.5% > 5%)
+     12 skip (ya subió 5.7% > 5%)
+     12 skip (ya subió 5.6% > 5%)
+     10 skip (ya subió 6.2% > 5%)
+      9 skip (ya subió 6.4% > 5%)
+      9 skip (ya subió 5.8% > 5%)
+      9 skip (ya subió 5.1% > 5%)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -1,15 +1,15 @@
-duration=10%20D&barSize=1%20hour&bar=1%20hour → 3.767962657 s · {"symbol":"JNJ","duration":"10 D","barSize":"1 hour","whatToShow":"TRADES","secType":"STK","currency":"USD","exchange":"SMART","bars":[{"date":"20261016 04:00:0
-duration=5%20D&barSize=5%20mins&bar=5%20mins → .865960914 s · {"symbol":"JNJ","duration":"5 D","barSize":"5 mins","whatToShow":"TRADES","secType":"STK","currency":"USD","exchange":"SMART","bars":[{"date":"20261023 04:00:00
-duration=1%20Y&barSize=1%20day&bar=1%20day → .466697452 s · {"symbol":"JNJ","duration":"1 Y","barSize":"1 day","whatToShow":"TRADES","secType":"STK","currency":"USD","exchange":"SMART","bars":[{"date":"20251030","open":1
-market-data → 1.321469750 s · {"symbol":"JNJ","secType":"STK","currency":"USD","exchange":"SMART","price":null,"bid":null,"ask":null,"last":null,"close":null,"mid":null,"volume":null,"change":null,"currentPrice":null,"recentErrors
-18|ibkr-br | errorCode: 10089
-18|ibkr-br | errorMsg: "Requested market data requires additional subscription for API. See link in \'Market Data Connections\' dialog for more details.Delayed market data is available.JNJ NYSE/TOP/ALL"
-18|ibkr-br | 07:40:28 [ibkr-broker] INFO IBKR error reqId=9601 code=10089: Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more details.Delayed market data
-18|ibkr-br | 07:40:28 [ibapi.utils] INFO ANSWER errorProtoBuf {'errorMessageProto': id: 9601
-18|ibkr-br | errorTime: 1793346027956
-18|ibkr-br | errorCode: 300
-18|ibkr-br | errorMsg: "Can\'t find EId with tickerId:9601"
-18|ibkr-br | 07:40:28 [ibkr-broker] INFO IBKR error reqId=9601 code=300: Can't find EId with tickerId:9601
+duration=10%20D&barSize=1%20hour&bar=1%20hour → .517954839 s · {"symbol":"INTC","duration":"10 D","barSize":"1 hour","whatToShow":"TRADES","secType":"STK","currency":"USD","exchange":"SMART","bars":[{"date":"20261019 04:00:
+duration=5%20D&barSize=5%20mins&bar=5%20mins → .496828931 s · {"symbol":"INTC","duration":"5 D","barSize":"5 mins","whatToShow":"TRADES","secType":"STK","currency":"USD","exchange":"SMART","bars":[{"date":"20261026 04:00:0
+duration=1%20Y&barSize=1%20day&bar=1%20day → .323107393 s · {"symbol":"INTC","duration":"1 Y","barSize":"1 day","whatToShow":"TRADES","secType":"STK","currency":"USD","exchange":"SMART","bars":[{"date":"20251031","open":
+market-data → .338286097 s · {"symbol":"INTC","secType":"STK","currency":"USD","exchange":"SMART","price":null,"bid":null,"ask":null,"last":null,"close":null,"mid":null,"volume":null,"change":null,"currentPrice":null,"recentError
+18|ibkr-br | INFO:     127.0.0.1:52466 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
+18|ibkr-br | INFO:     127.0.0.1:42162 - "GET /api/ibkr/positions HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:42216 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
+18|ibkr-br | INFO:     127.0.0.1:43658 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
+18|ibkr-br | INFO:     127.0.0.1:54184 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
+18|ibkr-br | INFO:     127.0.0.1:60524 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
+18|ibkr-br | INFO:     127.0.0.1:56876 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
+18|ibkr-br | INFO:     127.0.0.1:58356 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

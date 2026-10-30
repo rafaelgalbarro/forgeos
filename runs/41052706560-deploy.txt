@@ -1,0 +1,53 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando aa60720 Acciones/índices: backtest de combinaciones intradía (EMA 9/20, cinta 5-8-13, compresión de Bollinger, ORB 15/30, Golden Pocket, MACD+RSI, Bollinger+volumen, medias+acción del precio, MACD+Bollinger, medias+RSI, RSI+volumen)
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261030-120514
+Updating e9d524e..aa60720
+Fast-forward
+ deploy/remote/forgeos-remote.sh              |   7 +
+ lib/trading/__tests__/intraday-rules.test.ts |  33 ++++
+ lib/trading/intraday-rules.ts                | 267 +++++++++++++++++++++++++++
+ scripts/forex-bot.cjs                        |   2 +-
+ scripts/stocks-intraday-backtest.ts          | 113 ++++++++++++
+ 5 files changed, 421 insertions(+), 1 deletion(-)
+ create mode 100644 lib/trading/__tests__/intraday-rules.test.ts
+ create mode 100644 lib/trading/intraday-rules.ts
+ create mode 100644 scripts/stocks-intraday-backtest.ts
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.95s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        6030         424           4        1602        1715
+Swap:           4095        1517        2578
+     0 MB COMMAND
+  1376 MB node
+  1200 MB node
+  1038 MB node
+   561 MB java
+   390 MB next-server
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

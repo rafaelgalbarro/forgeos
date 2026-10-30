@@ -1963,6 +1963,23 @@ class IBKRClient(EWrapper, EClient):
         except Exception as exc:
             log.warning("PRE-ORDER buying power check failed: %s", exc)
 
+    def _is_closing_sell(self, proposal: dict[str, Any]) -> bool:
+        """SELL that only reduces an existing long in the same account (an exit, never a short)."""
+        try:
+            if str(proposal.get("side") or "").upper() != "SELL":
+                return False
+            sym = str(proposal.get("symbol") or "").upper()
+            acct = str(proposal.get("account") or "")
+            qty = float(proposal.get("quantity") or 0)
+            held = sum(
+                float(p.get("position") or 0)
+                for p in self.positions()
+                if str(p.get("symbol") or "").upper() == sym and (not acct or str(p.get("account") or "") == acct)
+            )
+            return qty > 0 and held >= qty
+        except Exception:
+            return False
+
     def place_limit_order_validated(self, proposal: dict[str, Any], *, transmit: bool, what_if: bool) -> int:
         """Place order without auto-reconnect — disconnected → raise (dashboard must reconnect)."""
         self.ensure_connected()
@@ -1996,6 +2013,7 @@ class IBKRClient(EWrapper, EClient):
             symbol=str(proposal.get("symbol") or ""),
             transmit=transmit,
             what_if=what_if,
+            closing=self._is_closing_sell(proposal),
         )
         sec_type = str(proposal.get("sec_type") or "STK").upper().strip() or "STK"
         req_ccy = str(proposal.get("currency") or "").upper()

@@ -246,6 +246,12 @@ function tryAcquireSellLock(ticker: string): boolean {
   return true;
 }
 
+function releaseSellLock(ticker: string): void {
+  const locks = readSellLocks();
+  delete locks[ticker.toUpperCase()];
+  writeSellLocks(locks);
+}
+
 function isSellLocked(ticker: string): boolean {
   if (isSellBlacklisted(ticker)) return true;
   const at = readSellLocks()[ticker.toUpperCase()];
@@ -465,6 +471,32 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
   );
 }
 
+/** Resting SELL stop orders on IBKR for a symbol (native protection). */
+async function nativeSellProtection(ticker: string): Promise<{ stopQty: number; stopPrice: number | null } | null> {
+  const rows = await ibkrServiceFetch<Array<Record<string, unknown>>>("/api/ibkr/orders");
+  if (!Array.isArray(rows)) return null;
+  let qty = 0; let px: number | null = null;
+  for (const r of rows) {
+    if (String(r.symbol ?? "").toUpperCase() !== ticker) continue;
+    const side = String(r.action ?? r.side ?? "").toUpperCase();
+    const type = String(r.orderType ?? r.order_type ?? "").toUpperCase();
+    const st = String(r.status ?? "").toUpperCase();
+    if (side !== "SELL" || !type.startsWith("STP") || st.includes("CANCEL") || st === "FILLED") continue;
+    qty += Number(r.totalQuantity ?? r.quantity ?? r.qty ?? 0) || 0;
+    px = Number(r.auxPrice ?? r.aux ?? r.stopPrice ?? NaN) || px;
+  }
+  return qty > 0 ? { stopQty: qty, stopPrice: px } : null;
+}
+
+const nyHm = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+function isUsRegularSessionNow(at = new Date()): boolean {
+  const p = nyHm.formatToParts(at);
+  const wd = p.find((x) => x.type === "weekday")?.value ?? "";
+  if (wd === "Sat" || wd === "Sun") return false;
+  const m = Number(p.find((x) => x.type === "hour")?.value ?? 0) * 60 + Number(p.find((x) => x.type === "minute")?.value ?? 0);
+  return m >= 570 && m < 960;
+}
+
 async function closePosition(
   pos: MonitoredPosition,
   price: number,
@@ -649,6 +681,24 @@ async function beginExitSell(
     dropFromRegistry(ticker);
     console.log(`[PositionMonitor] ${ticker} qty=0 en IBKR — blacklist + eliminada, skip SELL`);
     return { status: "skipped", reason: "already-closed" };
+  }
+
+  // 2b) INTC 30/10: the monitor cancelled the native bracket (stop 90.33 / target 97.69) at 04:00 ET
+  // to send its own SELL, IBKR did not acknowledge it outside regular hours and the position was
+  // left with no stop all day. Native protection on IBKR wins: never cancel it to sell ourselves,
+  // and do not send our own exit outside the US regular session.
+  const native = await nativeSellProtection(ticker).catch(() => null);
+  if (native && native.stopQty >= Math.floor(qty)) {
+    if (mem) { mem.selling = false; positionSLTP.set(ticker, mem); }
+    releaseSellLock(ticker);
+    console.log(`[PositionMonitor] ${ticker} con stop nativo en IBKR (${native.stopQty} @ ${native.stopPrice ?? "?"}) — la salida la ejecuta IBKR`);
+    return { status: "skipped", reason: "native-stop" };
+  }
+  if (!isUsRegularSessionNow()) {
+    if (mem) { mem.selling = false; positionSLTP.set(ticker, mem); }
+    releaseSellLock(ticker);
+    console.log(`[PositionMonitor] ${ticker} fuera de sesión regular — salida aplazada a la apertura`);
+    return { status: "skipped", reason: "outside-rth" };
   }
 
   const sellQty = Math.max(1, Math.floor(qty));

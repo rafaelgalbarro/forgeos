@@ -110,8 +110,12 @@ def global_pause_active() -> tuple[bool, str | None]:
     return True, str(reason)
 
 
-def assert_order_send_allowed(*, symbol: str | None, transmit: bool, what_if: bool) -> None:
+def assert_order_send_allowed(*, symbol: str | None, transmit: bool, what_if: bool, closing: bool = False) -> None:
     if what_if or not transmit:
+        return
+    # Exits of an existing long are never braked: the brake must not leave a position stuck
+    # (INTC 30/10: stop-loss sells refused all day after one premarket NO_ACK).
+    if closing:
         return
     paused, reason = global_pause_active()
     if paused:

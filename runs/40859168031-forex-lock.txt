@@ -1,5 +1,0 @@
-confirmada para real: GBP_CHF → H1: RSI(14) sale de 25/75 (reversión) · solo sesión Asia · SL 1.5×ATR · TP 1.5R · máx 36 h
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0

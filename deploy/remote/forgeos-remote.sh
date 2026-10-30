@@ -1011,7 +1011,10 @@ PY
       s0=$(date +%s.%N)
       out=$(curl -s --max-time 60 "http://localhost:8002/api/ibkr/historical?symbol=$T&$q&exchange=SMART&currency=USD&secType=STK&useRTH=0" -H "X-Internal-API-Key: $API_KEY")
       s1=$(date +%s.%N)
-      echo "$q → $(echo "$s1 - $s0" | bc) s · $(echo "$out" | head -c 160)"
+      echo "$q → $(echo "$s1 - $s0" | bc) s · $(echo "$out" | python3 -c 'import sys,json
+try:
+  b=json.load(sys.stdin).get("bars") or []; print(len(b),"velas; últimas:", b[-2:])
+except Exception as e: print("sin JSON", e)' 2>&1 | head -c 400)"
     done
     s0=$(date +%s.%N); out=$(curl -s --max-time 60 "http://localhost:8002/api/ibkr/market-data?symbol=$T&exchange=SMART&currency=USD&secType=STK" -H "X-Internal-API-Key: $API_KEY"); s1=$(date +%s.%N)
     echo "market-data → $(echo "$s1 - $s0" | bc) s · $(echo "$out" | head -c 200)"

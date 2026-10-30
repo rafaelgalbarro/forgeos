@@ -779,6 +779,12 @@ do_forex_forum40() {
   timeout 3600 node scripts/forex-bot.cjs forum40 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | grep -vE "^\[F40\] .*ninguna" | tail -70
 }
 
+do_intraday_backtest() {
+  local days; days="$(echo "${1:-300}" | tr -cd '0-9')"; [ -n "$days" ] || days=300
+  sec "COMBINACIONES INTRADÍA (acciones EE. UU. 5 min + CFD de índices) — backtest $days días"
+  timeout 3600 node scripts/forex-bot.cjs intraday "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -60
+}
+
 do_forex_playbook() {
   sec "FICHAS POR INSTRUMENTO (guía) — backtest con historia de OANDA"
   timeout 2400 node scripts/forex-bot.cjs playbook 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -40
@@ -974,6 +980,7 @@ case "$ACTION" in
   gap-backtest) do_gap_backtest "$ARG" ;;
   pm-backtest) do_pm_backtest "$ARG" ;;
   forex-forum40) do_forex_forum40 ;;
+  intraday-backtest) do_intraday_backtest "$ARG" ;;
   forex-forum40-lock-best)
     # Robust subset of the 40-list: ≥120 trades, both halves ≥ +0.05R, ≥ +0.08R with 1.5× spread,
     # best per instrument, at most 8 → real money (locked). Everything else stays in shadow.

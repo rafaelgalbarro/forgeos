@@ -515,7 +515,7 @@ export async function getIntradayHistory(
 
   const eodhdSymbol = toEodhdSymbol(symbol);
   const cacheId = cacheKey("eodhd-intra", eodhdSymbol, interval, String(daysBack));
-  const ttl = interval === "1h" ? 5 * 60 * 1000 : 3 * 60 * 1000;
+  const ttl = interval === "1h" ? 30 * 60 * 1000 : 5 * 60 * 1000;
   return getOrSetCached(cacheId, ttl, async () => {
     const to = Math.floor(Date.now() / 1000);
     const from = to - daysBack * 24 * 60 * 60;

@@ -16,7 +16,29 @@ import { getIntradayHistory } from "@/lib/market-data/eodhd";
 
 export type IbkrBarSize = "1 min" | "5 mins" | "15 mins" | "1 hour" | "1 day";
 
-const FETCH_TIMEOUT_MS = 25_000;
+const FETCH_TIMEOUT_MS = 12_000;
+
+/**
+ * IBKR pacing: ~60 historical requests per 10 minutes. With 100 stocks per 3-minute cycle we
+ * asked for ~200, the broker queued them and 1,400+ tickers/day ended in "skip (timeout IBKR)"
+ * (28–29/10), signals included. Budget the requests and answer "no bars" at once when spent.
+ */
+const HIST_BUDGET = Math.max(10, Number(process.env.IBKR_HIST_BUDGET_PER_10MIN ?? 50) || 50);
+const histStamps: number[] = [];
+let histBudgetWarnAt = 0;
+function takeHistToken(): boolean {
+  const now = Date.now();
+  while (histStamps.length && now - histStamps[0]! > 10 * 60_000) histStamps.shift();
+  if (histStamps.length >= HIST_BUDGET) {
+    if (now - histBudgetWarnAt > 60_000) {
+      histBudgetWarnAt = now;
+      console.warn(`[History] presupuesto IBKR agotado (${HIST_BUDGET}/10 min) — sin velas IBKR este ciclo`);
+    }
+    return false;
+  }
+  histStamps.push(now);
+  return true;
+}
 
 function ttlForBar(bar: string): number {
   if (bar === "1 min") return 60_000;
@@ -56,8 +78,9 @@ async function fetchBarsOnce(
     `&secType=${encodeURIComponent(secType)}` +
     `&useRTH=0`;
 
-  const paths = [`/api/ibkr/historical?${qs}`, `/api/ibkr/history?${qs}`];
+  const paths = [`/api/ibkr/historical?${qs}`];
   for (const path of paths) {
+    if (!takeHistToken()) return [];
     try {
       const raw = await ibkrServiceFetch<{
         bars?: Array<Record<string, unknown>>;
@@ -160,7 +183,9 @@ export async function ibkrDailyBars(symbol: string): Promise<OhlcvBar[]> {
 /** Intraday 1-hour bars for swing entry timing. */
 export async function ibkrBars1h(symbol: string): Promise<OhlcvBar[]> {
   const ticker = symbol.trim().toUpperCase();
-  if (isEuropeanEurEquity(ticker) && isEodhdConfigured()) {
+  const { isUsStockTicker } = await import("@/lib/trading/stocks-universe");
+  // 1-hour bars change slowly: EODHD (cached) for EU and US stocks keeps IBKR pacing for 5m bars.
+  if ((isEuropeanEurEquity(ticker) || isUsStockTicker(ticker)) && isEodhdConfigured()) {
     const rows = await getIntradayHistory(ticker, "1h", 10).catch(() => []);
     return rows
       .map((r) => ({

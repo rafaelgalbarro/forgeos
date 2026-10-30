@@ -997,6 +997,19 @@ for r in pick:
     print("REAL: %-28s ops=%4d acierto=%2.0f%% PF=%.2f media=%.3fR mitades=%.3f/%.3f spread1.5=%.3f  %s" % (r["id"], a["trades"], a["winRate"]*100, a["pf"], a["meanR"], r["firstHalf"]["meanR"], r["secondHalf"]["meanR"], r["stressed"]["meanR"], r["name"]))
 PY
     ;;
+  ib-hist-check)
+    # How long IBKR takes to answer historical / price requests for a US stock (ARG = ticker).
+    T="${ARG:-JNJ}"
+    for q in "duration=10%20D&barSize=1%20hour&bar=1%20hour" "duration=5%20D&barSize=5%20mins&bar=5%20mins" "duration=1%20Y&barSize=1%20day&bar=1%20day"; do
+      s0=$(date +%s.%N)
+      out=$(curl -s --max-time 60 "http://localhost:8002/api/ibkr/historical?symbol=$T&$q&exchange=SMART&currency=USD&secType=STK&useRTH=0" -H "X-Internal-API-Key: $API_KEY")
+      s1=$(date +%s.%N)
+      echo "$q → $(echo "$s1 - $s0" | bc) s · $(echo "$out" | head -c 160)"
+    done
+    s0=$(date +%s.%N); out=$(curl -s --max-time 60 "http://localhost:8002/api/ibkr/market-data?symbol=$T&exchange=SMART&currency=USD&secType=STK" -H "X-Internal-API-Key: $API_KEY"); s1=$(date +%s.%N)
+    echo "market-data → $(echo "$s1 - $s0" | bc) s · $(echo "$out" | head -c 200)"
+    pm2 logs ibkr-broker --lines 3000 --nostream 2>&1 | grep -E "Error|error|162|354|10167|pacing" | tail -8 | cut -c1-220
+    ;;
   stocks-day)
     # Why IB did or did not trade: signals, rejections and skips over the last ~250k log lines.
     sec "ACCIONES: señales y motivos (logs de forgeos)"

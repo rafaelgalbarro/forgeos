@@ -1,0 +1,66 @@
+
+=== COMBINACIONES INTRADÍA (acciones EE. UU. 5 min + CFD de índices) — backtest 300 días ===
+| acciones $2000 | EMA9_20_TREND | 3493 | 26% | 0.38 | -0.550 | -0.17 | -0.473 | -0.631 | -0.813 | no (PF=0.38; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | RIBBON_5_8_13 | 14237 | 24% | 0.35 | -0.519 | -0.17 | -0.486 | -0.553 | -0.776 | no (PF=0.35; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | BB_SQUEEZE_BREAK | 2542 | 31% | 0.39 | -0.518 | -0.18 | -0.414 | -0.627 | -0.711 | no (PF=0.39; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | ORB_15 | 1939 | 43% | 0.70 | -0.126 | -0.11 | -0.069 | -0.189 | -0.201 | no (PF=0.70; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | ORB_30 | 1565 | 44% | 0.68 | -0.114 | -0.11 | -0.066 | -0.169 | -0.179 | no (PF=0.68; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | GOLDEN_POCKET | 639 | 31% | 0.43 | -0.510 | -0.17 | -0.513 | -0.507 | -0.714 | no (PF=0.43; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | MACD_RSI | 4197 | 26% | 0.36 | -0.529 | -0.18 | -0.522 | -0.536 | -0.776 | no (PF=0.36; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | BB_VOLUME | 1543 | 35% | 0.38 | -0.491 | -0.16 | -0.458 | -0.522 | -0.751 | no (PF=0.38; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | MA_PRICE_ACTION | 921 | 34% | 0.39 | -0.484 | -0.14 | -0.501 | -0.463 | -0.676 | no (PF=0.39; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | MACD_BB | 1939 | 32% | 0.35 | -0.515 | -0.18 | -0.553 | -0.484 | -0.756 | no (PF=0.35; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | MULTI_MA_RSI | 43 | 40% | 0.88 | -0.056 | 0.13 | -0.123 | 0.002 | -0.167 | no (ops=43; PF=0.88; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones $2000 | RSI_VOLUME | 564 | 36% | 0.56 | -0.363 | -0.14 | -0.441 | -0.285 | -0.555 | no (PF=0.56; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones SIN costes | EMA9_20_TREND | 3493 | 33% | 0.95 | -0.025 | 0.00 | 0.029 | -0.081 | -0.025 | no (PF=0.95; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones SIN costes | RIBBON_5_8_13 | 14125 | 33% | 0.96 | -0.018 | -0.00 | 0.002 | -0.038 | -0.018 | no (PF=0.96; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones SIN costes | BB_SQUEEZE_BREAK | 2559 | 38% | 0.91 | -0.050 | -0.00 | 0.025 | -0.128 | -0.050 | no (PF=0.91; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones SIN costes | ORB_15 | 1940 | 49% | 1.10 | 0.034 | 0.06 | 0.090 | -0.029 | 0.034 | no (PF=1.10; no gana en las dos mitades) |
+| acciones SIN costes | ORB_30 | 1566 | 50% | 1.09 | 0.025 | 0.06 | 0.072 | -0.027 | 0.025 | no (PF=1.09; no gana en las dos mitades) |
+| acciones SIN costes | GOLDEN_POCKET | 639 | 36% | 0.97 | -0.015 | -0.00 | -0.029 | 0.000 | -0.015 | no (PF=0.97; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones SIN costes | MACD_RSI | 4197 | 36% | 0.93 | -0.033 | -0.01 | -0.040 | -0.027 | -0.033 | no (PF=0.93; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones SIN costes | BB_VOLUME | 1535 | 48% | 1.00 | 0.002 | 0.01 | 0.016 | -0.012 | 0.002 | no (PF=1.00; no gana en las dos mitades) |
+| acciones SIN costes | MA_PRICE_ACTION | 925 | 44% | 1.00 | 0.002 | 0.04 | -0.017 | 0.024 | 0.002 | no (PF=1.00; no gana en las dos mitades) |
+| acciones SIN costes | MACD_BB | 1927 | 49% | 0.93 | -0.036 | -0.01 | -0.093 | 0.011 | -0.036 | no (PF=0.93; no gana en las dos mitades; pierde con costes ×1,5) |
+| acciones SIN costes | MULTI_MA_RSI | 43 | 51% | 1.52 | 0.169 | 0.30 | 0.104 | 0.224 | 0.169 | no (ops=43) |
+| acciones SIN costes | RSI_VOLUME | 564 | 41% | 1.04 | 0.023 | 0.02 | -0.058 | 0.105 | 0.023 | no (PF=1.04; no gana en las dos mitades) |
+| CFD US500 | EMA9_20_TREND | 195 | 38% | 0.96 | -0.025 | 0.00 | 0.211 | -0.241 | -0.084 | no (PF=0.96; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | RIBBON_5_8_13 | 765 | 35% | 0.85 | -0.078 | -0.01 | -0.099 | -0.057 | -0.120 | no (PF=0.85; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | BB_SQUEEZE_BREAK | 151 | 41% | 0.91 | -0.048 | 0.00 | 0.012 | -0.103 | -0.088 | no (PF=0.91; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | ORB_15 | 165 | 33% | 0.90 | -0.070 | -0.02 | -0.002 | -0.137 | -0.113 | no (PF=0.90; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | ORB_30 | 145 | 37% | 1.00 | -0.003 | -0.00 | 0.026 | -0.032 | -0.044 | no (PF=1.00; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | GOLDEN_POCKET | 44 | 55% | 1.32 | 0.148 | 0.03 | 0.168 | 0.129 | 0.099 | no (ops=44) |
+| CFD US500 | MACD_RSI | 201 | 35% | 0.83 | -0.087 | -0.01 | -0.094 | -0.079 | -0.139 | no (PF=0.83; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | BB_VOLUME | 79 | 46% | 0.79 | -0.118 | -0.01 | -0.162 | -0.075 | -0.153 | no (ops=79; PF=0.79; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | MA_PRICE_ACTION | 93 | 37% | 0.87 | -0.065 | -0.01 | 0.065 | -0.210 | -0.094 | no (ops=93; PF=0.87; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | MACD_BB | 84 | 46% | 0.57 | -0.238 | -0.04 | -0.336 | -0.152 | -0.272 | no (ops=84; PF=0.57; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | MULTI_MA_RSI | 0 | 0% | 0.00 | 0.000 | 0.00 | 0.000 | 0.000 | 0.000 | no (ops=0; PF=0.00; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US500 | RSI_VOLUME | 5 | 40% | 0.88 | -0.076 | -0.00 | 0.184 | -0.249 | -0.109 | no (ops=5; PF=0.88; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | EMA9_20_TREND | 198 | 29% | 0.70 | -0.174 | -0.03 | -0.058 | -0.287 | -0.184 | no (PF=0.70; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | RIBBON_5_8_13 | 768 | 33% | 0.85 | -0.068 | -0.01 | -0.034 | -0.101 | -0.084 | no (PF=0.85; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | BB_SQUEEZE_BREAK | 123 | 39% | 0.92 | -0.042 | 0.02 | 0.086 | -0.180 | -0.051 | no (PF=0.92; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | ORB_15 | 156 | 40% | 0.98 | -0.010 | -0.01 | -0.097 | 0.078 | -0.016 | no (PF=0.98; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | ORB_30 | 139 | 42% | 0.98 | -0.009 | -0.02 | -0.057 | 0.038 | -0.026 | no (PF=0.98; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | GOLDEN_POCKET | 29 | 31% | 0.53 | -0.314 | -0.07 | -0.261 | -0.356 | -0.326 | no (ops=29; PF=0.53; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | MACD_RSI | 238 | 28% | 0.55 | -0.260 | -0.05 | -0.162 | -0.351 | -0.271 | no (PF=0.55; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | BB_VOLUME | 40 | 45% | 0.97 | -0.018 | 0.01 | -0.045 | 0.006 | -0.028 | no (ops=40; PF=0.97; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | MA_PRICE_ACTION | 61 | 36% | 0.59 | -0.203 | -0.04 | -0.195 | -0.211 | -0.213 | no (ops=61; PF=0.59; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | MACD_BB | 83 | 35% | 0.55 | -0.286 | -0.06 | -0.302 | -0.273 | -0.294 | no (ops=83; PF=0.55; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD US100 | MULTI_MA_RSI | 1 | 100% | 99.00 | 0.009 | 0.01 | 0.000 | 0.009 | 0.005 | no (ops=1; no gana en las dos mitades) |
+| CFD US100 | RSI_VOLUME | 5 | 40% | 1.15 | 0.092 | 0.00 | 1.758 | -1.019 | 0.080 | no (ops=5; PF=1.15; no gana en las dos mitades) |
+| CFD DE30 | EMA9_20_TREND | 290 | 36% | 1.14 | 0.072 | 0.00 | 0.069 | 0.075 | 0.030 | no (PF=1.14) |
+| CFD DE30 | RIBBON_5_8_13 | 1166 | 34% | 0.96 | -0.020 | -0.00 | 0.008 | -0.048 | -0.053 | no (PF=0.96; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD DE30 | BB_SQUEEZE_BREAK | 221 | 41% | 1.10 | 0.060 | 0.01 | 0.092 | 0.023 | 0.047 | no (PF=1.10) |
+| CFD DE30 | ORB_15 | 175 | 37% | 1.00 | -0.001 | 0.00 | 0.030 | -0.031 | -0.023 | no (PF=1.00; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD DE30 | ORB_30 | 157 | 39% | 1.03 | 0.015 | 0.01 | 0.022 | 0.008 | 0.001 | no (PF=1.03) |
+| CFD DE30 | GOLDEN_POCKET | 63 | 41% | 1.08 | 0.051 | 0.01 | 0.347 | -0.217 | 0.015 | no (ops=63; PF=1.08; no gana en las dos mitades) |
+| CFD DE30 | MACD_RSI | 335 | 32% | 0.80 | -0.105 | -0.02 | -0.098 | -0.111 | -0.130 | no (PF=0.80; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD DE30 | BB_VOLUME | 104 | 40% | 0.80 | -0.120 | -0.02 | 0.035 | -0.258 | -0.170 | no (PF=0.80; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD DE30 | MA_PRICE_ACTION | 157 | 41% | 1.07 | 0.038 | -0.01 | 0.126 | -0.063 | 0.022 | no (PF=1.07; no gana en las dos mitades) |
+| CFD DE30 | MACD_BB | 112 | 63% | 1.73 | 0.262 | 0.06 | 0.281 | 0.245 | 0.203 | APTA |
+| CFD DE30 | MULTI_MA_RSI | 4 | 25% | 0.40 | -0.183 | -0.05 | -0.546 | 0.180 | -0.194 | no (ops=4; PF=0.40; no gana en las dos mitades; pierde con costes ×1,5) |
+| CFD DE30 | RSI_VOLUME | 11 | 55% | 1.79 | 0.370 | 0.07 | 1.369 | -0.463 | 0.355 | no (ops=11; no gana en las dos mitades) |
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

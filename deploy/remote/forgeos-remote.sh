@@ -1000,13 +1000,15 @@ PY
   stocks-day)
     # Why IB did or did not trade: signals, rejections and skips over the last ~250k log lines.
     sec "ACCIONES: señales y motivos (logs de forgeos)"
-    L=/root/.pm2/logs/forgeos-out.log
-    echo "desde: $(tail -n 250000 $L | head -1 | cut -c1-40)"
-    echo "--- ciclos de acciones con universo > 0:"; tail -n 250000 $L | grep -c "Cycle/stocks\] ✅"
-    echo "--- tickers evaluados (ProStrategy ... evaluadas):"; tail -n 250000 $L | grep -c "ninguna señal"
-    echo "--- señales BUY/SELL:"; tail -n 250000 $L | grep -E "\[Signal\] [A-Z.]+ (BUY|SELL) agents" | sed -E 's/.*\[Signal\] ([A-Z.]+) (BUY|SELL).*conf=([0-9]+%).*/\1 \2 \3/' | sort | uniq -c | sort -rn | head -30
-    echo "--- qué pasó con ellas:"; tail -n 250000 $L | grep -E "\[AutoExecute\] [A-Z.]+ (→ skip|BLOCKED|→ EJECUTADO|→ orden enviada)|RECHAZADO|REJECTED_RISK|skip \(coste\)|capital insuficiente|No trading permissions|Live IBKR submit blocked" | sed -E 's/[0-9]+\|forgeos \| //' | sed -E 's/\$[0-9.]+/$X/g; s/€[0-9.]+/€X/g; s/[0-9]+\.[0-9]+%/N%/g' | cut -c1-150 | sort | uniq -c | sort -rn | head -40
-    echo "--- estrategias que más rechazan (motivo HOLD):"; tail -n 250000 $L | grep -oE "skip \([^)]*\)|Ya subió|no comprar en pico|ninguna señal \([A-Z_]+\)" | sort | uniq -c | sort -rn | head -15
+    L=/tmp/forgeos-stocks-day.log
+    ls -1tr /root/.pm2/logs/forgeos-out*.log* 2>/dev/null | tail -4 | while read f; do case "$f" in *.gz) zcat "$f";; *) cat "$f";; esac; done > $L
+    ls -la /root/.pm2/logs/ | grep forgeos-out | tail -5
+    echo "desde: $(grep -m1 -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9:]+' $L)  hasta: $(tail -n 2000 $L | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9:]+' | tail -1)"
+    echo "--- ciclos de acciones con universo > 0:"; cat $L | grep -c "Cycle/stocks\] ✅"
+    echo "--- tickers evaluados (ProStrategy ... evaluadas):"; cat $L | grep -c "ninguna señal"
+    echo "--- señales BUY/SELL:"; cat $L | grep -E "\[Signal\] [A-Z.]+ (BUY|SELL) agents" | sed -E 's/.*\[Signal\] ([A-Z.]+) (BUY|SELL).*conf=([0-9]+%).*/\1 \2 \3/' | sort | uniq -c | sort -rn | head -30
+    echo "--- qué pasó con ellas:"; cat $L | grep -E "\[AutoExecute\] [A-Z.]+ (→ skip|BLOCKED|→ EJECUTADO|→ orden enviada)|RECHAZADO|REJECTED_RISK|skip \(coste\)|capital insuficiente|No trading permissions|Live IBKR submit blocked" | sed -E 's/[0-9]+\|forgeos \| //' | sed -E 's/\$[0-9.]+/$X/g; s/€[0-9.]+/€X/g; s/[0-9]+\.[0-9]+%/N%/g' | cut -c1-150 | sort | uniq -c | sort -rn | head -40
+    echo "--- estrategias que más rechazan (motivo HOLD):"; cat $L | grep -oE "skip \([^)]*\)|Ya subió|no comprar en pico|ninguna señal \([A-Z_]+\)" | sort | uniq -c | sort -rn | head -15
     ;;
   forex-forum40-report)
     python3 - <<'PY'

@@ -1,0 +1,11 @@
+
+=== ÓRDENES ABIERTAS EN IBKR ===
+id=2322 padre=2320 SELL REP STP EUR qty=2.0 lmt=None aux=29.33 estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2298 padre=0 SELL TEF LMT EUR qty=44.0 lmt=3.412 aux=None estado=Submitted cuenta=U15513057 tif=GTC
+id=2299 padre=0 SELL TEF STP EUR qty=44.0 lmt=None aux=3.155 estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2321 padre=2320 SELL REP LMT EUR qty=2.0 lmt=31.71 aux=None estado=Submitted cuenta=U15513057 tif=GTC
+total: 4
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

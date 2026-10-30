@@ -71,7 +71,7 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 
 --- ibkr-broker-no-ack-symbol-day.json
 {
-  "updatedAt": "2026-10-28T13:23:17.914103+00:00",
+  "updatedAt": "2026-10-30T09:46:22.644227+00:00",
   "symbols": {
     "HOOD": "2026-10-19",
     "ORCL": "2026-10-19",
@@ -82,14 +82,15 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
     "SAN": "2026-10-21",
     "FER": "2026-10-21",
     "INGA": "2026-10-26",
-    "DTE": "2026-10-27",
+    "DTE": "2026-10-30",
     "BAS": "2026-10-28",
-    "BNP": "2026-10-28"
+    "BNP": "2026-10-28",
+    "INTC": "2026-10-30"
   }
 }
 --- ibkr-non-tradable.json
 {
-  "updatedAt": "2026-10-29T13:26:17.792Z",
+  "updatedAt": "2026-10-30T09:46:22.661Z",
   "entries": {
     "HYDC": {
       "symbol": "HYDC",
@@ -98,6 +99,15 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
       "ibkrStatus": "ManualBlock",
       "addedAt": "2026-10-12T20:29:25.018746Z",
       "telegramSent": true
+    },
+    "DTE": {
+      "symbol": "DTE",
+      "code": 460,
+      "message": "No trading permissions.",
+      "ibkrStatus": "NO_ACK",
+      "addedAt": "2026-10-30T09:46:22.661Z",
+      "telegramSent": true,
+      "expiresAt": "2026-10-31T09:46:22.661Z"
     }
   }
 }
@@ -105,7 +115,7 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 {
   "dayKey": "2026-10-30",
   "dayStartCapital": 87.4107,
-  "dayPnl": -1.0730000000000075,
+  "dayPnl": -1.080600000000004,
   "exitsOnly": false,
   "dailyLimitHit": false
 }
@@ -114,8 +124,8 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 señales registradas=92 cerradas=92 mejoraron=72 → listo=True (requiere ≥20 cerradas y mayoría mejorando)
 
 === CUENTAS IBKR (efectivo y posiciones) ===
-U15513057 base= EUR NAV= 388.83 Disponible= 244.81 USD= 35.52 EUR= 213.06
-U24225949 base= EUR NAV= 151.16 Disponible= 57.35 USD= 64.15 EUR= 0.00
+U15513057 base= EUR NAV= 388.77 Disponible= 182.07 USD= 35.52 EUR= 150.22
+U24225949 base= EUR NAV= 151.00 Disponible= 57.52 USD= 64.15 EUR= 0.00
    U15513057 TEF 44.0 EUR coste= 3.26613635
    U24225949 HYDC 2.0 USD coste= 2.0243
    U24225949 INTC 1.0 USD coste= 93.0816
@@ -123,59 +133,126 @@ U24225949 base= EUR NAV= 151.16 Disponible= 57.35 USD= 64.15 EUR= 0.00
    U15513057 CGBSF 2000.0 USD coste= 0.079049
    U24225949 FLYX 0.8004 USD coste= 6.26274365
    U24225949 INND 30000.0 USD coste= 0.000707
+   U15513057 REP 2.0 EUR coste= 31.42
    U24225949 RECX 2500.0 USD coste= 0.00808
    U15513057 APTX.OLD 100.0 USD coste= 0.027348
    U24225949 APLT.CVR 300.0 USD coste= 0.0137
 
 === BROKER: último error de Python (Traceback) ===
+5022:18|ibkr-br | Traceback (most recent call last):
+18|ibkr-br | Traceback (most recent call last):
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
+18|ibkr-br |     result = await app(  # type: ignore[func-returns-value]
+18|ibkr-br |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |         self.scope, self.receive, self.send
+18|ibkr-br |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |     )
+18|ibkr-br |     ^
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+18|ibkr-br |     return await self.app(scope, receive, send)
+18|ibkr-br |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/fastapi/applications.py", line 1133, in __call__
+18|ibkr-br |     await super().__call__(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/applications.py", line 107, in __call__
+18|ibkr-br |     await self.middleware_stack(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 186, in __call__
+18|ibkr-br |     raise exc
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 164, in __call__
+18|ibkr-br |     await self.app(scope, receive, _send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/exceptions.py", line 63, in __call__
+18|ibkr-br |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+18|ibkr-br |     raise exc
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+18|ibkr-br |     await app(scope, receive, sender)
 
 === ACCIONES: decisiones recientes del ciclo ===
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [PositionMonitor] live close failed INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Telegram] filtrado (solo operaciones): «❌ RECHAZADA INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órden»
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [Telegram] filtrado (solo operaciones): «❌ RECHAZADA INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órden»
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
 
 === ACCIONES: resumen de ciclos ===
-11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=ASIA
-11|forgeos | [StocksUniverse] phase=ASIA source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [ProStrategy] Ciclo forex_1793345303977: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
-11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=ASIA
-11|forgeos | [StocksUniverse] phase=ASIA source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [ProStrategy] Ciclo forex_1793345506790: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
-11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=ASIA
-11|forgeos | [StocksUniverse] phase=ASIA source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [ProStrategy] Ciclo forex_1793345687226: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
-11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=ASIA
+11|forgeos | [ProStrategy] UNH: US_LISTED 10:49 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] JNJ: US_LISTED 10:49 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] ABBV: US_LISTED 10:49 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REV
+11|forgeos | [ProStrategy] MRK: US_LISTED 10:49 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [Cycle/stocks] ✅ 98 results, pending=0 phase=USA_REGULAR
+11|forgeos | [StocksUniverse] plan=EU+US_REGULAR phase=USA_REGULAR cycle#=7201
+11|forgeos | [ProStrategy] Ciclo forex_1793371930740: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
+11|forgeos | [StocksUniverse] phase=USA_REGULAR source=opp-scan+eu-eur+us-regular → 98 equities (EU EUR + US; ETFs/crypto/forex excluded)
+11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=USA_REGULAR
+11|forgeos | [ProStrategy] Ciclo stocks_1793371936524: kind=stocks session=combined evaluando 98/98 tickers (max=100, concurrency=8, timeout=120s)
 
 === SCHEDULER ===
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:13:22.129Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T14:26:58.476Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:16:22.620Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T14:30:53.938Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:19:22.873Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T14:34:43.958Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:22:23.302Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T14:38:28.796Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:25:23.609Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-10-30T14:41:29.952Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T14:42:02.344Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:28:24.039Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T14:45:36.394Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:31:46.800Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T14:49:10.237Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-10-30T07:34:47.789Z ok=3 skipped=0 stocks, crypto, forex
 
 === CRIPTO: motor ===
-2026-10-30 07:32:00 +00:00: [Kraken/Futures] cycle margin=64.9376 symbols=20 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=0 held=[PF_LTCUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:TREND_PULLBACK_1H_S
-2026-10-30 07:32:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=4 1739ms
-2026-10-30 07:33:00 +00:00: [Kraken/Futures] cycle margin=64.9283 symbols=20 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=0 held=[PF_LTCUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:TREND_PULLBACK_1H_S
-2026-10-30 07:33:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=4 1813ms
-2026-10-30 07:34:00 +00:00: [Kraken/Futures] cycle margin=64.9184 symbols=20 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=1 held=[PF_LTCUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:TREND_PULLBACK_1H_S
-2026-10-30 07:34:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=3 1958ms
-2026-10-30 07:35:00 +00:00: [Kraken/Futures] cycle margin=64.9167 symbols=20 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=1 held=[PF_XRPUSD:TREND_PULLBACK_1H_SHORT:pausa_tras_stop_416min | PF_ZECUSD:RS_VS_BTC_1H
-2026-10-30 07:35:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=2 2033ms
-2026-10-30 07:36:00 +00:00: [Kraken/Futures] cycle margin=64.9159 symbols=20 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 shadow=0 held=[PF_XRPUSD:TREND_PULLBACK_1H_SHORT:pausa_tras_stop_415min | PF_ZECUSD:RS_VS_BTC_1H
-2026-10-30 07:36:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=2 orders=0 held=2 1803ms
-2026-10-30 03:06:12 +00:00: [Kraken/Futures] openpositions falló — salidas aplazadas: Kraken Futures private HTTP 503: invalid JSON
-2026-10-30 03:06:17 +00:00: [Kraken/Futures] openpositions falló — salidas aplazadas: Kraken Futures private HTTP 503: invalid JSON
-2026-10-30 03:06:22 +00:00: [Kraken/Futures] openpositions falló — salidas aplazadas: Kraken Futures private HTTP 503: invalid JSON
-2026-10-30 03:06:27 +00:00: [Kraken/Futures] openpositions falló — salidas aplazadas: Kraken Futures private HTTP 503: invalid JSON
-2026-10-30 03:06:32 +00:00: [Kraken/Futures] openpositions falló — salidas aplazadas: Kraken Futures private HTTP 503: invalid JSON
+2026-10-30 14:47:44 +00:00: [Kraken/Futures] cycle margin=48.2915 symbols=21 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=2 held=[PF_ENAUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion]
+2026-10-30 14:47:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=1 2071ms
+2026-10-30 14:48:45 +00:00: [Kraken/Futures] cycle margin=48.2861 symbols=21 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=2 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion | PF_ENAUSD:RS_VS_BTC_1H_SHORT:ya_ha
+2026-10-30 14:48:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=2 2372ms
+2026-10-30 14:49:45 +00:00: [Kraken/Futures] cycle margin=48.2807 symbols=21 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=2 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion | PF_ENAUSD:RS_VS_BTC_1H_SHORT:ya_ha
+2026-10-30 14:49:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=2 2339ms
+2026-10-30 14:50:45 +00:00: [Kraken/Futures] cycle margin=48.2861 symbols=21 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=2 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion | PF_ENAUSD:RS_VS_BTC_1H_SHORT:ya_ha
+2026-10-30 14:50:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=2 2489ms
+2026-10-30 14:51:45 +00:00: [Kraken/Futures] cycle margin=48.2907 symbols=21 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=2 held=[PF_ZECUSD:RS_VS_BTC_1H_SHORT:ya_hay_posicion]
+2026-10-30 14:51:45 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=1 2239ms
+2026-10-30 14:51:57 +00:00: [Kraken/Futures] posición PF_DOGEUSD sin entrada en el journal — revisar a mano
+2026-10-30 14:52:02 +00:00: [Kraken/Futures] posición PF_DOGEUSD sin entrada en el journal — revisar a mano
+2026-10-30 14:52:07 +00:00: [Kraken/Futures] posición PF_DOGEUSD sin entrada en el journal — revisar a mano
+2026-10-30 14:52:12 +00:00: [Kraken/Futures] posición PF_DOGEUSD sin entrada en el journal — revisar a mano
+2026-10-30 14:52:17 +00:00: [Kraken/Futures] posición PF_DOGEUSD sin entrada en el journal — revisar a mano
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -77,13 +77,18 @@ async function main(): Promise<void> {
       for (const notional of [250, 2000]) {
         rows.push(...evaluate(`acciones $${notional}`, sets.map((z) => ({ bars: z.bars, s: ny, cost: { kind: "stock", notionalUsd: notional, slipPct: 0.0003 } as ICost }))));
       }
+      // reference: the rule itself, with no commission and no slippage
+      rows.push(...evaluate("acciones SIN costes", sets.map((z) => ({ bars: z.bars, s: ny, cost: { kind: "cfd", spread: 0 } as ICost }))));
     }
   }
 
   if (mt5Configured()) {
     for (const [inst, sess] of [["US500", ny], ["US100", ny], ["DE30", XETRA_SESSION()]] as const) {
       try {
-        const raw = await mt5Candles(inst, "M5", 60000);
+        let raw: Awaited<ReturnType<typeof mt5Candles>> = [];
+        for (let attempt = 0; attempt < 8 && !raw.length; attempt += 1) {
+          raw = await mt5Candles(inst, "M5", 60000).catch(async (e) => { console.warn(`[intradía] ${inst}: ${e instanceof Error ? e.message : e} — reintento`); await new Promise((r) => setTimeout(r, 30_000)); return []; });
+        }
         if (!raw.length) continue;
         // MT5 bar times are broker-server time: estimate the offset from the last bar vs now.
         const last = raw[raw.length - 1]!;

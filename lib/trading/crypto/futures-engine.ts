@@ -628,7 +628,8 @@ function recentStopOuts(): Map<string, number> {
     if (t.shadow || t.venue !== "futures" || !t.exitReason) continue;
     const loss = t.exitReason === "STOP_LOSS" || (t.netPnlEur != null && t.netPnlEur < 0);
     if (!loss) continue;
-    const at = Date.parse(t.at) + (t.durationMs ?? 0);
+    // the journal row may carry the close time already: never place the stop-out in the future
+    const at = Math.min(Date.now(), Date.parse(t.at) + (t.durationMs ?? 0));
     if (!Number.isFinite(at)) continue;
     const pf = String(t.pfSymbol ?? spotPairToPfSymbol(t.pair) ?? t.pair).toUpperCase();
     out.set(pf, Math.max(out.get(pf) ?? 0, at + ms));

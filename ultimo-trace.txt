@@ -1,8 +1,73 @@
 
-=== TRAZA JNJ en forgeos (últimas 6000 líneas) ===
+=== TRAZA INTC en forgeos (últimas 6000 líneas) ===
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [Universe] INTC price-source=ws $66.80 (EODHD-WS)
+11|forgeos | [PositionMonitor] INTC SL tocado @$66.80 → SELL
+11|forgeos | [AutoExecute] INTC → creando propuesta ibkr-broker (SELL qty=1 LMT=$66.80000000000001 ccy=USD primary=— account=U24225949)…
+11|forgeos | [AutoExecute] INTC → propuesta creada: id=8a900965-52c0-4a24-9b21-27d02b011f9c
+11|forgeos | [AutoExecute] INTC → aprobando propuesta…
+11|forgeos | [AutoExecute] INTC → propuesta aprobada: token=7b2265787022…
+11|forgeos | [AutoExecute] INTC → ejecutando orden IBKR…
+11|forgeos | [Telegram] filtrado (solo operaciones): «❌ RECHAZADA INTC: BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órden»
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [Exit/stocks] omitidas 5 posiciones huérfanas (no ForgeOS): HYDC,INTC,INND,RECX,APLT.CVR
+11|forgeos | [AutoExecute] INTC → skip (BROKER_NO_ACK_BRAKE hoy UTC)
+11|forgeos | [PositionMonitor] INTC sin SL/TP guardado → defaults SL=$90.29 TP=$100.53 (avgCost)
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
 
-=== TRAZA JNJ en broker ===
+=== TRAZA INTC en broker ===
+18|ibkr-br |   symbol: "INTC"
+18|ibkr-br |   localSymbol: "INTC"
+18|ibkr-br |   symbol: "INTC"
+18|ibkr-br |   localSymbol: "INTC"
+18|ibkr-br | 14:52:58 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 123361818606416: ConId: 270639, Symbol: INTC, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: NASDAQ, PrimaryExchange: , Currency: USD, Local
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=1
+codigo_salida=0

@@ -1,29 +1,31 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 300af91 pm-backtest: 12 candidatos/día y 10 descargas en paralelo
+Desplegando f6dc337 IB: presupuesto de peticiones de históricos (ritmo de IBKR) y velas de 1 h desde EODHD para acciones de EE. UU.; evita los 'skip (timeout IBKR)' que bloqueaban las compras
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261029-143820
-Updating 8ab97f5..300af91
+estado copiado en /root/forgeos-state-20261030-074254
+Updating 300af91..f6dc337
 Fast-forward
- deploy/remote/forgeos-remote.sh | 18 ++++++++++++++++++
- scripts/gap-backtest.ts         |  4 ++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
+ deploy/remote/forgeos-remote.sh      | 49 ++++++++++++++++++++++++++++++++++++
+ lib/market-data/eodhd.ts             |  2 +-
+ lib/market-data/ibkr-history.ts      | 31 ++++++++++++++++++++---
+ lib/trading/crypto/futures-engine.ts |  3 ++-
+ 4 files changed, 80 insertions(+), 5 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.98s
+19 passed in 0.63s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        5305         474           4        2276        2440
-Swap:           4095        1655        2440
+Mem:            7746        6328         336          22        1409        1417
+Swap:           4095        1012        3083
      0 MB COMMAND
-  1158 MB node
-  1046 MB node
-   795 MB node
-   419 MB java
-   385 MB next-server
+  1331 MB node
+  1281 MB node
+  1242 MB node
+   630 MB java
+   399 MB next-server
 
 up to date in 2s
    Generating static pages (153/204) 

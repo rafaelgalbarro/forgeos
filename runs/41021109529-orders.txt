@@ -1,6 +1,6 @@
 
 === ÓRDENES ABIERTAS EN IBKR ===
-id=2305 padre=0 SELL INTC LMT USD qty=1.0 lmt=97.69 aux=None estado=Submitted cuenta=U24225949 tif=GTC
+id=2305 padre=0 SELL INTC LMT USD qty=1.0 lmt=97.69 aux=None estado=PreSubmitted cuenta=U24225949 tif=GTC
 id=2306 padre=0 SELL INTC STP USD qty=1.0 lmt=None aux=90.33 estado=PreSubmitted cuenta=U24225949 tif=GTC
 id=2298 padre=0 SELL TEF LMT EUR qty=44.0 lmt=3.412 aux=None estado=Submitted cuenta=U15513057 tif=GTC
 id=2299 padre=0 SELL TEF STP EUR qty=44.0 lmt=None aux=3.155 estado=PreSubmitted cuenta=U15513057 tif=GTC

@@ -1,0 +1,46 @@
+2026-10-30T14:51:58 REJECTED  SELL INTC   qty=1.0 lmt=66.80000000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T14:36:32 REJECTED  SELL INTC   qty=1.0 lmt=66.74000000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T14:21:28 REJECTED  SELL INTC   qty=1.0 lmt=66.1 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T14:06:02 REJECTED  SELL INTC   qty=1.0 lmt=65.34 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T13:50:58 REJECTED  SELL INTC   qty=1.0 lmt=65.13499999999999 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T13:35:32 REJECTED  SELL INTC   qty=1.0 lmt=65.18 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T13:20:29 REJECTED  SELL INTC   qty=1.0 lmt=68.14 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T13:05:03 REJECTED  SELL INTC   qty=1.0 lmt=68.345 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T12:49:59 REJECTED  SELL INTC   qty=1.0 lmt=68.775 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T12:34:33 REJECTED  SELL INTC   qty=1.0 lmt=69.25999999999999 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T12:19:29 REJECTED  SELL INTC   qty=1.0 lmt=68.65 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T12:04:11 REJECTED  SELL INTC   qty=1.0 lmt=69.2 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T11:48:45 REJECTED  SELL INTC   qty=1.0 lmt=68.845 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T11:33:41 REJECTED  SELL INTC   qty=1.0 lmt=68.24000000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T11:18:15 REJECTED  SELL INTC   qty=1.0 lmt=68.225 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T11:03:11 REJECTED  SELL INTC   qty=1.0 lmt=68.33000000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T10:47:44 REJECTED  SELL INTC   qty=1.0 lmt=68.39 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T10:32:41 REJECTED  SELL INTC   qty=1.0 lmt=68.86 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T10:17:14 REJECTED  SELL INTC   qty=1.0 lmt=68.61500000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T10:02:10 REJECTED  SELL INTC   qty=1.0 lmt=68.055 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T09:46:44 REJECTED  SELL INTC   qty=1.0 lmt=68.36 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T09:46:21 REJECTED  BUY  DTE    qty=2.0 lmt=25.81 sl=25.293799999999997 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-30T09:31:41 REJECTED  SELL INTC   qty=1.0 lmt=68.525 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T09:19:26 EXECUTED  BUY  REP    qty=2.0 lmt=29.92 sl=29.3216 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-30T09:16:14 REJECTED  SELL INTC   qty=1.0 lmt=68.57 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T09:01:11 REJECTED  SELL INTC   qty=1.0 lmt=68.22 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T08:45:44 REJECTED  SELL INTC   qty=1.0 lmt=67.46000000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T08:30:41 REJECTED  SELL INTC   qty=1.0 lmt=68.095 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T08:18:31 EXECUTED  BUY  REP    qty=2.0 lmt=29.63 sl=29.037399999999998 cuenta=U15513057 ibkr=Submitted motivo=
+2026-10-30T08:15:15 REJECTED  SELL INTC   qty=1.0 lmt=68.92500000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
+2026-10-30T08:00:11 REJECTED  SELL INTC   qty=1.0 lmt=70.38499999999999 sl=None cuenta=U24225949 ibkr=NO_ACK motivo=399 Order Message:
+SELL 1 INTC NASDAQ.NMS
+Warning: Your order will not be placed at the ex
+2026-10-28T13:23:16 REJECTED  BUY  BNP    qty=1.0 lmt=87.42 sl=85.6716 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-28T08:20:31 REJECTED  BUY  BAS    qty=2.0 lmt=52.39 sl=51.6692 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-27T14:12:41 EXECUTED  BUY  INTC   qty=1.0 lmt=92.165 sl=90.3217 cuenta=U24225949 ibkr=Submitted motivo=
+2026-10-27T12:23:49 REJECTED  BUY  BNP    qty=1.0 lmt=86.13 sl=84.4074 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-27T08:26:35 EXECUTED  BUY  TEF    qty=44.0 lmt=3.219 sl=3.15462 cuenta=U15513057 ibkr=Filled motivo=
+2026-10-27T08:19:14 REJECTED  BUY  DTE    qty=5.0 lmt=25.14 sl=24.6372 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-27T08:19:14 REJECTED  BUY  BAS    qty=4.0 lmt=52.02 sl=51.6359 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-10-26T14:03:03 EXECUTED  SELL INTC   qty=1.0 lmt=87.09 sl=None cuenta=U24225949 ibkr=Filled motivo=
+2026-10-26T13:58:58 EXECUTED  SELL SMCI   qty=1.0 lmt=32.945 sl=None cuenta=U24225949 ibkr=Filled motivo=
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

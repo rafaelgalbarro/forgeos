@@ -2,6 +2,7 @@
  * World-class multi-agent signal helpers for ForgeOS trading.
  */
 
+import { eurUsdFxForMargin } from "@/lib/trading/stock-account-capital";
 import "server-only";
 
 import { getBatchQuotes } from "@/lib/market-data/eodhd";
@@ -545,6 +546,19 @@ export async function runPreOrderRiskCheck(input: {
       availableFundsCurrency: "EUR",
     });
     available = usableEur > 0 ? usableEur : capital.cashEUR;
+  }
+  // US stock: the EUR account may fund it too (owner 29/10) — same rule as the order router.
+  if (!euLocal && (process.env.STOCKS_US_FROM_EUR_ACCOUNT ?? "true").trim().toLowerCase() !== "false") {
+    const alt = await fetchCapitalSnapshotForAccount(ibkrEurStocksAccountId()).catch(() => null);
+    if (alt) {
+      const fx = eurUsdFxForMargin();
+      let altUsd = alt.cashUSD + Math.max(0, alt.cashEUR) * fx * 0.9;
+      if (alt.availableFunds > 0) altUsd = Math.min(altUsd, alt.availableFunds * fx);
+      if (altUsd > available) {
+        capital = alt;
+        available = altUsd;
+      }
+    }
   }
   const ccySym = euLocal ? "€" : "$";
 

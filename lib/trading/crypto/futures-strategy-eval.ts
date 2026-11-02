@@ -28,6 +28,7 @@ import {
   evaluateRsi2Trend,
   evaluateSeasonal22,
 } from "@/lib/trading/crypto/strategies/futures-extra";
+import { evaluateCryptoF40 } from "@/lib/trading/crypto/strategies/crypto-f40";
 import type { CryptoStrategySignal } from "@/lib/trading/crypto/strategies/types";
 import {
   FUTURES_DEFAULT_MAKER,
@@ -170,6 +171,7 @@ export function evaluateFuturesStrategiesForPair(
     evaluateRsi2Trend("RSI2_TREND_1H", bars1h, 3600),
     evaluateRsi2Trend("RSI2_TREND_15M", bars15, 900),
     evaluateFundingReversal(bars1h, opts.fundingByPair?.get(pair.toUpperCase()) ?? null),
+    ...evaluateCryptoF40(pair),
   ];
   for (const s of extras) {
     if (!s) continue;

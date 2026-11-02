@@ -1042,6 +1042,29 @@ except Exception as e: print("sin JSON", e)' 2>&1 | head -c 400)"
     echo "--- qué pasó con ellas:"; cat $L | grep -E "\[AutoExecute\] [A-Z.]+ (→ skip|BLOCKED|→ EJECUTADO|→ orden enviada)|RECHAZADO|REJECTED_RISK|skip \(coste\)|capital insuficiente|No trading permissions|Live IBKR submit blocked" | sed -E 's/[0-9]+\|forgeos \| //' | sed -E 's/\$[0-9.]+/$X/g; s/€[0-9.]+/€X/g; s/[0-9]+\.[0-9]+%/N%/g' | cut -c1-150 | sort | uniq -c | sort -rn | head -40
     echo "--- estrategias que más rechazan (motivo HOLD):"; cat $L | grep -oE "skip \([^)]*\)|Ya subió|no comprar en pico|ninguna señal \([A-Z_]+\)" | sort | uniq -c | sort -rn | head -15
     ;;
+  crypto40-lock-best)
+    # Kraken: robust subset of the 40-list → real (≥100 ops, both halves ≥ +0.05R, ≥ +0.08R with costs ×1.5,
+    # best per contract, at most 6).
+    python3 - <<'PY'
+import json
+p = "/var/www/forgeos/.forgeos/crypto-forum40-latest.json"
+j = json.load(open(p))
+cand = [r for r in j["results"] if r.get("liveEligible") and r["all"]["trades"] >= 100
+        and min(r["firstHalf"]["meanR"], r["secondHalf"]["meanR"]) >= 0.05 and r["stressed"]["meanR"] >= 0.08]
+best = {}
+for r in sorted(cand, key=lambda r: -r["all"]["meanR"]):
+    best.setdefault(r["instrument"], r)
+pick = sorted(best.values(), key=lambda r: -r["all"]["meanR"])[:6]
+ids = {r["id"] for r in pick}
+for r in j["results"]:
+    r["locked"] = r["id"] in ids
+json.dump(j, open(p, "w"), indent=2)
+print("candidatas robustas:", len(cand))
+for r in pick:
+    a = r["all"]
+    print("REAL: C40_%s_%s %-10s ops=%4d acierto=%2.0f%% PF=%.2f media=%.3fR mitades=%.3f/%.3f costes1.5=%.3f  %s" % (r["rule"], r["tf"], r["instrument"], a["trades"], a["winRate"]*100, a["pf"], a["meanR"], r["firstHalf"]["meanR"], r["secondHalf"]["meanR"], r["stressed"]["meanR"], r["name"]))
+PY
+    ;;
   forex-forum40-report)
     python3 - <<'PY'
 import json, collections

@@ -46,6 +46,8 @@ function pairFromTicker(ticker: string): string | null {
 
 /** Max hold by strategy (ms) — mirrors engine exits. */
 export function maxHoldMsForStrategy(strategy: string): number {
+  if (/^C40_.*_H4$/i.test(strategy)) return 120 * 3600_000;
+  if (/^C40_/i.test(strategy)) return 72 * 3600_000;
   const id = strategy.replace(/_SHORT$/i, "");
   switch (id) {
     case "MOMENTUM_IGNITION_1M":

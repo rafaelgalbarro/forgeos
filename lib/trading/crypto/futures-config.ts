@@ -65,7 +65,8 @@ export function futuresExtraLive(): boolean {
 const EXTRA_IDS = new Set(["BTC_SEASONAL_22UTC", "RSI2_TREND_1H", "RSI2_TREND_15M", "FUNDING_REVERSAL_1H"]);
 
 export function isFuturesExtraStrategy(strategyId: string): boolean {
-  return EXTRA_IDS.has(strategyId.trim().toUpperCase());
+  // C40_*: validated + locked rules of the owner's 40-list (crypto-forum40-latest.json)
+  return EXTRA_IDS.has(strategyId.trim().toUpperCase()) || /^C40_/i.test(strategyId.trim());
 }
 
 /** Strategies the owner sent back to shadow (FUTURES_EXTRA_DISABLED=RSI2_TREND_15M,…). */

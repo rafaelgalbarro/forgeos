@@ -4,6 +4,7 @@
 
 import "server-only";
 
+import { c40RuleExit, isC40Strategy, prefetchC40Bars } from "@/lib/trading/crypto/strategies/crypto-f40";
 import {
   quantizeStopConservative,
   signalPriceToContract,
@@ -319,6 +320,7 @@ async function fundingBySpotPair(pairs: readonly string[]): Promise<Map<string, 
 
 /** Closes already announced on Telegram (one message per open leg, whatever happens). */
 const announcedCloses = new Set<string>();
+const c40ExitCheckedAt = new Map<string, number>();
 
 async function finalizeFuturesClose(
   open: CryptoJournalTrade,
@@ -586,6 +588,24 @@ export async function runFuturesExitLoop(): Promise<void> {
         .catch(() => undefined);
       await finalizeFuturesClose(open, markNow > 0 ? markNow : open.entry, "LIQ_PROXIMITY_50", 0);
     }
+    // 40-list rules: rule exit on a closed bar (checked once a minute per leg)
+    if (isC40Strategy(String(open.strategy))) {
+      const key = String(open.signalKey ?? open.at);
+      const last = c40ExitCheckedAt.get(key) ?? 0;
+      if (Date.now() - last > 60_000) {
+        c40ExitCheckedAt.set(key, Date.now());
+        if (c40RuleExit(String(open.strategy), open.pair, pos.side)) {
+          await adapter
+            .sendOrder({ symbol: pf, side: pos.side === "long" ? "sell" : "buy", size: pos.size, orderType: "mkt", reduceOnly: true })
+            .catch(() => undefined);
+          fillsCache = null;
+          const ex = await new Promise((r) => setTimeout(r, 2_000)).then(() => closingFillsFor(adapter, pf, open)).catch(() => null);
+          await finalizeFuturesClose(open, ex?.price ?? (markNow > 0 ? markNow : open.entry), "RULE_EXIT", ex?.feesEur ?? 0);
+          await cancelStaleReduceOnly(adapter, pf, openOrders ?? []);
+          continue;
+        }
+      }
+    }
     const maxHold = maxHoldMsForStrategy(String(open.strategy));
     if (maxHold > 0 && Date.now() - Date.parse(open.at) > maxHold) {
       await adapter
@@ -689,6 +709,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     source: "default" as const,
   }));
   const fundingByPair = await fundingBySpotPair(pairs).catch(() => new Map<string, number>());
+  await prefetchC40Bars().catch(() => undefined);
   const collected: RankedSignal[] = [];
   for (const pair of pairs) {
     const raw = evaluateFuturesStrategiesForPair(pair, {

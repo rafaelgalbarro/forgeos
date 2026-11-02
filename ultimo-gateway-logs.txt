@@ -1,53 +1,54 @@
 
 === CONTENEDORES ===
 ib-gateway-1050 ghcr.io/gnzsnz/ib-gateway:stable Exited (1) 11 days ago
-ib-gateway 91165c0752ca Up About a minute
+ib-gateway 91165c0752ca Up 17 minutes
 
 === LOG ib-gateway (últimas líneas, sin credenciales) ===
-2026-11-02 19:21:30:474 IBC: Waiting for config dialog future to complete
-2026-11-02 19:21:30:474 IBC: Waiting for config dialog future to complete
-2026-11-02 19:21:30:474 IBC: Getting main window
-2026-11-02 19:21:30:475 IBC: Creating main window future
-2026-11-02 19:21:33:005 IBC: detected frame entitled: IBKR Gateway; event=Opened
-2026-11-02 19:21:33:006 IBC: Login dialog WINDOW_OPENED: LoginState is LOGGED_OUT
-2026-11-02 19:21:33:007 IBC: trading mode from settings: tradingMode=live
-2026-11-02 19:21:33:008 IBC: Setting Trading mode = live
-2026-11-02 19:21:33:156 IBC: Setting user name
-2026-11-02 19:21:33:157 IBC: Login attempt: 1
-2026-11-02 19:21:33:158 IBC: trading mode from settings: tradingMode=live
-2026-11-02 19:21:33:159 IBC: detected frame entitled: IBKR Gateway; event=Activated
-2026-11-02 19:21:33:162 IBC: detected frame entitled: IBKR Gateway; event=Focused
-2026-11-02 19:21:33:221 IBC: Click button: Log In
-2026-11-02 19:21:33:924 IBC: Button now disabled: Log In
-2026-11-02 19:21:34:047 IBC: detected frame entitled: IBKR Gateway; event=Lost focus
-2026-11-02 19:21:34:047 IBC: detected frame entitled: IBKR Gateway; event=Deactivated
-2026-11-02 19:21:34:052 IBC: detected frame entitled: IBKR Gateway; event=Opened
-2026-11-02 19:21:34:055 IBC: Found Gateway main window
-2026-11-02 19:21:34:057 IBC: Got main window from future
-2026-11-02 19:21:34:057 IBC: Invoking config dialog menu
-2026-11-02 19:21:34:061 IBC: detected frame entitled: IBKR Gateway; event=Activated
-2026-11-02 19:21:34:084 IBC: detected frame entitled: IBKR Gateway; event=Focused
-2026-11-02 19:21:34:208 IBC: detected frame entitled: Authenticating...; event=Opened
-2026-11-02 19:21:34:275 IBC: detected frame entitled: IBKR Gateway; event=Lost focus
-2026-11-02 19:21:34:276 IBC: detected frame entitled: IBKR Gateway; event=Deactivated
-2026-11-02 19:21:34:288 IBC: detected frame entitled: Authenticating...; event=Activated
-2026-11-02 19:21:34:291 IBC: detected frame entitled: Authenticating...; event=Focused
-2026/11/02 19:21:34 socat[173] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:21:39 socat[174] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:01 socat[188] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:01 socat[189] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:04 socat[190] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:09 socat[191] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:10 socat[193] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:10 socat[192] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:34 socat[206] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:39 socat[207] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:40 socat[208] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
-2026/11/02 19:22:40 socat[209] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
+2026-11-02 19:39:45:260 IBC: detected dialog entitled: Second Factor Authentication; event=Focused
+2026/11/02 19:39:48 socat[184] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
+2026-11-02 19:39:53:788 IBC: detected dialog entitled: Second Factor Authentication; event=Lost focus
+2026-11-02 19:39:53:789 IBC: detected dialog entitled: Second Factor Authentication; event=Deactivated
+2026-11-02 19:39:53:790 IBC: detected dialog entitled: Second Factor Authentication; event=Closed
+2026-11-02 19:39:53:791 IBC: Duration since login: 35 seconds
+2026-11-02 19:39:53:791 IBC: If login has not completed, IBC will exit in 60 seconds
+2026/11/02 19:39:56 socat[199] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
+2026/11/02 19:39:56 socat[200] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
+LogModuleConfigurator-Init: Log4j Ver2.x found on classpath
+LogModuleConfigurator-Init: LogModuleConfigurator initialized with Log4j Veri.x
+2026-11-02 19:40:01:343 IBC: detected frame entitled: Starting application...; event=Closed
+2026-11-02 19:40:01:343 IBC: Login has completed
+2026-11-02 19:40:01:353 IBC: detected dialog entitled: IBKR Gateway; event=Opened
+2026-11-02 19:40:01:368 IBC: IBKR Gateway
+
+2026-11-02 19:40:01:405 IBC: detected dialog entitled: IBKR Gateway; event=Activated
+2026-11-02 19:40:01:411 IBC: detected dialog entitled: IBKR Gateway; event=Focused
+2026-11-02 19:40:01:412 IBC: detected dialog entitled: Trader Workstation Configuration; event=Opened
+2026-11-02 19:40:01:412 IBC: Got config dialog from future
+2026-11-02 19:40:01:413 IBC: Got config dialog from future
+2026-11-02 19:40:01:413 IBC: Got config dialog from future
+2026-11-02 19:40:01:441 IBC: Setting Auto restart time
+2026-11-02 19:40:01:560 IBC: Auto restart time already set to 04:30 AM
+2026-11-02 19:40:01:618 IBC: 'Bypass Order Precautions for API Orders' is already selected
+2026-11-02 19:40:01:619 IBC: Setting ReadOnlyApi
+2026-11-02 19:40:01:796 IBC: Read-Only API checkbox is already set to: false
+2026-11-02 19:40:01:968 IBC: Configuration tasks completed
+2026-11-02 19:40:01:970 IBC: Click button: OK
+2026-11-02 19:40:02:173 IBC: detected dialog entitled: Pending Tasks; event=Closed
+2026-11-02 19:40:02:173 IBC: detected dialog entitled: Trader Workstation Configuration; event=Closed
+2026-11-02 19:40:02:240 IBC: detected dialog entitled: Login Messages; event=Opened
+2026-11-02 19:40:02:313 IBC: detected dialog entitled: IBKR Gateway; event=Lost focus
+2026-11-02 19:40:02:314 IBC: detected dialog entitled: IBKR Gateway; event=Deactivated
+2026-11-02 19:40:02:316 IBC: detected dialog entitled: Login Messages; event=Activated
+2026-11-02 19:40:02:318 IBC: detected dialog entitled: Login Messages; event=Focused
+remove Client 10
+remove Client 10
+remove Client 10
+remove Client 10
 
 === RECONEXIÓN DEL BROKER ===
+{"connected":true,"twsReachable":true,"state":"CONNECTED","nextOrderIdReady":true,"nextValidId":2332,"managedAccounts":["U15513057","U24225949"],"defaultAccountId":"U24225949","configuredAccountIds":["U24225949"],"recentErrors":[{"reqId":-1,"code":2158,"message":"Sec-def data farm connection is OK:s
 
-broker NO conectado tras 90 s
+broker conectado (tras 3 s)
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

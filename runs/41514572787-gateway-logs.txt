@@ -1,0 +1,55 @@
+
+=== CONTENEDORES ===
+ib-gateway-1050 ghcr.io/gnzsnz/ib-gateway:stable Exited (1) 11 days ago
+ib-gateway 91165c0752ca Up 17 minutes
+
+=== LOG ib-gateway (últimas líneas, sin credenciales) ===
+2026-11-02 19:39:45:260 IBC: detected dialog entitled: Second Factor Authentication; event=Focused
+2026/11/02 19:39:48 socat[184] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
+2026-11-02 19:39:53:788 IBC: detected dialog entitled: Second Factor Authentication; event=Lost focus
+2026-11-02 19:39:53:789 IBC: detected dialog entitled: Second Factor Authentication; event=Deactivated
+2026-11-02 19:39:53:790 IBC: detected dialog entitled: Second Factor Authentication; event=Closed
+2026-11-02 19:39:53:791 IBC: Duration since login: 35 seconds
+2026-11-02 19:39:53:791 IBC: If login has not completed, IBC will exit in 60 seconds
+2026/11/02 19:39:56 socat[199] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
+2026/11/02 19:39:56 socat[200] E connect(5, AF=2 127.0.0.1:4001, 16): Connection refused
+LogModuleConfigurator-Init: Log4j Ver2.x found on classpath
+LogModuleConfigurator-Init: LogModuleConfigurator initialized with Log4j Veri.x
+2026-11-02 19:40:01:343 IBC: detected frame entitled: Starting application...; event=Closed
+2026-11-02 19:40:01:343 IBC: Login has completed
+2026-11-02 19:40:01:353 IBC: detected dialog entitled: IBKR Gateway; event=Opened
+2026-11-02 19:40:01:368 IBC: IBKR Gateway
+
+2026-11-02 19:40:01:405 IBC: detected dialog entitled: IBKR Gateway; event=Activated
+2026-11-02 19:40:01:411 IBC: detected dialog entitled: IBKR Gateway; event=Focused
+2026-11-02 19:40:01:412 IBC: detected dialog entitled: Trader Workstation Configuration; event=Opened
+2026-11-02 19:40:01:412 IBC: Got config dialog from future
+2026-11-02 19:40:01:413 IBC: Got config dialog from future
+2026-11-02 19:40:01:413 IBC: Got config dialog from future
+2026-11-02 19:40:01:441 IBC: Setting Auto restart time
+2026-11-02 19:40:01:560 IBC: Auto restart time already set to 04:30 AM
+2026-11-02 19:40:01:618 IBC: 'Bypass Order Precautions for API Orders' is already selected
+2026-11-02 19:40:01:619 IBC: Setting ReadOnlyApi
+2026-11-02 19:40:01:796 IBC: Read-Only API checkbox is already set to: false
+2026-11-02 19:40:01:968 IBC: Configuration tasks completed
+2026-11-02 19:40:01:970 IBC: Click button: OK
+2026-11-02 19:40:02:173 IBC: detected dialog entitled: Pending Tasks; event=Closed
+2026-11-02 19:40:02:173 IBC: detected dialog entitled: Trader Workstation Configuration; event=Closed
+2026-11-02 19:40:02:240 IBC: detected dialog entitled: Login Messages; event=Opened
+2026-11-02 19:40:02:313 IBC: detected dialog entitled: IBKR Gateway; event=Lost focus
+2026-11-02 19:40:02:314 IBC: detected dialog entitled: IBKR Gateway; event=Deactivated
+2026-11-02 19:40:02:316 IBC: detected dialog entitled: Login Messages; event=Activated
+2026-11-02 19:40:02:318 IBC: detected dialog entitled: Login Messages; event=Focused
+remove Client 10
+remove Client 10
+remove Client 10
+remove Client 10
+
+=== RECONEXIÓN DEL BROKER ===
+{"connected":true,"twsReachable":true,"state":"CONNECTED","nextOrderIdReady":true,"nextValidId":2332,"managedAccounts":["U15513057","U24225949"],"defaultAccountId":"U24225949","configuredAccountIds":["U24225949"],"recentErrors":[{"reqId":-1,"code":2158,"message":"Sec-def data farm connection is OK:s
+
+broker conectado (tras 3 s)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

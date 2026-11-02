@@ -1,0 +1,71 @@
+
+=== TRAZA INTC en forgeos (últimas 6000 líneas) ===
+11|forgeos | [PositionMonitor] live close failed INTC: Cannot find module './chunks/79577.js'
+11|forgeos | [PositionMonitor] INTC sin SL/TP guardado → defaults SL=$90.29 TP=$100.53 (avgCost)
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [Universe] INTC price-source=ws $60.41 (EODHD-WS)
+11|forgeos | [PositionMonitor] INTC SL tocado @$60.41 → SELL
+11|forgeos | [AutoExecute] INTC → creando propuesta ibkr-broker (SELL qty=1 LMT=$60.415 ccy=USD primary=— account=U24225949)…
+11|forgeos | [AutoExecute] INTC → propuesta creada: id=8c0aae19-f33e-4035-b573-f3af24ca9877
+11|forgeos | [AutoExecute] INTC → aprobando propuesta…
+11|forgeos | [AutoExecute] INTC → propuesta aprobada: token=7b2265787022…
+11|forgeos | [AutoExecute] INTC → ejecutando orden IBKR…
+11|forgeos | [AutoExecute] INTC → EJECUTADO ibkrId=2328 status=Submitted ✅
+11|forgeos | [PositionMonitor] INTC SELL enviado ibkrId=2328 — esperando Filled…
+11|forgeos | [PositionMonitor] INTC sin SL/TP guardado → defaults SL=$90.29 TP=$100.53 (avgCost)
+11|forgeos | [PositionMonitor] Monitoreando 1 posiciones: INTC SL=$90.29 TP=$100.53
+11|forgeos | [AutoExecute] INTC → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] INTC price-source=ws $60.53 (EODHD-WS)
+11|forgeos | [AutoExecute] INTC → precio: $60.53 (EODHD-WS)
+11|forgeos | [ProStrategy] INTC: US_LISTED 14:41 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [History] INTC: EODHD directo (189 barras)
+11|forgeos | [ProStrategy] INTC: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [PositionMonitor] INTC qty=0 en IBKR — eliminada del registro
+11|forgeos | [AutoExecute] INTC → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] INTC price-source=ws $60.27 (EODHD-WS)
+11|forgeos | [AutoExecute] INTC → precio: $60.27 (EODHD-WS)
+11|forgeos | [ProStrategy] INTC: US_LISTED 14:45 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [History] INTC: EODHD directo (189 barras)
+11|forgeos | [ProStrategy] INTC: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] INTC → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] INTC price-source=ws $60.03 (EODHD-WS)
+11|forgeos | [AutoExecute] INTC → precio: $60.03 (EODHD-WS)
+11|forgeos | [ProStrategy] INTC: US_LISTED 14:49 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [History] INTC: EODHD directo (189 barras)
+11|forgeos | [ProStrategy] INTC: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] INTC → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] INTC price-source=ws $60.18 (EODHD-WS)
+11|forgeos | [AutoExecute] INTC → precio: $60.18 (EODHD-WS)
+11|forgeos | [ProStrategy] INTC: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [History] INTC: EODHD directo (189 barras)
+11|forgeos | [ProStrategy] INTC: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+11|forgeos | [AutoExecute] INTC → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
+11|forgeos | [Universe] INTC price-source=ws $60.36 (EODHD-WS)
+11|forgeos | [AutoExecute] INTC → precio: $60.36 (EODHD-WS)
+11|forgeos | [ProStrategy] INTC: US_LISTED 14:58 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVERSAL_OVERSOLD,USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_C
+11|forgeos | [History] INTC: EODHD directo (189 barras)
+11|forgeos | [ProStrategy] INTC: ninguna señal (USA_REGULAR) evaluadas=[USA_EODHD_MOMENTUM,USA_BB_OVERSOLD,USA_MACD_CROSS,USA_TREND_FOLLOWING,USA_INVERSE_HS,USA_DOUBLE_BOTTOM,USA_EARNINGS_MOMENTUM,USA_NEWS_CATALYST]
+
+=== TRAZA INTC en broker ===
+18|ibkr-br | INFO:     127.0.0.1:44280 - "GET /api/ibkr/market-data?symbol=INTC&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:44304 - "GET /api/ibkr/price/INTC?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:44262 - "GET /api/ibkr/historical?symbol=INTC&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:58712 - "GET /api/ibkr/market-data?symbol=INTC&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:58744 - "GET /api/ibkr/price/INTC?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:58672 - "GET /api/ibkr/historical?symbol=INTC&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:46428 - "GET /api/ibkr/market-data?symbol=INTC&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:46412 - "GET /api/ibkr/price/INTC?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:36388 - "GET /api/ibkr/market-data?symbol=INTC&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34760 - "GET /api/ibkr/price/INTC?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:36388 - "GET /api/ibkr/historical?symbol=INTC&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34144 - "GET /api/ibkr/historical?symbol=INTC&duration=10%20D&barSize=1%20hour&bar=1%20hour&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34148 - "GET /api/ibkr/historical?symbol=INTC&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34156 - "GET /api/ibkr/historical?symbol=INTC&duration=1%20Y&barSize=1%20day&bar=1%20day&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:34170 - "GET /api/ibkr/market-data?symbol=INTC&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:35938 - "GET /api/ibkr/market-data?symbol=INTC&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:35930 - "GET /api/ibkr/price/INTC?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:35890 - "GET /api/ibkr/historical?symbol=INTC&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

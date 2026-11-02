@@ -48,6 +48,8 @@ FOREX_BOT_LIVE_CONFIRM=true
 FOREX_BOT_MODE=live
 FOREX_BOT_MIN_LOT_MAX_RISK_PCT=5
 FOREX_BOT_MAX_POSITIONS=3
+STOCKS_MONITOR_HOLD=INTC
+FUTURES_EXTRA_DISABLED=RSI2_TREND_15M,FUNDING_REVERSAL_1H
 
 === CONFIGURACIÓN broker services/ibkr-broker/.env (sin secretos) ===
 INTERNAL_API_KEY=(definida)
@@ -106,7 +108,7 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 {
   "dayKey": "2026-11-02",
   "dayStartCapital": 84.1997,
-  "dayPnl": 0.9214999999999947,
+  "dayPnl": 0.5441999999999894,
   "exitsOnly": false,
   "dailyLimitHit": false
 }
@@ -115,105 +117,76 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 señales registradas=92 cerradas=92 mejoraron=72 → listo=True (requiere ≥20 cerradas y mayoría mejorando)
 
 === CUENTAS IBKR (efectivo y posiciones) ===
-detail base= None NAV= None Disponible= None USD= None EUR= None
-Traceback (most recent call last):
-  File "<string>", line 6, in <module>
-    print("  ", r.get("account"), r.get("symbol"), r.get("position"), r.get("currency"), "coste=", r.get("avgCost"))
-                ^^^^^
-AttributeError: 'str' object has no attribute 'get'
-Error in sys.excepthook:
-Traceback (most recent call last):
-  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 238, in partial_apport_excepthook
-    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
-  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 122, in apport_excepthook
-    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
-                                            ~~~~~~~^^^^^^^^
-FileNotFoundError: [Errno 2] No such file or directory: '/var/www/forgeos/-c'
-
-Original exception was:
-Traceback (most recent call last):
-  File "<string>", line 6, in <module>
-    print("  ", r.get("account"), r.get("symbol"), r.get("position"), r.get("currency"), "coste=", r.get("avgCost"))
-                ^^^^^
-AttributeError: 'str' object has no attribute 'get'
+U15513057 base= EUR NAV= 386.97 Disponible= 181.84 USD= 35.52 EUR= 150.10
+U24225949 base= EUR NAV= 141.53 Disponible= 14.34 USD= 16.0495 EUR= 0.00
+   U15513057 TEF 44.0 EUR coste= 3.26613635
+   U24225949 HYDC 2.0 USD coste= 2.0243
+   U24225949 INTC 0.0 USD coste= 0.0
+   U15513057 GNLN 0.25 USD coste= 42.696
+   U15513057 CGBSF 2000.0 USD coste= 0.079049
+   U24225949 FLYX 2.3786 USD coste= 2.10741615
+   U24225949 NOW 1.0 USD coste= 107.915003
+   U24225949 INND 30000.0 USD coste= 0.000707
+   U15513057 REP 2.0 EUR coste= 31.42
+   U24225949 RECX 2500.0 USD coste= 0.00808
+   U15513057 APTX.OLD 100.0 USD coste= 0.027348
+   U24225949 APLT.CVR 300.0 USD coste= 0.0137
 
 === BROKER: último error de Python (Traceback) ===
-2739:18|ibkr-br | Traceback (most recent call last):
-2830:18|ibkr-br | Traceback (most recent call last):
-2918:18|ibkr-br | Traceback (most recent call last):
-18|ibkr-br | Traceback (most recent call last):
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
-18|ibkr-br |     result = await app(  # type: ignore[func-returns-value]
-18|ibkr-br |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-18|ibkr-br |         self.scope, self.receive, self.send
-18|ibkr-br |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-18|ibkr-br |     )
-18|ibkr-br |     ^
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-18|ibkr-br |     return await self.app(scope, receive, send)
-18|ibkr-br |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/fastapi/applications.py", line 1133, in __call__
-18|ibkr-br |     await super().__call__(scope, receive, send)
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/applications.py", line 107, in __call__
-18|ibkr-br |     await self.middleware_stack(scope, receive, send)
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 186, in __call__
-18|ibkr-br |     raise exc
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 164, in __call__
-18|ibkr-br |     await self.app(scope, receive, _send)
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/exceptions.py", line 63, in __call__
-18|ibkr-br |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-18|ibkr-br |     raise exc
-18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-18|ibkr-br |     await app(scope, receive, sender)
 
 === ACCIONES: decisiones recientes del ciclo ===
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos |   ✅ APROBADO para ejecución
+11|forgeos | [AutoExecute] NOW → orden enviada ibkrId=2329 proposal=f262e328-47eb-4783-988a-866033c3fde8
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
 
 === ACCIONES: resumen de ciclos ===
-11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=USA_REGULAR
-11|forgeos | [StocksUniverse] phase=USA_REGULAR source=opp-scan+us-regular → 68 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] plan=US_REGULAR phase=USA_REGULAR cycle#=8688
-11|forgeos | [ProStrategy] Ciclo forex_1793646856034: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
-11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=USA_REGULAR
-11|forgeos | [StocksUniverse] phase=USA_REGULAR source=opp-scan+us-regular → 68 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [ProStrategy] Ciclo forex_1793647041988: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
-11|forgeos | [StocksUniverse] plan=US_REGULAR phase=USA_REGULAR cycle#=8689
-11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=USA_REGULAR
-11|forgeos | [StocksUniverse] phase=USA_REGULAR source=opp-scan+us-regular → 68 equities (EU EUR + US; ETFs/crypto/forex excluded)
+11|forgeos | [ProStrategy] ULTA: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REV
+11|forgeos | [ProStrategy] XOM: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] CVX: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] COP: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] SLB: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] OXY: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] MPC: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] PSX: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] VLO: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [Cycle/stocks] ✅ 68 results, pending=0 phase=USA_REGULAR
 
 === SCHEDULER ===
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T18:58:50.509Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:01:56.653Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:05:02.758Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-11-02T19:08:03.338Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:08:09.366Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:11:15.501Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:14:21.648Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:17:27.659Z ok=3 skipped=0 stocks, crypto, forex
+/root/.pm2/logs/forgeos-scheduler-error.log last 400 lines:
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/in-play error: fetch failed
+17|forgeos | [Scheduler] stocks/scan error: fetch failed
+17|forgeos | [Scheduler] Error en ciclo: fetch failed
 
 === CRIPTO: motor ===
-2026-11-02 19:10:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1711ms
-2026-11-02 19:11:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1532ms
-2026-11-02 19:12:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1716ms
-2026-11-02 19:13:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1745ms
-2026-11-02 19:14:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1647ms
-2026-11-02 19:15:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1999ms
-2026-11-02 19:16:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1783ms
-2026-11-02 19:17:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1476ms
-2026-11-02 19:18:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1790ms
-2026-11-02 19:19:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1849ms
-2026-11-02 15:58:09 +00:00: [Kraken/Futures] posición PF_ETHUSD sin entrada en el journal — revisar a mano
-2026-11-02 15:58:14 +00:00: [Kraken/Futures] posición PF_ETHUSD sin entrada en el journal — revisar a mano
-2026-11-02 17:33:55 +00:00: [Kraken/Futures] ⚠ PF_LINKUSD sin stop reduce-only en el exchange
-2026-11-02 18:28:08 +00:00: [Telegram] sendMessage failed: fetch failed
-2026-11-02 18:28:08 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta
+2026-11-02 19:52:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 2192ms
+2026-11-02 19:53:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=0 orders=0 held=0 2842ms
+2026-11-02 19:54:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1771ms
+2026-11-02 19:55:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 2104ms
+2026-11-02 19:55:35 +00:00: [CryptoEngine] arranque pid=3478778 venue=futures analysis=60000ms exits=5s
+2026-11-02 19:55:46 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=1 held=0 9495ms
+2026-11-02 19:56:48 +00:00: [Kraken/Futures] cycle margin=59.9665 symbols=14 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 shadow=0 held=[PF_XRPUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion]
+2026-11-02 19:56:48 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 held=1 2206ms
+2026-11-02 19:57:48 +00:00: [Kraken/Futures] cycle margin=59.9740 symbols=14 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 shadow=0 held=[PF_XRPUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion]
+2026-11-02 19:57:48 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 held=1 2106ms
+2026-11-02 19:42:37 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-11-02 19:49:56 +00:00: (node:3477311) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-11-02 19:49:56 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-11-02 19:55:35 +00:00: (node:3478778) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-11-02 19:55:35 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

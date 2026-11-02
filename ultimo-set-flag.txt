@@ -1,7 +1,7 @@
 
-=== AJUSTE IB_COST_GATE ===
+=== AJUSTE STOCKS_MONITOR_HOLD ===
 antes: 
-IB_COST_GATE=false
+STOCKS_MONITOR_HOLD=INTC
 forgeos y scheduler reiniciados
 --- preparación ---
 líneas clave: 7

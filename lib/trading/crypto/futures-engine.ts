@@ -4,7 +4,7 @@
 
 import "server-only";
 
-import { c40RuleExit, isC40Strategy, prefetchC40Bars } from "@/lib/trading/crypto/strategies/crypto-f40";
+import { c40RuleExit, c40SpotPairs, isC40Strategy, prefetchC40Bars } from "@/lib/trading/crypto/strategies/crypto-f40";
 import {
   quantizeStopConservative,
   signalPriceToContract,
@@ -122,7 +122,9 @@ export async function startKrakenFuturesEngine(): Promise<void> {
     recordCryptoEngineRestart();
   }
 
-  const pairs = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
+  const universe = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
+  // contracts with a confirmed 40-list rule are analysed even if they fall out of the liquid universe
+  const pairs = [...new Set([...universe, ...c40SpotPairs().filter((p) => spotPairToPfSymbol(p))])];
   subscribeFuturesForSpotPairs(pairs);
   void backfillFuturesUniverse(pairs, { delayMs: 160 }).catch(() => undefined);
   await refreshFuturesFlexMargin().catch((err) => {
@@ -696,7 +698,9 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   };
   syncFuturesDailyRisk(acct.balanceValue || acct.availableMargin);
 
-  const pairs = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
+  const universe = await getKrakenUniversePairs().catch(() => ["XBTEUR", "ETHEUR"]);
+  // contracts with a confirmed 40-list rule are analysed even if they fall out of the liquid universe
+  const pairs = [...new Set([...universe, ...c40SpotPairs().filter((p) => spotPairToPfSymbol(p))])];
   const needBars = pairs.filter(
     (p) => getBars(p, "5").length < 30 || getBars(p, "15").length < 120 || getBars(p, "60").length < 60,
   );

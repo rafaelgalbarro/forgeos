@@ -36,6 +36,11 @@ function lockedRows(): Locked[] {
   return rows;
 }
 
+/** Spot EUR pairs (signal bars) for the contracts with a locked rule: always analysed. */
+export function c40SpotPairs(): string[] {
+  return [...new Set(lockedRows().map((r) => `${r.pf.replace(/^PF_/, "").replace(/USD$/, "")}EUR`))];
+}
+
 export function c40StrategyId(rule: string, tf: string): string {
   return `C40_${rule}_${tf}`;
 }

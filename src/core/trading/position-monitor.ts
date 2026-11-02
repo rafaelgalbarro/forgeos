@@ -683,6 +683,14 @@ async function beginExitSell(
     return { status: "skipped", reason: "already-closed" };
   }
 
+  // 2a) Owner hold list (STOCKS_MONITOR_HOLD=INTC,…): exits only through the native stop on IBKR.
+  const holds = (process.env.STOCKS_MONITOR_HOLD ?? "").toUpperCase().split(/[,\s]+/).filter(Boolean);
+  if (holds.includes(ticker)) {
+    if (mem) { mem.selling = false; positionSLTP.set(ticker, mem); }
+    releaseSellLock(ticker);
+    console.log(`[PositionMonitor] ${ticker} en STOCKS_MONITOR_HOLD — sin venta del monitor (stop nativo en IBKR)`);
+    return { status: "skipped", reason: "owner-hold" };
+  }
   // 2b) INTC 30/10: the monitor cancelled the native bracket (stop 90.33 / target 97.69) at 04:00 ET
   // to send its own SELL, IBKR did not acknowledge it outside regular hours and the position was
   // left with no stop all day. Native protection on IBKR wins: never cancel it to sell ourselves,

@@ -465,9 +465,12 @@ export function f40Ctx(bars: readonly FxCandle[]): F40Ctx {
   return { x: f40Indicators(bars), cache: new Map() };
 }
 
-export function backtestF40(rule: Rule, bars: readonly FxCandle[], tf: F40Tf, spread: number, costSpread = spread, ctx?: F40Ctx): F40Trade[] {
+export type F40Opts = { costPct?: number; noWeekend?: boolean };
+
+export function backtestF40(rule: Rule, bars: readonly FxCandle[], tf: F40Tf, spread: number, costSpread = spread, ctx?: F40Ctx, opts: F40Opts = {}): F40Trade[] {
   const { x, cache } = ctx ?? f40Ctx(bars);
-  const weekend = bars.map((b) => tf !== "D1" && isWeekendFlattenTime(new Date((b.time + TF_SEC[tf]) * 1000)));
+  const pctMult = spread > 0 ? costSpread / spread : 1;
+  const weekend = bars.map((b) => !opts.noWeekend && tf !== "D1" && isWeekendFlattenTime(new Date((b.time + TF_SEC[tf]) * 1000)));
   const out: F40Trade[] = [];
   for (let i = 120; i < bars.length - 1; i += 1) {
     if (weekend[i]) continue;
@@ -477,20 +480,22 @@ export function backtestF40(rule: Rule, bars: readonly FxCandle[], tf: F40Tf, sp
     const a = x.atr14[i];
     if (a == null || !(a > 0)) continue;
     const risk = 2 * a;
-    if (spread > 0.25 * risk) continue;
+    // crypto: round-trip cost as a fraction of price (fees + slippage), stressed by the same factor
+    const cs = opts.costPct != null ? opts.costPct * pctMult * bars[i + 1]!.open : costSpread;
+    if ((opts.costPct != null ? opts.costPct * bars[i + 1]!.open : spread) > 0.25 * risk) continue;
     const dir = side === "long" ? 1 : -1;
-    const entry = bars[i + 1]!.open + (dir * costSpread) / 2;
+    const entry = bars[i + 1]!.open + (dir * cs) / 2;
     const stop = entry - dir * risk;
     const tp = rule.rr ? entry + dir * rule.rr * risk : null;
     let exit: number | null = null;
     let j = i + 1;
     for (; j < bars.length; j += 1) {
       const b = bars[j]!;
-      if (side === "long" ? b.low <= stop : b.high >= stop) { exit = (j > i + 1 && (side === "long" ? b.open < stop : b.open > stop) ? b.open : stop) - (dir * costSpread) / 2; break; }
-      if (tp != null && (side === "long" ? b.high >= tp : b.low <= tp)) { exit = tp - (dir * costSpread) / 2; break; }
+      if (side === "long" ? b.low <= stop : b.high >= stop) { exit = (j > i + 1 && (side === "long" ? b.open < stop : b.open > stop) ? b.open : stop) - (dir * cs) / 2; break; }
+      if (tp != null && (side === "long" ? b.high >= tp : b.low <= tp)) { exit = tp - (dir * cs) / 2; break; }
       let ruleExit = false;
       try { ruleExit = rule.exit ? rule.exit(x, j, side, cache) : false; } catch { ruleExit = false; }
-      if (ruleExit || weekend[j] || j - i >= MAX_BARS[tf]) { exit = b.close - (dir * costSpread) / 2; break; }
+      if (ruleExit || weekend[j] || j - i >= MAX_BARS[tf]) { exit = b.close - (dir * cs) / 2; break; }
     }
     if (exit == null) break;
     out.push({ entryTime: bars[i + 1]!.time, side, r: ((exit - entry) * dir) / risk });
@@ -512,12 +517,12 @@ export type F40Result = {
   all: F40Stats; firstHalf: F40Stats; secondHalf: F40Stats; stressed: F40Stats; liveEligible: boolean; reason: string; locked?: boolean;
 };
 
-export function evaluateF40(rule: Rule, instrument: string, tf: F40Tf, bars: readonly FxCandle[], spread: number, ctx?: F40Ctx): F40Result {
+export function evaluateF40(rule: Rule, instrument: string, tf: F40Tf, bars: readonly FxCandle[], spread: number, ctx?: F40Ctx, opts: F40Opts = {}): F40Result {
   const c = ctx ?? f40Ctx(bars);
-  const t = backtestF40(rule, bars, tf, spread, spread, c);
+  const t = backtestF40(rule, bars, tf, spread, spread, c, opts);
   const from = bars[0]?.time ?? 0; const to = bars[bars.length - 1]?.time ?? 0; const mid = from + (to - from) / 2;
   const all = f40Stats(t); const firstHalf = f40Stats(t.filter((q) => q.entryTime < mid)); const secondHalf = f40Stats(t.filter((q) => q.entryTime >= mid));
-  const stressed = f40Stats(backtestF40(rule, bars, tf, spread, spread * F40_GATE.stress, c));
+  const stressed = f40Stats(backtestF40(rule, bars, tf, spread, spread * F40_GATE.stress, c, opts));
   const r: string[] = [];
   if (all.trades < F40_GATE.minTrades) r.push(`ops=${all.trades}<${F40_GATE.minTrades}`);
   if (all.pf < F40_GATE.minPF) r.push(`PF=${all.pf.toFixed(2)}`);

@@ -500,10 +500,12 @@ PY
 do_set_flag() {
   local key="${1%%:*}" val="${1#*:}"
   case "$key" in
-    CRYPTO_LIVE_MAX_NOTIONAL_EUR|CRYPTO_LIVE_MAX_POSITIONS|FUTURES_MAX_LEVERAGE|STOCKS_EXECUTION_ENABLED|STOCKS_EXECUTION_US|STOCKS_EXECUTION_EU|STOCKS_EXECUTION_PREMARKET|STOCKS_MAX_POSITIONS_PER_ACCOUNT|FOREX_BOT_MODE|FOREX_BOT_LIVE_CONFIRM|FOREX_BOT_RISK_PCT|FOREX_BOT_MAX_POSITIONS|FOREX_BOT_MIN_LOT_MAX_RISK_PCT|IB_COST_GATE|IB_MAX_ROUNDTRIP_COST_PCT|STOCKS_US_FROM_EUR_ACCOUNT|GAP_GO_ENABLED|GAP_GO_NOTIONAL_USD|STOCKS_CYCLE_MAX_TICKERS|PM_BOT_ENABLED|PM_BOT_NOTIONAL_USD) ;;
+    CRYPTO_LIVE_MAX_NOTIONAL_EUR|CRYPTO_LIVE_MAX_POSITIONS|FUTURES_MAX_LEVERAGE|STOCKS_EXECUTION_ENABLED|STOCKS_EXECUTION_US|STOCKS_EXECUTION_EU|STOCKS_EXECUTION_PREMARKET|STOCKS_MAX_POSITIONS_PER_ACCOUNT|FOREX_BOT_MODE|FOREX_BOT_LIVE_CONFIRM|FOREX_BOT_RISK_PCT|FOREX_BOT_MAX_POSITIONS|FOREX_BOT_MIN_LOT_MAX_RISK_PCT|IB_COST_GATE|IB_MAX_ROUNDTRIP_COST_PCT|STOCKS_US_FROM_EUR_ACCOUNT|GAP_GO_ENABLED|GAP_GO_NOTIONAL_USD|STOCKS_CYCLE_MAX_TICKERS|PM_BOT_ENABLED|PM_BOT_NOTIONAL_USD|STOCKS_MONITOR_HOLD|FUTURES_EXTRA_DISABLED) ;;
     *) echo "clave no permitida: $key"; exit 2;;
   esac
-  if [ "$key" = FOREX_BOT_MODE ]; then
+  if [ "$key" = STOCKS_MONITOR_HOLD ] || [ "$key" = FUTURES_EXTRA_DISABLED ]; then
+    val="$(echo "$val" | tr -cd 'A-Z0-9_.')"; val="${val//./,}"
+  elif [ "$key" = FOREX_BOT_MODE ]; then
     val="$(echo "$val" | tr 'A-Z' 'a-z')"
     case "$val" in shadow|live) ;; *) echo "valor no permitido: $val (shadow|live)"; exit 2;; esac
   else
@@ -785,6 +787,12 @@ do_intraday_backtest() {
   timeout 3600 node scripts/forex-bot.cjs intraday "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -60
 }
 
+do_crypto40() {
+  local days; days="$(echo "${1:-720}" | tr -cd '0-9')"; [ -n "$days" ] || days=720
+  sec "LISTA DE 40 EN KRAKEN FUTURES (1H/4H, largos y cortos) — backtest $days días"
+  timeout 3600 node scripts/forex-bot.cjs crypto40 "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -70
+}
+
 do_forex_playbook() {
   sec "FICHAS POR INSTRUMENTO (guía) — backtest con historia de OANDA"
   timeout 2400 node scripts/forex-bot.cjs playbook 2>&1 | grep -vE "ExperimentalWarning|trace-warnings" | tail -40
@@ -981,6 +989,7 @@ case "$ACTION" in
   pm-backtest) do_pm_backtest "$ARG" ;;
   forex-forum40) do_forex_forum40 ;;
   intraday-backtest) do_intraday_backtest "$ARG" ;;
+  crypto40) do_crypto40 "$ARG" ;;
   forex-forum40-lock-best)
     # Robust subset of the 40-list: ≥120 trades, both halves ≥ +0.05R, ≥ +0.08R with 1.5× spread,
     # best per instrument, at most 8 → real money (locked). Everything else stays in shadow.

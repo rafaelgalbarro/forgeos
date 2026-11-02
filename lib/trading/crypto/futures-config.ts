@@ -68,8 +68,15 @@ export function isFuturesExtraStrategy(strategyId: string): boolean {
   return EXTRA_IDS.has(strategyId.trim().toUpperCase());
 }
 
+/** Strategies the owner sent back to shadow (FUTURES_EXTRA_DISABLED=RSI2_TREND_15M,…). */
+export function futuresDisabledStrategies(): Set<string> {
+  const raw = readCryptoEnvLocal("FUTURES_EXTRA_DISABLED") ?? process.env.FUTURES_EXTRA_DISABLED ?? "";
+  return new Set(raw.toUpperCase().split(/[,\s]+/).filter(Boolean));
+}
+
 export function isFuturesStrategyLive(strategyId: string): boolean {
   const list = parseFuturesLiveStrategiesList();
+  if (futuresDisabledStrategies().has(strategyId.trim().toUpperCase())) return false;
   if (futuresExtraLive() && isFuturesExtraStrategy(strategyId)) return true;
   return list.has(strategyId.trim().toUpperCase());
 }

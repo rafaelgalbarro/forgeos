@@ -1,11 +1,15 @@
 
-=== PROTEGER TEF (U15513057) qty=42 SL=3.371 TP=3.645 ===
-{"ok":true,"oca":"PROTECT-TEF-1792668079","orders":[{"orderId":2246,"type":"LMT","price":3.645,"status":"Submitted","errors":[]},{"orderId":2247,"type":"STP","price":3.371,"status":"PreSubmitted","errors":[]}]}
+=== PROTEGER INTC (U24225949) qty=1 SL=55.56 TP=97.69 ===
+{"ok":false,"oca":"PROTECT-INTC-1793649485","orders":[{"orderId":2332,"type":"LMT","price":97.69,"status":"Inactive","errors":[]},{"orderId":2333,"type":"STP","price":55.56,"status":"Inactive","errors":[]}]}
 
 === ÓRDENES ABIERTAS EN IBKR ===
-id=2247 padre=0 SELL TEF STP EUR qty=42.0 lmt=None aux=3.371 estado=PreSubmitted cuenta=U15513057 tif=GTC
-id=2246 padre=0 SELL TEF LMT EUR qty=42.0 lmt=3.645 aux=None estado=Submitted cuenta=U15513057 tif=GTC
-total: 2
+id=2322 padre=0 SELL REP STP EUR qty=2.0 lmt=None aux=29.33 estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2331 padre=2329 SELL NOW STP USD qty=1.0 lmt=None aux=104.8 estado=PreSubmitted cuenta=U24225949 tif=GTC
+id=2330 padre=2329 SELL NOW LMT USD qty=1.0 lmt=113.35 aux=None estado=Submitted cuenta=U24225949 tif=GTC
+id=2298 padre=0 SELL TEF LMT EUR qty=44.0 lmt=3.412 aux=None estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2299 padre=0 SELL TEF STP EUR qty=44.0 lmt=None aux=3.155 estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2321 padre=0 SELL REP LMT EUR qty=2.0 lmt=31.71 aux=None estado=PreSubmitted cuenta=U15513057 tif=GTC
+total: 6
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

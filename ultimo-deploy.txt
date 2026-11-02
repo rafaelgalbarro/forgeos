@@ -1,36 +1,34 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando f535d69 IB: lista STOCKS_MONITOR_HOLD; Kraken: FUTURES_EXTRA_DISABLED para pasar estrategias a simulación y backtest de la lista de 40 en futuros (1H/4H, largos y cortos)
+Desplegando 266d955 Kraken: el motor opera las reglas validadas y confirmadas de la lista de 40 (C40_*), con salida por regla; acción crypto40-lock-best
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261102-193824
-Updating 1b0e1e3..f535d69
+estado copiado en /root/forgeos-state-20261102-194603
+Updating f535d69..266d955
 Fast-forward
- deploy/remote/forgeos-remote.sh               | 18 +++++-
- lib/forex-bot/forum40.ts                      | 25 ++++----
- lib/trading/crypto/futures-config.ts          |  7 +++
- scripts/crypto-forum40.ts                     | 86 +++++++++++++++++++++++++++
- scripts/forex-bot.cjs                         |  2 +-
- services/ibkr-broker/app/main.py              | 18 ++++++
- services/ibkr-broker/app/order_send_brakes.py |  6 +-
- src/core/trading/position-monitor.ts          | 58 ++++++++++++++++++
- 8 files changed, 205 insertions(+), 15 deletions(-)
- create mode 100644 scripts/crypto-forum40.ts
+ deploy/remote/forgeos-remote.sh             |  23 +++++
+ lib/trading/crypto/futures-config.ts        |   3 +-
+ lib/trading/crypto/futures-engine.ts        |  21 +++++
+ lib/trading/crypto/futures-strategy-eval.ts |   2 +
+ lib/trading/crypto/reconcile.ts             |   2 +
+ lib/trading/crypto/strategies/crypto-f40.ts | 128 ++++++++++++++++++++++++++++
+ 6 files changed, 178 insertions(+), 1 deletion(-)
+ create mode 100644 lib/trading/crypto/strategies/crypto-f40.ts
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.84s
+19 passed in 1.20s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        6490         257           5        1310        1255
-Swap:           4095        1172        2923
+Mem:            7746        4564         435           4        3056        3181
+Swap:           4095        2870        1225
      0 MB COMMAND
-  1910 MB node
-  1278 MB node
-  1136 MB node
-   393 MB next-server
-   329 MB java
+  1109 MB node
+   998 MB node
+   430 MB node
+   393 MB java
+   390 MB next-server
 
 up to date in 2s
    Generating static pages (153/204) 

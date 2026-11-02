@@ -1,0 +1,11 @@
+candidatas robustas: 15
+REAL: C40_F24_YEN_H1 PF_XRPUSD  ops= 264 acierto=35% PF=1.63 media=0.369R mitades=0.361/0.379 costes1.5=0.331  EMA8 cruza SMA21 de máximos/mínimos + ADX>15 subiendo y DI a favor
+REAL: C40_F02_SIDUS_H4 PF_ADAUSD  ops= 179 acierto=39% PF=1.77 media=0.205R mitades=0.069/0.356 costes1.5=0.186  Sidus: WMA5/WMA8 cruzan el canal EMA18–EMA28
+REAL: C40_F27_4UJ_H4 PF_NEARUSD ops= 111 acierto=29% PF=1.38 media=0.195R mitades=0.147/0.245 costes1.5=0.185  4UJ: precio sobre SMA48 y ATR(7) cruza su media de 30
+REAL: C40_F09_BB_STOCH_H4 PF_AVAXUSD ops= 101 acierto=49% PF=1.38 media=0.180R mitades=0.271/0.095 costes1.5=0.171  Rebote en banda de Bollinger + estocástico(5,3,3) cruza en sobreventa/sobrecompra
+REAL: C40_F26_BULLDOZER_H1 PF_DOTUSD  ops= 313 acierto=32% PF=1.29 media=0.175R mitades=0.242/0.110 costes1.5=0.134  Bulldozer: cierre sobre EMA70 con EMA21 aún debajo + AO verde subiendo
+REAL: C40_F24_YEN_H1 PF_ETHUSD  ops= 290 acierto=29% PF=1.25 media=0.165R mitades=0.165/0.165 costes1.5=0.127  EMA8 cruza SMA21 de máximos/mínimos + ADX>15 subiendo y DI a favor
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

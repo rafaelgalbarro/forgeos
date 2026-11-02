@@ -1,15 +1,15 @@
-duration=10%20D&barSize=1%20hour&bar=1%20hour → .319519606 s · 151 velas; últimas: [{'date': '20261030 09:00:00 US/Eastern', 'open': 68.45, 'high': 69.1, 'low': 64.11, 'close': 65.49, 'volume': 80431741.0, 'barCount': 292001, 'average': None}, {'date': '20261030 10:00:00 US/Eastern', 'open': 65.49, 'high': 67.41, 'low': 65.07, 'close': 67.32, 'volume': 43386014.0, 'barCount': 174671, 'average': None}]
-duration=5%20D&barSize=5%20mins&bar=5%20mins → .555119468 s · 848 velas; últimas: [{'date': '20261030 10:30:00 US/Eastern', 'open': 65.94, 'high': 66.42, 'low': 65.86, 'close': 66.34, 'volume': 4599287.0, 'barCount': 17651, 'average': None}, {'date': '20261030 10:35:00 US/Eastern', 'open': 66.34, 'high': 67.41, 'low': 66.34, 'close': 67.32, 'volume': 5615904.0, 'barCount': 22239, 'average': None}]
-duration=1%20Y&barSize=1%20day&bar=1%20day → .311083492 s · 251 velas; últimas: [{'date': '20261029', 'open': 92.04, 'high': 93.5, 'low': 70.16, 'close': 70.87, 'volume': 108146804.0, 'barCount': 368039, 'average': None}, {'date': '20261030', 'open': 69.94, 'high': 71.58, 'low': 64.11, 'close': 67.32, 'volume': 142804487.0, 'barCount': 527935, 'average': None}]
-market-data → .391807575 s · {"symbol":"INTC","secType":"STK","currency":"USD","exchange":"SMART","price":null,"bid":null,"ask":null,"last":null,"close":null,"mid":null,"volume":null,"change":null,"currentPrice":null,"recentError
-18|ibkr-br | INFO:     127.0.0.1:52466 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
-18|ibkr-br | INFO:     127.0.0.1:42162 - "GET /api/ibkr/positions HTTP/1.1" 200 OK
-18|ibkr-br | INFO:     127.0.0.1:42216 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
-18|ibkr-br | INFO:     127.0.0.1:43658 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
-18|ibkr-br | INFO:     127.0.0.1:54184 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
-18|ibkr-br | INFO:     127.0.0.1:60524 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
-18|ibkr-br | INFO:     127.0.0.1:56876 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
-18|ibkr-br | INFO:     127.0.0.1:58356 - "POST /api/proposals/expire-stale-approved?maxAgeMin=10 HTTP/1.1" 500 Internal Server Error
+duration=10%20D&barSize=1%20hour&bar=1%20hour → .394484762 s · 155 velas; últimas: [{'date': '20261102 13:00:00 US/Eastern', 'open': 62.02, 'high': 62.34, 'low': 61.16, 'close': 61.23, 'volume': 16604182.0, 'barCount': 56181, 'average': None}, {'date': '20261102 14:00:00 US/Eastern', 'open': 61.24, 'high': 61.26, 'low': 60.31, 'close': 60.39, 'volume': 16151721.0, 'barCount': 54531, 'average': None}]
+duration=5%20D&barSize=5%20mins&bar=5%20mins → .462290122 s · 897 velas; últimas: [{'date': '20261102 14:35:00 US/Eastern', 'open': 60.63, 'high': 60.67, 'low': 60.31, 'close': 60.47, 'volume': 1697739.0, 'barCount': 5427, 'average': None}, {'date': '20261102 14:40:00 US/Eastern', 'open': 60.47, 'high': 60.55, 'low': 60.33, 'close': 60.39, 'volume': 549011.0, 'barCount': 2154, 'average': None}]
+duration=1%20Y&barSize=1%20day&bar=1%20day → .317843257 s · 251 velas; últimas: [{'date': '20261030', 'open': 69.94, 'high': 71.58, 'low': 63.2, 'close': 64.89, 'volume': 374703724.0, 'barCount': 1265773, 'average': None}, {'date': '20261102', 'open': 66.58, 'high': 66.83, 'low': 60.31, 'close': 60.39, 'volume': 128908482.0, 'barCount': 453096, 'average': None}]
+market-data → 1.376244304 s · {"symbol":"INTC","secType":"STK","currency":"USD","exchange":"SMART","price":null,"bid":null,"ask":null,"last":null,"close":null,"mid":null,"volume":null,"change":null,"currentPrice":null,"recentError
+18|ibkr-br | errorCode: 10089
+18|ibkr-br | errorMsg: "Requested market data requires additional subscription for API. See link in \'Market Data Connections\' dialog for more details.Delayed market data is available.INTC NASDAQ.NMS/TOP/ALL"
+18|ibkr-br | 19:57:21 [ibkr-broker] INFO IBKR error reqId=9601 code=10089: Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more details.Delayed market data
+18|ibkr-br | 19:57:21 [ibapi.utils] INFO ANSWER errorProtoBuf {'errorMessageProto': id: 9601
+18|ibkr-br | errorTime: 1793649440904
+18|ibkr-br | errorCode: 300
+18|ibkr-br | errorMsg: "Can\'t find EId with tickerId:9601"
+18|ibkr-br | 19:57:21 [ibkr-broker] INFO IBKR error reqId=9601 code=300: Can't find EId with tickerId:9601
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

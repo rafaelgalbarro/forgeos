@@ -1,0 +1,47 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando 56f6d5f Kraken: los pares con regla confirmada de la lista de 40 se analizan siempre
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261102-195146
+Updating 266d955..56f6d5f
+Fast-forward
+ lib/trading/crypto/futures-engine.ts        | 10 +++++++---
+ lib/trading/crypto/strategies/crypto-f40.ts |  5 +++++
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.76s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=0 wine=3
+Mem:            7746        6506         175           4        1374        1239
+Swap:           4095        2047        2048
+     0 MB COMMAND
+  1617 MB node
+  1481 MB node
+  1287 MB node
+   386 MB next-server
+   342 MB java
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -1,34 +1,29 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 266d955 Kraken: el motor opera las reglas validadas y confirmadas de la lista de 40 (C40_*), con salida por regla; acción crypto40-lock-best
+Desplegando 56f6d5f Kraken: los pares con regla confirmada de la lista de 40 se analizan siempre
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261102-194603
-Updating f535d69..266d955
+estado copiado en /root/forgeos-state-20261102-195146
+Updating 266d955..56f6d5f
 Fast-forward
- deploy/remote/forgeos-remote.sh             |  23 +++++
- lib/trading/crypto/futures-config.ts        |   3 +-
- lib/trading/crypto/futures-engine.ts        |  21 +++++
- lib/trading/crypto/futures-strategy-eval.ts |   2 +
- lib/trading/crypto/reconcile.ts             |   2 +
- lib/trading/crypto/strategies/crypto-f40.ts | 128 ++++++++++++++++++++++++++++
- 6 files changed, 178 insertions(+), 1 deletion(-)
- create mode 100644 lib/trading/crypto/strategies/crypto-f40.ts
+ lib/trading/crypto/futures-engine.ts        | 10 +++++++---
+ lib/trading/crypto/strategies/crypto-f40.ts |  5 +++++
+ 2 files changed, 12 insertions(+), 3 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 1.20s
+19 passed in 0.76s
 
 === BUILD ===
-procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        4564         435           4        3056        3181
-Swap:           4095        2870        1225
+procesos MT5 antes: terminal=2 puente=0 wine=3
+Mem:            7746        6506         175           4        1374        1239
+Swap:           4095        2047        2048
      0 MB COMMAND
-  1109 MB node
-   998 MB node
-   430 MB node
-   393 MB java
-   390 MB next-server
+  1617 MB node
+  1481 MB node
+  1287 MB node
+   386 MB next-server
+   342 MB java
 
 up to date in 2s
    Generating static pages (153/204) 

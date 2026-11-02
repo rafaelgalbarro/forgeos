@@ -1,0 +1,220 @@
+
+=== CONFIGURACIÓN .env.local (sin secretos) ===
+ANTHROPIC_API_KEY=(definida)
+GROQ_API_KEY=(definida)
+TELEGRAM_BOT_TOKEN=(definida)
+TELEGRAM_CHAT_ID=(definida)
+IBKR_SERVICE_URL=http://127.0.0.1:8002
+IBKR_INTERNAL_API_KEY=(definida)
+LIVE_TRADING_ENABLED=true
+IBKR_READ_ONLY=false
+FOREX_ENABLED=true
+FOREX_MAX_SPREAD_PIPS=3
+FOREX_MAX_POSITIONS=3
+FOREX_RISK_PCT=2
+FOREX_STOP_PIPS=20
+FOREX_TP_PIPS=40
+FOREX_MIN_CONFIDENCE=0.75
+RESEND_API_KEY=(definida)
+IBKR_ACCOUNT_ID=U24225949
+POLYGON_API_KEY=(definida)
+FINNHUB_API_KEY=(definida)
+ALPHA_VANTAGE_API_KEY=(definida)
+FMP_API_KEY=(definida)
+ALPACA_API_KEY=(definida)
+ALPACA_SECRET=(definida)
+EODHD_API_KEY=(definida)
+KRAKEN_API_KEY=(definida)
+KRAKEN_API_SECRET=(definida)
+CRYPTO_BROKER=kraken
+CRYPTO_LIVE_MAX_NOTIONAL_EUR=15
+CRYPTO_LIVE_MAX_POSITIONS=4
+CRYPTO_ENGINE_EXTERNAL=1
+CRYPTO_LIVE_STRATEGIES=
+STOCKS_EXECUTION_ENABLED=true
+STOCKS_EXECUTION_US=true
+STOCKS_EXECUTION_EU=true
+IBKR_FRACTIONAL_ENABLED=false
+KRAKEN_FUTURES_API_KEY=(definida)
+KRAKEN_FUTURES_API_SECRET=(definida)
+STOCKS_EXECUTION_PREMARKET=true
+CRYPTO_VENUE=futures
+FUTURES_SHADOW_MODE=false
+FUTURES_MAX_LEVERAGE=2
+FUTURES_LIVE_STRATEGIES=RS_VS_BTC_1H_SHORT,TREND_PULLBACK_1H_SHORT
+US_PRICE_SOURCE=auto
+MT5_BRIDGE_KEY=(definida)
+FOREX_BOT_LIVE_CONFIRM=true
+FOREX_BOT_MODE=live
+FOREX_BOT_MIN_LOT_MAX_RISK_PCT=5
+FOREX_BOT_MAX_POSITIONS=3
+
+=== CONFIGURACIÓN broker services/ibkr-broker/.env (sin secretos) ===
+INTERNAL_API_KEY=(definida)
+APPROVAL_SECRET=(definida)
+IBKR_HOST=127.0.0.1
+IBKR_PORT=4003
+IBKR_CLIENT_ID=10
+IBKR_READ_ONLY=false
+LIVE_TRADING_ENABLED=true
+MAX_ORDER_NOTIONAL=250
+MAX_ORDER_QUANTITY=100000
+ALLOWED_CURRENCIES=EUR,USD
+ALLOWED_EXCHANGES=SMART
+FOREX_ENABLED=true
+IBKR_ACCOUNT_ID=U24225949
+IBKR_CONNECT_TIMEOUT_SECONDS=30
+
+=== FRENOS Y BLOQUEOS ===
+--- ibkr-stocks-execution-pause.json
+(no existe)
+
+--- ibkr-broker-no-ack-symbol-day.json
+{
+  "updatedAt": "2026-10-30T09:46:22.644227+00:00",
+  "symbols": {
+    "HOOD": "2026-10-19",
+    "ORCL": "2026-10-19",
+    "AENA": "2026-10-20",
+    "BMW": "2026-10-20",
+    "REP": "2026-10-22",
+    "MBG": "2026-10-26",
+    "SAN": "2026-10-21",
+    "FER": "2026-10-21",
+    "INGA": "2026-10-26",
+    "DTE": "2026-10-30",
+    "BAS": "2026-10-28",
+    "BNP": "2026-10-28",
+    "INTC": "2026-10-30"
+  }
+}
+--- ibkr-non-tradable.json
+{
+  "updatedAt": "2026-10-31T09:48:15.309Z",
+  "entries": {
+    "HYDC": {
+      "symbol": "HYDC",
+      "code": null,
+      "message": "Posición antigua del usuario: no vender",
+      "ibkrStatus": "ManualBlock",
+      "addedAt": "2026-10-12T20:29:25.018746Z",
+      "telegramSent": true
+    }
+  }
+}
+--- kraken-futures-daily-risk.json
+{
+  "dayKey": "2026-11-02",
+  "dayStartCapital": 84.1997,
+  "dayPnl": 0.9214999999999947,
+  "exitsOnly": false,
+  "dailyLimitHit": false
+}
+
+=== PRE-MERCADO: preparación para operar en real ===
+señales registradas=92 cerradas=92 mejoraron=72 → listo=True (requiere ≥20 cerradas y mayoría mejorando)
+
+=== CUENTAS IBKR (efectivo y posiciones) ===
+detail base= None NAV= None Disponible= None USD= None EUR= None
+Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+    print("  ", r.get("account"), r.get("symbol"), r.get("position"), r.get("currency"), "coste=", r.get("avgCost"))
+                ^^^^^
+AttributeError: 'str' object has no attribute 'get'
+Error in sys.excepthook:
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 238, in partial_apport_excepthook
+    return apport_excepthook(binary, exc_type, exc_obj, exc_tb)
+  File "/usr/lib/python3/dist-packages/apport_python_hook.py", line 122, in apport_excepthook
+    report["ExecutableTimestamp"] = str(int(os.stat(binary).st_mtime))
+                                            ~~~~~~~^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/var/www/forgeos/-c'
+
+Original exception was:
+Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+    print("  ", r.get("account"), r.get("symbol"), r.get("position"), r.get("currency"), "coste=", r.get("avgCost"))
+                ^^^^^
+AttributeError: 'str' object has no attribute 'get'
+
+=== BROKER: último error de Python (Traceback) ===
+2739:18|ibkr-br | Traceback (most recent call last):
+2830:18|ibkr-br | Traceback (most recent call last):
+2918:18|ibkr-br | Traceback (most recent call last):
+18|ibkr-br | Traceback (most recent call last):
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
+18|ibkr-br |     result = await app(  # type: ignore[func-returns-value]
+18|ibkr-br |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |         self.scope, self.receive, self.send
+18|ibkr-br |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |     )
+18|ibkr-br |     ^
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+18|ibkr-br |     return await self.app(scope, receive, send)
+18|ibkr-br |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/fastapi/applications.py", line 1133, in __call__
+18|ibkr-br |     await super().__call__(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/applications.py", line 107, in __call__
+18|ibkr-br |     await self.middleware_stack(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 186, in __call__
+18|ibkr-br |     raise exc
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/errors.py", line 164, in __call__
+18|ibkr-br |     await self.app(scope, receive, _send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/middleware/exceptions.py", line 63, in __call__
+18|ibkr-br |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+18|ibkr-br |     raise exc
+18|ibkr-br |   File "/usr/lib/python3/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+18|ibkr-br |     await app(scope, receive, sender)
+
+=== ACCIONES: decisiones recientes del ciclo ===
+
+=== ACCIONES: resumen de ciclos ===
+11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=USA_REGULAR
+11|forgeos | [StocksUniverse] phase=USA_REGULAR source=opp-scan+us-regular → 68 equities (EU EUR + US; ETFs/crypto/forex excluded)
+11|forgeos | [StocksUniverse] plan=US_REGULAR phase=USA_REGULAR cycle#=8688
+11|forgeos | [ProStrategy] Ciclo forex_1793646856034: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
+11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=USA_REGULAR
+11|forgeos | [StocksUniverse] phase=USA_REGULAR source=opp-scan+us-regular → 68 equities (EU EUR + US; ETFs/crypto/forex excluded)
+11|forgeos | [ProStrategy] Ciclo forex_1793647041988: kind=forex session=forex evaluando 6/6 tickers (max=100, concurrency=8, timeout=120s)
+11|forgeos | [StocksUniverse] plan=US_REGULAR phase=USA_REGULAR cycle#=8689
+11|forgeos | [Cycle/forex] ✅ 6 results, pending=0 phase=USA_REGULAR
+11|forgeos | [StocksUniverse] phase=USA_REGULAR source=opp-scan+us-regular → 68 equities (EU EUR + US; ETFs/crypto/forex excluded)
+
+=== SCHEDULER ===
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T18:58:50.509Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:01:56.653Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:05:02.758Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-11-02T19:08:03.338Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:08:09.366Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:11:15.501Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:14:21.648Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-02T19:17:27.659Z ok=3 skipped=0 stocks, crypto, forex
+
+=== CRIPTO: motor ===
+2026-11-02 19:10:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1711ms
+2026-11-02 19:11:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1532ms
+2026-11-02 19:12:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1716ms
+2026-11-02 19:13:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1745ms
+2026-11-02 19:14:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1647ms
+2026-11-02 19:15:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1999ms
+2026-11-02 19:16:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1783ms
+2026-11-02 19:17:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1476ms
+2026-11-02 19:18:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1790ms
+2026-11-02 19:19:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1849ms
+2026-11-02 15:58:09 +00:00: [Kraken/Futures] posición PF_ETHUSD sin entrada en el journal — revisar a mano
+2026-11-02 15:58:14 +00:00: [Kraken/Futures] posición PF_ETHUSD sin entrada en el journal — revisar a mano
+2026-11-02 17:33:55 +00:00: [Kraken/Futures] ⚠ PF_LINKUSD sin stop reduce-only en el exchange
+2026-11-02 18:28:08 +00:00: [Telegram] sendMessage failed: fetch failed
+2026-11-02 18:28:08 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

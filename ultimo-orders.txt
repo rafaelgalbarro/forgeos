@@ -1,10 +1,12 @@
 
 === ÓRDENES ABIERTAS EN IBKR ===
 id=2322 padre=0 SELL REP STP EUR qty=2.0 lmt=None aux=29.33 estado=PreSubmitted cuenta=U15513057 tif=GTC
-id=2331 padre=0 SELL NOW STP USD qty=1.0 lmt=None aux=104.8 estado=PreSubmitted cuenta=U24225949 tif=GTC
-id=2330 padre=0 SELL NOW LMT USD qty=1.0 lmt=113.35 aux=None estado=Submitted cuenta=U24225949 tif=GTC
-id=2321 padre=0 SELL REP LMT EUR qty=2.0 lmt=31.71 aux=None estado=Submitted cuenta=U15513057 tif=GTC
-total: 4
+id=2345 padre=2344 SELL HOOD LMT USD qty=1.0 lmt=90.06 aux=None estado=PreSubmitted cuenta=U24225949 tif=GTC
+id=2346 padre=2344 SELL HOOD STP USD qty=1.0 lmt=None aux=83.28 estado=PreSubmitted cuenta=U24225949 tif=GTC
+id=2321 padre=0 SELL REP LMT EUR qty=2.0 lmt=31.71 aux=None estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2339 padre=2338 SELL IAG LMT EUR qty=23.0 lmt=5.348 aux=None estado=PreSubmitted cuenta=U15513057 tif=GTC
+id=2340 padre=2338 SELL IAG STP EUR qty=23.0 lmt=None aux=4.946 estado=PreSubmitted cuenta=U15513057 tif=GTC
+total: 6
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

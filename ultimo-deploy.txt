@@ -1,31 +1,30 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 56f6d5f Kraken: los pares con regla confirmada de la lista de 40 se analizan siempre
+Desplegando 4a8664a IB: las acciones de EE. UU. se dimensionan con la capacidad de la cuenta en euros (MS 03/11 se rechazó con 35 $)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261102-195146
-Updating 266d955..56f6d5f
+estado copiado en /root/forgeos-state-20261103-131924
+Updating 56f6d5f..4a8664a
 Fast-forward
- lib/trading/crypto/futures-engine.ts        | 10 +++++++---
- lib/trading/crypto/strategies/crypto-f40.ts |  5 +++++
- 2 files changed, 12 insertions(+), 3 deletions(-)
+ src/core/trading/trading-engine.ts | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.76s
+19 passed in 0.79s
 
 === BUILD ===
-procesos MT5 antes: terminal=2 puente=0 wine=3
-Mem:            7746        6506         175           4        1374        1239
-Swap:           4095        2047        2048
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        6050         242          10        1768        1696
+Swap:           4095        1543        2552
      0 MB COMMAND
-  1617 MB node
-  1481 MB node
-  1287 MB node
-   386 MB next-server
-   342 MB java
+  1464 MB node
+  1416 MB node
+  1158 MB node
+   368 MB java
+   366 MB next-server
 
-up to date in 2s
+up to date in 1s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

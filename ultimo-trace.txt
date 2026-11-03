@@ -1,71 +1,81 @@
 
-=== TRAZA TEF en forgeos (últimas 6000 líneas) ===
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.86% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:19 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.77% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:26 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.86% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:33 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.89% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:39 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.98% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:46 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.89% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:52 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.80% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 13:59 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.77% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 14:06 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [AutoExecute] TEF → obteniendo precio (EODHD-WS/EU REST/Alpaca)…
-11|forgeos | [Universe] TEF precio EODHD €3.35 Δ-0.83% (EU — sin IBKR quotes)
-11|forgeos | [AutoExecute] TEF → precio: $3.35 (EODHD-REALTIME)
-11|forgeos | [ProStrategy] TEF: EU_LOCAL Madrid/BM 14:12 Europe/Madrid open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
-11|forgeos | [ProStrategy] TEF: EU evaluadas [EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION] hits=0
-11|forgeos | [ProStrategy] TEF: ninguna señal (EUROPE) evaluadas=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+=== TRAZA MS en forgeos (últimas 6000 líneas) ===
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=EODHD-WS-realtime $185.27 bid=184.72 ask=185.82
+11|forgeos | [AutoExecute] MS → precio: $185.27 (EODHD-WS(ws-only))
+11|forgeos | [ProStrategy] MS: US_LISTED 07:16 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [History] MS: EODHD directo (190 barras)
+11|forgeos | [Signal] MS BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [AutoExecute] MS → Premarket LIVE path (switch+ready, size×0.5)
+11|forgeos | [Signal] MS: SIGNAL_NO_CAPITAL conf=65% price=$185.27 cuenta U15513057 utilizable $35.52; regla=reserve
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=EODHD-WS-realtime $185.11 bid=184.72 ask=185.50
+11|forgeos | [AutoExecute] MS → precio: $185.11 (EODHD-WS(ws-only))
+11|forgeos | [ProStrategy] MS: US_LISTED 07:23 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [History] MS: EODHD directo (190 barras)
+11|forgeos | [ProStrategy] MS: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=discarded — MS: WS sin datos 7m (>2m)
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=discarded — MS: WS sin datos 3m (>2m)
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=EODHD-WS-realtime $185.24 bid=184.72 ask=185.75
+11|forgeos | [AutoExecute] MS → precio: $185.24 (EODHD-WS(ws-only))
+11|forgeos | [ProStrategy] MS: US_LISTED 07:43 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [History] MS: EODHD directo (190 barras)
+11|forgeos | [Signal] MS BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [AutoExecute] MS → Premarket LIVE path (switch+ready, size×0.5)
+11|forgeos | [Signal] MS: SIGNAL_NO_CAPITAL conf=65% price=$185.24 cuenta U15513057 utilizable $35.52; regla=reserve
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=discarded — MS: WS sin datos 7m (>2m)
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=EODHD-WS-realtime $185.21 bid=184.72 ask=185.70
+11|forgeos | [AutoExecute] MS → precio: $185.21 (EODHD-WS(ws-only))
+11|forgeos | [ProStrategy] MS: US_LISTED 07:56 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [History] MS: EODHD directo (190 barras)
+11|forgeos | [ProStrategy] MS: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=EODHD-WS-realtime $185.32 bid=184.99 ask=185.65
+11|forgeos | [AutoExecute] MS → precio: $185.32 (EODHD-WS(ws-only))
+11|forgeos | [ProStrategy] MS: US_LISTED 08:02 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [History] MS: EODHD directo (190 barras)
+11|forgeos | [Signal] MS BUY agents=MOMENTUM+TECHNICAL conf=65%
+11|forgeos | [AutoExecute] MS → Premarket LIVE path (switch+ready, size×0.5)
+11|forgeos | [Signal] MS: SIGNAL_NO_CAPITAL conf=65% price=$185.32 cuenta U15513057 utilizable $35.52; regla=reserve
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=EODHD-WS-realtime $185.19 bid=184.72 ask=185.65
+11|forgeos | [AutoExecute] MS → precio: $185.19 (EODHD-WS(ws-only))
+11|forgeos | [ProStrategy] MS: US_LISTED 08:09 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [History] MS: EODHD directo (190 barras)
+11|forgeos | [ProStrategy] MS: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [AutoExecute] MS → obteniendo precio (premarket EODHD-WS + 1m QC)…
+11|forgeos | [Premarket] MS price-source=EODHD-WS-realtime $184.80 bid=184.00 ask=185.60
+11|forgeos | [AutoExecute] MS → precio: $184.80 (EODHD-WS(ws-only))
+11|forgeos | [ProStrategy] MS: US_LISTED 08:16 America/New_York usPhase=PRE_MARKET strategyPhase=USA_PREMARKET forge=PRE_MARKET eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
+11|forgeos | [History] MS: EODHD directo (190 barras)
+11|forgeos | [ProStrategy] MS: ninguna señal (USA_PREMARKET) evaluadas=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA]
 
-=== TRAZA TEF en broker ===
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br |   symbol: "TEF"
-18|ibkr-br |   localSymbol: "TEF"
-18|ibkr-br |   tradingClass: "TEF"
-18|ibkr-br | 13:16:40 [ibapi.utils] INFO ANSWER updatePortfolio {'contract': 138455588794960: ConId: 30314159, Symbol: TEF, SecType: STK, LastTradeDateOrContractMonth: , Strike: 0, Right: , Multiplier: , Exchange: BM, PrimaryExchange: , Currency: EUR, LocalSym
+=== TRAZA MS en broker ===
+18|ibkr-br | INFO:     127.0.0.1:55032 - "GET /api/ibkr/price/MS?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:55022 - "GET /api/ibkr/historical?symbol=MS&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:41678 - "GET /api/ibkr/market-data?symbol=MS&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:41650 - "GET /api/ibkr/price/MS?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:41644 - "GET /api/ibkr/historical?symbol=MS&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:39096 - "GET /api/ibkr/market-data?symbol=MS&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:39080 - "GET /api/ibkr/price/MS?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:39094 - "GET /api/ibkr/historical?symbol=MS&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:38606 - "GET /api/ibkr/market-data?symbol=MS&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:36100 - "GET /api/ibkr/price/MS?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:38620 - "GET /api/ibkr/historical?symbol=MS&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:37136 - "GET /api/ibkr/market-data?symbol=MS&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:37126 - "GET /api/ibkr/price/MS?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:37146 - "GET /api/ibkr/historical?symbol=MS&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:35312 - "GET /api/ibkr/market-data?symbol=MS&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:35340 - "GET /api/ibkr/price/MS?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:35330 - "GET /api/ibkr/historical?symbol=MS&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:53414 - "GET /api/ibkr/market-data?symbol=MS&exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:53456 - "GET /api/ibkr/price/MS?exchange=SMART&currency=USD&secType=STK HTTP/1.1" 200 OK
+18|ibkr-br | INFO:     127.0.0.1:53414 - "GET /api/ibkr/historical?symbol=MS&duration=5%20D&barSize=5%20mins&bar=5%20mins&exchange=SMART&currency=USD&secType=STK&useRTH=0 HTTP/1.1" 200 OK
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

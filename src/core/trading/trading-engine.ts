@@ -2870,13 +2870,15 @@ export class TradingEngine {
           accountId: cryptoIbkrAccountId(),
           cashUSD: 0,
         }
-      : euLocalStock
-        ? await pickIbkrStockAccountCapital(ticker).catch(() => null)
+      : euLocalStock || (kind === 'stocks' && (process.env.STOCKS_US_FROM_EUR_ACCOUNT ?? 'true').trim().toLowerCase() !== 'false')
+        ? // US stocks too: the per-account pick includes the EUR account's buying power (owner 29/10;
+          // MS 03/11 was sized on $35 of USD cash only)
+          await pickIbkrStockAccountCapital(ticker).catch(() => null)
         : await pickIbkrAccountWithMostUsd().catch(() => ({
             accountId: null as string | null,
             cashUSD: 0,
           }))
-    if (euLocalStock && richest && "currency" in richest) {
+    if (kind === 'stocks' && richest && "currency" in richest) {
       stockCapital = richest as StockAccountCapitalPick
     }
     let capitalSnap = await fetchCapitalSnapshot().catch(() => null)

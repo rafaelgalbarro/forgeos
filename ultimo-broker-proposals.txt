@@ -1,3 +1,4 @@
+2026-11-03T08:29:15 REJECTED  BUY  DTE    qty=4.0 lmt=25.97 sl=25.450599999999998 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
 2026-11-02T19:41:17 EXECUTED  BUY  NOW    qty=1.0 lmt=106.935 sl=104.7963 cuenta=U24225949 ibkr=Filled motivo=
 2026-11-02T19:40:18 EXECUTED  SELL INTC   qty=1.0 lmt=60.415 sl=None cuenta=U24225949 ibkr=Submitted motivo=
 2026-10-30T16:08:02 REJECTED  SELL INTC   qty=1.0 lmt=64.74000000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
@@ -39,7 +40,6 @@
 SELL 1 INTC NASDAQ.NMS
 Warning: Your order will not be placed at the ex
 2026-10-28T13:23:16 REJECTED  BUY  BNP    qty=1.0 lmt=87.42 sl=85.6716 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
-2026-10-28T08:20:31 REJECTED  BUY  BAS    qty=2.0 lmt=52.39 sl=51.6692 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

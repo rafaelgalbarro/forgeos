@@ -46,6 +46,15 @@
 2026-11-02T19:41 IB | [IB] ✅ [EJECUTADO] 🇺🇸 USA BUY NOW × 1 @ $106.94 📊 Confianza: 65% | MOMENTUM+TECHNICAL 🎯 Stop: $104.80 | Target: $113.35 (+6%) ⏱ 20:41:51 Madrid
 2026-11-02T19:52 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_PEPEUSD @ 0.0000 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€-0.0006 net=€-0.31
 2026-11-02T19:55 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_XRPUSD 13 @ $1.25 | TREND_PULLBACK_1H_SHORT lev=2 stop=$1.2593
+2026-11-02T20:15 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_SOLUSD 0.18 @ $91.54 | RS_VS_BTC_1H_SHORT lev=2 stop=$92.87
+2026-11-02T21:44 KRAKEN | [KRAKEN] 🟢 LONG EXIT Futures PF_HYPEUSD @ 84.4110 | RSI2_TREND_1H TAKE_PROFIT lev=2 funding=€-0.0015 net=€0.19
+2026-11-02T21:44 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_DOTUSD 17.8 @ $0.94 | TREND_PULLBACK_1H_SHORT lev=2 stop=$0.9541
+2026-11-03T11:08 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_XRPUSD @ 1.2596 | TREND_PULLBACK_1H_SHORT STOP_LOSS lev=2 funding=€-0.0056 net=€-0.18
+2026-11-03T11:08 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ADAUSD 88 @ $0.19 | TREND_PULLBACK_1H_SHORT lev=2 stop=$0.19133
+2026-11-03T12:16 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_SOLUSD @ 92.8900 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€-0.0023 net=€-0.25
+2026-11-03T12:16 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_NEARUSD 4 @ $3.86 | TREND_PULLBACK_1H_SHORT lev=2 stop=$3.9414
+2026-11-03T12:22 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_ADAUSD @ 0.1916 | TREND_PULLBACK_1H_SHORT STOP_LOSS lev=2 funding=€-0.0004 net=€-0.22
+2026-11-03T13:00 KRAKEN | [KRAKEN] 🟢 LONG Futures PF_ETHUSD 0.007 @ $2277.50 | C40_F24_YEN_H1 lev=2 stop=$2249.5
 
 === KRAKEN: diario cripto (reales cerradas y abiertas) ===
 2026-11-01T21:03 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 87.779 salida 87.22199999999998 motivo TIME_EXIT neto€ 0.051 dur_min 1440 mae% None mfe% None 
@@ -81,14 +90,25 @@
 2026-11-02T18:46 RS_VS_BTC_1H_SHORT PF_PEPEUSD short entrada 4.6405e-06 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
 2026-11-02T19:52 RS_VS_BTC_1H_SHORT PF_PEPEUSD short entrada 4.6405e-06 salida 4.724267117988394e-06 motivo STOP_LOSS neto€ -0.312 dur_min 66 mae% None mfe% None 
 2026-11-02T19:55 TREND_PULLBACK_1H_SHORT PF_XRPUSD short entrada 1.2462 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-total neto cerradas €: 0.71
-   RS_VS_BTC_1H_SHORT ops 5 ganadas 2 neto€ -0.18
+2026-11-02T20:15 RS_VS_BTC_1H_SHORT PF_SOLUSD short entrada 91.54 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-02T21:44 RSI2_TREND_1H PF_HYPEUSD long entrada 83.416 salida 84.411 motivo TAKE_PROFIT neto€ 0.191 dur_min 196 mae% None mfe% None 
+2026-11-02T21:44 TREND_PULLBACK_1H_SHORT PF_DOTUSD short entrada 0.9412 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-03T11:08 TREND_PULLBACK_1H_SHORT PF_XRPUSD short entrada 1.2462 salida 1.2596 motivo STOP_LOSS neto€ -0.182 dur_min 912 mae% None mfe% None 
+2026-11-03T11:08 TREND_PULLBACK_1H_SHORT PF_ADAUSD short entrada 0.18915 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-03T12:16 RS_VS_BTC_1H_SHORT PF_SOLUSD short entrada 91.54 salida 92.89 motivo STOP_LOSS neto€ -0.251 dur_min 960 mae% None mfe% None 
+2026-11-03T12:16 TREND_PULLBACK_1H_SHORT PF_NEARUSD short entrada 3.8638 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-03T12:22 TREND_PULLBACK_1H_SHORT PF_ADAUSD short entrada 0.18915 salida 0.19155999999999998 motivo STOP_LOSS neto€ -0.221 dur_min 74 mae% None mfe% None 
+2026-11-03T13:00 C40_F24_YEN_H1 PF_ETHUSD long entrada 2277.5 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+total neto cerradas €: 0.25
+   RS_VS_BTC_1H_SHORT ops 6 ganadas 2 neto€ -0.43
    RSI2_TREND_15M ops 1 ganadas 0 neto€ -0.17
-   TREND_PULLBACK_1H_SHORT ops 11 ganadas 7 neto€ 1.06
+   RSI2_TREND_1H ops 1 ganadas 1 neto€ 0.19
+   TREND_PULLBACK_1H_SHORT ops 13 ganadas 7 neto€ 0.66
 
 === IBKR: propuestas ejecutadas (broker) ===
 2026-11-02T19:40 EXECUTED Submitted SELL INTC qty 1.0 lmt 60.415 | 
 2026-11-02T19:41 EXECUTED Filled BUY NOW qty 1.0 lmt 106.935 | 
+2026-11-03T08:29 REJECTED NO_ACK BUY DTE qty 4.0 lmt 25.97 | 460 No trading permissions.
 
 === IBKR: ventas/cierres en logs (monitor) ===
 11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL

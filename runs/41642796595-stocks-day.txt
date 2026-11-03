@@ -1,0 +1,67 @@
+
+=== ACCIONES: señales y motivos (logs de forgeos) ===
+-rw-r--r-- 1 root root  6638841 Oct 30 00:00 forgeos-out__2026-10-30_00-00-00.log
+-rw-r--r-- 1 root root  8550216 Oct 31 00:00 forgeos-out__2026-10-31_00-00-00.log
+-rw-r--r-- 1 root root  1043906 Nov  1 00:00 forgeos-out__2026-11-01_00-00-00.log
+-rw-r--r-- 1 root root   889869 Nov  2 00:00 forgeos-out__2026-11-02_00-00-00.log
+-rw-r--r-- 1 root root  2205088 Nov  3 00:00 forgeos-out__2026-11-03_00-00-00.log
+desde: 2026-11-02T06:00:00  hasta: 
+--- ciclos de acciones con universo > 0:
+115
+--- tickers evaluados (ProStrategy ... evaluadas):
+3435
+--- señales BUY/SELL:
+     30 REP BUY 65%
+     30 MC BUY 65%
+     20 MS BUY 70%
+     19 ISRG BUY 65%
+     18 MS BUY 65%
+     17 MSTR BUY 65%
+     16 GS BUY 75%
+     13 JPM BUY 65%
+     11 BNP BUY 65%
+     10 C BUY 70%
+     10 ADBE BUY 65%
+      9 AVGO BUY 65%
+      8 XYZ BUY 65%
+      6 MRNA BUY 65%
+      5 KLAC BUY 65%
+      4 NVDA BUY 65%
+      1 NOW BUY 65%
+      1 DTE BUY 65%
+--- qué pasó con ellas:
+    850 [AutoExecute] USDJPY → skip: precio EODHD forex no disponible
+    850 [AutoExecute] USDCHF → skip: precio EODHD forex no disponible
+    850 [AutoExecute] USDCAD → skip: precio EODHD forex no disponible
+    850 [AutoExecute] GBPUSD → skip: precio EODHD forex no disponible
+    850 [AutoExecute] EURUSD → skip: precio EODHD forex no disponible
+    850 [AutoExecute] AUDUSD → skip: precio EODHD forex no disponible
+     30 [Signal] REP: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en REP
+     30   ❌ RECHAZADO: posición duplicada en REP
+      2 [CryptoPermission] account=U24225949 code=460 granted=false msg=No trading permissions.
+      1 [Telegram] filtrado (solo operaciones): «⛔ NO NEGOCIABLE DTE: 460 (No trading permissions.)»
+      1 [Signal] DTE: BUY status=ERROR conf=65% reason=Execute failed after APPROVED: 460 No trading permissions.
+      1 [AutoExecute] NOW → orden enviada ibkrId=2329 proposal=f262e328-47eb-4783-988a-866033c3fde8
+      1 [AutoExecute] NOW → EJECUTADO ibkrId=2329 ✅
+      1 [AutoExecute] NOW → EJECUTADO ibkrId=2329 status=Filled ✅
+      1 [AutoExecute] INTC → EJECUTADO ibkrId=2328 status=Submitted ✅
+--- estrategias que más rechazan (motivo HOLD):
+   1124 ninguna señal (USA_REGULAR)
+   1005 ninguna señal (USA_PREMARKET)
+    857 ninguna señal (EUROPE)
+    449 ninguna señal (EUROPE_OPEN)
+      4 skip (ya subió 6.2% > 5%)
+      4 skip (ya subió 6.1% > 5%)
+      3 skip (ya subió 6.5% > 5%)
+      3 skip (ya subió 5.9% > 5%)
+      3 skip (ya subió 5.8% > 5%)
+      3 skip (ya subió 5.5% > 5%)
+      2 skip (ya subió 6.6% > 5%)
+      2 skip (ya subió 6.4% > 5%)
+      1 skip (ya subió 6.0% > 5%)
+      1 skip (ya subió 5.4% > 5%)
+      1 skip (ya subió 5.0% > 5%)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

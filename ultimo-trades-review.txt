@@ -1,19 +1,6 @@
 <stdin>:3: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
 
 === TELEGRAM: mensajes de operaciones reales (ledger) ===
-2026-10-31T23:48 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_LINKUSD 1.4 @ $11.66 | RS_VS_BTC_1H_SHORT lev=2 stop=$11.784
-2026-11-01T06:30 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_SUIUSD @ 0.9042 | TREND_PULLBACK_1H_SHORT TIME_EXIT lev=2 funding=€-0.0077 net=€-0.12
-2026-11-01T06:31 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_TRXUSD 53 @ $0.31 | TREND_PULLBACK_1H_SHORT lev=2 stop=$0.31649
-2026-11-01T07:40 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_LINKUSD @ 11.7860 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€-0.0059 net=€-0.19
-2026-11-01T07:40 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_NEARUSD 3 @ $4.36 | RS_VS_BTC_1H_SHORT lev=2 stop=$4.4059
-2026-11-01T10:21 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_NEARUSD @ 4.4128 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€0.0024 net=€-0.18
-2026-11-01T10:21 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_XRPUSD 13 @ $1.26 | TREND_PULLBACK_1H_SHORT lev=2 stop=$1.2645
-2026-11-01T12:36 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_SOLUSD @ 94.5000 | TREND_PULLBACK_1H_SHORT TIME_EXIT lev=2 funding=€-0.0304 net=€0.25
-2026-11-01T12:37 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_SOLUSD 0.17 @ $94.58 | RS_VS_BTC_1H_SHORT lev=2 stop=$95.41
-2026-11-01T21:03 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_HYPEUSD @ 87.2220 | TREND_PULLBACK_1H_SHORT TIME_EXIT lev=2 funding=€-0.0044 net=€0.05
-2026-11-01T21:06 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_LINKUSD 1.4 @ $11.40 | RS_VS_BTC_1H_SHORT lev=2 stop=$11.487
-2026-11-01T22:21 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_LINKUSD @ 11.2276 | RS_VS_BTC_1H_SHORT TAKE_PROFIT lev=2 funding=€0.0001 net=€0.23
-2026-11-01T22:21 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_HYPEUSD 0.1 @ $86.88 | TREND_PULLBACK_1H_SHORT lev=2 stop=$87.94
 2026-11-01T23:52 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_HYPEUSD @ 87.9450 | TREND_PULLBACK_1H_SHORT STOP_LOSS lev=2 funding=€-0.0001 net=€-0.11
 2026-11-02T00:00 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ZECUSD 0.01 @ $1238.48 | TREND_PULLBACK_1H_SHORT lev=2 stop=$1257.51
 2026-11-02T00:20 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_XRPUSD @ 1.2409 | TREND_PULLBACK_1H_SHORT TAKE_PROFIT lev=2 funding=€-0.0042 net=€0.20
@@ -57,30 +44,6 @@
 2026-11-03T13:00 KRAKEN | [KRAKEN] 🟢 LONG Futures PF_ETHUSD 0.007 @ $2277.50 | C40_F24_YEN_H1 lev=2 stop=$2249.5
 
 === KRAKEN: diario cripto (reales cerradas y abiertas) ===
-2026-11-01T21:03 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 87.779 salida 87.22199999999998 motivo TIME_EXIT neto€ 0.051 dur_min 1440 mae% None mfe% None 
-2026-11-01T21:06 RS_VS_BTC_1H_SHORT PF_LINKUSD short entrada 11.4 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-01T22:21 RS_VS_BTC_1H_SHORT PF_LINKUSD short entrada 11.4 salida 11.227615384615383 motivo TAKE_PROFIT neto€ 0.234 dur_min 74 mae% None mfe% None 
-2026-11-01T22:21 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 86.882 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-01T23:52 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 86.882 salida 87.945 motivo STOP_LOSS neto€ -0.111 dur_min 90 mae% None mfe% None 
-2026-11-02T00:00 TREND_PULLBACK_1H_SHORT PF_ZECUSD short entrada 1238.48 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T00:20 TREND_PULLBACK_1H_SHORT PF_XRPUSD short entrada 1.2569 salida 1.2409 motivo TAKE_PROFIT neto€ 0.2 dur_min 838 mae% None mfe% None 
-2026-11-02T00:20 RS_VS_BTC_1H_SHORT PF_LINKUSD short entrada 11.312 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T01:13 RS_VS_BTC_1H_SHORT PF_LINKUSD short entrada 11.312 salida 11.416 motivo STOP_LOSS neto€ -0.153 dur_min 53 mae% None mfe% None 
-2026-11-02T01:13 RS_VS_BTC_1H_SHORT PF_NEARUSD short entrada 4.3138 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T01:23 TREND_PULLBACK_1H_SHORT PF_ZECUSD short entrada 1238.48 salida 1258.64 motivo STOP_LOSS neto€ -0.208 dur_min 83 mae% None mfe% None 
-2026-11-02T01:23 TREND_PULLBACK_1H_SHORT PF_XRPUSD short entrada 1.2578 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T03:25 RS_VS_BTC_1H_SHORT PF_SOLUSD short entrada 94.58 salida 95.56 motivo STOP_LOSS neto€ -0.175 dur_min 887 mae% None mfe% None 
-2026-11-02T03:25 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 88.012 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T06:03 RS_VS_BTC_1H_SHORT PF_NEARUSD short entrada 4.3138 salida 4.2352 motivo TAKE_PROFIT neto€ 0.229 dur_min 289 mae% None mfe% None 
-2026-11-02T06:04 TREND_PULLBACK_1H_SHORT PF_ADAUSD short entrada 0.19184 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T06:32 TREND_PULLBACK_1H_SHORT PF_TRXUSD short entrada 0.31092 salida 0.31351000000000007 motivo TIME_EXIT neto€ -0.146 dur_min 1440 mae% None mfe% None 
-2026-11-02T06:46 RSI2_TREND_15M PF_ZECUSD long entrada 1267 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T06:56 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 88.012 salida 85.86 motivo TAKE_PROFIT neto€ 0.211 dur_min 210 mae% None mfe% None 
-2026-11-02T06:57 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 85.531 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T08:32 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 85.531 salida 86.57799999999999 motivo STOP_LOSS neto€ -0.109 dur_min 96 mae% None mfe% None 
-2026-11-02T08:33 TREND_PULLBACK_1H_SHORT PF_LINKUSD short entrada 11.346 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-2026-11-02T09:33 RSI2_TREND_15M PF_ZECUSD long entrada 1267 salida 1250.28 motivo STOP_LOSS neto€ -0.173 dur_min 167 mae% None mfe% None 
-2026-11-02T12:01 TREND_PULLBACK_1H_SHORT PF_HYPEUSD short entrada 85.846 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
 2026-11-02T17:33 TREND_PULLBACK_1H_SHORT PF_ADAUSD short entrada 0.19184 salida 0.18832 motivo TAKE_PROFIT neto€ 0.292 dur_min 690 mae% None mfe% None 
 2026-11-02T17:34 TREND_PULLBACK_1H_SHORT PF_LINKUSD short entrada 11.346 salida 11.0655 motivo EXCHANGE_FLAT neto€ 0.393 dur_min 541 mae% None mfe% None 
 2026-11-02T17:45 TREND_PULLBACK_1H_SHORT PF_XRPUSD short entrada 1.2578 salida 1.2371 motivo TAKE_PROFIT neto€ 0.261 dur_min 981 mae% None mfe% None 
@@ -99,11 +62,10 @@
 2026-11-03T12:16 TREND_PULLBACK_1H_SHORT PF_NEARUSD short entrada 3.8638 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
 2026-11-03T12:22 TREND_PULLBACK_1H_SHORT PF_ADAUSD short entrada 0.18915 salida 0.19155999999999998 motivo STOP_LOSS neto€ -0.221 dur_min 74 mae% None mfe% None 
 2026-11-03T13:00 C40_F24_YEN_H1 PF_ETHUSD long entrada 2277.5 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
-total neto cerradas €: 0.25
-   RS_VS_BTC_1H_SHORT ops 6 ganadas 2 neto€ -0.43
-   RSI2_TREND_15M ops 1 ganadas 0 neto€ -0.17
+total neto cerradas €: 0.4
+   RS_VS_BTC_1H_SHORT ops 2 ganadas 0 neto€ -0.56
    RSI2_TREND_1H ops 1 ganadas 1 neto€ 0.19
-   TREND_PULLBACK_1H_SHORT ops 13 ganadas 7 neto€ 0.66
+   TREND_PULLBACK_1H_SHORT ops 6 ganadas 4 neto€ 0.77
 
 === IBKR: propuestas ejecutadas (broker) ===
 2026-11-02T19:40 EXECUTED Submitted SELL INTC qty 1.0 lmt 60.415 | 

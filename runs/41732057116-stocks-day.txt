@@ -1,0 +1,86 @@
+
+=== ACCIONES: señales y motivos (logs de forgeos) ===
+-rw-r--r-- 1 root root  6638841 Oct 30 00:00 forgeos-out__2026-10-30_00-00-00.log
+-rw-r--r-- 1 root root  8550216 Oct 31 00:00 forgeos-out__2026-10-31_00-00-00.log
+-rw-r--r-- 1 root root  1043906 Nov  1 00:00 forgeos-out__2026-11-01_00-00-00.log
+-rw-r--r-- 1 root root   889869 Nov  2 00:00 forgeos-out__2026-11-02_00-00-00.log
+-rw-r--r-- 1 root root  2205088 Nov  3 00:00 forgeos-out__2026-11-03_00-00-00.log
+desde: 2026-11-02T06:00:00  hasta: 
+--- ciclos de acciones con universo > 0:
+248
+--- tickers evaluados (ProStrategy ... evaluadas):
+8116
+--- señales BUY/SELL:
+     38 REP BUY 65%
+     35 MC BUY 65%
+     29 BNP BUY 65%
+     26 MSTR BUY 65%
+     23 MS BUY 70%
+     23 GS BUY 75%
+     20 AVGO BUY 65%
+     19 ISRG BUY 65%
+     18 MS BUY 65%
+     15 NVDA BUY 65%
+     15 KLAC BUY 65%
+     13 JPM BUY 65%
+     11 IAG BUY 65%
+     10 C BUY 70%
+     10 ADBE BUY 65%
+      9 XYZ BUY 70%
+      9 XYZ BUY 65%
+      7 AMZN BUY 65%
+      6 MRNA BUY 65%
+      6 HOOD BUY 70%
+      5 SIE BUY 65%
+      5 MSFT BUY 75%
+      5 JPM BUY 75%
+      5 BBVA BUY 65%
+      4 QCOM BUY 65%
+      2 MSFT BUY 70%
+      1 SNOW BUY 70%
+      1 SCHW BUY 70%
+      1 SCHW BUY 65%
+      1 PSX BUY 65%
+--- qué pasó con ellas:
+    948 [AutoExecute] USDJPY → skip: precio EODHD forex no disponible
+    948 [AutoExecute] USDCHF → skip: precio EODHD forex no disponible
+    948 [AutoExecute] USDCAD → skip: precio EODHD forex no disponible
+    948 [AutoExecute] GBPUSD → skip: precio EODHD forex no disponible
+    948 [AutoExecute] AUDUSD → skip: precio EODHD forex no disponible
+    947 [AutoExecute] EURUSD → skip: precio EODHD forex no disponible
+     38 [Signal] REP: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en REP
+     38   ❌ RECHAZADO: posición duplicada en REP
+      7 [Signal] IAG: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en IAG
+      7   ❌ RECHAZADO: posición duplicada en IAG
+      5   ❌ RECHAZADO: capital insuficiente — cuenta U15513057 precio €X > presupuesto €X (utilizable≈€X)
+      2 [CryptoPermission] account=U24225949 code=460 granted=false msg=No trading permissions.
+      1 [Telegram] filtrado (solo operaciones): «⛔ NO NEGOCIABLE DTE: 460 (No trading permissions.)»
+      1 [Signal] DTE: BUY status=ERROR conf=65% reason=Execute failed after APPROVED: 460 No trading permissions.
+      1 [AutoExecute] NOW → orden enviada ibkrId=2329 proposal=f262e328-47eb-4783-988a-866033c3fde8
+      1 [AutoExecute] NOW → EJECUTADO ibkrId=2329 ✅
+      1 [AutoExecute] NOW → EJECUTADO ibkrId=2329 status=Filled ✅
+      1 [AutoExecute] INTC → EJECUTADO ibkrId=2328 status=Submitted ✅
+      1 [AutoExecute] HOOD → orden enviada ibkrId=2344 proposal=9218856b-3a33-40e4-bc76-3b3071642013
+      1 [AutoExecute] HOOD → EJECUTADO ibkrId=2344 ✅
+      1 [AutoExecute] HOOD → EJECUTADO ibkrId=2344 status=Filled ✅
+      1   ❌ RECHAZADO: capital insuficiente — precio $X > presupuesto $X (utilizable≈$X)
+--- estrategias que más rechazan (motivo HOLD):
+   4431 ninguna señal (USA_REGULAR)
+   1322 ninguna señal (EUROPE)
+   1314 ninguna señal (USA_PREMARKET)
+    600 ninguna señal (USA_OPEN)
+    449 ninguna señal (EUROPE_OPEN)
+      7 skip (ya subió 6.4% > 5%)
+      6 skip (ya subió 6.1% > 5%)
+      5 skip (ya subió 6.5% > 5%)
+      5 skip (ya subió 6.2% > 5%)
+      5 skip (ya subió 5.4% > 5%)
+      4 skip (ya subió 6.6% > 5%)
+      4 skip (ya subió 6.0% > 5%)
+      4 skip (ya subió 5.9% > 5%)
+      3 skip (ya subió 5.8% > 5%)
+      3 skip (ya subió 5.5% > 5%)
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

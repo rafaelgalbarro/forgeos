@@ -73,7 +73,7 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 
 --- ibkr-broker-no-ack-symbol-day.json
 {
-  "updatedAt": "2026-10-30T09:46:22.644227+00:00",
+  "updatedAt": "2026-11-03T08:29:17.574334+00:00",
   "symbols": {
     "HOOD": "2026-10-19",
     "ORCL": "2026-10-19",
@@ -84,7 +84,7 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
     "SAN": "2026-10-21",
     "FER": "2026-10-21",
     "INGA": "2026-10-26",
-    "DTE": "2026-10-30",
+    "DTE": "2026-11-03",
     "BAS": "2026-10-28",
     "BNP": "2026-10-28",
     "INTC": "2026-10-30"
@@ -92,7 +92,7 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 }
 --- ibkr-non-tradable.json
 {
-  "updatedAt": "2026-10-31T09:48:15.309Z",
+  "updatedAt": "2026-11-03T08:29:17.591Z",
   "entries": {
     "HYDC": {
       "symbol": "HYDC",
@@ -101,14 +101,23 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
       "ibkrStatus": "ManualBlock",
       "addedAt": "2026-10-12T20:29:25.018746Z",
       "telegramSent": true
+    },
+    "DTE": {
+      "symbol": "DTE",
+      "code": 460,
+      "message": "No trading permissions.",
+      "ibkrStatus": "NO_ACK",
+      "addedAt": "2026-11-03T08:29:17.591Z",
+      "telegramSent": true,
+      "expiresAt": "2026-11-04T08:29:17.591Z"
     }
   }
 }
 --- kraken-futures-daily-risk.json
 {
-  "dayKey": "2026-11-02",
-  "dayStartCapital": 84.1997,
-  "dayPnl": 0.5441999999999894,
+  "dayKey": "2026-11-03",
+  "dayStartCapital": 84.8944,
+  "dayPnl": -0.7035000000000053,
   "exitsOnly": false,
   "dailyLimitHit": false
 }
@@ -117,14 +126,14 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 señales registradas=92 cerradas=92 mejoraron=72 → listo=True (requiere ≥20 cerradas y mayoría mejorando)
 
 === CUENTAS IBKR (efectivo y posiciones) ===
-U15513057 base= EUR NAV= 386.97 Disponible= 181.84 USD= 35.52 EUR= 150.10
-U24225949 base= EUR NAV= 141.53 Disponible= 14.34 USD= 16.0495 EUR= 0.00
-   U15513057 TEF 44.0 EUR coste= 3.26613635
+U15513057 base= EUR NAV= 387.44 Disponible= 328.99 USD= 35.52 EUR= 297.228
+U24225949 base= EUR NAV= 139.22 Disponible= 14.35 USD= 16.05 EUR= 0.00
+   U15513057 TEF 0.0 EUR coste= 0.0
    U24225949 HYDC 2.0 USD coste= 2.0243
    U24225949 INTC 0.0 USD coste= 0.0
    U15513057 GNLN 0.25 USD coste= 42.696
    U15513057 CGBSF 2000.0 USD coste= 0.079049
-   U24225949 FLYX 2.3786 USD coste= 2.10741615
+   U24225949 FLYX 2.3786 USD coste= 5.73063985
    U24225949 NOW 1.0 USD coste= 107.915003
    U24225949 INND 30000.0 USD coste= 0.000707
    U15513057 REP 2.0 EUR coste= 31.42
@@ -135,58 +144,71 @@ U24225949 base= EUR NAV= 141.53 Disponible= 14.34 USD= 16.0495 EUR= 0.00
 === BROKER: último error de Python (Traceback) ===
 
 === ACCIONES: decisiones recientes del ciclo ===
+11|forgeos | [ProStrategy] PHIA: skip (ya subió 6.0% > 5%)
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [ProStrategy] PHIA: skip (ya subió 5.8% > 5%)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [ProStrategy] PHIA: skip (ya subió 6.1% > 5%)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [ProStrategy] PHIA: skip (ya subió 6.1% > 5%)
 11|forgeos |   ✅ APROBADO para ejecución
-11|forgeos | [AutoExecute] NOW → orden enviada ibkrId=2329 proposal=f262e328-47eb-4783-988a-866033c3fde8
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [ProStrategy] PHIA: skip (ya subió 6.1% > 5%)
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [ProStrategy] PHIA: skip (ya subió 6.5% > 5%)
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [ProStrategy] PHIA: skip (ya subió 6.6% > 5%)
 
 === ACCIONES: resumen de ciclos ===
-11|forgeos | [ProStrategy] ULTA: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REV
-11|forgeos | [ProStrategy] XOM: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [ProStrategy] CVX: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [ProStrategy] COP: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [ProStrategy] SLB: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [ProStrategy] OXY: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [ProStrategy] MPC: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [ProStrategy] PSX: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [ProStrategy] VLO: US_LISTED 14:53 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
-11|forgeos | [Cycle/stocks] ✅ 68 results, pending=0 phase=USA_REGULAR
+11|forgeos | [ProStrategy] BAS: EU_LOCAL Xetra/IBIS 14:12 Europe/Berlin open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] PHIA: EU_LOCAL Amsterdam/AEB 14:12 Europe/Amsterdam open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] MC: EU_LOCAL Paris/SBF 14:12 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] OR: EU_LOCAL Paris/SBF 14:12 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] TTE: EU_LOCAL Paris/SBF 14:12 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] BNP: EU_LOCAL Paris/SBF 14:12 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] AIR: EU_LOCAL Paris/SBF 14:12 Europe/Paris open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] MBG: EU_LOCAL Xetra/IBIS 14:12 Europe/Berlin open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [ProStrategy] BMW: EU_LOCAL Xetra/IBIS 14:12 Europe/Berlin open=true usPhase=PRE_MARKET forge=PRE_MARKET eligible=[EU_APERTURA_BREAKOUT,EU_EMA21_PULLBACK,EU_TREND_CONTINUATION]
+11|forgeos | [Cycle/stocks] ✅ 30 results, pending=0 phase=PRE_MARKET
 
 === SCHEDULER ===
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-03T12:52:56.287Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-/root/.pm2/logs/forgeos-scheduler-error.log last 400 lines:
-17|forgeos | [Scheduler] stocks/in-play error: fetch failed
-17|forgeos | [Scheduler] stocks/scan error: fetch failed
-17|forgeos | [Scheduler] Error en ciclo: fetch failed
-17|forgeos | [Scheduler] stocks/in-play error: fetch failed
-17|forgeos | [Scheduler] stocks/scan error: fetch failed
-17|forgeos | [Scheduler] Error en ciclo: fetch failed
-17|forgeos | [Scheduler] Error en ciclo: fetch failed
-17|forgeos | [Scheduler] stocks/in-play error: fetch failed
-17|forgeos | [Scheduler] stocks/scan error: fetch failed
-17|forgeos | [Scheduler] Error en ciclo: fetch failed
-17|forgeos | [Scheduler] stocks/in-play error: fetch failed
-17|forgeos | [Scheduler] stocks/scan error: fetch failed
-17|forgeos | [Scheduler] Error en ciclo: fetch failed
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-11-03T12:55:56.876Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-03T12:56:24.182Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-03T12:59:32.380Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-03T13:02:59.559Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-03T13:06:08.414Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-03T13:09:38.735Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-11-03T13:12:39.821Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-03T13:12:48.717Z ok=3 skipped=0 stocks, crypto, forex
 
 === CRIPTO: motor ===
-2026-11-02 19:52:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 2192ms
-2026-11-02 19:53:08 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=0 orders=0 held=0 2842ms
-2026-11-02 19:54:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 1771ms
-2026-11-02 19:55:07 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=0 orders=0 held=0 2104ms
-2026-11-02 19:55:35 +00:00: [CryptoEngine] arranque pid=3478778 venue=futures analysis=60000ms exits=5s
-2026-11-02 19:55:46 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=1 held=0 9495ms
-2026-11-02 19:56:48 +00:00: [Kraken/Futures] cycle margin=59.9665 symbols=14 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 shadow=0 held=[PF_XRPUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion]
-2026-11-02 19:56:48 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 held=1 2206ms
-2026-11-02 19:57:48 +00:00: [Kraken/Futures] cycle margin=59.9740 symbols=14 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 shadow=0 held=[PF_XRPUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion]
-2026-11-02 19:57:48 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=1 orders=0 held=1 2106ms
-2026-11-02 19:42:37 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
-2026-11-02 19:49:56 +00:00: (node:3477311) ExperimentalWarning: SQLite is an experimental feature and might change at any time
-2026-11-02 19:49:56 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
-2026-11-02 19:55:35 +00:00: (node:3478778) ExperimentalWarning: SQLite is an experimental feature and might change at any time
-2026-11-02 19:55:35 +00:00: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-11-03 13:10:52 +00:00: [Kraken/Futures] cycle margin=51.7634 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 shadow=0 held=[PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:C40_F24_YEN_H1:pau
+2026-11-03 13:10:52 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 held=6 1998ms
+2026-11-03 13:11:52 +00:00: [Kraken/Futures] cycle margin=51.7634 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 shadow=0 held=[PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:C40_F24_YEN_H1:pau
+2026-11-03 13:11:52 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 held=6 1832ms
+2026-11-03 13:12:52 +00:00: [Kraken/Futures] cycle margin=51.7754 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 shadow=0 held=[PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:C40_F24_YEN_H1:pau
+2026-11-03 13:12:52 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 held=6 2014ms
+2026-11-03 13:13:52 +00:00: [Kraken/Futures] cycle margin=51.7829 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 shadow=0 held=[PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:C40_F24_YEN_H1:pau
+2026-11-03 13:13:52 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 held=6 1776ms
+2026-11-03 13:14:52 +00:00: [Kraken/Futures] cycle margin=51.7874 symbols=11 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 shadow=0 held=[PF_NEARUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_XRPUSD:C40_F24_YEN_H1:pau
+2026-11-03 13:14:52 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 held=6 1757ms
+2026-11-03 12:16:52 +00:00: [Telegram] sendMessage failed: fetch failed
+2026-11-03 12:16:52 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta
+2026-11-03 13:00:54 +00:00: [Telegram] sendMessage failed: fetch failed
+2026-11-03 13:00:54 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

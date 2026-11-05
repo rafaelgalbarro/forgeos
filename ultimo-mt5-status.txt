@@ -1,10 +1,8 @@
 
 === MT5 ===
 mt5 Up 13 days
-puente: online reinicios: 117
-puente actualizado
+puente: online reinicios: 118
 puente sin respuesta (puede estar arrancando)
-puente reiniciado; esperando 90 s…
 --- diagnóstico contenedor
 drwxr-xr-x 4 abc abc 4096 Nov  5 12:06 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe

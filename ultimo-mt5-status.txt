@@ -4,13 +4,11 @@ mt5 Up 13 days
 puente: online reinicios: 118
 puente sin respuesta (puede estar arrancando)
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Nov  5 12:07 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Nov  5 12:12 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
- 558317       00:18 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
- 558324       00:17 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261105.log
 ﻿PL	0	01:00:40.337	Trades	'242902': market sell 0.01 USDJPY.pro sl: 158.518 tp: 156.941
@@ -29,15 +27,15 @@ LP	0	09:52:32.942	Network	'242902': scanning network finished
 --- /tradecheck
 
 --- /resolve?base=EUR_USD
-{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")", "login": null, "server": null}, "error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")"}
 
-2026-11-05 12:05:11 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
-2026-11-05 12:05:13 +00:00: MetaTrader5 py: 5.0.6231
-2026-11-05 12:05:16 +00:00: wine: wine-11.10 (Staging)
-2026-11-05 12:05:17 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-2026-11-05 12:07:32 +00:00: mt5 bridge listening on 8004
-2026-11-05 12:10:53 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
+2026-11-05 12:12:45 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
+2026-11-05 12:12:46 +00:00: MetaTrader5 py: 
+2026-11-05 12:12:46 +00:00: instalando paquete MetaTrader5…
+2026-11-05 12:12:47 +00:00: wine client error:0: recvmsg: Connection reset by peer
+2026-11-05 12:12:47 +00:00: wine: wine-11.10 (Staging)
+2026-11-05 12:12:47 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
 2026-11-05 11:49:28 +00:00: wine: Unhandled page fault on write access to 0000000000C90018 at address 00006FFFFFA285DB (thread 07f4), starting debugger...
+2026-11-05 12:15:04 +00:00: wine client error:0: recvmsg: Connection reset by peer
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

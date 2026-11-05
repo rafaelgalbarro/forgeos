@@ -1,3 +1,10 @@
+2026-11-04T15:13:12 REJECTED  BUY  NOW    qty=1.0 lmt=110.93 sl=108.71140000000001 cuenta=U15513057 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-04T10:35:16 REJECTED  BUY  DTE    qty=2.0 lmt=26.08 sl=25.5584 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
+2026-11-03T15:11:26 REJECTED  BUY  NOW    qty=1.0 lmt=106.54499999999999 sl=104.41409999999999 cuenta=U15513057 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-03T14:56:23 REJECTED  BUY  KLAC   qty=1.0 lmt=154.995 sl=151.8951 cuenta=U15513057 ibkr=Inactive motivo=202 Order Canceled - reason: [BRACKET_TP id=2348]
+2026-11-03T14:48:33 EXECUTED  BUY  HOOD   qty=1.0 lmt=84.97 sl=83.2706 cuenta=U24225949 ibkr=Filled motivo=
+2026-11-03T14:48:15 REJECTED  BUY  QCOM   qty=1.0 lmt=161.92000000000002 sl=158.6816 cuenta=U24225949 ibkr=Inactive motivo=202 Order Canceled - reason: [BRACKET_TP id=2342]
+2026-11-03T14:26:12 REJECTED  BUY  IAG    qty=23.0 lmt=5.046 sl=4.94508 cuenta=U15513057 ibkr=PendingSubmit motivo=IBKR status=PendingSubmit (not Submitted/PreSubmitted/Filled)
 2026-11-03T08:29:15 REJECTED  BUY  DTE    qty=4.0 lmt=25.97 sl=25.450599999999998 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
 2026-11-02T19:41:17 EXECUTED  BUY  NOW    qty=1.0 lmt=106.935 sl=104.7963 cuenta=U24225949 ibkr=Filled motivo=
 2026-11-02T19:40:18 EXECUTED  SELL INTC   qty=1.0 lmt=60.415 sl=None cuenta=U24225949 ibkr=Submitted motivo=
@@ -31,15 +38,6 @@
 2026-10-30T09:31:41 REJECTED  SELL INTC   qty=1.0 lmt=68.525 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
 2026-10-30T09:19:26 EXECUTED  BUY  REP    qty=2.0 lmt=29.92 sl=29.3216 cuenta=U15513057 ibkr=Submitted motivo=
 2026-10-30T09:16:14 REJECTED  SELL INTC   qty=1.0 lmt=68.57 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-30T09:01:11 REJECTED  SELL INTC   qty=1.0 lmt=68.22 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-30T08:45:44 REJECTED  SELL INTC   qty=1.0 lmt=67.46000000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-30T08:30:41 REJECTED  SELL INTC   qty=1.0 lmt=68.095 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-30T08:18:31 EXECUTED  BUY  REP    qty=2.0 lmt=29.63 sl=29.037399999999998 cuenta=U15513057 ibkr=Submitted motivo=
-2026-10-30T08:15:15 REJECTED  SELL INTC   qty=1.0 lmt=68.92500000000001 sl=None cuenta=U24225949 ibkr=REJECTED motivo=BROKER_NO_ACK_BRAKE symbol INTC: NO_ACK hoy — sin nuevas órdenes hasta mañana UTC
-2026-10-30T08:00:11 REJECTED  SELL INTC   qty=1.0 lmt=70.38499999999999 sl=None cuenta=U24225949 ibkr=NO_ACK motivo=399 Order Message:
-SELL 1 INTC NASDAQ.NMS
-Warning: Your order will not be placed at the ex
-2026-10-28T13:23:16 REJECTED  BUY  BNP    qty=1.0 lmt=87.42 sl=85.6716 cuenta=U15513057 ibkr=NO_ACK motivo=460 No trading permissions.
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -1,0 +1,35 @@
+/dev/sda1        75G   75G     0 100% /
+75G	/
+46G	/root
+22G	/var
+18G	/var/lib
+17G	/var/lib/containerd
+12G	/root/mt5-config/.wine
+12G	/root/mt5-config
+3.1G	/usr
+2.9G	/var/www/forgeos
+2.9G	/var/www
+1.9G	/root/forgeos-state-20261105-115843
+1.9G	/root/forgeos-state-20261105-112945
+1.9G	/root/forgeos-state-20261105-111826
+1.9G	/root/forgeos-state-20261103-131924
+1.9G	/root/forgeos-state-20261102-195146
+1.9G	/root/forgeos-state-20261102-194603
+1.9G	/root/forgeos-state-20261102-193824
+1.9G	/root/forgeos-state-20261030-121151
+1.9G	/root/forgeos-state-20261030-120514
+1.9G	/root/forgeos-state-20261030-074838
+1.9G	/root/forgeos-state-20261030-074254
+1.9G	/root/forgeos-state-20261029-143820
+1.9G	/root/forgeos-state-20261029-131011
+1.9G	/root/forgeos-state-20261029-120007
+1.8G	/root/forgeos-state-20261105-115843/cache
+1.8G	/root/forgeos-state-20261105-112945/cache
+1.8G	/root/forgeos-state-20261105-111826/cache
+1.8G	/root/forgeos-state-20261103-131924/cache
+1.8G	/root/forgeos-state-20261102-195146/cache
+1.8G	/root/forgeos-state-20261102-194603/cache
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

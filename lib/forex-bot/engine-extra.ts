@@ -23,7 +23,7 @@ import { newsBlockReason, type NewsEvent } from "./news";
 import { isWeekendFlattenTime } from "./sessions";
 import { killSwitchState } from "./killswitch";
 import { e1Signal, g1Signal } from "./shortterm";
-import { F40_MAX_BARS, f40Rule, f40RuleExitOnLast, f40SignalOnLast, type F40Result } from "./forum40";
+import { F40_MAX_BARS, f40Rule, f40RuleExitOnLast, f40SignalOnLast, inLiquidHours, type F40Result } from "./forum40";
 import type { FxCandle, FxSide, FxTrade } from "./types";
 
 type Mode = FxTrade["mode"];
@@ -257,14 +257,22 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
           pending.push({ id: a.id, side, level: last.close - dir * 0.25 * a14, atr: a14, until: last.time + 2 * TF_SEC[a.tf], barTime: last.time });
         }
       } else if (a.kind === "F40" && a.rule) {
-        const sig = f40SignalOnLast(a.rule, bars);
+        // M15 rules: same London-hours window as the backtest, on real UTC bar times
+        let sigBars = bars;
+        if (a.tf === "M15") {
+          const h = Math.round((last.time + 900 - Date.now() / 1000) / 3600);
+          const off = Math.abs(h) <= 4 ? h * 3600 : 0;
+          sigBars = off ? bars.map((b) => ({ ...b, time: b.time - off })) : bars;
+        }
+        const liquid = a.tf !== "M15" || inLiquidHours(sigBars[sigBars.length - 1]!.time + 900);
+        const sig = liquid ? f40SignalOnLast(a.rule, sigBars) : null;
         if (sig) {
           const dir = sig.side === "long" ? 1 : -1;
           const rr = f40Rule(a.rule)?.rr;
           pending.push({
             id: a.id, side: sig.side, level: Infinity, atr: sig.atr, until: last.time + 2 * TF_SEC[a.tf], barTime: last.time,
             stop: last.close - dir * 2 * sig.atr, target: last.close + dir * (rr ? rr * 2 : 6) * sig.atr,
-            maxBars: F40_MAX_BARS[a.tf as "H1" | "H4" | "D1"],
+            maxBars: F40_MAX_BARS[a.tf as "M15" | "H1" | "H4" | "D1"],
           });
         }
       } else if (a.kind === "R2" && a14 && r2Signal(bars)) {

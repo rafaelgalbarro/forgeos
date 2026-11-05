@@ -12,7 +12,7 @@ import { mt5Candles, mt5Configured, mt5SymbolInfo } from "@/lib/forex-bot/mt5";
 import { evaluateF40, f40Ctx, F40_GATE, F40_RULES, type F40Result, type F40Tf } from "@/lib/forex-bot/forum40";
 import type { FxCandle } from "@/lib/forex-bot/types";
 
-const WANT: Record<F40Tf, number> = { H1: 30000, H4: 8000, D1: 2600 };
+const WANT: Record<F40Tf, number> = { M15: 25000, H1: 30000, H4: 8000, D1: 2600 };
 
 async function history(symbols: string[], tf: F40Tf, minSpread: number): Promise<{ bars: FxCandle[]; spread: number }> {
   for (const base of symbols) {
@@ -35,6 +35,14 @@ async function history(symbols: string[], tf: F40Tf, minSpread: number): Promise
   return { bars: [], spread: minSpread };
 }
 
+/** Server-time offset (seconds, whole hours) estimated from the last bar while the market is open. */
+function mt5OffsetSec(bars: readonly FxCandle[]): number {
+  const last = bars[bars.length - 1];
+  if (!last) return 0;
+  const h = Math.round((last.time + 900 - Date.now() / 1000) / 3600);
+  return Math.abs(h) <= 4 ? h * 3600 : 0;
+}
+
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 async function main(): Promise<void> {
@@ -44,10 +52,17 @@ async function main(): Promise<void> {
   try { prev = (JSON.parse(fs.readFileSync(file, "utf8")) as { results: F40Result[] }).results ?? []; } catch { /* first run */ }
   const instruments = new Map<string, { symbols: string[]; spread: number }>();
   for (const s of mrSpecs()) instruments.set(s.instrument, { symbols: s.symbols, spread: s.spread });
-  const results: F40Result[] = [];
+  // timeframes to (re)run: argv "M15" or "H1:H4:D1" (default all three of the original run);
+  // results of the other timeframes are kept as they are (locked live rows included).
+  const TFS = String(process.argv[2] ?? "H1:H4:D1").toUpperCase().split(/[,:]/).filter((t): t is F40Tf => ["M15", "H1", "H4", "D1"].includes(t));
+  const results: F40Result[] = prev.filter((r) => !TFS.includes(r.tf));
   for (const [inst, meta] of instruments) {
-    for (const tf of ["H1", "H4", "D1"] as const) {
-      const { bars, spread } = await history(meta.symbols, tf, meta.spread);
+    for (const tf of TFS) {
+      const got = await history(meta.symbols, tf, meta.spread);
+      const spread = got.spread;
+      // MT5 bar times are broker-server time; M15 rules use the London clock → shift to real UTC
+      const off = tf === "M15" ? mt5OffsetSec(got.bars) : 0;
+      const bars = off ? got.bars.map((b) => ({ ...b, time: b.time - off })) : got.bars;
       if (!bars.length) { console.log(`[F40] ${inst} ${tf}: sin historia`); continue; }
       const ctx = f40Ctx(bars);
       for (const rule of F40_RULES) {

@@ -778,7 +778,8 @@ do_pm_backtest() {
 
 do_forex_forum40() {
   sec "40 ESTRATEGIAS (lista del propietario) — backtest con historia de OANDA"
-  timeout 3600 node scripts/forex-bot.cjs forum40 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | grep -vE "^\[F40\] .*ninguna" | tail -70
+  local tfs; tfs="$(echo "${1:-H1:H4:D1}" | tr -cd 'A-Z0-9:')"; [ -n "$tfs" ] || tfs="H1:H4:D1"
+  timeout 3600 node scripts/forex-bot.cjs forum40 "$tfs" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | grep -vE "^\[F40\] .*ninguna" | tail -70
 }
 
 do_intraday_backtest() {
@@ -987,17 +988,18 @@ case "$ACTION" in
   trades-review) do_trades_review "$ARG" ;;
   gap-backtest) do_gap_backtest "$ARG" ;;
   pm-backtest) do_pm_backtest "$ARG" ;;
-  forex-forum40) do_forex_forum40 ;;
+  forex-forum40) do_forex_forum40 "$ARG" ;;
   intraday-backtest) do_intraday_backtest "$ARG" ;;
   crypto40) do_crypto40 "$ARG" ;;
   forex-forum40-lock-best)
     # Robust subset of the 40-list: ≥120 trades, both halves ≥ +0.05R, ≥ +0.08R with 1.5× spread,
     # best per instrument, at most 8 → real money (locked). Everything else stays in shadow.
-    python3 - <<'PY'
-import json
+    TFONLY="$ARG" python3 - <<'PY'
+import json, os
+only = (os.environ.get("TFONLY") or "").upper()
 p = "/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"
 j = json.load(open(p))
-cand = [r for r in j["results"] if r.get("liveEligible") and r["all"]["trades"] >= 120
+cand = [r for r in j["results"] if r.get("liveEligible") and r["all"]["trades"] >= 120 and (not only or r["tf"] == only)
         and min(r["firstHalf"]["meanR"], r["secondHalf"]["meanR"]) >= 0.05 and r["stressed"]["meanR"] >= 0.08]
 best = {}
 for r in sorted(cand, key=lambda r: -r["all"]["meanR"]):
@@ -1005,6 +1007,8 @@ for r in sorted(cand, key=lambda r: -r["all"]["meanR"]):
 pick = sorted(best.values(), key=lambda r: -r["all"]["meanR"])[:8]
 ids = {r["id"] for r in pick}
 for r in j["results"]:
+    if only and r["tf"] != only:
+        continue  # other timeframes keep their confirmation
     r["locked"] = r["id"] in ids
 json.dump(j, open(p, "w"), indent=2)
 print("candidatas robustas:", len(cand))

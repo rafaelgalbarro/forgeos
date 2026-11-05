@@ -1,9 +1,9 @@
 
 === KRAKEN FUTURES: diagnóstico de estrategias ===
 venue= futures shadow= False apalancamiento= 2 estrategias live= ['RS_VS_BTC_1H_SHORT', 'TREND_PULLBACK_1H_SHORT']
-margen= 66.6243 último ciclo= 2026-11-05T15:22:20.550Z lastCycle= None
-riesgo diario= {'dayKey': '2026-11-05', 'dayStartCapital': 82.2781, 'dayPnl': 0.2604000000000042, 'exitsOnly': False, 'dailyLimitHit': False}
-diagnóstico actualizado= 2026-11-05T15:22:20.552Z último ciclo= 2026-11-05T15:22:20.552Z
+margen= 66.6411 último ciclo= 2026-11-05T15:23:23.674Z lastCycle= None
+riesgo diario= {'dayKey': '2026-11-05', 'dayStartCapital': 82.2781, 'dayPnl': 0.27720000000000766, 'exitsOnly': False, 'dailyLimitHit': False}
+diagnóstico actualizado= 2026-11-05T15:23:23.677Z último ciclo= 2026-11-05T15:23:23.677Z
   BTC_SEASONAL_22UTC           long  intentos=810    señales=810  casi=0   | 
   C40_F02_SIDUS_H4             long  intentos=240    señales=0    casi=240 | 240×stop_distance_cap
   C40_F09_BB_STOCH_H4          long  intentos=240    señales=0    casi=240 | 240×stop_distance_cap
@@ -17,16 +17,16 @@ diagnóstico actualizado= 2026-11-05T15:22:20.552Z último ciclo= 2026-11-05T15:
   FUNDING_REVERSAL_1H          long  intentos=1462   señales=667  casi=795 | 795×stop_distance_cap
   FUNDING_REVERSAL_1H          short intentos=926    señales=0    casi=926 | 926×coste_futures_3x
   LIQUIDITY_SWEEP_15M          long  intentos=30     señales=30   casi=0   | 
-  LIQUIDITY_SWEEP_15M_SHORT    short intentos=286988 señales=476  casi=286512 | 249824×sin sweep de liquidez arriba; 30147×insuficientes barras; 3480×vol 0.00<1.5x
-  RSI2_TREND_15M               long  intentos=8017   señales=5985 casi=2032 | 2002×coste_futures_3x; 30×stop_distance_cap
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=287007 señales=476  casi=286531 | 249843×sin sweep de liquidez arriba; 30147×insuficientes barras; 3480×vol 0.00<1.5x
+  RSI2_TREND_15M               long  intentos=8018   señales=5986 casi=2032 | 2002×coste_futures_3x; 30×stop_distance_cap
   RSI2_TREND_15M               short intentos=9061   señales=0    casi=9061 | 9061×coste_futures_3x
-  RSI2_TREND_1H                long  intentos=2957   señales=2555 casi=402 | 402×stop_distance_cap
+  RSI2_TREND_1H                long  intentos=2961   señales=2559 casi=402 | 402×stop_distance_cap
   RSI2_TREND_1H                short intentos=12353  señales=0    casi=12353 | 12353×coste_futures_3x
   RSI_MEAN_REVERSION_15M       long  intentos=500    señales=500  casi=0   | 
-  RS_VS_BTC_1H_SHORT           short intentos=286988 señales=30683 casi=256305 | 214823×no bottom-3 RS vs BTC; 30446×RS no negativo 1h+4h; 8791×sin pullback EMA20 15m
-  TREND_PULLBACK_1H_SHORT      short intentos=286988 señales=48741 casi=238247 | 79599×EMA20>=EMA50 1h; 49640×no en EMA20; 42807×insuficientes barras 1h
+  RS_VS_BTC_1H_SHORT           short intentos=287007 señales=30683 casi=256324 | 214839×no bottom-3 RS vs BTC; 30446×RS no negativo 1h+4h; 8794×sin pullback EMA20 15m
+  TREND_PULLBACK_1H_SHORT      short intentos=287007 señales=48741 casi=238266 | 79613×EMA20>=EMA50 1h; 49645×no en EMA20; 42807×insuficientes barras 1h
   VWAP_BOUNCE_5M               long  intentos=557    señales=557  casi=0   | 
-  VWAP_BOUNCE_5M_SHORT         short intentos=286988 señales=2887 casi=284101 | 159499×sin touch+reject VWAP arriba; 87566×1h no bajista; 34840×insuficientes barras
+  VWAP_BOUNCE_5M_SHORT         short intentos=287007 señales=2887 casi=284120 | 159504×sin touch+reject VWAP arriba; 87580×1h no bajista; 34840×insuficientes barras
   VWAP_RECLAIM_15M             long  intentos=30     señales=30   casi=0   | 
 puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
 
@@ -38,7 +38,7 @@ PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contract
 PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
 
 === KRAKEN FUTURES: cuenta, posiciones y órdenes (API privada) ===
-margen disponible: 66.636 | valor cartera: 82.16435589309457 | PnL: -0.36638689711000066
+margen disponible: 66.6491 | valor cartera: 82.03386542823911 | PnL: -0.5277077373680008
 posiciones: [('PF_UNIUSD', 'long', 2.2, 7.132), ('PF_INJUSD', 'long', 2, 8.069)]
   orden: a3274cb6-fa3f-4eaa-8125-e9e9c35bebfa PF_INJUSD sell take_profit size= 2 lmt= None stop= 8.081 reduceOnly= True
   orden: a3274cb4-03c8-4e3a-8b63-a2bb51f857aa PF_INJUSD sell stop size= 2 lmt= None stop= 7.763 reduceOnly= True
@@ -46,9 +46,9 @@ posiciones: [('PF_UNIUSD', 'long', 2.2, 7.132), ('PF_INJUSD', 'long', 2, 8.069)]
 órdenes abiertas: 3
 
 === KRAKEN FUTURES: últimas líneas del motor ===
-2026-11-05 15:20:39 +00:00: [Kraken/Futures] cycle margin=66.6178 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=0 held=[PF_INJUSD:RSI2_TREND_1H:ya_hay_posicion | PF_UNIUSD:RSI2_TREND_1H:ya_hay_posicion | PF_ETHUSD:RSI2_TREND_1H:pausa_tras_stop_89min | PF_XRPUSD:RSI2_TREND_1H:pausa_tras_stop_90min]
 2026-11-05 15:21:42 +00:00: [Kraken/Futures] cycle margin=66.6214 symbols=19 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=0 held=[PF_INJUSD:RSI2_TREND_1H:ya_hay_posicion | PF_UNIUSD:RSI2_TREND_1H:ya_hay_posicion | PF_ETHUSD:RSI2_TREND_1H:pausa_tras_stop_88min | PF_XRPUSD:RSI2_TREND_1H:pausa_tras_stop_90min]
 2026-11-05 15:22:20 +00:00: [Kraken/Futures] cycle margin=66.6243 symbols=19 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=0 held=[PF_INJUSD:RSI2_TREND_1H:ya_hay_posicion | PF_UNIUSD:RSI2_TREND_1H:ya_hay_posicion | PF_ETHUSD:RSI2_TREND_1H:pausa_tras_stop_87min | PF_XRPUSD:RSI2_TREND_1H:pausa_tras_stop_90min]
+2026-11-05 15:23:23 +00:00: [Kraken/Futures] cycle margin=66.6411 symbols=19 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=0 held=[PF_INJUSD:RSI2_TREND_1H:ya_hay_posicion | PF_UNIUSD:RSI2_TREND_1H:ya_hay_posicion | PF_ETHUSD:RSI2_TREND_1H:pausa_tras_stop_86min | PF_XRPUSD:RSI2_TREND_1H:pausa_tras_stop_90min]
 --- errores de órdenes
 2026-11-05 14:47:52 +00:00: [Kraken/Futures] TP en exchange PF_ETHUSD long trigger=2361.7 id=a327420d-3cac-49e9-99d7-91c164022914
 2026-11-05 14:48:47 +00:00: [Kraken/Futures] TP en exchange PF_ETHUSD long trigger=2361.7 id=a3274261-d8a5-4c5a-9d5f-641fa56295db

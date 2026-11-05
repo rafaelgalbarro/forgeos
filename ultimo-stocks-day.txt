@@ -1,20 +1,22 @@
 
 === ACCIONES: señales y motivos (logs de forgeos) ===
--rw-r--r-- 1 root root  1043906 Nov  1 00:00 forgeos-out__2026-11-01_00-00-00.log
--rw-r--r-- 1 root root   889869 Nov  2 00:00 forgeos-out__2026-11-02_00-00-00.log
+-rw-r--r-- 1 root root  7144040 Nov  5 22:41 forgeos-out.log
 -rw-r--r-- 1 root root  2205088 Nov  3 00:00 forgeos-out__2026-11-03_00-00-00.log
 -rw-r--r-- 1 root root  8715995 Nov  4 00:00 forgeos-out__2026-11-04_00-00-00.log
 -rw-r--r-- 1 root root  6927021 Nov  5 00:00 forgeos-out__2026-11-05_00-00-00.log
 desde: 2026-11-03T06:00:00  hasta: 
 --- ciclos de acciones con universo > 0:
-541
+710
 --- tickers evaluados (ProStrategy ... evaluadas):
-12454
+16295
 --- señales BUY/SELL:
-     38 REP BUY 65%
+     55 REP BUY 65%
      35 MC BUY 65%
-     29 BNP BUY 65%
+     33 ADBE BUY 65%
+     32 MBG BUY 65%
+     31 BNP BUY 65%
      26 MSTR BUY 65%
+     24 SIE BUY 65%
      23 MS BUY 70%
      23 GS BUY 75%
      20 AVGO BUY 65%
@@ -25,61 +27,74 @@ desde: 2026-11-03T06:00:00  hasta:
      14 DTE BUY 65%
      13 JPM BUY 65%
      11 IAG BUY 65%
-     10 C BUY 70%
-     10 ADBE BUY 65%
+     11 C BUY 70%
       9 XYZ BUY 70%
       9 XYZ BUY 65%
       7 AMZN BUY 65%
+      6 UNH BUY 65%
       6 MRNA BUY 65%
       6 HOOD BUY 70%
-      5 SIE BUY 65%
+      6 COIN BUY 65%
       5 MSFT BUY 75%
+      5 META BUY 65%
       5 JPM BUY 75%
       5 BBVA BUY 65%
       4 QCOM BUY 65%
-      2 NOW BUY 65%
-      2 MSFT BUY 70%
-      1 SNOW BUY 70%
-      1 SCHW BUY 70%
 --- qué pasó con ellas:
-    736 [AutoExecute] USDJPY → skip: precio EODHD forex no disponible
-    736 [AutoExecute] USDCHF → skip: precio EODHD forex no disponible
-    736 [AutoExecute] USDCAD → skip: precio EODHD forex no disponible
-    736 [AutoExecute] GBPUSD → skip: precio EODHD forex no disponible
-    736 [AutoExecute] AUDUSD → skip: precio EODHD forex no disponible
-    735 [AutoExecute] EURUSD → skip: precio EODHD forex no disponible
+    838 [AutoExecute] USDJPY → skip: precio EODHD forex no disponible
+    838 [AutoExecute] USDCHF → skip: precio EODHD forex no disponible
+    838 [AutoExecute] USDCAD → skip: precio EODHD forex no disponible
+    838 [AutoExecute] GBPUSD → skip: precio EODHD forex no disponible
+    838 [AutoExecute] AUDUSD → skip: precio EODHD forex no disponible
+    837 [AutoExecute] EURUSD → skip: precio EODHD forex no disponible
      38 [Signal] REP: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en REP
      38   ❌ RECHAZADO: posición duplicada en REP
+     25   ❌ RECHAZADO: capital insuficiente — precio $X > presupuesto $X (utilizable≈$X)
       7 [Signal] IAG: BUY status=REJECTED_RISK conf=65% reason=posición duplicada en IAG
       7   ❌ RECHAZADO: posición duplicada en IAG
       5   ❌ RECHAZADO: capital insuficiente — cuenta U15513057 precio €X > presupuesto €X (utilizable≈€X)
       3 [CryptoPermission] account=U24225949 code=460 granted=false msg=No trading permissions.
       2 [Telegram] filtrado (solo operaciones): «⛔ NO NEGOCIABLE DTE: 460 (No trading permissions.)»
       2 [Signal] DTE: BUY status=ERROR conf=65% reason=Execute failed after APPROVED: 460 No trading permissions.
+      1 [Telegram] filtrado (solo operaciones): «⛔ NO NEGOCIABLE INGA: 460 (No trading permissions.)»
+      1 [Telegram] filtrado (solo operaciones): «⛔ NO NEGOCIABLE BNP: 460 (No trading permissions.)»
+      1 [Telegram] filtrado (solo operaciones): «⛔ NO NEGOCIABLE AIR: 460 (No trading permissions.)»
+      1 [Signal] INGA: BUY status=ERROR conf=65% reason=Execute failed after APPROVED: 460 No trading permissions.
+      1 [Signal] BNP: BUY status=ERROR conf=65% reason=Execute failed after APPROVED: 460 No trading permissions.
+      1 [Signal] AIR: BUY status=ERROR conf=65% reason=Execute failed after APPROVED: 460 No trading permissions.
+      1 [AutoExecute] TSLA → skip (timeout IBKR)
+      1 [AutoExecute] ORCL → skip (timeout IBKR)
+      1 [AutoExecute] ORCL → orden enviada ibkrId=2391 proposal=5c7237d4-39f0-436a-9043-17a6f74ced78
+      1 [AutoExecute] ORCL → EJECUTADO ibkrId=2391 ✅
+      1 [AutoExecute] ORCL → EJECUTADO ibkrId=2391 status=Filled ✅
       1 [AutoExecute] NOW → orden enviada ibkrId=2329 proposal=f262e328-47eb-4783-988a-866033c3fde8
       1 [AutoExecute] NOW → EJECUTADO ibkrId=2329 ✅
       1 [AutoExecute] NOW → EJECUTADO ibkrId=2329 status=Filled ✅
+      1 [AutoExecute] META → skip (timeout IBKR)
       1 [AutoExecute] INTC → EJECUTADO ibkrId=2328 status=Submitted ✅
       1 [AutoExecute] HOOD → orden enviada ibkrId=2344 proposal=9218856b-3a33-40e4-bc76-3b3071642013
       1 [AutoExecute] HOOD → EJECUTADO ibkrId=2344 ✅
       1 [AutoExecute] HOOD → EJECUTADO ibkrId=2344 status=Filled ✅
-      1   ❌ RECHAZADO: capital insuficiente — precio $X > presupuesto $X (utilizable≈$X)
+      1 [AutoExecute] GOOGL → skip (timeout IBKR)
+      1 [AutoExecute] CRM → skip (timeout IBKR)
+      1 [AutoExecute] AVGO → skip (timeout IBKR)
+      1 [AutoExecute] ADBE → skip (timeout IBKR)
 --- estrategias que más rechazan (motivo HOLD):
-   8272 ninguna señal (USA_REGULAR)
-   1330 ninguna señal (EUROPE)
-   1314 ninguna señal (USA_PREMARKET)
-   1080 ninguna señal (USA_OPEN)
+  10466 ninguna señal (USA_REGULAR)
+   2090 ninguna señal (USA_PREMARKET)
+   1982 ninguna señal (EUROPE)
+   1299 ninguna señal (USA_OPEN)
     458 ninguna señal (EUROPE_OPEN)
-      7 skip (ya subió 6.4% > 5%)
-      6 skip (ya subió 6.1% > 5%)
-      5 skip (ya subió 6.5% > 5%)
-      5 skip (ya subió 6.2% > 5%)
-      5 skip (ya subió 5.4% > 5%)
-      4 skip (ya subió 6.6% > 5%)
-      4 skip (ya subió 6.0% > 5%)
-      4 skip (ya subió 5.9% > 5%)
-      3 skip (ya subió 5.8% > 5%)
-      3 skip (ya subió 5.5% > 5%)
+     29 skip (ya subió 5.8% > 5%)
+     21 skip (ya subió 5.9% > 5%)
+     19 skip (ya subió 6.6% > 5%)
+     17 skip (ya subió 5.7% > 5%)
+     16 skip (ya subió 5.6% > 5%)
+     16 skip (ya subió 5.0% > 5%)
+     15 skip (ya subió 6.1% > 5%)
+     14 skip (ya subió 6.4% > 5%)
+     13 skip (ya subió 6.5% > 5%)
+     13 skip (ya subió 6.2% > 5%)
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

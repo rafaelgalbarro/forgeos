@@ -1,4 +1,4 @@
-script remoto actualizado a 32a85dd
+script remoto actualizado a e4bec16
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

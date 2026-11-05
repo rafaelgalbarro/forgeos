@@ -1,17 +1,17 @@
 
 === BOT FOREX ===
-proceso: online reinicios: 59
+proceso: online reinicios: 62
 modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
 --- últimos ciclos
-2026-11-05 10:58:43 +00:00: 2026-11-05T10:58:42.680Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=89.11 EUR abiertas=2 simuladas=15 entradas=0 pnlHoy=0.00
-2026-11-05 10:59:43 +00:00: 2026-11-05T10:59:42.694Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=89.18 EUR abiertas=2 simuladas=15 entradas=0 pnlHoy=0.00
-2026-11-05 11:00:48 +00:00: 2026-11-05T11:00:42.709Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=89.44 EUR abiertas=2 simuladas=16 entradas=1 pnlHoy=0.00
-2026-11-05 11:01:43 +00:00: 2026-11-05T11:01:42.723Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=89.38 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00
-2026-11-05 11:02:43 +00:00: 2026-11-05T11:02:42.723Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=89.41 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00
-2026-11-05 11:03:43 +00:00: 2026-11-05T11:03:42.737Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=89.41 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00
+2026-11-05 12:29:22 +00:00: 2026-11-05T12:29:22.050Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
+2026-11-05 12:30:33 +00:00: 2026-11-05T12:30:22.074Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=500.00 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
+2026-11-05 12:31:38 +00:00: 2026-11-05T12:31:22.075Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=89.32 EUR abiertas=2 simuladas=16 entradas=1 pnlHoy=0.00 | noticias: GBP_USD noticia GBP «BOE Gov Bailey Speaks»
+2026-11-05 12:32:22 +00:00: 2026-11-05T12:32:22.104Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=89.35 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00 | noticias: GBP_USD noticia GBP «BOE Gov Bailey Speaks»
+2026-11-05 12:33:22 +00:00: 2026-11-05T12:33:22.134Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=89.40 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00 | noticias: GBP_USD noticia GBP «BOE Gov Bailey Speaks»
+2026-11-05 12:34:22 +00:00: 2026-11-05T12:34:22.162Z [ForexBot] modo=live broker=mt5 datos=EODHD pares=21 nav=89.12 EUR abiertas=2 simuladas=16 entradas=0 pnlHoy=0.00 | noticias: GBP_USD noticia GBP «BOE Gov Bailey Speaks»
 --- resumen diario
 --- operaciones
-reales: 11 · simuladas: 83
+reales: 11 · simuladas: 84
 live MR_GBPUSD_H4_LMT GBP_USD long 0.01 abierta 2026-10-23T16:19 entrada 1.33682 SL 1.33192 TP 1.34417 | cierre 2026-10-23T19:01 WEEKEND P&L 0.24 R 0.06
 live H4_EMA_CROSS_fast12_slow26_A1.5_R2 AUD_NZD short 0.01 abierta 2026-10-26T00:00 entrada 1.2328999999999999 SL 1.23634 TP 1.22602 | cierre 2026-10-26T08:23 SL P&L -1.75 R -1.0
 live H4_EMA_CROSS_fast12_slow26_A1.5_R2 AUD_NZD long 0.01 abierta 2026-10-26T12:00 entrada 1.23664 SL 1.23312 TP 1.24369 | cierre 2026-10-26T21:57 SL P&L -1.83 R -1.02
@@ -23,12 +23,12 @@ live H4_RSI_REVERT_lo30_hi70_A1.5_R1.5 AUD_CAD long 0.01 abierta 2026-11-03T16:0
 live F04_KUMO_USDJPY_H1 USD_JPY long 0.01 abierta 2026-11-02T07:00 entrada 157.842 SL 157.447 TP 159.028 | cierre 2026-11-04T04:00 TP P&L -0.94 R -0.46
 live H4_RSI_REVERT_lo30_hi70_A1.5_R1.5 AUD_CAD long 0.01 abierta 2026-11-04T08:00 entrada 0.97662 SL 0.97267 TP 0.98254 | cierre abierta None P&L None R None
 live F04_KUMO_AUDNZD_H4 AUD_NZD long 0.01 abierta 2026-11-04T19:00 entrada 1.24689 SL 1.23989 TP 1.26789 | cierre abierta None P&L None R None
-shadow F17_TWO_STOCH_EURJPY_H4 EUR_JPY short 0 abierta 2026-11-05T07:00 entrada 177.88 SL 178.73 TP 175.329 | cierre abierta None P&L None R None
 shadow F26_BULLDOZER_AUDNZD_H4 AUD_NZD short 0.01 abierta 2026-11-05T07:00 entrada 1.24246 SL 1.24939 TP 1.22167 | cierre abierta None P&L None R None
 shadow F33_DOUBLE_MACD_AUDJPY_H1 AUD_JPY long 0.01 abierta 2026-11-05T09:00 entrada 111.067 SL 110.72 TP 112.109 | cierre abierta None P&L None R None
 shadow F35_SARDAR_DE30_H1 DE30 short 0 abierta 2026-11-05T09:00 entrada 26711.9 SL 26868.4 TP 26320.6 | cierre abierta None P&L None R None
 shadow F33_DOUBLE_MACD_USDJPY_H1 USD_JPY long 0.01 abierta 2026-11-05T10:00 entrada 158.313 SL 157.921 TP 159.489 | cierre abierta None P&L None R None
 shadow F33_DOUBLE_MACD_USDJPY_H4 USD_JPY long 0 abierta 2026-11-05T11:00 entrada 158.387 SL 157.546 TP 160.91 | cierre abierta None P&L None R None
+shadow F05_ELDER_MOM_USDJPY_H1 USD_JPY long 0.01 abierta 2026-11-05T12:31 entrada 158.422 SL 158.052 TP 159.533 | cierre abierta None P&L None R None
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

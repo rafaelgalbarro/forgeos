@@ -1,0 +1,16 @@
+--- disco/memoria host
+/dev/sda1        75G   75G     0 100% /
+/dev/sda1        75G   75G     0 100% /
+               total        used        free      shared  buff/cache   available
+Mem:            7746        6618         279           4        1154        1127
+Swap:           4095        1738        2357
+--- disco contenedor
+/dev/sda1        75G   75G     0 100% /config
+overlay          75G   75G     0 100% /
+--- python en wine
+wine client error:0: recvmsg: Connection reset by peer
+--- procesos
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

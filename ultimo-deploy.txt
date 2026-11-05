@@ -1,28 +1,31 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 4a8664a IB: las acciones de EE. UU. se dimensionan con la capacidad de la cuenta en euros (MS 03/11 se rechazó con 35 $)
+Desplegando 0ca17c2 forex: lista de 40 en 15 minutos (horario Londres + Nueva York, salida en 8 h) sin tocar las de 1h/4h/diario; confirmación solo de 15 min
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261103-131924
-Updating 56f6d5f..4a8664a
+estado copiado en /root/forgeos-state-20261105-111826
+Updating 4a8664a..0ca17c2
 Fast-forward
- src/core/trading/trading-engine.ts | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ deploy/remote/forgeos-remote.sh | 14 +++++++++-----
+ lib/forex-bot/engine-extra.ts   | 14 +++++++++++---
+ lib/forex-bot/forum40.ts        | 17 ++++++++++++++---
+ scripts/forex-forum40.ts        | 23 +++++++++++++++++++----
+ 4 files changed, 53 insertions(+), 15 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.79s
+19 passed in 0.91s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        6050         242          10        1768        1696
-Swap:           4095        1543        2552
+Mem:            7746        6829         308           4         907         916
+Swap:           4095        2093        2002
      0 MB COMMAND
-  1464 MB node
-  1416 MB node
-  1158 MB node
-   368 MB java
-   366 MB next-server
+  1804 MB node
+  1781 MB node
+  1428 MB node
+   265 MB next-server
+   254 MB java
 
 up to date in 1s
    Generating static pages (153/204) 

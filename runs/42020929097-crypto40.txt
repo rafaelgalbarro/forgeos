@@ -1,0 +1,7 @@
+
+=== LISTA DE 40 EN KRAKEN FUTURES (M15, largos y cortos) — backtest 365 días ===
+[C40] error: Cannot access 'res2' before initialization
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=1

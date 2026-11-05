@@ -1,0 +1,5 @@
+confirmada para real: F20_EMA_RVI_USDJPY_M15 (Cruce EMA18/EMA28 confirmado por RVI(10))
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

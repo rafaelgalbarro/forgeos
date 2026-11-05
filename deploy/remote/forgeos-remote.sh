@@ -24,6 +24,12 @@ ARG="$(echo "$RAW" | awk '{print $2}' | tr -cd 'A-Z0-9._:-' | cut -c1-60)"
 cd "$APP" || { echo "No existe $APP"; exit 1; }
 API_KEY="$(grep -E '^IBKR_INTERNAL_API_KEY=' .env.local 2>/dev/null | head -1 | cut -d= -f2-)"
 
+prune_state_copies() {
+  ls -1dt /root/forgeos-state-* 2>/dev/null | tail -n +3 | xargs -r rm -rf
+  for d in /root/forgeos-state-*; do [ -d "$d/cache" ] && rm -rf "$d/cache"; done
+  return 0
+}
+
 sec() { printf '\n=== %s ===\n' "$1"; }
 
 broker_python() {
@@ -126,7 +132,10 @@ do_deploy() {
 
   sec "COPIA DE ESTADO Y ACTUALIZACIÓN"
   local B; B=/root/forgeos-state-$(date +%Y%m%d-%H%M%S)
-  cp -a .forgeos "$B" && echo "estado copiado en $B"
+  # state copy without the rebuildable download cache, and keep only the last 3 copies
+  # (05/11: 14 copies × 1.9 GB filled the disk and MT5/Wine stopped working)
+  prune_state_copies
+  cp -a .forgeos "$B" && rm -rf "$B/cache" && echo "estado copiado en $B (sin caché)"
   git checkout -- .forgeos 2>/dev/null
   if ! git merge --ff-only "origin/$BRANCH"; then
     cp -a "$B/." .forgeos/; echo "ABORTADO: no es fast-forward"; exit 3
@@ -198,7 +207,8 @@ do_align() {
   git branch "$backup" HEAD && echo "respaldo del estado actual: rama local $backup ($(git rev-parse --short HEAD))"
   git stash push -q -m "align $backup" -- package-lock.json 2>/dev/null && echo "package-lock.json local guardado en git stash"
   local B; B=/root/forgeos-state-$(date +%Y%m%d-%H%M%S)
-  cp -a .forgeos "$B"
+  prune_state_copies
+  cp -a .forgeos "$B" && rm -rf "$B/cache"
   git reset -q --hard "origin/$BRANCH" && echo "HEAD ahora = $(git log -1 --format='%h %s')"
   cp -a "$B/." .forgeos/
   do_deploy
@@ -1272,6 +1282,7 @@ PY
   disk-clean)
     # Frees space: backtest download caches (rebuildable), rotated PM2 logs, journald, apt and npm caches.
     df -h / | tail -1
+    prune_state_copies
     rm -rf /var/www/forgeos/.forgeos/cache/gap /var/www/forgeos/.forgeos/cache/intraday
     find /root/.pm2/logs -name "*__*.log" -mtime +2 -delete 2>/dev/null
     find /root/.pm2/logs /var/www/forgeos/logs -name "*.log" -size +200M -exec truncate -s 50M {} \; 2>/dev/null

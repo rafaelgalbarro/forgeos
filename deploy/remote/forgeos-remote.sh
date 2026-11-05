@@ -1265,6 +1265,21 @@ PY
   mt5-stop)
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
     echo "puente y terminal MT5 parados (sin reintentos de login)" ;;
+  disk-usage)
+    df -h / | tail -1
+    du -xsh /var/www/forgeos/.forgeos/cache/* /var/www/forgeos/.forgeos/* /var/www/forgeos/logs /root/.pm2/logs /var/lib/docker /var/log /root/.cache /root/.npm /tmp /var/www/forgeos/.next /var/www/forgeos/node_modules 2>/dev/null | sort -rh | head -25
+    ;;
+  disk-clean)
+    # Frees space: backtest download caches (rebuildable), rotated PM2 logs, journald, apt and npm caches.
+    df -h / | tail -1
+    rm -rf /var/www/forgeos/.forgeos/cache/gap /var/www/forgeos/.forgeos/cache/intraday
+    find /root/.pm2/logs -name "*__*.log" -mtime +2 -delete 2>/dev/null
+    find /root/.pm2/logs /var/www/forgeos/logs -name "*.log" -size +200M -exec truncate -s 50M {} \; 2>/dev/null
+    journalctl --vacuum-size=200M >/dev/null 2>&1; apt-get clean >/dev/null 2>&1; rm -rf /root/.npm/_cacache 2>/dev/null
+    docker exec mt5 sh -c 'rm -rf /tmp/* 2>/dev/null; true'
+    find /tmp -maxdepth 1 -name "*.xwd" -delete 2>/dev/null
+    df -h / | tail -1
+    ;;
   mt5-diag)
     WU="$(stat -c %u /root/mt5-config/.wine)"
     echo "--- disco/memoria host"; df -h / /root 2>/dev/null | tail -2; free -m | head -3

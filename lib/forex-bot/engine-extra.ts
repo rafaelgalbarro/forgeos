@@ -50,7 +50,7 @@ type Active = {
   id: string;
   kind: "MR" | "R2" | "ST" | "F40";
   instrument: string;
-  tf: "M15" | "H1" | "H4" | "D1";
+  tf: "M15" | "M30" | "H1" | "H4" | "D1";
   name: string;
   real: boolean;
   mr?: MrSpec;
@@ -64,8 +64,8 @@ type Pending = {
   stop?: number; target?: number; maxBars?: number;
 };
 
-const TF_SEC = { M15: 900, H1: 3600, H4: 14400, D1: 86400 } as const;
-const MAX_BARS = { M15: 12, H1: 24, H4: 10, D1: 30 } as const;
+const TF_SEC = { M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400 } as const;
+const MAX_BARS = { M15: 12, M30: 16, H1: 24, H4: 10, D1: 30 } as const;
 
 function readJson<T>(name: string): T | null {
   try {
@@ -119,7 +119,7 @@ export function activeExtraStrategies(liveMode: boolean): Active[] {
 }
 
 const barCache = new Map<string, { bucket: number; bars: FxCandle[] }>();
-async function closedBars(instrument: string, tf: "M15" | "H1" | "H4" | "D1"): Promise<FxCandle[]> {
+async function closedBars(instrument: string, tf: "M15" | "M30" | "H1" | "H4" | "D1"): Promise<FxCandle[]> {
   const bucket = Math.floor(Date.now() / 1000 / Math.min(TF_SEC[tf], 3600));
   const key = `${instrument}:${tf}`;
   const hit = barCache.get(key);
@@ -259,12 +259,12 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
       } else if (a.kind === "F40" && a.rule) {
         // M15 rules: same London-hours window as the backtest, on real UTC bar times
         let sigBars = bars;
-        if (a.tf === "M15") {
-          const h = Math.round((last.time + 900 - Date.now() / 1000) / 3600);
+        if (a.tf === "M15" || a.tf === "M30") {
+          const h = Math.round((last.time + TF_SEC[a.tf] - Date.now() / 1000) / 3600);
           const off = Math.abs(h) <= 4 ? h * 3600 : 0;
           sigBars = off ? bars.map((b) => ({ ...b, time: b.time - off })) : bars;
         }
-        const liquid = a.tf !== "M15" || inLiquidHours(sigBars[sigBars.length - 1]!.time + 900);
+        const liquid = (a.tf !== "M15" && a.tf !== "M30") || inLiquidHours(sigBars[sigBars.length - 1]!.time + TF_SEC[a.tf]);
         const sig = liquid ? f40SignalOnLast(a.rule, sigBars) : null;
         if (sig) {
           const dir = sig.side === "long" ? 1 : -1;
@@ -272,7 +272,7 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
           pending.push({
             id: a.id, side: sig.side, level: Infinity, atr: sig.atr, until: last.time + 2 * TF_SEC[a.tf], barTime: last.time,
             stop: last.close - dir * 2 * sig.atr, target: last.close + dir * (rr ? rr * 2 : 6) * sig.atr,
-            maxBars: F40_MAX_BARS[a.tf as "M15" | "H1" | "H4" | "D1"],
+            maxBars: F40_MAX_BARS[a.tf as "M15" | "M30" | "H1" | "H4" | "D1"],
           });
         }
       } else if (a.kind === "R2" && a14 && r2Signal(bars)) {

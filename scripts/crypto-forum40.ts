@@ -13,11 +13,13 @@ import type { FxCandle } from "@/lib/forex-bot/types";
 
 const ROOT = process.env.FORGEOS_ROOT || process.cwd();
 const OUT = path.join(ROOT, ".forgeos", "crypto-forum40-latest.json");
-const SYMBOLS = ["PF_XBTUSD", "PF_ETHUSD", "PF_SOLUSD", "PF_XRPUSD", "PF_ADAUSD", "PF_LINKUSD", "PF_DOGEUSD", "PF_AVAXUSD", "PF_LTCUSD", "PF_DOTUSD", "PF_SUIUSD", "PF_NEARUSD"];
+const SYMBOLS = ["PF_XBTUSD", "PF_ETHUSD", "PF_SOLUSD", "PF_XRPUSD", "PF_ADAUSD", "PF_LINKUSD", "PF_DOGEUSD", "PF_AVAXUSD", "PF_LTCUSD", "PF_DOTUSD", "PF_SUIUSD", "PF_NEARUSD",
+  // more perpetuals (owner 05/11); a contract with too little history is skipped
+  "PF_BCHUSD", "PF_UNIUSD", "PF_AAVEUSD", "PF_ATOMUSD", "PF_FILUSD", "PF_APTUSD", "PF_ARBUSD", "PF_OPUSD", "PF_INJUSD", "PF_TRXUSD", "PF_ETCUSD", "PF_XLMUSD", "PF_SEIUSD", "PF_WIFUSD", "PF_PEPEUSD", "PF_HYPEUSD"];
 export const CRYPTO_COST_PCT = 0.0015;
 
-async function candles(symbol: string, days: number, resolution: "1h" | "15m"): Promise<FxCandle[]> {
-  const step = resolution === "1h" ? 3600 : 900;
+async function candles(symbol: string, days: number, resolution: "1h" | "30m" | "15m"): Promise<FxCandle[]> {
+  const step = resolution === "1h" ? 3600 : resolution === "30m" ? 1800 : 900;
   const out = new Map<number, FxCandle>();
   const now = Math.floor(Date.now() / 1000);
   let from = now - days * 86400;
@@ -54,7 +56,7 @@ async function main(): Promise<void> {
   let prev: F40Result[] = [];
   try { prev = (JSON.parse(fs.readFileSync(OUT, "utf8")) as { results: F40Result[] }).results ?? []; } catch { /* first run */ }
   // argv[3]: timeframes to (re)run, e.g. "M15" or "H1:H4" (default); other timeframes keep their rows
-  const TFS = String(process.argv[3] ?? "H1:H4").toUpperCase().split(/[,:]/).filter((t): t is F40Tf => ["M15", "H1", "H4"].includes(t));
+  const TFS = String(process.argv[3] ?? "H1:H4").toUpperCase().split(/[,:]/).filter((t): t is F40Tf => ["M15", "M30", "H1", "H4"].includes(t));
   const results: F40Result[] = prev.filter((r) => !TFS.includes(r.tf));
   for (const sym of SYMBOLS) {
     const sets: Array<[F40Tf, FxCandle[]]> = [];
@@ -70,6 +72,11 @@ async function main(): Promise<void> {
       const m15 = await candles(sym, Math.min(days, 365), "15m");
       if (m15.length >= 5000) sets.push(["M15", m15]);
       else console.log(`[C40] ${sym}: solo ${m15.length} velas 15m — omitido`);
+    }
+    if (TFS.includes("M30")) {
+      const m30 = await candles(sym, Math.min(days, 540), "30m");
+      if (m30.length >= 5000) sets.push(["M30", m30]);
+      else console.log(`[C40] ${sym}: solo ${m30.length} velas 30m — omitido`);
     }
     for (const [tf, bars] of sets) {
       const ctx = f40Ctx(bars);

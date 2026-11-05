@@ -17,7 +17,8 @@ import { f40Rule, f40RuleExitOnLast, f40SignalOnLast, type F40Result } from "@/l
 import type { FxCandle } from "@/lib/forex-bot/types";
 import type { CryptoStrategyId, CryptoStrategySignal } from "./types";
 
-type Locked = { rule: string; pf: string; tf: "M15" | "H1" | "H4" };
+type C40Tf = "M15" | "M30" | "H1" | "H4";
+type Locked = { rule: string; pf: string; tf: C40Tf };
 
 let lockedCache: { at: number; rows: Locked[] } | null = null;
 function lockedRows(): Locked[] {
@@ -27,8 +28,8 @@ function lockedRows(): Locked[] {
     const p = path.join(process.env.FORGEOS_ROOT || process.cwd(), ".forgeos", "crypto-forum40-latest.json");
     const j = JSON.parse(fs.readFileSync(p, "utf8")) as { results: F40Result[] };
     rows = (j.results ?? [])
-      .filter((r) => r.liveEligible && r.locked && (r.tf === "M15" || r.tf === "H1" || r.tf === "H4"))
-      .map((r) => ({ rule: r.rule, pf: r.instrument.toUpperCase(), tf: r.tf as "M15" | "H1" | "H4" }));
+      .filter((r) => r.liveEligible && r.locked && (r.tf === "M15" || r.tf === "M30" || r.tf === "H1" || r.tf === "H4"))
+      .map((r) => ({ rule: r.rule, pf: r.instrument.toUpperCase(), tf: r.tf as C40Tf }));
   } catch {
     rows = [];
   }
@@ -51,23 +52,28 @@ export function isC40Strategy(id: string): boolean {
 
 export function c40MaxHoldMs(id: string): number | null {
   if (!isC40Strategy(id)) return null;
-  return /_H4$/i.test(id) ? 120 * 3600_000 : /_M15$/i.test(id) ? 8 * 3600_000 : 72 * 3600_000;
+  return /_H4$/i.test(id) ? 120 * 3600_000 : /_M(15|30)$/i.test(id) ? 8 * 3600_000 : 72 * 3600_000;
 }
 
-const h4Cache = new Map<string, { at: number; bars: FxCandle[] }>();
+const chartCache = new Map<string, { at: number; bars: FxCandle[] }>();
 
-/** Fetch 4h candles (Kraken Futures charts) for contracts with a locked H4 rule. Call once per cycle. */
+/**
+ * Fetch Kraken Futures chart candles for contracts with a locked H4 or M30 rule (same contract
+ * prices as the backtest; the spot store keeps only 300 × 15m). Call once per cycle.
+ */
 export async function prefetchC40Bars(): Promise<void> {
-  const pfs = [...new Set(lockedRows().filter((r) => r.tf === "H4").map((r) => r.pf))];
-  for (const pf of pfs) {
-    const hit = h4Cache.get(pf);
-    if (hit && Date.now() - hit.at < 20 * 60_000) continue;
+  const want = [...new Set(lockedRows().filter((r) => r.tf === "H4" || r.tf === "M30").map((r) => `${r.pf}|${r.tf}`))];
+  for (const key of want) {
+    const [pf, tf] = key.split("|") as [string, "H4" | "M30"];
+    const sec = tf === "H4" ? 14400 : 1800;
+    const hit = chartCache.get(key);
+    if (hit && Date.now() - hit.at < (tf === "H4" ? 20 : 4) * 60_000) continue;
     try {
-      const from = Math.floor(Date.now() / 1000) - 300 * 14400;
-      const res = await fetch(`https://futures.kraken.com/api/charts/v1/trade/${pf}/4h?from=${from}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+      const from = Math.floor(Date.now() / 1000) - 300 * sec;
+      const res = await fetch(`https://futures.kraken.com/api/charts/v1/trade/${pf}/${tf === "H4" ? "4h" : "30m"}?from=${from}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
       const rows = parseChartsCandles(await res.json());
       const bars = rows.map((r) => ({ time: Math.floor(Date.parse(r.time) / 1000), open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume }));
-      if (bars.length) h4Cache.set(pf, { at: Date.now(), bars });
+      if (bars.length) chartCache.set(key, { at: Date.now(), bars });
     } catch {
       /* keep the previous bars */
     }
@@ -81,9 +87,10 @@ function closedFx(bars: readonly Bar[] | readonly FxCandle[], tfSec: number): Fx
   return last && last.time + tfSec > now ? b.slice(0, -1) : b;
 }
 
-function barsFor(pair: string, pf: string, tf: "M15" | "H1" | "H4"): FxCandle[] {
+function barsFor(pair: string, pf: string, tf: C40Tf): FxCandle[] {
   if (tf === "M15") return closedFx(getBars(pair, "15"), 900);
-  return tf === "H1" ? closedFx(getBars(pair, "60"), 3600) : closedFx(h4Cache.get(pf)?.bars ?? [], 14400);
+  if (tf === "M30") return closedFx(chartCache.get(`${pf}|M30`)?.bars ?? [], 1800);
+  return tf === "H1" ? closedFx(getBars(pair, "60"), 3600) : closedFx(chartCache.get(`${pf}|H4`)?.bars ?? [], 14400);
 }
 
 export function evaluateCryptoF40(pair: string): CryptoStrategySignal[] {
@@ -122,12 +129,12 @@ export function evaluateCryptoF40(pair: string): CryptoStrategySignal[] {
 
 /** Rule exit for an open C40 leg (evaluated on the last closed bar). */
 export function c40RuleExit(strategyId: string, pair: string, side: "long" | "short"): boolean {
-  const m = /^C40_(.+)_(M15|H1|H4)$/i.exec(strategyId.trim());
+  const m = /^C40_(.+)_(M15|M30|H1|H4)$/i.exec(strategyId.trim());
   if (!m) return false;
   const pf = spotPairToPfSymbol(pair)?.toUpperCase();
   if (!pf) return false;
   try {
-    return f40RuleExitOnLast(m[1]!.toUpperCase(), barsFor(pair, pf, m[2]!.toUpperCase() as "M15" | "H1" | "H4"), side);
+    return f40RuleExitOnLast(m[1]!.toUpperCase(), barsFor(pair, pf, m[2]!.toUpperCase() as C40Tf), side);
   } catch {
     return false;
   }

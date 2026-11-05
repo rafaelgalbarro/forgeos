@@ -539,10 +539,10 @@ export function inLiquidHours(unixSec: number): boolean {
 }
 
 // ── backtest ────────────────────────────────────────────────────────────────
-export type F40Tf = "M15" | "H1" | "H4" | "D1";
-const TF_SEC: Record<F40Tf, number> = { M15: 900, H1: 3600, H4: 14400, D1: 86400 };
+export type F40Tf = "M15" | "M30" | "H1" | "H4" | "D1";
+const TF_SEC: Record<F40Tf, number> = { M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400 };
 /** M15: intraday swings — out within 8 h. */
-const MAX_BARS: Record<F40Tf, number> = { M15: 32, H1: 72, H4: 30, D1: 20 };
+const MAX_BARS: Record<F40Tf, number> = { M15: 32, M30: 24, H1: 72, H4: 30, D1: 20 };
 
 export type F40Trade = { entryTime: number; side: FxSide; r: number };
 
@@ -561,7 +561,7 @@ export function backtestF40(rule: Rule, bars: readonly FxCandle[], tf: F40Tf, sp
   for (let i = 120; i < bars.length - 1; i += 1) {
     if (weekend[i]) continue;
     // M15 (FX/CFD): entries only in the liquid London + New York hours (07:00–20:00 London, Mon–Fri)
-    if (tf === "M15" && opts.costPct == null && !inLiquidHours(bars[i]!.time + 900)) continue;
+    if ((tf === "M15" || tf === "M30") && opts.costPct == null && !inLiquidHours(bars[i]!.time + TF_SEC[tf])) continue;
     let side: FxSide | null = null;
     try { side = rule.entry(x, i, cache); } catch { side = null; }
     if (!side) continue;

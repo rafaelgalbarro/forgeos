@@ -1003,6 +1003,26 @@ case "$ACTION" in
   forex-forum40) do_forex_forum40 "$ARG" ;;
   intraday-backtest) do_intraday_backtest "$ARG" ;;
   crypto40) do_crypto40 "$ARG" ;;
+  forex-forum40-preview)
+    # Read-only: every passing row of a timeframe (ARG = M30, or CM30 for Kraken) and whether it
+    # also meets the robust lock filter. Changes nothing.
+    TFONLY="${ARG:-M30}" python3 - <<'PY'
+import json, os
+arg = os.environ["TFONLY"].upper()
+crypto = arg.startswith("C") and arg[1:2] in ("M", "H")
+tf = arg[1:] if crypto else arg
+p = "/var/www/forgeos/.forgeos/crypto-forum40-latest.json" if crypto else "/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"
+R = json.load(open(p))["results"]
+mt = 100 if crypto else 120
+rows = [r for r in R if r["tf"] == tf]
+ok = sorted([r for r in rows if r.get("liveEligible")], key=lambda r: -r["all"]["meanR"])
+print("pruebas %s: %d · aptas: %d (%.1f%%)" % (tf, len(rows), len(ok), 100.0 * len(ok) / max(1, len(rows))))
+for r in ok:
+    a = r["all"]
+    rob = a["trades"] >= mt and min(r["firstHalf"]["meanR"], r["secondHalf"]["meanR"]) >= 0.05 and r["stressed"]["meanR"] >= 0.08
+    print("%s %-34s ops=%4d acierto=%2.0f%% PF=%.2f media=%.3fR mitades=%.3f/%.3f estres=%.3f" % ("ROBUSTA" if rob else "  -    ", r["id"], a["trades"], a["winRate"]*100, a["pf"], a["meanR"], r["firstHalf"]["meanR"], r["secondHalf"]["meanR"], r["stressed"]["meanR"]))
+PY
+    ;;
   forex-forum40-lock-best)
     # Robust subset of the 40-list: ≥120 trades, both halves ≥ +0.05R, ≥ +0.08R with 1.5× spread,
     # best per instrument, at most 8 → real money (locked). Everything else stays in shadow.

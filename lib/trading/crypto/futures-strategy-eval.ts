@@ -28,7 +28,7 @@ import {
   evaluateRsi2Trend,
   evaluateSeasonal22,
 } from "@/lib/trading/crypto/strategies/futures-extra";
-import { evaluateCryptoF40 } from "@/lib/trading/crypto/strategies/crypto-f40";
+import { evaluateCryptoF40, isC40Strategy } from "@/lib/trading/crypto/strategies/crypto-f40";
 import type { CryptoStrategySignal } from "@/lib/trading/crypto/strategies/types";
 import {
   FUTURES_DEFAULT_MAKER,
@@ -87,6 +87,9 @@ function filterFuturesSignal(
     missing = signal.reasoning.slice(0, 80);
   } else if (!regimeOk) {
     missing = `régimen no permite ${direction}`;
+  } else if (isC40Strategy(signal.strategyId)) {
+    // 40-list rules: validated with exactly this 2×ATR stop and with 0.15 % costs (×1.5 stress),
+    // so the generic stop cap and the 3× cost filter would only diverge from the backtest.
   } else if (applyStopDistanceCap(signal) === null) {
     missing = "stop_distance_cap";
   } else if (!passesFuturesCostFilter(signal, spread, fees)) {

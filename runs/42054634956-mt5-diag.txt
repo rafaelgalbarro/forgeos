@@ -1,0 +1,28 @@
+--- disco/memoria host
+/dev/sda1        75G   41G   31G  57% /
+/dev/sda1        75G   41G   31G  57% /
+               total        used        free      shared  buff/cache   available
+Mem:            7746        6368         139           9        1554        1377
+Swap:           4095        2047        2048
+--- disco contenedor
+/dev/sda1        75G   41G   31G  57% /config
+overlay          75G   41G   31G  57% /
+--- python en wine
+3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)] 5.0.6231
+--- procesos
+    294    02:55:58 /opt/wine-staging/lib/wine/../../bin/wineserver
+    300    02:55:58 C:\windows\system32\services.exe
+    303    02:55:58 C:\windows\system32\winedevice.exe
+    312    02:55:58 C:\windows\system32\svchost.exe -k LocalServiceNetworkRestricted
+    317    02:55:57 C:\windows\system32\svchost.exe -k netsvcs
+    323    02:55:57 C:\windows\system32\plugplay.exe
+    332    02:55:57 C:\windows\system32\winedevice.exe
+    350    02:55:57 C:\windows\system32\rpcss.exe
+    645    02:53:57 C:\Program Files (x86)\Microsoft\EdgeUpdate\MicrosoftEdgeUpdate.exe /c
+   6071       02:09 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+   6077       02:09 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+   6079       02:09 C:\windows\system32\explorer.exe /desktop
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

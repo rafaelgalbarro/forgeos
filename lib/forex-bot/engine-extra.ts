@@ -347,6 +347,10 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
         const fill = await mt5Order({ instrument: a.instrument, side: p.side, lots: lots ?? 0, stop, takeProfit: tp, comment: a.id.slice(0, 28) });
         trade.brokerTradeId = fill.ticket;
         trade.entry = fill.price || px;
+        if (fill.volume > 0 && trade.lots && fill.volume !== trade.lots) {
+          if (trade.units) trade.units = Math.round((trade.units * fill.volume) / trade.lots);
+          trade.lots = fill.volume;
+        }
       } catch (err) {
         ctx.notes.push(`${a.id}: orden rechazada ${err instanceof Error ? err.message.slice(0, 80) : err}`);
         continue;

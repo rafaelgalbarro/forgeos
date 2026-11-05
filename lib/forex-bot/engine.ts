@@ -406,6 +406,11 @@ export async function runForexBotCycle(): Promise<string> {
               });
               trade.brokerTradeId = fill.ticket;
               trade.entry = fill.price || px;
+              if (fill.volume > 0 && trade.lots && fill.volume !== trade.lots) {
+                // the bridge shrank the lot to fit the free margin
+                if (trade.units) trade.units = Math.round((trade.units * fill.volume) / trade.lots);
+                trade.lots = fill.volume;
+              }
             } else {
               const fill = await oandaMarketEntry({
                 instrument: p, side: ev.side, units: size.units, stop: trade.stop,

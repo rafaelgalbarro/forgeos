@@ -153,6 +153,23 @@ def filling_for(info):
     return mt5.ORDER_FILLING_RETURN
 
 
+def fit_volume_to_margin(otype, symbol, volume, price, info):
+    """Shrink the volume (by volume_step) until the margin fits 95 % of the free margin.
+    05/11: EUR/USD 0.02 and USD/JPY 0.01 were rejected by the server with [No money]."""
+    acct = mt5.account_info()
+    free = float(getattr(acct, "margin_free", 0) or 0) if acct else 0.0
+    step = float(info.volume_step or 0.01)
+    vmin = float(info.volume_min or step)
+    v = volume
+    while v >= vmin - 1e-9:
+        need = mt5.order_calc_margin(otype, symbol, round(v, 8), price)
+        if need is None or need <= 0.95 * free:
+            return round(v, 8)
+        v = round(v - step, 8)
+    need = mt5.order_calc_margin(otype, symbol, vmin, price)
+    raise RuntimeError("sin margen libre: %s %.2f lotes necesita %.2f, libre %.2f" % (symbol, vmin, need or -1, free))
+
+
 def order(body):
     symbol = body["symbol"]
     info = sym_info(symbol)
@@ -165,9 +182,11 @@ def order(body):
     tp = round(float(body["tp"]), info.digits)
     if not sl or not tp:
         raise RuntimeError("SL y TP obligatorios")
+    otype = mt5.ORDER_TYPE_BUY if side == "long" else mt5.ORDER_TYPE_SELL
+    volume = fit_volume_to_margin(otype, symbol, float(body["volume"]), price, info)
     req = {
-        "action": mt5.TRADE_ACTION_DEAL, "symbol": symbol, "volume": float(body["volume"]),
-        "type": mt5.ORDER_TYPE_BUY if side == "long" else mt5.ORDER_TYPE_SELL,
+        "action": mt5.TRADE_ACTION_DEAL, "symbol": symbol, "volume": volume,
+        "type": otype,
         "price": price, "sl": sl, "tp": tp, "deviation": int(body.get("deviation", 10)),
         "magic": 26102026, "comment": str(body.get("comment", "forgeos"))[:28],
         "type_time": mt5.ORDER_TIME_GTC, "type_filling": filling_for(info),

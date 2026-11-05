@@ -1,0 +1,12 @@
+REAL: F31_3EMA_STOCH_PF_ETHUSD_M30 ops=94 media=0.151R
+REAL: F17_TWO_STOCH_PF_DOTUSD_M30 ops=213 media=0.087R
+REAL: F01_WILLIAMS_PF_UNIUSD_M30 ops=96 media=0.071R
+REAL: F31_3EMA_STOCH_PF_AAVEUSD_M30 ops=93 media=0.079R
+REAL: F31_3EMA_STOCH_PF_OPUSD_M30 ops=110 media=0.111R
+REAL: F39_ENV_MACD_PF_ETCUSD_M30 ops=78 media=0.315R
+bloqueadas en Kraken M30: 6
+total en real: 12
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

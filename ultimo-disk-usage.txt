@@ -1,0 +1,30 @@
+/dev/sda1        75G   75G     0 100% /
+1.8G	/var/www/forgeos/.forgeos/cache/gap
+1.3G	/root/.cache
+1.2G	/var/lib/docker
+991M	/var/log
+613M	/var/www/forgeos/node_modules
+480M	/root/.npm
+425M	/root/.pm2/logs
+72M	/var/www/forgeos/.next
+52M	/var/www/forgeos/.forgeos/bin
+27M	/var/www/forgeos/.forgeos/cache/intraday
+24M	/tmp
+21M	/var/www/forgeos/logs
+18M	/var/www/forgeos/.forgeos/journal
+11M	/var/www/forgeos/.forgeos/cache/kraken-ohlc
+2.7M	/var/www/forgeos/.forgeos/cache/finra-short-interest.json
+2.3M	/var/www/forgeos/.forgeos/forex-bot
+1.5M	/var/www/forgeos/.forgeos/ml
+600K	/var/www/forgeos/.forgeos/crypto-forum40-latest.json
+420K	/var/www/forgeos/.forgeos/telegram-trades
+276K	/var/www/forgeos/.forgeos/sprint1
+224K	/var/www/forgeos/.forgeos/qa-deep
+196K	/var/www/forgeos/.forgeos/reports
+152K	/var/www/forgeos/.forgeos/cache/alpha-vantage.json
+140K	/var/www/forgeos/.forgeos/v2-store-multi-company-cert
+136K	/var/www/forgeos/.forgeos/cache/kraken-asset-pairs.json
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

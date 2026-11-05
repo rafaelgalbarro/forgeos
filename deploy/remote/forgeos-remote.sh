@@ -1265,6 +1265,13 @@ PY
   mt5-stop)
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
     echo "puente y terminal MT5 parados (sin reintentos de login)" ;;
+  mt5-diag)
+    WU="$(stat -c %u /root/mt5-config/.wine)"
+    echo "--- disco/memoria host"; df -h / /root 2>/dev/null | tail -2; free -m | head -3
+    echo "--- disco contenedor"; docker exec mt5 sh -c 'df -h /config /tmp 2>/dev/null | tail -2'
+    echo "--- python en wine"; docker exec -u "$WU" -e HOME=/config -e WINEPREFIX=/config/.wine -e WINEDEBUG=err+all mt5 sh -c 'timeout 90 wine "C:\\Python312-64\\python.exe" -c "import sys, MetaTrader5; print(sys.version, MetaTrader5.__version__)" 2>&1 | tail -8'
+    echo "--- procesos"; docker exec mt5 sh -c 'ps -eo pid,etime,args | grep -iE "wine|\.exe" | grep -v grep | head -12'
+    ;;
   mt5-container-restart)
     # Last resort: restart the whole MT5 container (fresh Wine + display), then the bridge.
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py

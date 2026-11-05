@@ -158,6 +158,8 @@ export function f40Indicators(b: readonly FxCandle[]) {
     ichi,
     cci: (n: number) => cci(b, n),
     rvi10: rvi(b, 10),
+    vol: b.map((q) => q.volume ?? 0),
+    volAvg20: sma(b.map((q) => q.volume ?? 0), 20),
     sd: (n: number) => stdev(c, n),
     fill,
   };
@@ -448,6 +450,81 @@ export const F40_RULES: Rule[] = [
       const up = v(s21, i)! * 1.0007; const dn = v(s21, i)! * 0.9993; const b = x.b[i]!;
       if (Math.min(b.open, b.close) > up && x.b[i - 1]!.close <= v(s21, i - 1)! * 1.0007 && v(mc.h, i)! > 0) return "long";
       if (Math.max(b.open, b.close) < dn && x.b[i - 1]!.close >= v(s21, i - 1)! * 0.9993 && v(mc.h, i)! < 0) return "short";
+      return null;
+    },
+  },
+  // ── volume + indicator + candlestick (owner 05/11, short timing) ─────────────
+  {
+    id: "V01_ENGULF_EMA_VOL", name: "Envolvente a favor de tendencia en la EMA 20 (EMA20>EMA50) con volumen ≥ 1,5× la media", rr: 1.5,
+    entry: (x, i, m) => {
+      const e20 = memo(m, "e20", () => x.ema(20)); const e50 = memo(m, "e50", () => x.ema(50));
+      const p = x.b[i - 1]!; const c = x.b[i]!; const va = x.volAvg20[i];
+      if (v(e20, i) == null || v(e50, i) == null || va == null || !(x.vol[i]! >= 1.5 * va)) return null;
+      const bull = p.close < p.open && c.close > c.open && c.close >= p.open && c.open <= p.close;
+      const bear = p.close > p.open && c.close < c.open && c.close <= p.open && c.open >= p.close;
+      if (bull && v(e20, i)! > v(e50, i)! && c.low <= v(e20, i)! && c.close > v(e20, i)!) return "long";
+      if (bear && v(e20, i)! < v(e50, i)! && c.high >= v(e20, i)! && c.close < v(e20, i)!) return "short";
+      return null;
+    },
+  },
+  {
+    id: "V02_PINBAR_BB_VOL", name: "Martillo / estrella fugaz en banda de Bollinger con volumen alto y ADX < 25 (rango)",
+    entry: (x, i) => {
+      const c = x.b[i]!; const rng = c.high - c.low; const va = x.volAvg20[i]; const a = x.adx.adx[i];
+      if (!(rng > 0) || x.bbMid[i] == null || va == null || a == null || a >= 25 || !(x.vol[i]! >= 1.3 * va)) return null;
+      const body = Math.abs(c.close - c.open); const lowWick = Math.min(c.open, c.close) - c.low; const upWick = c.high - Math.max(c.open, c.close);
+      const lo = x.bbMid[i]! - 2 * x.sd20[i]!; const hi = x.bbMid[i]! + 2 * x.sd20[i]!;
+      if (c.low <= lo && lowWick >= 0.6 * rng && body <= 0.3 * rng) return "long";
+      if (c.high >= hi && upWick >= 0.6 * rng && body <= 0.3 * rng) return "short";
+      return null;
+    },
+    exit: (x, j, s) => (s === "long" ? x.c[j]! >= x.bbMid[j]! : x.c[j]! <= x.bbMid[j]!),
+  },
+  {
+    id: "V03_INSIDE_BREAK_VOL", name: "Ruptura de inside bar a favor de EMA 50 con volumen de ruptura ≥ 1,5× la media", rr: 1.5,
+    entry: (x, i, m) => {
+      if (i < 3) return null;
+      const e50 = memo(m, "e50", () => x.ema(50)); const mo = x.b[i - 2]!; const ib = x.b[i - 1]!; const c = x.b[i]!; const va = x.volAvg20[i];
+      if (v(e50, i) == null || va == null || !(ib.high < mo.high && ib.low > mo.low) || !(x.vol[i]! >= 1.5 * va)) return null;
+      if (c.close > mo.high && c.close > v(e50, i)!) return "long";
+      if (c.close < mo.low && c.close < v(e50, i)!) return "short";
+      return null;
+    },
+  },
+  {
+    id: "V04_CLIMAX_FADE", name: "Clímax de volumen (≥ 2,5× media) con mecha larga contra el movimiento → giro, RSI extremo",
+    rr: 1,
+    entry: (x, i, m) => {
+      const r = memo(m, "r14", () => x.rsi(14)); const c = x.b[i]!; const rng = c.high - c.low; const va = x.volAvg20[i];
+      if (!(rng > 0) || va == null || !(x.vol[i]! >= 2.5 * va) || v(r, i) == null) return null;
+      const lowWick = Math.min(c.open, c.close) - c.low; const upWick = c.high - Math.max(c.open, c.close);
+      if (lowWick >= 0.5 * rng && v(r, i)! < 35) return "long";
+      if (upWick >= 0.5 * rng && v(r, i)! > 65) return "short";
+      return null;
+    },
+  },
+  {
+    id: "V05_MOMENTUM_BAR", name: "Vela de impulso (cuerpo ≥ 70 % del rango, rango ≥ 1,2 ATR) con volumen ≥ 2× y MACD a favor", rr: 1.5,
+    entry: (x, i, m) => {
+      const mc = memo(m, "m12", () => x.macd(12, 26, 9)); const c = x.b[i]!; const rng = c.high - c.low; const a = x.atr14[i - 1]; const va = x.volAvg20[i];
+      if (!(rng > 0) || a == null || va == null || !(rng >= 1.2 * a) || !(x.vol[i]! >= 2 * va) || v(mc.h, i) == null) return null;
+      const body = Math.abs(c.close - c.open);
+      if (body < 0.7 * rng) return null;
+      if (c.close > c.open && v(mc.h, i)! > 0 && rising(mc.h, i)) return "long";
+      if (c.close < c.open && v(mc.h, i)! < 0 && falling(mc.h, i)) return "short";
+      return null;
+    },
+  },
+  {
+    id: "V06_STOCH_ENGULF_VOL", name: "Envolvente con estocástico (14,3,3) saliendo de 20/80 y volumen ≥ 1,3× (giro de vaivén)",
+    rr: 1.5,
+    entry: (x, i, m) => {
+      const st = memo(m, "st1433", () => x.stoch(14, 3, 3)); const p = x.b[i - 1]!; const c = x.b[i]!; const va = x.volAvg20[i];
+      if (va == null || !(x.vol[i]! >= 1.3 * va) || v(st.K, i) == null || v(st.K, i - 1) == null) return null;
+      const bull = p.close < p.open && c.close > c.open && c.close >= p.open && c.open <= p.close;
+      const bear = p.close > p.open && c.close < c.open && c.close <= p.open && c.open >= p.close;
+      if (bull && v(st.K, i - 1)! < 20 && crossUp(st.K, st.D, i)) return "long";
+      if (bear && v(st.K, i - 1)! > 80 && crossDn(st.K, st.D, i)) return "short";
       return null;
     },
   },

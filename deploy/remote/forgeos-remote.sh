@@ -1267,7 +1267,7 @@ PY
     echo "puente y terminal MT5 parados (sin reintentos de login)" ;;
   disk-usage)
     df -h / | tail -1
-    du -xsh /var/www/forgeos/.forgeos/cache/* /var/www/forgeos/.forgeos/* /var/www/forgeos/logs /root/.pm2/logs /var/lib/docker /var/log /root/.cache /root/.npm /tmp /var/www/forgeos/.next /var/www/forgeos/node_modules 2>/dev/null | sort -rh | head -25
+    du -xh --max-depth=3 / 2>/dev/null | sort -rh | head -30
     ;;
   disk-clean)
     # Frees space: backtest download caches (rebuildable), rotated PM2 logs, journald, apt and npm caches.

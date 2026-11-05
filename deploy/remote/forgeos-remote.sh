@@ -1182,7 +1182,7 @@ import json, os, glob
 want = os.environ["ID"].upper()
 d = "/var/www/forgeos/.forgeos/forex-bot"
 hit = False
-for name in ("meanrev-latest.json", "methods-latest.json", "playbook-latest.json"):
+for name in ("meanrev-latest.json", "methods-latest.json", "playbook-latest.json", "forum40-latest.json"):
     p = os.path.join(d, name)
     if not os.path.exists(p):
         continue

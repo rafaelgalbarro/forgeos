@@ -1,46 +1,43 @@
 
 === MT5 ===
-mt5 Up 6 days
+mt5 Up 13 days
 puente: online reinicios: 117
 puente sin respuesta (puede estar arrancando)
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Oct 29 10:25 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Nov  5 11:43 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
- 277424       01:18 start.exe /exec C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
- 277431       01:18 C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe /config:Z:\config\forgeos\start.ini
+ 556528       06:10 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+ 556535       06:10 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
-## /Program Files/OANDA TMS MT5 Terminal/logs/20261029.log
-CQ	0	10:15:00.633	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
-PF	0	10:15:00.633	Network	'242902': trading has been enabled - hedging mode
-HR	0	10:15:00.633	Network	'242902': balance management has been enabled
-EG	0	10:16:38.062	Trade	'242902': high risk investment warning has been accepted
-RL	0	10:24:23.641	Startup	successfully initialized from start config "Z:\config\forgeos\start.ini"
-FO	0	10:24:23.904	Terminal	OANDA TMS MT5 Terminal x64 build 6281 started for OANDA TMS Brokers S.A.
-JD	0	10:24:23.904	Terminal	Windows 11 build 22000 on Wine 11.10 Linux 7.0.0-29-generic, 4 x AMD EPYC-Rome, AVX2, 2 / 7 Gb memory, 25 / 74 Gb disk, GMT+0
-RM	0	10:24:23.904	Terminal	C:\Program Files\OANDA TMS MT5 Terminal
-HG	0	10:24:23.904	Terminal	launched with Z:\config\forgeos\start.ini
-PR	0	10:24:23.916	MCP	started on 127.0.0.1:22346
-KK	0	10:24:27.215	Network	'242902': authorized on OANDATMS-MT5 through Access Server GCP VM OANDA-EUW (ping: 47.68 ms, build 5830)
-CG	0	10:24:27.215	Network	'242902': previous successful authorization performed from 204.168.189.120 on 2026.10.29 11:14:59
-RG	0	10:24:28.566	Network	'242902': terminal synchronized with OANDA TMS Brokers S.A.: 0 positions, 0 orders, 846 symbols, 0 spreads
-MG	0	10:24:28.566	Network	'242902': trading has been enabled - hedging mode
-MP	0	10:24:28.566	Network	'242902': balance management has been enabled
+## /Program Files/OANDA TMS MT5 Terminal/logs/20261105.log
+﻿PL	0	01:00:40.337	Trades	'242902': market sell 0.01 USDJPY.pro sl: 158.518 tp: 156.941
+FH	2	01:00:40.384	Trades	'242902': failed market sell 0.01 USDJPY.pro sl: 158.518 tp: 156.941 [No money]
+ND	0	01:45:40.020	Trades	'242902': market sell 0.02 EURUSD.pro sl: 1.12618 tp: 1.12360
+NP	2	01:45:40.073	Trades	'242902': failed market sell 0.02 EURUSD.pro sl: 1.12618 tp: 1.12360 [No money]
+LM	0	03:52:24.130	Network	'242902': scanning network for access points
+RK	0	03:52:31.174	Network	'242902': scanning network finished
+IR	0	08:00:43.631	Trades	'242902': market buy 0.01 USDJPY.pro sl: 157.788 tp: 159.412
+EH	2	08:00:43.679	Trades	'242902': failed market buy 0.01 USDJPY.pro sl: 157.788 tp: 159.412 [No money]
+ED	0	09:52:25.671	Network	'242902': scanning network for access points
+LP	0	09:52:32.942	Network	'242902': scanning network finished
 --- herramientas X: xwd xdotool 
 --- /health
 
 --- /tradecheck
+{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")", "login": null, "server": null}, "error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")"}
 
 --- /resolve?base=EUR_USD
+{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")", "login": null, "server": null}, "error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")"}
 
-2026-10-29 10:16:49 +00:00: init=True err=None
-2026-10-29 10:16:58 +00:00: trading verificado: {"ok": true, "retcode": 0, "comment": "Done", "symbol": "EURUSD.pro"}
-2026-10-29 10:24:18 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
-2026-10-29 10:24:19 +00:00: MetaTrader5 py: 5.0.6231
-2026-10-29 10:24:20 +00:00: wine: wine-11.10 (Staging)
-2026-10-29 10:24:21 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-11-05 11:35:07 +00:00: MetaTrader5 py: 5.0.6231
+2026-11-05 11:35:09 +00:00: wine: wine-11.10 (Staging)
+2026-11-05 11:35:09 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-11-05 11:37:24 +00:00: mt5 bridge listening on 8004
+2026-11-05 11:40:45 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
+2026-11-05 11:45:07 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

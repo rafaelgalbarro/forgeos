@@ -1,34 +1,33 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 064da4d Kraken: lista de 40 + reglas de volumen/velas en 15 minutos (backtest y en vivo, salida en 8 h); análisis de motivos también para cripto
+Desplegando d3d1e28 MT5: el puente ajusta el lote al margen libre (evita [No money]) y el bot registra el lote real
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261105-112945
-Updating 0ca17c2..064da4d
+estado copiado en /root/forgeos-state-20261105-115843
+Updating 064da4d..d3d1e28
 Fast-forward
- deploy/remote/forgeos-remote.sh             | 56 ++++++++++++++++++---
- lib/forex-bot/forum40.ts                    | 77 +++++++++++++++++++++++++++++
- lib/trading/crypto/reconcile.ts             |  1 +
- lib/trading/crypto/strategies/crypto-f40.ts | 15 +++---
- scripts/crypto-forum40.ts                   | 33 +++++++++----
- 5 files changed, 160 insertions(+), 22 deletions(-)
+ lib/forex-bot/engine-extra.ts     |  4 ++++
+ lib/forex-bot/engine.ts           |  5 +++++
+ scripts/crypto-forum40.ts         |  6 +++---
+ services/mt5-bridge/mt5_bridge.py | 23 +++++++++++++++++++++--
+ 4 files changed, 33 insertions(+), 5 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 1.06s
+19 passed in 0.83s
 
 === BUILD ===
-procesos MT5 antes: terminal=0 puente=1 wine=5
-Mem:            7746        5814         246           4        1995        1931
-Swap:           4095        2450        1645
+procesos MT5 antes: terminal=0 puente=0 wine=4
+Mem:            7746        6241         237           4        1574        1504
+Swap:           4095        2326        1769
      0 MB COMMAND
-  1354 MB node
-  1148 MB node
-   976 MB node
-   401 MB java
-   395 MB next-server
+  1707 MB node
+  1549 MB node
+   957 MB node
+   367 MB java
+   300 MB next-server
 
-up to date in 3s
+up to date in 2s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

@@ -1003,6 +1003,29 @@ case "$ACTION" in
   forex-forum40) do_forex_forum40 "$ARG" ;;
   intraday-backtest) do_intraday_backtest "$ARG" ;;
   crypto40) do_crypto40 "$ARG" ;;
+  forex-forum40-lock-all)
+    # Owner order: every passing row of ONE timeframe → real (ARG = M30, or CM30 for Kraken).
+    # Rows of other timeframes are not touched; rows of this timeframe that do not pass are unlocked.
+    TFONLY="${ARG:-M30}" python3 - <<'PY'
+import json, os
+arg = os.environ["TFONLY"].upper()
+crypto = arg.startswith("C") and arg[1:2] in ("M", "H")
+tf = arg[1:] if crypto else arg
+p = "/var/www/forgeos/.forgeos/crypto-forum40-latest.json" if crypto else "/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"
+j = json.load(open(p))
+n = 0
+for r in j["results"]:
+    if r["tf"] != tf:
+        continue
+    r["locked"] = bool(r.get("liveEligible"))
+    if r["locked"]:
+        n += 1
+        print("REAL:", r["id"], "ops=%d media=%.3fR" % (r["all"]["trades"], r["all"]["meanR"]))
+json.dump(j, open(p, "w"), indent=2)
+print("bloqueadas en %s %s: %d" % ("Kraken" if crypto else "OANDA", tf, n))
+print("total en real:", sum(1 for r in j["results"] if r.get("locked")))
+PY
+    ;;
   forex-forum40-preview)
     # Read-only: every passing row of a timeframe (ARG = M30, or CM30 for Kraken) and whether it
     # also meets the robust lock filter. Changes nothing.

@@ -1265,6 +1265,19 @@ PY
   mt5-stop)
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
     echo "puente y terminal MT5 parados (sin reintentos de login)" ;;
+  mt5-wine-reset)
+    # Hard reset of the Wine session (05/11: a crashed taskkill.exe dialog + dead wineserver kept the
+    # terminal from starting): stop the bridge, kill every Wine process and the wineserver, restart.
+    pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe
+    WU="$(stat -c %u /root/mt5-config/.wine)"
+    docker exec -u "$WU" -e HOME=/config -e WINEPREFIX=/config/.wine mt5 sh -c 'wineserver -k 2>/dev/null; sleep 3; wineserver -k 2>/dev/null; true'
+    docker exec mt5 sh -c 'pkill -9 -f "winedbg|taskkill|start.exe|terminal64|python.exe|wineserver|winedevice|services.exe|plugplay|explorer.exe" 2>/dev/null; true'
+    sleep 5
+    docker exec mt5 sh -c 'ps -eo pid,etime,args | grep -iE "wine|\.exe" | grep -v grep | head -10'
+    pm2 restart forgeos-mt5-bridge --update-env >/dev/null && echo "puente reiniciado tras limpiar Wine; esperando 4 min…"
+    sleep 240
+    K="$(mt5_key)"; curl -s --max-time 30 http://127.0.0.1:8004/tradecheck -H "X-Bridge-Key: $K"; echo
+    ;;
   mt5-webview)
     # MT5 dialogs (login, risk warning) are WebView2 pages: install the Edge WebView2 runtime + xdotool.
     WU="$(stat -c %u /root/mt5-config/.wine)"

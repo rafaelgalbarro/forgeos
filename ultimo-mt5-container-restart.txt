@@ -1,15 +1,15 @@
 contenedor mt5 reiniciado
 puente reiniciado; esperando 5 min…
-
-24|forgeos | 2026-11-05 12:18:56 +00:00: instalando paquete MetaTrader5…
-24|forgeos | 2026-11-05 12:18:57 +00:00: wine client error:0: recvmsg: Connection reset by peer
-24|forgeos | 2026-11-05 12:18:57 +00:00: wine: wine-11.10 (Staging)
-24|forgeos | 2026-11-05 12:18:57 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
-
-/var/www/forgeos/logs/forgeos-mt5-bridge-error.log last 15 lines:
-24|forgeos | 2026-11-05 11:49:28 +00:00: wine: Unhandled page fault on write access to 0000000000C90018 at address 00006FFFFFA285DB (thread 07f4), starting debugger...
-24|forgeos | 2026-11-05 12:15:04 +00:00: wine client error:0: recvmsg: Connection reset by peer
-24|forgeos | 2026-11-05 12:21:14 +00:00: wine client error:0: recvmsg: Connection reset by peer
+{"ok": false, "retcode": 10019, "comment": "No money", "symbol": "EURUSD.pro"}
+24|forgeos | 2026-11-05 12:26:15 +00:00: reinicio completo del terminal en 2 min para reintentar la aceptación
+24|forgeos | 2026-11-05 12:29:20 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
+24|forgeos | 2026-11-05 12:29:21 +00:00: MetaTrader5 py: 5.0.6231
+24|forgeos | 2026-11-05 12:29:22 +00:00: wine: wine-11.10 (Staging)
+24|forgeos | 2026-11-05 12:29:22 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+24|forgeos | 2026-11-05 12:31:03 +00:00: aceptando aviso de riesgo de OANDA (ventana 16777284)
+24|forgeos | 2026-11-05 12:31:19 +00:00: mt5 bridge listening on 8004
+24|forgeos | 2026-11-05 12:31:19 +00:00: init=True err=None
+24|forgeos | 2026-11-05 12:31:31 +00:00: trading habilitado (check: {"ok": false, "retcode": 10019, "comment": "No money", "symbol": "EURUSD.pro"})
 
 --- preparación ---
 líneas clave: 7

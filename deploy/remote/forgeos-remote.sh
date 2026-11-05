@@ -1265,6 +1265,16 @@ PY
   mt5-stop)
     pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py; pkill -f terminal64.exe; sleep 2; pkill -9 -f terminal64.exe
     echo "puente y terminal MT5 parados (sin reintentos de login)" ;;
+  mt5-container-restart)
+    # Last resort: restart the whole MT5 container (fresh Wine + display), then the bridge.
+    pm2 stop forgeos-mt5-bridge >/dev/null 2>&1; pkill -f mt5_bridge.py
+    docker restart mt5 >/dev/null && echo "contenedor mt5 reiniciado"
+    sleep 45
+    pm2 restart forgeos-mt5-bridge --update-env >/dev/null && echo "puente reiniciado; esperando 5 min…"
+    sleep 300
+    K="$(mt5_key)"; curl -s --max-time 30 http://127.0.0.1:8004/tradecheck -H "X-Bridge-Key: $K"; echo
+    pm2 logs forgeos-mt5-bridge --lines 15 --nostream 2>&1 | tail -10 | cut -c1-200
+    ;;
   mt5-wine-reset)
     # Hard reset of the Wine session (05/11: a crashed taskkill.exe dialog + dead wineserver kept the
     # terminal from starting): stop the bridge, kill every Wine process and the wineserver, restart.

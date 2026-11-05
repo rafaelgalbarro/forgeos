@@ -1,0 +1,11 @@
+pruebas M30: 784 · aptas: 6 (0.8%)
+  -     F39_ENV_MACD_PF_ETCUSD_M30         ops=  78 acierto=53% PF=1.64 media=0.315R mitades=0.174/0.480 estres=0.221
+  -     F31_3EMA_STOCH_PF_ETHUSD_M30       ops=  94 acierto=51% PF=1.36 media=0.151R mitades=0.235/0.055 estres=0.090
+  -     F31_3EMA_STOCH_PF_OPUSD_M30        ops= 110 acierto=47% PF=1.25 media=0.111R mitades=0.030/0.224 estres=0.056
+  -     F17_TWO_STOCH_PF_DOTUSD_M30        ops= 213 acierto=34% PF=1.17 media=0.087R mitades=0.083/0.091 estres=0.039
+  -     F31_3EMA_STOCH_PF_AAVEUSD_M30      ops=  93 acierto=54% PF=1.22 media=0.079R mitades=0.030/0.136 estres=0.023
+  -     F01_WILLIAMS_PF_UNIUSD_M30         ops=  96 acierto=34% PF=1.17 media=0.071R mitades=0.034/0.115 estres=0.024
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

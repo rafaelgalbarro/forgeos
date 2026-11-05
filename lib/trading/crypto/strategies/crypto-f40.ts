@@ -52,7 +52,7 @@ export function isC40Strategy(id: string): boolean {
 
 export function c40MaxHoldMs(id: string): number | null {
   if (!isC40Strategy(id)) return null;
-  return /_H4$/i.test(id) ? 120 * 3600_000 : /_M(15|30)$/i.test(id) ? 8 * 3600_000 : 72 * 3600_000;
+  return /_H4$/i.test(id) ? 120 * 3600_000 : /_M30$/i.test(id) ? 12 * 3600_000 : /_M15$/i.test(id) ? 8 * 3600_000 : 72 * 3600_000;
 }
 
 const chartCache = new Map<string, { at: number; bars: FxCandle[] }>();

@@ -1,8 +1,4 @@
-
-=== AJUSTE FUTURES_EXTRA_DISABLED ===
-antes: 
-FUTURES_EXTRA_DISABLED=RSI2_TREND_15M,FUNDING_REVERSAL_1H
-forgeos-crypto-engine reiniciado
+regla                  grupo                 n   ops     PF mediaR  motivo dominante
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

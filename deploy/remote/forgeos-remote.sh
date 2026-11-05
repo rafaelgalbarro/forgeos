@@ -1069,6 +1069,41 @@ for r in pick:
     print("REAL: C40_%s_%s %-10s ops=%4d acierto=%2.0f%% PF=%.2f media=%.3fR mitades=%.3f/%.3f costes1.5=%.3f  %s" % (r["rule"], r["tf"], r["instrument"], a["trades"], a["winRate"]*100, a["pf"], a["meanR"], r["firstHalf"]["meanR"], r["secondHalf"]["meanR"], r["stressed"]["meanR"], r["name"]))
 PY
     ;;
+  forex-forum40-why)
+    # Why rules fail, by pair group (ARG = timeframe, default M15): trades / costs / one half / no edge.
+    TFONLY="${ARG:-M15}" python3 - <<'PY'
+import json, os, collections
+tf = os.environ["TFONLY"].upper()
+j = json.load(open("/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"))
+R = [r for r in j["results"] if r["tf"] == tf]
+G = {"principales": {"EUR_USD","GBP_USD","USD_JPY","AUD_USD","USD_CAD","USD_CHF","NZD_USD"},
+     "cruces yen": {"EUR_JPY","GBP_JPY","AUD_JPY","CAD_JPY","CHF_JPY","NZD_JPY"},
+     "cruces euro/libra": {"EUR_GBP","EUR_CHF","EUR_AUD","EUR_CAD","GBP_CHF","GBP_AUD"},
+     "materias primas": {"AUD_NZD","AUD_CAD"}, "oro": {"GOLD"}, "índices": {"US500","US100","DE30"}}
+grp = lambda inst: next((k for k, v in G.items() if inst in v), "otros")
+def why(r):
+    a = r["all"]
+    if r.get("liveEligible"): return "APTA"
+    if a["trades"] < 60: return "pocas ops"
+    gross_pos = a["meanR"] > 0
+    halves = r["firstHalf"]["meanR"] > 0 and r["secondHalf"]["meanR"] > 0
+    if gross_pos and not halves: return "solo una mitad"
+    if gross_pos and r["stressed"]["meanR"] <= 0: return "frágil a costes"
+    if gross_pos: return "gana poco (PF<1.15)"
+    return "pierde"
+print("%-22s %-18s %4s %5s %6s %6s  %s" % ("regla", "grupo", "n", "ops", "PF", "mediaR", "motivo dominante"))
+by = collections.defaultdict(list)
+for r in R: by[(r["rule"], grp(r["instrument"]))].append(r)
+for (rule, g), rs in sorted(by.items()):
+    ops = sum(r["all"]["trades"] for r in rs)
+    gp = sum(max(r["all"]["meanR"], 0) * r["all"]["trades"] for r in rs)
+    mean = sum(r["all"]["meanR"] * r["all"]["trades"] for r in rs) / ops if ops else 0
+    pfm = sorted(r["all"]["pf"] for r in rs)[len(rs)//2]
+    reasons = collections.Counter(why(r) for r in rs)
+    best = max(rs, key=lambda r: r["all"]["meanR"])
+    print("%-22s %-18s %4d %5d %6.2f %6.3f  %s | mejor: %s %.3fR (%d ops)" % (rule, g, len(rs), ops, pfm, mean, ", ".join("%s×%d" % kv for kv in reasons.most_common()), best["instrument"], best["all"]["meanR"], best["all"]["trades"]))
+PY
+    ;;
   forex-forum40-report)
     python3 - <<'PY'
 import json, collections

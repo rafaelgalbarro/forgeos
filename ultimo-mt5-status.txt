@@ -4,13 +4,13 @@ mt5 Up 13 days
 puente: online reinicios: 117
 puente sin respuesta (puede estar arrancando)
 --- diagnóstico contenedor
-drwxr-xr-x 4 abc abc 4096 Nov  5 11:43 /config/.wine
+drwxr-xr-x 4 abc abc 4096 Nov  5 11:46 /config/.wine
 /config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
 /config/.wine/drive_c/Python312-64/python.exe
 /config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
 /config/.wine/drive_c/Python39-64/python.exe
- 556528       06:10 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
- 556535       06:10 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
+ 556528       09:00 start.exe /exec Z:\config\.wine\drive_c\Python312-64\python.exe
+ 556535       09:00 Z:\config\.wine\drive_c\Python312-64\python.exe Z:\config\forgeos\mt5_bridge.py
 --- logs del terminal
 ## /Program Files/OANDA TMS MT5 Terminal/logs/20261105.log
 ﻿PL	0	01:00:40.337	Trades	'242902': market sell 0.01 USDJPY.pro sl: 158.518 tp: 156.941
@@ -27,17 +27,17 @@ LP	0	09:52:32.942	Network	'242902': scanning network finished
 --- /health
 
 --- /tradecheck
-{"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")", "login": null, "server": null}, "error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")"}
 
 --- /resolve?base=EUR_USD
 {"ok": false, "state": {"initialized": false, "last_error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")", "login": null, "server": null}, "error": "initialize: (-10003, \"IPC initialize failed, Pipe server didn't answer in 60 sec\")"}
 
-2026-11-05 11:35:07 +00:00: MetaTrader5 py: 5.0.6231
-2026-11-05 11:35:09 +00:00: wine: wine-11.10 (Staging)
 2026-11-05 11:35:09 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
 2026-11-05 11:37:24 +00:00: mt5 bridge listening on 8004
 2026-11-05 11:40:45 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
 2026-11-05 11:45:07 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
+2026-11-05 11:49:04 +00:00: reinicio completo del terminal en 2 min para reintentar la aceptación
+2026-11-05 11:49:27 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
+2026-11-05 11:49:28 +00:00: wine: Unhandled page fault on write access to 0000000000C90018 at address 00006FFFFFA285DB (thread 07f4), starting debugger...
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

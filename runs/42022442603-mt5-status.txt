@@ -1,0 +1,41 @@
+
+=== MT5 ===
+mt5 Up 13 days
+puente: online reinicios: 117
+puente sin respuesta (puede estar arrancando)
+--- diagnóstico contenedor
+drwxr-xr-x 4 abc abc 4096 Nov  5 11:52 /config/.wine
+/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe
+/config/.wine/drive_c/Python312-64/python.exe
+/config/.wine/drive_c/Program Files (x86)/Python39-32/python.exe
+/config/.wine/drive_c/Python39-64/python.exe
+--- logs del terminal
+## /Program Files/OANDA TMS MT5 Terminal/logs/20261105.log
+﻿PL	0	01:00:40.337	Trades	'242902': market sell 0.01 USDJPY.pro sl: 158.518 tp: 156.941
+FH	2	01:00:40.384	Trades	'242902': failed market sell 0.01 USDJPY.pro sl: 158.518 tp: 156.941 [No money]
+ND	0	01:45:40.020	Trades	'242902': market sell 0.02 EURUSD.pro sl: 1.12618 tp: 1.12360
+NP	2	01:45:40.073	Trades	'242902': failed market sell 0.02 EURUSD.pro sl: 1.12618 tp: 1.12360 [No money]
+LM	0	03:52:24.130	Network	'242902': scanning network for access points
+RK	0	03:52:31.174	Network	'242902': scanning network finished
+IR	0	08:00:43.631	Trades	'242902': market buy 0.01 USDJPY.pro sl: 157.788 tp: 159.412
+EH	2	08:00:43.679	Trades	'242902': failed market buy 0.01 USDJPY.pro sl: 157.788 tp: 159.412 [No money]
+ED	0	09:52:25.671	Network	'242902': scanning network for access points
+LP	0	09:52:32.942	Network	'242902': scanning network finished
+--- herramientas X: xwd xdotool 
+--- /health
+
+--- /tradecheck
+
+--- /resolve?base=EUR_USD
+
+2026-11-05 11:49:04 +00:00: reinicio completo del terminal en 2 min para reintentar la aceptación
+2026-11-05 11:49:27 +00:00: init=False err=initialize: (-10003, "IPC initialize failed, Pipe server didn't answer in 60 sec")
+2026-11-05 11:50:31 +00:00: bridge: Z:\config\.wine\drive_c\Python312-64\python.exe (uid 911)
+2026-11-05 11:50:34 +00:00: MetaTrader5 py: 5.0.6231
+2026-11-05 11:50:35 +00:00: wine: wine-11.10 (Staging)
+2026-11-05 11:50:36 +00:00: terminal: C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe
+2026-11-05 11:49:28 +00:00: wine: Unhandled page fault on write access to 0000000000C90018 at address 00006FFFFFA285DB (thread 07f4), starting debugger...
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

@@ -1,31 +1,35 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando d3d1e28 MT5: el puente ajusta el lote al margen libre (evita [No money]) y el bot registra el lote real
+Desplegando b614d06 F40: marco de 30 min (forex + crypto), más pares OANDA y contratos Kraken
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261105-115843
-Updating 064da4d..d3d1e28
+estado copiado en /root/forgeos-state-20261105-132230 (sin caché)
+Updating d3d1e28..b614d06
 Fast-forward
- lib/forex-bot/engine-extra.ts     |  4 ++++
- lib/forex-bot/engine.ts           |  5 +++++
- scripts/crypto-forum40.ts         |  6 +++---
- services/mt5-bridge/mt5_bridge.py | 23 +++++++++++++++++++++--
- 4 files changed, 33 insertions(+), 5 deletions(-)
+ deploy/remote/forgeos-remote.sh             | 62 +++++++++++++++++++++++++++--
+ lib/forex-bot/engine-extra.ts               | 16 ++++----
+ lib/forex-bot/forum40.ts                    |  8 ++--
+ lib/forex-bot/mt5.ts                        |  2 +-
+ lib/trading/crypto/reconcile.ts             |  2 +-
+ lib/trading/crypto/strategies/crypto-f40.ts | 41 +++++++++++--------
+ scripts/crypto-forum40.ts                   | 15 +++++--
+ scripts/forex-forum40.ts                    | 14 +++++--
+ 8 files changed, 119 insertions(+), 41 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.83s
+19 passed in 0.78s
 
 === BUILD ===
-procesos MT5 antes: terminal=0 puente=0 wine=4
-Mem:            7746        6241         237           4        1574        1504
-Swap:           4095        2326        1769
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        7253         165           4         638         492
+Swap:           4095        1776        2319
      0 MB COMMAND
-  1707 MB node
-  1549 MB node
-   957 MB node
-   367 MB java
-   300 MB next-server
+  2001 MB node
+  1632 MB node
+  1493 MB node
+   351 MB java
+   333 MB next-server
 
 up to date in 2s
    Generating static pages (153/204) 

@@ -789,9 +789,11 @@ do_intraday_backtest() {
 }
 
 do_crypto40() {
-  local days; days="$(echo "${1:-720}" | tr -cd '0-9')"; [ -n "$days" ] || days=720
-  sec "LISTA DE 40 EN KRAKEN FUTURES (1H/4H, largos y cortos) — backtest $days días"
-  timeout 3600 node scripts/forex-bot.cjs crypto40 "$days" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -70
+  # ARG: DÍAS o DÍAS:MARCOS (p. ej. 365:M15 o 720:H1:H4)
+  local days tfs; days="$(echo "${1:-720}" | cut -d: -f1 | tr -cd '0-9')"; [ -n "$days" ] || days=720
+  tfs="$(echo "${1:-720:H1:H4}" | cut -s -d: -f2- | tr -cd 'A-Z0-9:')"; [ -n "$tfs" ] || tfs="H1:H4"
+  sec "LISTA DE 40 EN KRAKEN FUTURES ($tfs, largos y cortos) — backtest $days días"
+  timeout 3600 node scripts/forex-bot.cjs crypto40 "$days" "$tfs" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | tail -70
 }
 
 do_forex_playbook() {
@@ -1049,11 +1051,12 @@ except Exception as e: print("sin JSON", e)' 2>&1 | head -c 400)"
   crypto40-lock-best)
     # Kraken: robust subset of the 40-list → real (≥100 ops, both halves ≥ +0.05R, ≥ +0.08R with costs ×1.5,
     # best per contract, at most 6).
-    python3 - <<'PY'
-import json
+    TFONLY="$ARG" python3 - <<'PY'
+import json, os
+only = (os.environ.get("TFONLY") or "").upper()
 p = "/var/www/forgeos/.forgeos/crypto-forum40-latest.json"
 j = json.load(open(p))
-cand = [r for r in j["results"] if r.get("liveEligible") and r["all"]["trades"] >= 100
+cand = [r for r in j["results"] if r.get("liveEligible") and r["all"]["trades"] >= 100 and (not only or r["tf"] == only)
         and min(r["firstHalf"]["meanR"], r["secondHalf"]["meanR"]) >= 0.05 and r["stressed"]["meanR"] >= 0.08]
 best = {}
 for r in sorted(cand, key=lambda r: -r["all"]["meanR"]):
@@ -1061,6 +1064,8 @@ for r in sorted(cand, key=lambda r: -r["all"]["meanR"]):
 pick = sorted(best.values(), key=lambda r: -r["all"]["meanR"])[:6]
 ids = {r["id"] for r in pick}
 for r in j["results"]:
+    if only and r["tf"] != only:
+        continue
     r["locked"] = r["id"] in ids
 json.dump(j, open(p, "w"), indent=2)
 print("candidatas robustas:", len(cand))
@@ -1073,13 +1078,17 @@ PY
     # Why rules fail, by pair group (ARG = timeframe, default M15): trades / costs / one half / no edge.
     TFONLY="${ARG:-M15}" python3 - <<'PY'
 import json, os, collections
-tf = os.environ["TFONLY"].upper()
-j = json.load(open("/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"))
+arg = os.environ["TFONLY"].upper()
+crypto = arg.startswith("C")  # e.g. CM15 / CH1 → Kraken results
+tf = arg[1:] if crypto else arg
+j = json.load(open("/var/www/forgeos/.forgeos/crypto-forum40-latest.json" if crypto else "/var/www/forgeos/.forgeos/forex-bot/forum40-latest.json"))
 R = [r for r in j["results"] if r["tf"] == tf]
 G = {"principales": {"EUR_USD","GBP_USD","USD_JPY","AUD_USD","USD_CAD","USD_CHF","NZD_USD"},
      "cruces yen": {"EUR_JPY","GBP_JPY","AUD_JPY","CAD_JPY","CHF_JPY","NZD_JPY"},
      "cruces euro/libra": {"EUR_GBP","EUR_CHF","EUR_AUD","EUR_CAD","GBP_CHF","GBP_AUD"},
-     "materias primas": {"AUD_NZD","AUD_CAD"}, "oro": {"GOLD"}, "índices": {"US500","US100","DE30"}}
+     "materias primas": {"AUD_NZD","AUD_CAD"}, "oro": {"GOLD"}, "índices": {"US500","US100","DE30"},
+     "BTC/ETH": {"PF_XBTUSD","PF_ETHUSD"}, "alts grandes": {"PF_SOLUSD","PF_XRPUSD","PF_ADAUSD","PF_LINKUSD","PF_DOGEUSD","PF_LTCUSD"},
+     "alts": {"PF_AVAXUSD","PF_DOTUSD","PF_SUIUSD","PF_NEARUSD"}}
 grp = lambda inst: next((k for k, v in G.items() if inst in v), "otros")
 def why(r):
     a = r["all"]

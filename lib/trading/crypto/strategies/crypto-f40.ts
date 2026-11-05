@@ -17,7 +17,7 @@ import { f40Rule, f40RuleExitOnLast, f40SignalOnLast, type F40Result } from "@/l
 import type { FxCandle } from "@/lib/forex-bot/types";
 import type { CryptoStrategyId, CryptoStrategySignal } from "./types";
 
-type Locked = { rule: string; pf: string; tf: "H1" | "H4" };
+type Locked = { rule: string; pf: string; tf: "M15" | "H1" | "H4" };
 
 let lockedCache: { at: number; rows: Locked[] } | null = null;
 function lockedRows(): Locked[] {
@@ -27,8 +27,8 @@ function lockedRows(): Locked[] {
     const p = path.join(process.env.FORGEOS_ROOT || process.cwd(), ".forgeos", "crypto-forum40-latest.json");
     const j = JSON.parse(fs.readFileSync(p, "utf8")) as { results: F40Result[] };
     rows = (j.results ?? [])
-      .filter((r) => r.liveEligible && r.locked && (r.tf === "H1" || r.tf === "H4"))
-      .map((r) => ({ rule: r.rule, pf: r.instrument.toUpperCase(), tf: r.tf as "H1" | "H4" }));
+      .filter((r) => r.liveEligible && r.locked && (r.tf === "M15" || r.tf === "H1" || r.tf === "H4"))
+      .map((r) => ({ rule: r.rule, pf: r.instrument.toUpperCase(), tf: r.tf as "M15" | "H1" | "H4" }));
   } catch {
     rows = [];
   }
@@ -51,7 +51,7 @@ export function isC40Strategy(id: string): boolean {
 
 export function c40MaxHoldMs(id: string): number | null {
   if (!isC40Strategy(id)) return null;
-  return /_H4$/i.test(id) ? 120 * 3600_000 : 72 * 3600_000;
+  return /_H4$/i.test(id) ? 120 * 3600_000 : /_M15$/i.test(id) ? 8 * 3600_000 : 72 * 3600_000;
 }
 
 const h4Cache = new Map<string, { at: number; bars: FxCandle[] }>();
@@ -81,7 +81,8 @@ function closedFx(bars: readonly Bar[] | readonly FxCandle[], tfSec: number): Fx
   return last && last.time + tfSec > now ? b.slice(0, -1) : b;
 }
 
-function barsFor(pair: string, pf: string, tf: "H1" | "H4"): FxCandle[] {
+function barsFor(pair: string, pf: string, tf: "M15" | "H1" | "H4"): FxCandle[] {
+  if (tf === "M15") return closedFx(getBars(pair, "15"), 900);
   return tf === "H1" ? closedFx(getBars(pair, "60"), 3600) : closedFx(h4Cache.get(pf)?.bars ?? [], 14400);
 }
 
@@ -121,12 +122,12 @@ export function evaluateCryptoF40(pair: string): CryptoStrategySignal[] {
 
 /** Rule exit for an open C40 leg (evaluated on the last closed bar). */
 export function c40RuleExit(strategyId: string, pair: string, side: "long" | "short"): boolean {
-  const m = /^C40_(.+)_(H1|H4)$/i.exec(strategyId.trim());
+  const m = /^C40_(.+)_(M15|H1|H4)$/i.exec(strategyId.trim());
   if (!m) return false;
   const pf = spotPairToPfSymbol(pair)?.toUpperCase();
   if (!pf) return false;
   try {
-    return f40RuleExitOnLast(m[1]!.toUpperCase(), barsFor(pair, pf, m[2]!.toUpperCase() as "H1" | "H4"), side);
+    return f40RuleExitOnLast(m[1]!.toUpperCase(), barsFor(pair, pf, m[2]!.toUpperCase() as "M15" | "H1" | "H4"), side);
   } catch {
     return false;
   }

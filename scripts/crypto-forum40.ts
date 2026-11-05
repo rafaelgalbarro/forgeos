@@ -16,22 +16,23 @@ const OUT = path.join(ROOT, ".forgeos", "crypto-forum40-latest.json");
 const SYMBOLS = ["PF_XBTUSD", "PF_ETHUSD", "PF_SOLUSD", "PF_XRPUSD", "PF_ADAUSD", "PF_LINKUSD", "PF_DOGEUSD", "PF_AVAXUSD", "PF_LTCUSD", "PF_DOTUSD", "PF_SUIUSD", "PF_NEARUSD"];
 export const CRYPTO_COST_PCT = 0.0015;
 
-async function candles1h(symbol: string, days: number): Promise<FxCandle[]> {
+async function candles(symbol: string, days: number, res: "1h" | "15m"): Promise<FxCandle[]> {
+  const step = res === "1h" ? 3600 : 900;
   const out = new Map<number, FxCandle>();
   const now = Math.floor(Date.now() / 1000);
   let from = now - days * 86400;
-  for (let guard = 0; guard < 40 && from < now - 3600; guard += 1) {
-    const url = `https://futures.kraken.com/api/charts/v1/trade/${symbol}/1h?from=${from}&to=${Math.min(now, from + 2000 * 3600)}`;
+  for (let guard = 0; guard < 80 && from < now - step; guard += 1) {
+    const url = `https://futures.kraken.com/api/charts/v1/trade/${symbol}/${res}?from=${from}&to=${Math.min(now, from + 2000 * step)}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(30_000) }).catch(() => null);
     if (!res || !res.ok) { console.warn(`[C40] ${symbol}: HTTP ${res?.status}`); break; }
     const rows = parseChartsCandles(await res.json());
-    if (!rows.length) { from += 2000 * 3600; continue; }
+    if (!rows.length) { from += 2000 * step; continue; }
     for (const r of rows) {
       const t = Math.floor(Date.parse(r.time) / 1000);
       out.set(t, { time: t, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume });
     }
     const last = Math.floor(Date.parse(rows[rows.length - 1]!.time) / 1000);
-    from = Math.max(from + 3600, last + 3600);
+    from = Math.max(from + step, last + step);
     await new Promise((r) => setTimeout(r, 250));
   }
   return [...out.values()].sort((a, b) => a.time - b.time);
@@ -52,11 +53,25 @@ async function main(): Promise<void> {
   const days = Math.max(120, Math.min(1500, Number(process.argv[2] ?? 720) || 720));
   let prev: F40Result[] = [];
   try { prev = (JSON.parse(fs.readFileSync(OUT, "utf8")) as { results: F40Result[] }).results ?? []; } catch { /* first run */ }
-  const results: F40Result[] = [];
+  // argv[3]: timeframes to (re)run, e.g. "M15" or "H1:H4" (default); other timeframes keep their rows
+  const TFS = String(process.argv[3] ?? "H1:H4").toUpperCase().split(/[,:]/).filter((t): t is F40Tf => ["M15", "H1", "H4"].includes(t));
+  const results: F40Result[] = prev.filter((r) => !TFS.includes(r.tf));
   for (const sym of SYMBOLS) {
-    const h1 = await candles1h(sym, days);
-    if (h1.length < 1500) { console.log(`[C40] ${sym}: solo ${h1.length} velas 1h — omitido`); continue; }
-    for (const [tf, bars] of [["H1", h1], ["H4", to4h(h1)]] as Array<[F40Tf, FxCandle[]]>) {
+    const sets: Array<[F40Tf, FxCandle[]]> = [];
+    if (TFS.includes("H1") || TFS.includes("H4")) {
+      const h1 = await candles(sym, days, "1h");
+      if (h1.length < 1500) { console.log(`[C40] ${sym}: solo ${h1.length} velas 1h — omitido`); }
+      else {
+        if (TFS.includes("H1")) sets.push(["H1", h1]);
+        if (TFS.includes("H4")) sets.push(["H4", to4h(h1)]);
+      }
+    }
+    if (TFS.includes("M15")) {
+      const m15 = await candles(sym, Math.min(days, 365), "15m");
+      if (m15.length >= 5000) sets.push(["M15", m15]);
+      else console.log(`[C40] ${sym}: solo ${m15.length} velas 15m — omitido`);
+    }
+    for (const [tf, bars] of sets) {
       const ctx = f40Ctx(bars);
       for (const rule of F40_RULES) {
         const id = `${rule.id}_${sym}_${tf}`;

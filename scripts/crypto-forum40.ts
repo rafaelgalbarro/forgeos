@@ -16,13 +16,13 @@ const OUT = path.join(ROOT, ".forgeos", "crypto-forum40-latest.json");
 const SYMBOLS = ["PF_XBTUSD", "PF_ETHUSD", "PF_SOLUSD", "PF_XRPUSD", "PF_ADAUSD", "PF_LINKUSD", "PF_DOGEUSD", "PF_AVAXUSD", "PF_LTCUSD", "PF_DOTUSD", "PF_SUIUSD", "PF_NEARUSD"];
 export const CRYPTO_COST_PCT = 0.0015;
 
-async function candles(symbol: string, days: number, res: "1h" | "15m"): Promise<FxCandle[]> {
-  const step = res === "1h" ? 3600 : 900;
+async function candles(symbol: string, days: number, resolution: "1h" | "15m"): Promise<FxCandle[]> {
+  const step = resolution === "1h" ? 3600 : 900;
   const out = new Map<number, FxCandle>();
   const now = Math.floor(Date.now() / 1000);
   let from = now - days * 86400;
   for (let guard = 0; guard < 80 && from < now - step; guard += 1) {
-    const url = `https://futures.kraken.com/api/charts/v1/trade/${symbol}/${res}?from=${from}&to=${Math.min(now, from + 2000 * step)}`;
+    const url = `https://futures.kraken.com/api/charts/v1/trade/${symbol}/${resolution}?from=${from}&to=${Math.min(now, from + 2000 * step)}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(30_000) }).catch(() => null);
     if (!res || !res.ok) { console.warn(`[C40] ${symbol}: HTTP ${res?.status}`); break; }
     const rows = parseChartsCandles(await res.json());

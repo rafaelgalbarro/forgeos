@@ -1,29 +1,29 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando 8b004a0 Kraken: las C40 (validadas con su stop y costes) no pasan por el tope de stop ni el filtro de coste ×3
+Desplegando 9fd59f7 C40 M30: tiempo máximo 12 h (24 velas, igual que el backtest)
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261105-151845 (sin caché)
-Updating b614d06..8b004a0
+estado copiado en /root/forgeos-state-20261105-153151 (sin caché)
+Updating 8b004a0..9fd59f7
 Fast-forward
- deploy/remote/forgeos-remote.sh             | 43 +++++++++++++++++++++++++++++
- lib/trading/crypto/futures-strategy-eval.ts |  5 +++-
- 2 files changed, 47 insertions(+), 1 deletion(-)
+ lib/trading/crypto/reconcile.ts             | 3 ++-
+ lib/trading/crypto/strategies/crypto-f40.ts | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.88s
+19 passed in 0.81s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        6525         852           4         684        1220
-Swap:           4095        1466        2629
+Mem:            7746        5854         760           4        1442        1891
+Swap:           4095        2495        1600
      0 MB COMMAND
-  1649 MB node
-  1371 MB node
-  1263 MB node
-   384 MB java
-   346 MB next-server
+  1475 MB node
+  1417 MB node
+   827 MB node
+   365 MB java
+   351 MB next-server
 
 up to date in 2s
    Generating static pages (153/204) 

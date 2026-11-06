@@ -544,14 +544,19 @@ const TF_SEC: Record<F40Tf, number> = { M15: 900, M30: 1800, H1: 3600, H4: 14400
 /** M15: intraday swings — out within 8 h. */
 const MAX_BARS: Record<F40Tf, number> = { M15: 32, M30: 24, H1: 72, H4: 30, D1: 20 };
 
-export type F40Trade = { entryTime: number; side: FxSide; r: number };
+export type F40Trade = { entryTime: number; side: FxSide; r: number; bars?: number };
 
 export type F40Ctx = { x: F40Ind; cache: Map<string, unknown> };
 export function f40Ctx(bars: readonly FxCandle[]): F40Ctx {
   return { x: f40Indicators(bars), cache: new Map() };
 }
 
-export type F40Opts = { costPct?: number; noWeekend?: boolean };
+/**
+ * costPct: crypto cost as a fraction of price. noWeekend: 24/7 market.
+ * Exit variants (study of quicker exits): tpR = fixed take-profit in R (replaces the rule's own),
+ * beAtR = once price is +beAtR R in favour, the stop moves to entry (breakeven).
+ */
+export type F40Opts = { costPct?: number; noWeekend?: boolean; tpR?: number; beAtR?: number };
 
 export function backtestF40(rule: Rule, bars: readonly FxCandle[], tf: F40Tf, spread: number, costSpread = spread, ctx?: F40Ctx, opts: F40Opts = {}): F40Trade[] {
   const { x, cache } = ctx ?? f40Ctx(bars);
@@ -573,20 +578,24 @@ export function backtestF40(rule: Rule, bars: readonly FxCandle[], tf: F40Tf, sp
     if ((opts.costPct != null ? opts.costPct * bars[i + 1]!.open : spread) > 0.25 * risk) continue;
     const dir = side === "long" ? 1 : -1;
     const entry = bars[i + 1]!.open + (dir * cs) / 2;
-    const stop = entry - dir * risk;
-    const tp = rule.rr ? entry + dir * rule.rr * risk : null;
+    let stop = entry - dir * risk;
+    const tpR = opts.tpR ?? rule.rr;
+    const tp = tpR ? entry + dir * tpR * risk : null;
+    const beTrig = opts.beAtR != null ? entry + dir * opts.beAtR * risk : null;
     let exit: number | null = null;
     let j = i + 1;
     for (; j < bars.length; j += 1) {
       const b = bars[j]!;
       if (side === "long" ? b.low <= stop : b.high >= stop) { exit = (j > i + 1 && (side === "long" ? b.open < stop : b.open > stop) ? b.open : stop) - (dir * cs) / 2; break; }
       if (tp != null && (side === "long" ? b.high >= tp : b.low <= tp)) { exit = tp - (dir * cs) / 2; break; }
+      // breakeven: armed on a bar that reached +beAtR R (applies from the next bar on)
+      if (beTrig != null && (side === "long" ? b.high >= beTrig : b.low <= beTrig)) stop = side === "long" ? Math.max(stop, entry) : Math.min(stop, entry);
       let ruleExit = false;
       try { ruleExit = rule.exit ? rule.exit(x, j, side, cache) : false; } catch { ruleExit = false; }
       if (ruleExit || weekend[j] || j - i >= MAX_BARS[tf]) { exit = b.close - (dir * cs) / 2; break; }
     }
     if (exit == null) break;
-    out.push({ entryTime: bars[i + 1]!.time, side, r: ((exit - entry) * dir) / risk });
+    out.push({ entryTime: bars[i + 1]!.time, side, r: ((exit - entry) * dir) / risk, bars: j - i });
     i = j;
   }
   return out;

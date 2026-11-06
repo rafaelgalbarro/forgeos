@@ -792,6 +792,11 @@ do_forex_forum40() {
   timeout 3600 node scripts/forex-bot.cjs forum40 "$tfs" 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot" | grep -vE "^\[F40\] .*ninguna" | tail -70
 }
 
+do_f40_exits() {
+  sec "OANDA: salidas más rápidas para las combinaciones en real (mismo backtest, solo cambia la salida)"
+  timeout 3600 node scripts/forex-bot.cjs f40exits 2>&1 | grep -vE "ExperimentalWarning|trace-warnings|^\[ForexBot\] boot|^\[salidas\] .*: actual" | tail -60
+}
+
 do_intraday_backtest() {
   local days; days="$(echo "${1:-300}" | tr -cd '0-9')"; [ -n "$days" ] || days=300
   sec "COMBINACIONES INTRADÍA (acciones EE. UU. 5 min + CFD de índices) — backtest $days días"
@@ -1003,6 +1008,7 @@ case "$ACTION" in
   forex-forum40) do_forex_forum40 "$ARG" ;;
   intraday-backtest) do_intraday_backtest "$ARG" ;;
   crypto40) do_crypto40 "$ARG" ;;
+  f40-exits) do_f40_exits ;;
   forex-forum40-lock-all)
     # Owner order: every passing row of ONE timeframe → real (ARG = M30, or CM30 for Kraken).
     # Rows of other timeframes are not touched; rows of this timeframe that do not pass are unlocked.

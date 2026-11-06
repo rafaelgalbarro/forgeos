@@ -1,0 +1,51 @@
+
+=== COMPROBACIONES PREVIAS ===
+Desplegando abdf8e9 OANDA: estudio de salidas más rápidas (TP 1/1,5/2R, breakeven) para las combinaciones en real
+
+=== COPIA DE ESTADO Y ACTUALIZACIÓN ===
+estado copiado en /root/forgeos-state-20261106-135156 (sin caché)
+Updating 9fd59f7..abdf8e9
+Fast-forward
+ deploy/remote/forgeos-remote.sh |   6 +++
+ lib/forex-bot/forum40.ts        |  19 +++++--
+ scripts/forex-bot.cjs           |   2 +-
+ scripts/forex-f40-exits.ts      | 116 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 137 insertions(+), 6 deletions(-)
+ create mode 100644 scripts/forex-f40-exits.ts
+script remoto actualizado
+
+=== TESTS DEL BROKER ===
+...................                                                      [100%]
+19 passed in 0.81s
+
+=== BUILD ===
+procesos MT5 antes: terminal=2 puente=1 wine=5
+Mem:            7746        7112         242           3         687         633
+Swap:           4095        1591        2504
+     0 MB COMMAND
+  2016 MB node
+  1680 MB node
+  1532 MB node
+   357 MB next-server
+   234 MB node
+
+up to date in 2s
+   Generating static pages (153/204) 
+ ✓ Generating static pages (204/204)
+
+=== REINICIO ===
+reiniciados: forgeos forgeos-scheduler forgeos-crypto-engine ibkr-broker
+reiniciado: forgeos-forex-bot
+reiniciado: forgeos-eodhd-us-ws
+reiniciado: forgeos-alerts
+reiniciado: forgeos-scanner
+reiniciado: forgeos-reports
+reiniciado: forgeos-mt5-bridge
+forgeos online
+forgeos-scheduler online
+ibkr-broker online
+forgeos-crypto-engine online
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

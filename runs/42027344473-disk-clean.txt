@@ -1,6 +1,0 @@
-/dev/sda1        75G   75G     0 100% /
-/dev/sda1        75G   40G   33G  56% /
---- preparación ---
-líneas clave: 7
-256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
-codigo_salida=0

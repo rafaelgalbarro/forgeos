@@ -1,6 +1,8 @@
 
 === ÓRDENES ABIERTAS EN IBKR ===
-total: 0
+id=2406 padre=0 SELL BAC STP USD qty=2.0 lmt=None aux=49.03 estado=PreSubmitted cuenta=U24225949 tif=GTC
+id=2405 padre=0 SELL BAC LMT USD qty=2.0 lmt=53.03 aux=None estado=PreSubmitted cuenta=U24225949 tif=GTC
+total: 2
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

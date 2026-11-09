@@ -1,0 +1,120 @@
+<stdin>:3: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+=== TELEGRAM: mensajes de operaciones reales (ledger) ===
+2026-11-08T11:21 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_ZECUSD @ 1279.0000 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€-0.0027 net=€-0.17
+2026-11-08T11:21 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ADAUSD 92 @ $0.18 | TREND_PULLBACK_1H_SHORT lev=2 stop=$0.18227
+2026-11-08T14:41 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_XRPUSD @ 1.1610 | TREND_PULLBACK_1H_SHORT TIME_EXIT lev=2 funding=€0.0004 net=€0.08
+2026-11-08T14:42 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_DOTUSD 18.7 @ $0.89 | TREND_PULLBACK_1H_SHORT lev=2 stop=$0.9
+2026-11-08T21:48 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_ADAUSD @ 0.1776 | TREND_PULLBACK_1H_SHORT TAKE_PROFIT lev=2 funding=€0.0033 net=€0.29
+2026-11-08T21:51 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_DOTUSD @ 0.8747 | TREND_PULLBACK_1H_SHORT TAKE_PROFIT lev=2 funding=€0.0016 net=€0.30
+2026-11-08T21:54 KRAKEN | [KRAKEN] 🟢 LONG EXIT Futures PF_AVAXUSD @ 7.9140 | C40_F09_BB_STOCH_H4 STOP_LOSS lev=2 funding=€0.0217 net=€-0.97
+2026-11-08T22:00 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ETHUSD 0.007 @ $2128.10 | C40_F24_YEN_H1 lev=2 stop=$2164.9
+2026-11-08T22:00 KRAKEN | [KRAKEN] 🟢 LONG Futures PF_ETHUSD 0.007 @ $2127.90 | BTC_SEASONAL_22UTC lev=2 stop=$2091.1
+2026-11-08T22:03 KRAKEN | [KRAKEN] 🟢 LONG EXIT Futures PF_ETHUSD @ 2128.1000 | BTC_SEASONAL_22UTC STOP_LOSS lev=2 funding=€-0.0000 net=€-0.01
+2026-11-08T22:03 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_ETHUSD @ 2127.8000 | C40_F24_YEN_H1 STOP_LOSS lev=2 funding=€0.0000 net=€-0.01
+2026-11-08T23:11 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ADAUSD 94 @ $0.18 | TREND_PULLBACK_1H_SHORT lev=2 stop=$0.17975
+2026-11-08T23:13 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_SOLUSD 0.19 @ $87.60 | TREND_PULLBACK_1H_SHORT lev=2 stop=$88.89
+2026-11-08T23:13 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_XBTUSD 0.0002 @ $75169.00 | TREND_PULLBACK_1H_SHORT lev=2 stop=$75759
+2026-11-09T06:45 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_XBTUSD @ 73955.0000 | TREND_PULLBACK_1H_SHORT TAKE_PROFIT lev=2 funding=€-0.0013 net=€0.24
+2026-11-09T07:00 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ZECUSD 0.01 @ $1210.15 | RS_VS_BTC_1H_SHORT lev=2 stop=$1230.79
+2026-11-09T07:13 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_ADAUSD @ 0.1715 | TREND_PULLBACK_1H_SHORT TAKE_PROFIT lev=2 funding=€0.0031 net=€0.51
+2026-11-09T08:00 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_PEPEUSD 3349000 @ $0.00 | RS_VS_BTC_1H_SHORT lev=2 stop=$0.0000050952
+2026-11-09T08:18 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_PEPEUSD @ 0.0000 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€-0.0000 net=€-0.34
+2026-11-09T08:19 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_XRPUSD 15 @ $1.09 | RS_VS_BTC_1H_SHORT lev=2 stop=$1.1056
+2026-11-09T08:30 OANDA | [OANDA] 💱 compra USD_JPY (REAL) 0.01 lotes @ 157.998 · SL 157.754 · TP seguridad 158.729 · riesgo ≈ 1.38 EUR USD/JPY · Martillo / estrella fugaz en banda de Bollinger con volumen alto y ADX < 25 (rango) M30
+2026-11-09T09:02 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_ZECUSD @ 1230.6600 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€-0.0005 net=€-0.21
+2026-11-09T09:02 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_DOTUSD 19.2 @ $0.87 | TREND_PULLBACK_1H_SHORT lev=2 stop=$0.8875
+2026-11-09T09:12 KRAKEN | [KRAKEN] ⚪ Entrada no ejecutada y cancelada: SHORT PF_DOTUSD | TREND_PULLBACK_1H_SHORT
+2026-11-09T09:13 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_LINKUSD 1.6 @ $10.46 | TREND_PULLBACK_1H_SHORT lev=2 stop=$10.636
+2026-11-09T09:30 OANDA | [OANDA] 💱 venta USD_JPY (REAL) 0.01 lotes @ 157.974 · SL 158.23 · TP seguridad 156.948 · riesgo ≈ 1.45 EUR USD/JPY · 4UJ: precio sobre SMA48 y ATR(7) cruza su media de 30 M30
+2026-11-09T11:45 OANDA | [OANDA] 💱 compra GOLD (REAL) 0.001 lotes @ 4111.94 · SL 4098.76 · TP seguridad 4151.49 · riesgo ≈ 1.19 EUR GOLD · Ruptura de Kumo (8,29,34) + giro del AO M15
+2026-11-09T12:23 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_LINKUSD @ 10.6430 | TREND_PULLBACK_1H_SHORT STOP_LOSS lev=2 funding=€0.0009 net=€-0.31
+2026-11-09T12:23 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_UNIUSD 2.4 @ $6.84 | TREND_PULLBACK_1H_SHORT lev=2 stop=$6.976
+2026-11-09T12:48 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_XRPUSD @ 1.1059 | RS_VS_BTC_1H_SHORT STOP_LOSS lev=2 funding=€0.0004 net=€-0.27
+2026-11-09T12:48 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ZECUSD 0.01 @ $1219.71 | TREND_PULLBACK_1H_SHORT lev=2 stop=$1253.33
+2026-11-09T15:00 OANDA | [OANDA] 🟢 FX cerrada USD_JPY (REAL) TP compra 1000 uds 157.998 → 158.125 · P&L 0.72 EUR (0.52R)
+2026-11-09T15:20 KRAKEN | [KRAKEN] 🔴 SHORT EXIT Futures PF_UNIUSD @ 6.9810 | TREND_PULLBACK_1H_SHORT STOP_LOSS lev=2 funding=€0.0004 net=€-0.36
+2026-11-09T15:20 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ETHUSD 0.007 @ $2136.70 | TREND_PULLBACK_1H_SHORT lev=2 stop=$2170.8
+2026-11-09T15:30 KRAKEN | [KRAKEN] ⚪ Entrada no ejecutada y cancelada: SHORT PF_ETHUSD | TREND_PULLBACK_1H_SHORT
+2026-11-09T15:31 KRAKEN | [KRAKEN] 🟢 SHORT Futures PF_ETHUSD 0.007 @ $2129.30 | TREND_PULLBACK_1H_SHORT lev=2 stop=$2163.4
+2026-11-09T17:45 OANDA | [OANDA] 🔴 FX cerrada GOLD (REAL) TP compra 0 uds 4111.94 → 4103.01 · P&L -0.80 EUR (-0.68R)
+2026-11-09T19:30 OANDA | [OANDA] 💱 venta USD_JPY (REAL) 0.01 lotes @ 157.884 · SL 158.109 · TP seguridad 157.209 · riesgo ≈ 1.27 EUR USD/JPY · Momentum(18) cruza 100 con cierre sobre/bajo EMA19 M30
+2026-11-09T21:30 OANDA | [OANDA] 🟢 FX cerrada USD_JPY (REAL) TIME venta 1000 uds 157.974 → 157.931 · P&L 0.24 EUR (0.17R)
+
+=== KRAKEN: diario cripto (reales cerradas y abiertas) ===
+2026-11-08T23:11 TREND_PULLBACK_1H_SHORT PF_ADAUSD short entrada 0.17707 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-08T23:13 TREND_PULLBACK_1H_SHORT PF_SOLUSD short entrada 87.6 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-08T23:13 TREND_PULLBACK_1H_SHORT PF_XBTUSD short entrada 75169 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T06:45 TREND_PULLBACK_1H_SHORT PF_XBTUSD short entrada 75169 salida 73955 motivo TAKE_PROFIT neto€ 0.235 dur_min 452 mae% None mfe% None 
+2026-11-09T07:00 RS_VS_BTC_1H_SHORT PF_ZECUSD short entrada 1210.15 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T07:13 TREND_PULLBACK_1H_SHORT PF_ADAUSD short entrada 0.17707 salida 0.17152000000000003 motivo TAKE_PROFIT neto€ 0.511 dur_min 482 mae% None mfe% None 
+2026-11-09T08:00 RS_VS_BTC_1H_SHORT PF_PEPEUSD short entrada 5.007e-06 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T08:18 RS_VS_BTC_1H_SHORT PF_PEPEUSD short entrada 5.007e-06 salida 5.106799999999999e-06 motivo STOP_LOSS neto€ -0.343 dur_min 18 mae% None mfe% None 
+2026-11-09T08:19 RS_VS_BTC_1H_SHORT PF_XRPUSD short entrada 1.0884 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T09:02 RS_VS_BTC_1H_SHORT PF_ZECUSD short entrada 1210.15 salida 1230.66 motivo STOP_LOSS neto€ -0.211 dur_min 121 mae% None mfe% None 
+2026-11-09T09:02 TREND_PULLBACK_1H_SHORT PF_DOTUSD short entrada 0.8721 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T09:12 TREND_PULLBACK_1H_SHORT PF_DOTUSD short entrada 0.8721 salida 0.8721 motivo ENTRY_NOT_FILLED neto€ 0 dur_min 10 mae% None mfe% None 
+2026-11-09T09:13 TREND_PULLBACK_1H_SHORT PF_LINKUSD short entrada 10.458 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T12:23 TREND_PULLBACK_1H_SHORT PF_LINKUSD short entrada 10.458 salida 10.642999999999999 motivo STOP_LOSS neto€ -0.305 dur_min 189 mae% None mfe% None 
+2026-11-09T12:23 TREND_PULLBACK_1H_SHORT PF_UNIUSD short entrada 6.836 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T12:48 RS_VS_BTC_1H_SHORT PF_XRPUSD short entrada 1.0884 salida 1.1059000000000003 motivo STOP_LOSS neto€ -0.271 dur_min 269 mae% None mfe% None 
+2026-11-09T12:48 TREND_PULLBACK_1H_SHORT PF_ZECUSD short entrada 1219.71 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T15:20 TREND_PULLBACK_1H_SHORT PF_UNIUSD short entrada 6.836 salida 6.981000000000001 motivo STOP_LOSS neto€ -0.356 dur_min 176 mae% None mfe% None 
+2026-11-09T15:20 TREND_PULLBACK_1H_SHORT PF_ETHUSD short entrada 2136.7 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+2026-11-09T15:30 TREND_PULLBACK_1H_SHORT PF_ETHUSD short entrada 2136.7 salida 2136.7 motivo ENTRY_NOT_FILLED neto€ 0 dur_min 10 mae% None mfe% None 
+2026-11-09T15:31 TREND_PULLBACK_1H_SHORT PF_ETHUSD short entrada 2129.3 salida None motivo None neto€ None dur_min None mae% None mfe% None abierta
+total neto cerradas €: -0.74
+   RS_VS_BTC_1H_SHORT ops 3 ganadas 0 neto€ -0.83
+   TREND_PULLBACK_1H_SHORT ops 6 ganadas 2 neto€ 0.08
+
+=== IBKR: propuestas ejecutadas (broker) ===
+2026-11-09T14:45 REJECTED Inactive BUY MSTR qty 1.0 lmt 123.62 | IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-09T14:46 REJECTED Inactive BUY C qty 1.0 lmt 119.82499999999999 | IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-09T14:46 REJECTED Inactive BUY SLB qty 2.0 lmt 50.26 | 202 Order Canceled - reason: [BRACKET_TP id=2435]
+2026-11-09T14:49 REJECTED Inactive BUY COIN qty 1.0 lmt 135.935 | IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+
+=== IBKR: ventas/cierres en logs (monitor) ===
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+11|forgeos | [PositionMonitor] HYDC legacy orphan — no re-registrar / no SELL
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

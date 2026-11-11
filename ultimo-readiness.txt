@@ -93,7 +93,7 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
 }
 --- ibkr-non-tradable.json
 {
-  "updatedAt": "2026-11-09T14:49:38.747Z",
+  "updatedAt": "2026-11-11T15:00:47.273Z",
   "entries": {
     "HYDC": {
       "symbol": "HYDC",
@@ -103,59 +103,32 @@ IBKR_CONNECT_TIMEOUT_SECONDS=30
       "addedAt": "2026-10-12T20:29:25.018746Z",
       "telegramSent": true
     },
-    "MSTR": {
-      "symbol": "MSTR",
-      "code": null,
-      "message": "IBKR status=Inactive (not Submitted/PreSubmitted/Filled)",
-      "ibkrStatus": "Inactive",
-      "addedAt": "2026-11-09T14:45:56.805Z",
-      "telegramSent": true,
-      "expiresAt": "2026-11-10T14:45:56.805Z"
-    },
     "C": {
       "symbol": "C",
       "code": null,
       "message": "IBKR status=Inactive (not Submitted/PreSubmitted/Filled)",
       "ibkrStatus": "Inactive",
-      "addedAt": "2026-11-09T14:46:05.023Z",
+      "addedAt": "2026-11-11T15:00:47.273Z",
       "telegramSent": true,
-      "expiresAt": "2026-11-10T14:46:05.023Z"
-    },
-    "SLB": {
-      "symbol": "SLB",
-      "code": 202,
-      "message": "Order Canceled - reason: [BRACKET_TP id=2435]",
-      "ibkrStatus": "Inactive",
-      "addedAt": "2026-11-09T14:46:12.657Z",
-      "telegramSent": true,
-      "expiresAt": "2026-11-10T14:46:12.657Z"
-    },
-    "COIN": {
-      "symbol": "COIN",
-      "code": null,
-      "message": "IBKR status=Inactive (not Submitted/PreSubmitted/Filled)",
-      "ibkrStatus": "Inactive",
-      "addedAt": "2026-11-09T14:49:38.747Z",
-      "telegramSent": true,
-      "expiresAt": "2026-11-10T14:49:38.747Z"
+      "expiresAt": "2026-11-12T15:00:47.273Z"
     }
   }
 }
 --- kraken-futures-daily-risk.json
 {
-  "dayKey": "2026-11-09",
-  "dayStartCapital": 80.3255,
-  "dayPnl": -0.23270000000000834,
-  "exitsOnly": false,
-  "dailyLimitHit": false
+  "dayKey": "2026-11-11",
+  "dayStartCapital": 83.0039,
+  "dayPnl": -3.139099999999999,
+  "exitsOnly": true,
+  "dailyLimitHit": true
 }
 
 === PRE-MERCADO: preparación para operar en real ===
 señales registradas=92 cerradas=92 mejoraron=72 → listo=True (requiere ≥20 cerradas y mayoría mejorando)
 
 === CUENTAS IBKR (efectivo y posiciones) ===
-U15513057 base= EUR NAV= 381.68 Disponible= 381.43 USD= 31.47 EUR= 353.38
-U24225949 base= EUR NAV= 132.42 Disponible= 9.93 USD= 11.14 EUR= 0.00
+U15513057 base= EUR NAV= 382.01 Disponible= 381.75 USD= 31.47 EUR= 353.38
+U24225949 base= EUR NAV= 134.54 Disponible= 10.04 USD= 11.14 EUR= 0.00
    U24225949 HYDC 2.0 USD coste= 2.0243
    U15513057 GNLN 0.25 USD coste= 42.696
    U24225949 BAC 2.0 USD coste= 50.53
@@ -176,48 +149,51 @@ U24225949 base= EUR NAV= 132.42 Disponible= 9.93 USD= 11.14 EUR= 0.00
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
 11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
+11|forgeos | [Cycle/stocks] STOCKS_EXECUTION_PREMARKET=true — live-ready: 72/92 premarket improved vs open entry
 
 === ACCIONES: resumen de ciclos ===
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
-11|forgeos | [StocksUniverse] phase=CLOSED source=outside-equity-windows → 0 equities (EU EUR + US; ETFs/crypto/forex excluded)
+11|forgeos | [ProStrategy] PYPL: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REV
+11|forgeos | [ProStrategy] XYZ: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] HOOD: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REV
+11|forgeos | [ProStrategy] SOFI: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REV
+11|forgeos | [ProStrategy] LLY: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] UNH: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] JNJ: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [ProStrategy] ABBV: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REV
+11|forgeos | [ProStrategy] MRK: US_LISTED 12:42 America/New_York usPhase=REGULAR strategyPhase=USA_REGULAR forge=USA_REGULAR eligible=[USA_GAP_AND_GO,USA_MOMENTUM_PRIMERA_HORA,USA_VWAP_BOUNCE,USA_REVE
+11|forgeos | [Cycle/stocks] ✅ 67 results, pending=0 phase=USA_REGULAR
 
 === SCHEDULER ===
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-11T17:21:00.035Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-09T21:52:27.602Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-11T17:24:37.291Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-09T21:55:27.976Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] stocks/in-play HTTP 200: {"ok":true,"at":"2026-11-11T17:27:38.541Z","count":0,"symbols":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-11T17:28:12.993Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-09T21:58:28.274Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-11T17:31:45.491Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-09T22:01:28.552Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] stocks/scan HTTP 200: {"ok":true,"at":"2026-11-11T17:34:46.543Z","screened":0,"prefiltered":0,"analyzed":0,"selectedCount":0,"top":[]}
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-11T17:35:24.057Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-09T22:04:28.878Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-11T17:38:55.904Z ok=3 skipped=0 stocks, crypto, forex
 17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] stocks/in-play HTTP 200: {"ok":true,"at":"2026-11-09T22:07:30.177Z","count":0,"symbols":[]}
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-09T22:07:30.416Z ok=3 skipped=0 stocks, crypto, forex
-17|forgeos | [Scheduler] Próximo ciclo typed (stocks+crypto+forex) en 180s…
-17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-09T22:10:30.770Z ok=3 skipped=0 stocks, crypto, forex
+17|forgeos | [Scheduler] Ciclos typed completados: 2026-11-11T17:42:26.590Z ok=3 skipped=0 stocks, crypto, forex
 
 === CRIPTO: motor ===
-2026-11-09 22:08:51 +00:00: [Kraken/Futures] cycle margin=50.8199 symbols=17 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=7 orders=0 shadow=3 held=[PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:BTC_SEASONAL_22UTC:
-2026-11-09 22:08:51 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=7 orders=0 held=4 2826ms
-2026-11-09 22:09:50 +00:00: [Kraken/Futures] cycle margin=50.8184 symbols=17 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=7 orders=0 shadow=3 held=[PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:BTC_SEASONAL_22UTC:
-2026-11-09 22:09:50 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=7 orders=0 held=4 2424ms
-2026-11-09 22:10:50 +00:00: [Kraken/Futures] cycle margin=50.8177 symbols=17 dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=7 orders=0 shadow=3 held=[PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:BTC_SEASONAL_22UTC:
-2026-11-09 22:10:51 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=7 orders=0 held=4 2486ms
-2026-11-09 22:11:51 +00:00: [Kraken/Futures] cycle margin=50.8184 symbols=17 dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=7 orders=0 shadow=3 held=[PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:BTC_SEASONAL_22UTC:
-2026-11-09 22:11:51 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=1s px=1s btc60=1s btcPx=1s signals=7 orders=0 held=4 2727ms
-2026-11-09 22:12:50 +00:00: [Kraken/Futures] cycle margin=50.8163 symbols=17 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=7 orders=0 shadow=3 held=[PF_SOLUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:BTC_SEASONAL_22UTC:
-2026-11-09 22:12:50 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=7 orders=0 held=4 2381ms
-2026-11-09 07:13:39 +00:00: [Kraken/Futures] TP PF_ADAUSD 0.171498792585781 ya superado (mark=0.1714493937) — no se coloca
+2026-11-11 17:38:00 +00:00: [Kraken/Futures] cycle margin=79.8584 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=1 held=[PF_AAVEUSD:RS_VS_BTC_1H_SHORT:stop_0.51%<0.6% | PF_ETCUSD:RS_VS_BTC_1H_SHORT:stop
+2026-11-11 17:38:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=2 2219ms
+2026-11-11 17:39:00 +00:00: [Kraken/Futures] cycle margin=79.8591 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=1 held=[PF_AAVEUSD:RS_VS_BTC_1H_SHORT:stop_0.51%<0.6% | PF_ETCUSD:RS_VS_BTC_1H_SHORT:stop
+2026-11-11 17:39:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=2 2374ms
+2026-11-11 17:40:00 +00:00: [Kraken/Futures] cycle margin=79.8627 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=1 held=[PF_DOTUSD:RS_VS_BTC_1H_SHORT:pausa_tras_stop_90min | PF_ETCUSD:RS_VS_BTC_1H_SHORT
+2026-11-11 17:40:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=2 2143ms
+2026-11-11 17:41:00 +00:00: [Kraken/Futures] cycle margin=79.8648 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=1 held=[PF_NEARUSD:RS_VS_BTC_1H_SHORT:pausa_tras_stop_90min | PF_AAVEUSD:RS_VS_BTC_1H_SHO
+2026-11-11 17:41:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=3 2603ms
+2026-11-11 17:42:00 +00:00: [Kraken/Futures] cycle margin=79.8648 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=1 held=[PF_NEARUSD:RS_VS_BTC_1H_SHORT:pausa_tras_stop_90min | PF_AAVEUSD:RS_VS_BTC_1H_SHO
+2026-11-11 17:42:00 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 held=3 2242ms
+2026-11-11 01:00:33 +00:00: [Kraken/Futures] PF_UNIUSD: posición viva sin journal abierto → reabierta (C40_F01_WILLIAMS_M30)
+2026-11-11 01:00:34 +00:00: [Kraken/Futures] ⚠ PF_UNIUSD sin stop reduce-only en el exchange
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

@@ -3,12 +3,12 @@
 proceso: online reinicios: 67
 modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
 --- últimos ciclos
-2026-11-11 17:48:12 +00:00: 2026-11-11T17:48:12.699Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
-2026-11-11 17:49:12 +00:00: 2026-11-11T17:49:12.710Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
-2026-11-11 17:49:50 +00:00: [ForexBot] boot pid=348858 entry=forex-bot-main.ts mode=live
-2026-11-11 17:49:51 +00:00: [ForexBot] arranque intervalo=60000ms
-2026-11-11 17:49:56 +00:00: 2026-11-11T17:49:51.700Z [ForexBot] modo=live broker=mt5 datos=— pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD in
-2026-11-11 17:50:56 +00:00: 2026-11-11T17:50:51.800Z [ForexBot] modo=live broker=mt5 datos=— pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD in
+2026-11-11 17:53:52 +00:00: 2026-11-11T17:53:51.841Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
+2026-11-11 17:54:52 +00:00: 2026-11-11T17:54:51.852Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
+2026-11-11 17:55:52 +00:00: 2026-11-11T17:55:51.865Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
+2026-11-11 17:56:52 +00:00: 2026-11-11T17:56:51.877Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
+2026-11-11 17:57:52 +00:00: 2026-11-11T17:57:51.880Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
+2026-11-11 17:58:52 +00:00: 2026-11-11T17:58:51.910Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
 --- resumen diario
 2026-11-11 09:11:10 +00:00: [Telegram] sendMessage failed: fetch failed
 2026-11-11 09:11:10 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta

@@ -1,14 +1,14 @@
 
 === BOT FOREX ===
-proceso: online reinicios: 66
+proceso: online reinicios: 67
 modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
 --- últimos ciclos
-2026-11-11 17:36:12 +00:00: 2026-11-11T17:36:12.607Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
-2026-11-11 17:37:12 +00:00: 2026-11-11T17:37:12.607Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
-2026-11-11 17:38:12 +00:00: 2026-11-11T17:38:12.618Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
-2026-11-11 17:39:13 +00:00: 2026-11-11T17:39:12.629Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
-2026-11-11 17:40:12 +00:00: 2026-11-11T17:40:12.630Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
-2026-11-11 17:41:13 +00:00: 2026-11-11T17:41:12.642Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=82.90 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69
+2026-11-11 17:48:12 +00:00: 2026-11-11T17:48:12.699Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
+2026-11-11 17:49:12 +00:00: 2026-11-11T17:49:12.710Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD MT5: fetch failed | GBP_USD MT5: fetch failed | USD_JPY MT5: fetch failed | AUD_USD MT5: fetch failed | USD_CAD MT5: fetch failed | USD_CHF MT5: fetch failed
+2026-11-11 17:49:50 +00:00: [ForexBot] boot pid=348858 entry=forex-bot-main.ts mode=live
+2026-11-11 17:49:51 +00:00: [ForexBot] arranque intervalo=60000ms
+2026-11-11 17:49:56 +00:00: 2026-11-11T17:49:51.700Z [ForexBot] modo=live broker=mt5 datos=— pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD in
+2026-11-11 17:50:56 +00:00: 2026-11-11T17:50:51.800Z [ForexBot] modo=live broker=mt5 datos=— pares=21 nav=500.00 EUR abiertas=0 simuladas=10 entradas=0 pnlHoy=7.69 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD in
 --- resumen diario
 2026-11-11 09:11:10 +00:00: [Telegram] sendMessage failed: fetch failed
 2026-11-11 09:11:10 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta

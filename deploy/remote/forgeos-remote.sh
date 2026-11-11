@@ -1009,6 +1009,16 @@ case "$ACTION" in
   intraday-backtest) do_intraday_backtest "$ARG" ;;
   crypto40) do_crypto40 "$ARG" ;;
   f40-exits) do_f40_exits ;;
+  ib-fills)
+    # Read-only: IB fills (broker + monitor logs) to rebuild what each closed stock trade made.
+    sec "IBKR: ejecuciones en los logs (compras y ventas)"
+    for app in ibkr-broker forgeos; do
+      pm2 logs "$app" --lines 60000 --nostream 2>&1 | grep -iE "execDetails|Filled|filled|exec_id|avgFillPrice|stop (hit|tocado)|STOP_LOSS|TAKE_PROFIT|SELL .*(filled|ejecut)|cerrad" | grep -viE "HYDC legacy|PreSubmitted" | grep -iE "SELL|venta|stop|take|cerrad|BUY" | cut -c1-240 | tail -60
+    done
+    sec "IBKR: diario local de operaciones de acciones (si existe)"
+    for f in /var/www/forgeos/.forgeos/stocks-journal.json /var/www/forgeos/.forgeos/positions.json /var/www/forgeos/.forgeos/trades.json; do [ -f "$f" ] && { echo "--- $f"; tail -c 6000 "$f"; echo; }; done
+    ls -t /var/www/forgeos/.forgeos | head -40
+    ;;
   forex-forum40-lock-all)
     # Owner order: every passing row of ONE timeframe → real (ARG = M30, or CM30 for Kraken).
     # Rows of other timeframes are not touched; rows of this timeframe that do not pass are unlocked.

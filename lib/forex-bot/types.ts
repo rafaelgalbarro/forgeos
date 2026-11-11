@@ -60,7 +60,7 @@ export type FxTrade = {
   brokerTradeId?: string | null;
   closedAt?: string | null;
   exit?: number | null;
-  exitReason?: "TP" | "SL" | "WEEKEND" | "MANUAL" | "BROKER" | "TIME" | null;
+  exitReason?: "TP" | "SL" | "RULE" | "WEEKEND" | "MANUAL" | "BROKER" | "TIME" | null;
   /** P&L in account currency (net of the spread assumed / actual) */
   pnl?: number | null;
   rMultiple?: number | null;

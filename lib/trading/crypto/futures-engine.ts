@@ -676,6 +676,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
   cycleBusy = true;
   cycleBusySince = Date.now();
   const executed: string[] = [];
+  const executedSides: Array<"long" | "short"> = [];
   const shadow: string[] = [];
   const held: string[] = [];
   try {
@@ -776,11 +777,20 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
     }
     const legDir = sig.direction === "SELL" ? "short" : "long";
     const gate = futuresLiveGateForStrategy(sig.strategyId, legDir);
+    // Review 11/11: alts move together, so 3–5 shorts open at once were all stopped by the same
+    // bounce (04/11 05:39–05:52, 11/11 15:35). Cap live legs per direction (FUTURES_MAX_SAME_SIDE, default 2).
+    const sameSideCap = Math.max(1, Number(process.env.FUTURES_MAX_SAME_SIDE ?? "2") || 2);
+    const sameSideOpen =
+      listOpenCryptoJournal({ shadow: false }).filter((t) => t.venue === "futures" && t.open && (t.positionSide ?? (t.side === "SELL" ? "short" : "long")) === legDir).length +
+      executedSides.filter((x) => x === legDir).length;
+    const sideFull = sameSideOpen >= sameSideCap;
+    if (sideFull && isFuturesStrategyLive(sig.strategyId)) held.push(`${pf}:${sig.strategyId}:max_${legDir}_${sameSideCap}`);
     const live =
       !shadowOn &&
       isFuturesStrategyLive(sig.strategyId) &&
       gate.ok &&
       risk.ok &&
+      !sideFull &&
       openCount + executed.length < maxPos;
     if (!shadowOn && isFuturesStrategyLive(sig.strategyId) && !gate.ok) {
       held.push(`${sig.pair}:${sig.strategyId}:gate:${gate.reason ?? "blocked"}`);
@@ -904,6 +914,7 @@ export async function runKrakenFuturesAnalysisCycle(): Promise<{
         `${sig.strategyId} lev=${futuresMaxLeverage()} stop=$${stopUsd}`;
       void sendTelegramMessage(`[KRAKEN] ${line}`, undefined, { kind: "trade", platform: "KRAKEN" }).catch(() => undefined);
       executed.push(`${pf}:${sig.strategyId}`);
+      executedSides.push(side);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       held.push(`${pf}:${sig.strategyId}:ERR(${msg.slice(0, 160)})`);

@@ -122,7 +122,12 @@ type PositionSLTP = {
   highestPrice?: number;
   /** True while a SELL is in flight — skip ticker on later ticks. */
   selling?: boolean;
+  /** Last price seen by the monitor (to tell a broker-side stop from a broker-side target). */
+  lastPrice?: number;
 };
+
+/** Positions that IB closed on its own (native bracket STP / LMT): reported on the next tick. */
+const brokerClosed: Array<{ ticker: string; mem: PositionSLTP }> = [];
 
 type SellLockFile = Record<string, number>;
 
@@ -372,6 +377,12 @@ function syncFromStateAndIbkr(ibkrRows: IbkrPosRow[]): string[] {
     }
     if (ibkrOpen.has(t)) continue;
     if (positionSLTP.get(t)?.selling) continue;
+    // IB closed it (bracket stop / target filled at the broker): report it like our own sells.
+    // Only when IB answered with rows (an API failure returns none) and the position is not brand new.
+    const gone = positionSLTP.get(t);
+    if (gone && ibkrRows.length > 0 && gone.entryPrice > 0 && gone.qty > 0 && Date.now() - Date.parse(gone.openedAt || "") > 5 * 60_000) {
+      brokerClosed.push({ ticker: t, mem: { ...gone } });
+    }
     dropFromRegistry(t);
     console.log(`[PositionMonitor] ${t} qty=0 en IBKR — eliminada del registro`);
   }
@@ -495,6 +506,31 @@ function isUsRegularSessionNow(at = new Date()): boolean {
   if (wd === "Sat" || wd === "Sun") return false;
   const m = Number(p.find((x) => x.type === "hour")?.value ?? 0) * 60 + Number(p.find((x) => x.type === "minute")?.value ?? 0);
   return m >= 570 && m < 960;
+}
+
+/**
+ * IB filled the native bracket (STP or LMT) itself: record it and send the same Telegram SELL as
+ * our own exits. The level is the one nearest to the last price the monitor saw.
+ */
+async function reportBrokerClose(ticker: string, mem: PositionSLTP): Promise<void> {
+  const last = mem.lastPrice && mem.lastPrice > 0 ? mem.lastPrice : mem.sl;
+  const kind: "TP" | "SL" = Math.abs(last - mem.tp) < Math.abs(last - mem.sl) ? "TP" : "SL";
+  const price = kind === "TP" ? mem.tp : mem.sl;
+  const pnlUSD = (price - mem.entryPrice) * mem.qty;
+  const pnlPct = mem.entryPrice > 0 ? ((price - mem.entryPrice) / mem.entryPrice) * 100 : 0;
+  console.log(`[PositionMonitor] ${ticker} cerrada por IB (${kind} ≈ $${price.toFixed(2)}) P&L ≈ $${pnlUSD.toFixed(2)}`);
+  try {
+    recordClosedTrade({ symbol: ticker, side: "SELL", qty: mem.qty, price, pnl: pnlUSD, account: mem.account ?? (process.env.IBKR_ACCOUNT_ID?.trim() || null), kind });
+  } catch (err) {
+    console.warn("[PositionMonitor] SQLite recordClosedTrade failed:", err instanceof Error ? err.message : err);
+  }
+  await notifyPositionClosed({ kind, ticker, pnlUSD, pnlPct, navUSD: 0, exitPrice: price, shares: mem.qty, inherited: !mem.orderId });
+  try {
+    const { getExitManager } = await import("@/lib/trading/exit-manager");
+    await getExitManager().notifyExit({ symbol: ticker, side: "SELL", qty: mem.qty, price, entry: mem.entryPrice, pnlPct: pnlPct / 100, pnlUSD, reason: kind === "SL" ? "STOP_LOSS" : "TAKE_PROFIT" });
+  } catch {
+    /* non-fatal */
+  }
 }
 
 async function closePosition(
@@ -841,6 +877,11 @@ async function tick(): Promise<void> {
   try {
     const ibkrRows = await fetchOpenIbkrStockPositions();
     const tickers = syncFromStateAndIbkr(ibkrRows);
+    for (const c of brokerClosed.splice(0)) {
+      await reportBrokerClose(c.ticker, c.mem).catch((err) =>
+        console.warn(`[PositionMonitor] ${c.ticker} aviso de cierre IB falló:`, err instanceof Error ? err.message : err),
+      );
+    }
 
     if (tickers.length === 0) {
       console.log("[PositionMonitor] Monitoreando 0 posiciones");
@@ -881,6 +922,7 @@ async function tick(): Promise<void> {
         mem.sl = pos.stopLoss;
         mem.tp = pos.takeProfit;
         mem.highestPrice = pos.highestPrice;
+        mem.lastPrice = price;
         positionSLTP.set(ticker, mem);
 
         if (pos.stopLoss !== beforeSl || pos.highestPrice !== beforeHigh) {

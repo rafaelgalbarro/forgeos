@@ -227,7 +227,7 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
       const weekend = !(a.kind === "R2" || (a.kind === "F40" && a.tf === "D1")) && isWeekendFlattenTime(new Date());
       const maxBarsOpen = open.maxHoldMin ? open.maxHoldMin / (TF_SEC[a.tf] / 60) : MAX_BARS[a.tf];
       if (ruleOut || weekend || held >= maxBarsOpen) {
-        const why: FxTrade["exitReason"] = ruleOut ? "TP" : weekend ? "WEEKEND" : "TIME";
+        const why: FxTrade["exitReason"] = ruleOut ? "RULE" : weekend ? "WEEKEND" : "TIME";
         if (isReal && open.brokerTradeId) {
           const r = await mt5Close(open.brokerTradeId).catch(() => null);
           if (r) {
@@ -319,7 +319,16 @@ export async function runExtraStrategies(ctx: ExtraCtx): Promise<number> {
       if ((p.side === "long" && (tp <= px || stop >= px)) || (p.side === "short" && (tp >= px || stop <= px))) continue;
     }
     const realOpen = ctx.trades.filter((t) => !t.closedAt && t.mode !== "shadow").length;
-    const mode: Mode = real && realOpen < fxMaxPositions() ? ctx.mode : "shadow";
+    // Review 11/11: with ~80 € only ~3 positions fit, and losses came from (a) several rules opening the
+    // same instrument together (USD/JPY: 3 shorts in 1 h, a long against two shorts) and (b) re-entering
+    // the instrument right after a stop (gold, AUD/CAD). Real money: one position per instrument, and
+    // FX_REENTRY_COOLDOWN_H (default 4) hours after a real stop on it. Shadow keeps every signal.
+    const sameInstReal = ctx.trades.some((t) => !t.closedAt && t.mode !== "shadow" && t.instrument === a.instrument);
+    const coolH = Number(process.env.FX_REENTRY_COOLDOWN_H ?? "4");
+    const recentStop = coolH > 0 && ctx.trades.some((t) => t.mode !== "shadow" && t.instrument === a.instrument && t.exitReason === "SL" && t.closedAt && Date.now() - Date.parse(t.closedAt) < coolH * 3600_000);
+    if (real && sameInstReal) ctx.notes.push(`${a.id}: ya hay posición real en ${a.instrument}`);
+    else if (real && recentStop) ctx.notes.push(`${a.id}: espera tras stop en ${a.instrument}`);
+    const mode: Mode = real && !sameInstReal && !recentStop && realOpen < fxMaxPositions() ? ctx.mode : "shadow";
     let lots: number | null = null;
     let units = 0;
     let riskAcc = 0;

@@ -1,0 +1,83 @@
+
+=== KRAKEN FUTURES: diagnóstico de estrategias ===
+venue= futures shadow= False apalancamiento= 2 estrategias live= ['RS_VS_BTC_1H_SHORT', 'TREND_PULLBACK_1H_SHORT']
+margen= 79.8648 último ciclo= 2026-11-11T17:42:00.321Z lastCycle= None
+riesgo diario= {'dayKey': '2026-11-11', 'dayStartCapital': 83.0039, 'dayPnl': -3.139099999999999, 'exitsOnly': True, 'dailyLimitHit': True}
+diagnóstico actualizado= 2026-11-11T17:42:00.322Z último ciclo= 2026-11-11T17:42:00.322Z
+  BTC_SEASONAL_22UTC           long  intentos=1290   señales=1290 casi=0   | 
+  C40_F01_WILLIAMS_M30         long  intentos=30     señales=30   casi=0   | 
+  C40_F01_WILLIAMS_M30         short intentos=60     señales=60   casi=0   | 
+  C40_F02_SIDUS_H4             long  intentos=240    señales=0    casi=240 | 240×stop_distance_cap
+  C40_F02_SIDUS_H4             short intentos=240    señales=240  casi=0   | 
+  C40_F09_BB_STOCH_H4          long  intentos=720    señales=480  casi=240 | 240×stop_distance_cap
+  C40_F09_BB_STOCH_H4          short intentos=235    señales=0    casi=235 | 235×coste_futures_3x
+  C40_F17_TWO_STOCH_M30        long  intentos=30     señales=30   casi=0   | 
+  C40_F24_YEN_H1               long  intentos=310    señales=310  casi=0   | 
+  C40_F24_YEN_H1               short intentos=530    señales=470  casi=60  | 60×coste_futures_3x
+  C40_F26_BULLDOZER_H1         long  intentos=180    señales=180  casi=0   | 
+  C40_F26_BULLDOZER_H1         short intentos=120    señales=0    casi=120 | 120×coste_futures_3x
+  C40_F27_4UJ_H4               short intentos=960    señales=720  casi=240 | 240×coste_futures_3x
+  C40_F31_3EMA_STOCH_M30       long  intentos=30     señales=30   casi=0   | 
+  C40_F31_3EMA_STOCH_M30       short intentos=120    señales=120  casi=0   | 
+  C40_F39_ENV_MACD_M30         long  intentos=60     señales=60   casi=0   | 
+  EMA_CROSS_15M                long  intentos=15     señales=15   casi=0   | 
+  FUNDING_REVERSAL_1H          long  intentos=1872   señales=1019 casi=853 | 853×stop_distance_cap
+  FUNDING_REVERSAL_1H          short intentos=1407   señales=0    casi=1407 | 1407×coste_futures_3x
+  LIQUIDITY_SWEEP_15M          long  intentos=105    señales=105  casi=0   | 
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=427531 señales=851  casi=426680 | 387206×sin sweep de liquidez arriba; 30147×insuficientes barras; 4475×vol 0.00<1.5x
+  RSI2_TREND_15M               long  intentos=15224  señales=6910 casi=8314 | 8284×coste_futures_3x; 30×stop_distance_cap
+  RSI2_TREND_15M               short intentos=16685  señales=0    casi=16685 | 16685×coste_futures_3x
+  RSI2_TREND_1H                long  intentos=4465   señales=3308 casi=1157 | 937×stop_distance_cap; 220×coste_futures_3x
+  RSI2_TREND_1H                short intentos=19424  señales=0    casi=19424 | 19424×coste_futures_3x
+  RSI_MEAN_REVERSION_15M       long  intentos=560    señales=560  casi=0   | 
+  RS_VS_BTC_1H_SHORT           short intentos=427531 señales=42847 casi=384684 | 329029×no bottom-3 RS vs BTC; 37490×RS no negativo 1h+4h; 15831×sin pullback EMA20 15m
+  TREND_PULLBACK_1H_SHORT      short intentos=427531 señales=77775 casi=349756 | 105358×EMA20>=EMA50 1h; 79438×no en EMA20; 42807×insuficientes barras 1h
+  VWAP_BOUNCE_5M               long  intentos=585    señales=585  casi=0   | 
+  VWAP_BOUNCE_5M_SHORT         short intentos=427531 señales=4835 casi=422696 | 258514×sin touch+reject VWAP arriba; 113325×1h no bajista; 34840×insuficientes barras
+  VWAP_RECLAIM_15M             long  intentos=30     señales=30   casi=0   | 
+puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
+
+=== KRAKEN FUTURES: /instruments (público) ===
+result= success filas= 219 claves= ['result', 'instruments', 'serverTime']
+PF_* = 209 ejemplos de símbolo: ['PF_XBTUSD', 'PF_ETHUSD', 'PF_ADAUSD', 'PF_XRPUSD', 'PF_SOLUSD']
+PF_ETHUSD {'symbol': 'PF_ETHUSD', 'tradeable': True, 'tickSize': 0.1, 'contractSize': 1, 'contractValueTradePrecision': 3, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contractSize': 1, 'contractValueTradePrecision': 2, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+
+=== KRAKEN FUTURES: cuenta, posiciones y órdenes (API privada) ===
+margen disponible: 79.8634 | valor cartera: 79.8634 | PnL: 0
+posiciones: ninguna
+órdenes abiertas: 0
+
+=== KRAKEN FUTURES: últimas líneas del motor ===
+2026-11-11 17:40:00 +00:00: [Kraken/Futures] cycle margin=79.8627 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=1 held=[PF_DOTUSD:RS_VS_BTC_1H_SHORT:pausa_tras_stop_90min | PF_ETCUSD:RS_VS_BTC_1H_SHORT:stop_0.50%<0.6%]
+2026-11-11 17:41:00 +00:00: [Kraken/Futures] cycle margin=79.8648 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=1 held=[PF_NEARUSD:RS_VS_BTC_1H_SHORT:pausa_tras_stop_90min | PF_AAVEUSD:RS_VS_BTC_1H_SHORT:stop_0.51%<0.6% | PF_ETCUSD:RS_VS_BTC_1H_SHORT:stop_0.49%<0.6%]
+2026-11-11 17:42:00 +00:00: [Kraken/Futures] cycle margin=79.8648 symbols=15 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=1 held=[PF_NEARUSD:RS_VS_BTC_1H_SHORT:pausa_tras_stop_90min | PF_AAVEUSD:RS_VS_BTC_1H_SHORT:stop_0.51%<0.6% | PF_ETCUSD:RS_VS_BTC_1H_SHORT:stop_0.49%<0.6%]
+--- errores de órdenes
+2026-11-11 00:01:13 +00:00: [Kraken/Futures] TP en exchange PF_DOTUSD short trigger=0.8156 id=a33216de-583a-4fb2-8081-4634515ad4eb
+2026-11-11 01:00:34 +00:00: [Kraken/Futures] TP en exchange PF_UNIUSD short trigger=6.277 id=a3322c17-5335-4eb1-87e8-273f7cfc6c01
+2026-11-11 01:01:08 +00:00: [Kraken/Futures] TP en exchange PF_LINKUSD short trigger=9.985 id=a3322c4c-486a-4f55-be49-316ba094da1c
+2026-11-11 10:52:06 +00:00: [Kraken/Futures] TP en exchange PF_XRPUSD short trigger=1.0295 id=a332ffa4-827e-4986-9259-8300e6e4517a
+2026-11-11 12:01:02 +00:00: [Kraken/Futures] TP en exchange PF_DOGEUSD short trigger=0.06623 id=a333184a-ddd2-42bd-bbbd-8abf2aa8cd39
+2026-11-11 13:54:02 +00:00: [Kraken/Futures] TP en exchange PF_ETHUSD short trigger=2004.2 id=a33340b4-f06b-40ba-808f-a204e1f9f6e3
+2026-11-11 01:00:34 +00:00: [Kraken/Futures] ⚠ PF_UNIUSD sin stop reduce-only en el exchange
+--- últimas 15 líneas del motor (sin ciclos)
+2026-11-11 15:37:31 +00:00: [Telegram] filtrado (solo operaciones): «🚨 Kraken posición stuck: PUMPEUR RS_VS_BTC_1H_SHORT — max hold +121.0h sin cier»
+2026-11-11 15:40:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=9 total=9 minBars 5m=300 15m=300 1h=300
+2026-11-11 15:55:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=9 total=9 minBars 5m=300 15m=300 1h=300
+2026-11-11 16:01:46 +00:00: [Telegram] filtrado (solo operaciones): «🚨 Kraken posición stuck: ADAEUR TREND_PULLBACK_1H_SHORT — max hold +1.0h sin ci»
+2026-11-11 16:10:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=9 total=9 minBars 5m=300 15m=300 1h=300
+2026-11-11 16:13:58 +00:00: [Kraken/Universe] total=496 líquidos=8 seleccionados=8
+2026-11-11 16:25:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=8 total=8 minBars 5m=300 15m=300 1h=300
+2026-11-11 16:40:31 +00:00: [Telegram] filtrado (solo operaciones): «🚨 Kraken posición stuck: XBTEUR TREND_PULLBACK_1H_SHORT — max hold +1.0h sin ci»
+2026-11-11 16:40:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=8 total=8 minBars 5m=300 15m=300 1h=300
+2026-11-11 16:55:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=8 total=8 minBars 5m=300 15m=300 1h=300
+2026-11-11 16:58:46 +00:00: [Kraken/Futures/WS] conectado — 19 PF símbolos
+2026-11-11 17:10:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=8 total=8 minBars 5m=300 15m=300 1h=300
+2026-11-11 17:14:58 +00:00: [Kraken/Universe] total=496 líquidos=8 seleccionados=8
+2026-11-11 17:25:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=8 total=8 minBars 5m=300 15m=300 1h=300
+2026-11-11 17:40:35 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=8 total=8 minBars 5m=300 15m=300 1h=300
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

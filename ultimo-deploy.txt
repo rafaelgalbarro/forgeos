@@ -1,35 +1,34 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando abdf8e9 OANDA: estudio de salidas más rápidas (TP 1/1,5/2R, breakeven) para las combinaciones en real
+Desplegando a4dba5b Revisión de pérdidas 11/11: aviso de cierres hechos por IB, OANDA una posición real por instrumento + espera 4 h tras stop, cierre por regla etiquetado REGLA, Kraken máx. 2 posiciones por dirección
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261106-135156 (sin caché)
-Updating 9fd59f7..abdf8e9
+estado copiado en /root/forgeos-state-20261111-174739 (sin caché)
+Updating abdf8e9..a4dba5b
 Fast-forward
- deploy/remote/forgeos-remote.sh |   6 +++
- lib/forex-bot/forum40.ts        |  19 +++++--
- scripts/forex-bot.cjs           |   2 +-
- scripts/forex-f40-exits.ts      | 116 ++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 137 insertions(+), 6 deletions(-)
- create mode 100644 scripts/forex-f40-exits.ts
-script remoto actualizado
+ deploy/remote/forgeos-remote.sh      | 10 +++++++++
+ lib/forex-bot/engine-extra.ts        | 13 +++++++++--
+ lib/forex-bot/types.ts               |  2 +-
+ lib/trading/crypto/futures-engine.ts | 11 ++++++++++
+ src/core/trading/position-monitor.ts | 42 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 75 insertions(+), 3 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.81s
+19 passed in 0.44s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        7112         242           3         687         633
-Swap:           4095        1591        2504
+Mem:            7746        2556        3019           4        2470        5189
+Swap:           4095         754        3341
      0 MB COMMAND
-  2016 MB node
-  1680 MB node
-  1532 MB node
-   357 MB next-server
-   234 MB node
+   709 MB java
+   311 MB next-server
+   286 MB node
+   158 MB node
+   139 MB python3
 
-up to date in 2s
+up to date in 1s
    Generating static pages (153/204) 
  ✓ Generating static pages (204/204)
 

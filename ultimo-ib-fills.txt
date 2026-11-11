@@ -1,0 +1,100 @@
+
+=== IBKR: ejecuciones en los logs (compras y ventas) ===
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+11|forgeos | [Exit/stocks] revisadas=1 cerradas=0 parciales=0 trailing_activos=0
+
+=== IBKR: diario local de operaciones de acciones (si existe) ===
+ml
+portfolio-optimizer-state.json
+telegram-trades
+reports
+db.sqlite
+forex-bot
+cache
+crypto-forum40-latest.json
+alerts-state.json
+intraday-backtest-latest.json
+pm-backtest-latest.json
+gap-backtest-latest.json
+journal
+tsc-phase-h.txt
+tsc-phase-k.txt
+tsc-phase-i.txt
+tsc-errors-after.txt
+tsc-errors-phase-c.txt
+tsc-errors-before.txt
+webpack-build-check.txt
+tsc-errors-final.txt
+sprint1
+qa-deep
+qa-api-probe.json
+live-risk-audit-routes-qa.json
+logs
+live-risk-audit.json
+investment-dev-8001.js
+bin
+v2-store
+registry
+v2-store-multi-company-cert
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

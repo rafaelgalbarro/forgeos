@@ -1,0 +1,9 @@
+
+=== AJUSTE FUTURES_LIVE_STRATEGIES ===
+antes: RS_VS_BTC_1H_SHORT,TREND_PULLBACK_1H_SHORT
+FUTURES_LIVE_STRATEGIES=TREND_PULLBACK_1H_SHORT
+forgeos-crypto-engine reiniciado
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

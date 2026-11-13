@@ -1,0 +1,91 @@
+
+=== KRAKEN FUTURES: diagnóstico de estrategias ===
+venue= futures shadow= False apalancamiento= 2 estrategias live= ['TREND_PULLBACK_1H_SHORT']
+margen= 56.03207999999999 último ciclo= 2026-11-13T13:56:35.355Z lastCycle= None
+riesgo diario= {'dayKey': '2026-11-13', 'dayStartCapital': 80.9244, 'dayPnl': -0.33080000000001064, 'exitsOnly': False, 'dailyLimitHit': False}
+diagnóstico actualizado= 2026-11-13T13:56:35.357Z último ciclo= 2026-11-13T13:56:35.357Z
+  BTC_SEASONAL_22UTC           long  intentos=1470   señales=1470 casi=0   | 
+  C40_F01_WILLIAMS_M30         long  intentos=30     señales=30   casi=0   | 
+  C40_F01_WILLIAMS_M30         short intentos=60     señales=60   casi=0   | 
+  C40_F02_SIDUS_H4             long  intentos=240    señales=0    casi=240 | 240×stop_distance_cap
+  C40_F02_SIDUS_H4             short intentos=240    señales=240  casi=0   | 
+  C40_F09_BB_STOCH_H4          long  intentos=955    señales=715  casi=240 | 240×stop_distance_cap
+  C40_F09_BB_STOCH_H4          short intentos=235    señales=0    casi=235 | 235×coste_futures_3x
+  C40_F17_TWO_STOCH_M30        long  intentos=30     señales=30   casi=0   | 
+  C40_F17_TWO_STOCH_M30        short intentos=30     señales=30   casi=0   | 
+  C40_F24_YEN_H1               long  intentos=310    señales=310  casi=0   | 
+  C40_F24_YEN_H1               short intentos=770    señales=710  casi=60  | 60×coste_futures_3x
+  C40_F26_BULLDOZER_H1         long  intentos=180    señales=180  casi=0   | 
+  C40_F26_BULLDOZER_H1         short intentos=120    señales=0    casi=120 | 120×coste_futures_3x
+  C40_F27_4UJ_H4               short intentos=1200   señales=960  casi=240 | 240×coste_futures_3x
+  C40_F31_3EMA_STOCH_M30       long  intentos=30     señales=30   casi=0   | 
+  C40_F31_3EMA_STOCH_M30       short intentos=150    señales=150  casi=0   | 
+  C40_F39_ENV_MACD_M30         long  intentos=60     señales=60   casi=0   | 
+  EMA_CROSS_15M                long  intentos=15     señales=15   casi=0   | 
+  FUNDING_REVERSAL_1H          long  intentos=1931   señales=1078 casi=853 | 853×stop_distance_cap
+  FUNDING_REVERSAL_1H          short intentos=1407   señales=0    casi=1407 | 1407×coste_futures_3x
+  LIQUIDITY_SWEEP_15M          long  intentos=120    señales=120  casi=0   | 
+  LIQUIDITY_SWEEP_15M_SHORT    short intentos=472376 señales=926  casi=471450 | 431390×sin sweep de liquidez arriba; 30147×insuficientes barras; 4635×vol 0.00<1.5x
+  RSI2_TREND_15M               long  intentos=15633  señales=7285 casi=8348 | 8318×coste_futures_3x; 30×stop_distance_cap
+  RSI2_TREND_15M               short intentos=19907  señales=0    casi=19907 | 19907×coste_futures_3x
+  RSI2_TREND_1H                long  intentos=4525   señales=3368 casi=1157 | 937×stop_distance_cap; 220×coste_futures_3x
+  RSI2_TREND_1H                short intentos=25499  señales=0    casi=25499 | 25499×coste_futures_3x
+  RSI_MEAN_REVERSION_15M       long  intentos=560    señales=560  casi=0   | 
+  RS_VS_BTC_1H_SHORT           short intentos=472376 señales=44912 casi=427464 | 365906×no bottom-3 RS vs BTC; 41921×RS no negativo 1h+4h; 17259×sin pullback EMA20 15m
+  TREND_PULLBACK_1H_SHORT      short intentos=472376 señales=94564 casi=377812 | 110258×EMA20>=EMA50 1h; 92668×no en EMA20; 42807×insuficientes barras 1h
+  VWAP_BOUNCE_5M               long  intentos=642    señales=642  casi=0   | 
+  VWAP_BOUNCE_5M_SHORT         short intentos=472376 señales=5103 casi=467273 | 295768×sin touch+reject VWAP arriba; 118225×1h no bajista; 34840×insuficientes barras
+  VWAP_RECLAIM_15M             long  intentos=30     señales=30   casi=0   | 
+puerta backtest: {"generatedAt": "2026-10-19T14:28:48.195Z", "isDays": 50, "oosDays": 25, "pairs": ["PF_XBTUSD", "PF_ETHUSD"], "fees": {"makerPct": 0.0002, "takerPct": 0.0005}, "rows": [{"strategyId": "TREND_PULLBACK_1H", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason": "oos_trades=0<20"}, {"strategyId": "RSI_MEAN_REVERSION_15M", "direction": "long", "pair": "PF_XBTUSD", "oosTrades": 0, "meanNetPct": 0, "profitFactor": 0, "zeroReason": "no_trades_oos", "liveEligible": false, "ineligibleReason"
+
+=== KRAKEN FUTURES: /instruments (público) ===
+result= success filas= 219 claves= ['result', 'instruments', 'serverTime']
+PF_* = 209 ejemplos de símbolo: ['PF_XBTUSD', 'PF_ETHUSD', 'PF_ADAUSD', 'PF_XRPUSD', 'PF_SOLUSD']
+PF_ETHUSD {'symbol': 'PF_ETHUSD', 'tradeable': True, 'tickSize': 0.1, 'contractSize': 1, 'contractValueTradePrecision': 3, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_LTCUSD {'symbol': 'PF_LTCUSD', 'tradeable': True, 'tickSize': 0.01, 'contractSize': 1, 'contractValueTradePrecision': 2, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+PF_XBTUSD {'symbol': 'PF_XBTUSD', 'tradeable': True, 'tickSize': 1, 'contractSize': 1, 'contractValueTradePrecision': 4, 'type': 'flexible_futures', 'postOnly': False, 'minimumOrderSize': None}
+
+=== KRAKEN FUTURES: cuenta, posiciones y órdenes (API privada) ===
+margen disponible: 56.035579999999996 | valor cartera: 81.30095880920729 | PnL: 0.705851684422802
+posiciones: [('PF_AVAXUSD', 'long', 1.99, 8.296), ('PF_AAVEUSD', 'short', 0.14, 115.0), ('PF_SUIUSD', 'short', 20, 0.8257)]
+  orden: a337417c-af2b-4952-9501-e10655312835 PF_SUIUSD buy take_profit size= 20 lmt= None stop= 0.7973 reduceOnly= True
+  orden: a3374179-6dd9-49cd-bea5-842dc8a0c550 PF_SUIUSD buy stop size= 20 lmt= None stop= 0.8395 reduceOnly= True
+  orden: a3374128-ad88-4dd9-b6c0-2e0cba080b4b PF_AAVEUSD buy take_profit size= 0.14 lmt= None stop= 110.95 reduceOnly= True
+  orden: a337411d-eb10-4a7b-ab53-6717fc111f0e PF_AAVEUSD buy stop size= 0.14 lmt= None stop= 116.92 reduceOnly= True
+  orden: a336ca07-72ab-478f-b3d8-f414f2f7bda5 PF_AVAXUSD sell take_profit size= 1.99 lmt= None stop= 8.983 reduceOnly= True
+  orden: a336ca03-5b00-4dee-a5df-957f785b1f14 PF_AVAXUSD sell stop size= 1.99 lmt= None stop= 7.839 reduceOnly= True
+órdenes abiertas: 6
+
+=== KRAKEN FUTURES: últimas líneas del motor ===
+2026-11-13 13:55:30 +00:00: [Kraken/Futures] cycle margin=56.0313 symbols=17 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=6 orders=0 shadow=2 held=[PF_UNIUSD:TREND_PULLBACK_1H_SHORT:pausa_tras_stop_90min | PF_ENAUSD:TREND_PULLBACK_1H_SHORT:pausa_tras_stop_81min | PF_AAVEUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_SUIUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_ETCUSD:TREND_PULLBACK_1H_SHORT:max_short_2]
+2026-11-13 13:56:10 +00:00: [Kraken/Futures] cycle margin=56.0313 symbols=17 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=3 held=[PF_UNIUSD:TREND_PULLBACK_1H_SHORT:pausa_tras_stop_90min | PF_OPUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_XRPUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_SOLUSD:TREND_PULLBACK_1H_SHORT:max_short_2]
+2026-11-13 13:56:35 +00:00: [Kraken/Futures] cycle margin=56.0321 symbols=17 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=4 orders=0 shadow=3 held=[PF_UNIUSD:TREND_PULLBACK_1H_SHORT:pausa_tras_stop_90min | PF_OPUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_XRPUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_SOLUSD:TREND_PULLBACK_1H_SHORT:max_short_2]
+--- errores de órdenes
+2026-11-13 03:23:27 +00:00: [Kraken/Futures] TP en exchange PF_ETHUSD short trigger=1842.3 id=a3366529-3f97-4e61-8e13-2566ee1fdbfa
+2026-11-13 03:54:27 +00:00: [Kraken/Futures] TP en exchange PF_UNIUSD short trigger=5.474 id=a336703f-1115-4389-8b0b-fd2b0d719b11
+2026-11-13 08:05:30 +00:00: [Kraken/Futures] TP en exchange PF_AVAXUSD long trigger=8.983 id=a336ca07-72ab-478f-b3d8-f414f2f7bda5
+2026-11-13 13:31:33 +00:00: [Kraken/Futures] TP en exchange PF_ENAUSD short trigger=0.13263 id=a3373ea1-90bd-425f-844f-691bc71d0908
+2026-11-13 13:38:37 +00:00: [Kraken/Futures] TP en exchange PF_AAVEUSD short trigger=110.95 id=a3374128-ad88-4dd9-b6c0-2e0cba080b4b
+2026-11-13 13:39:32 +00:00: [Kraken/Futures] TP en exchange PF_SUIUSD short trigger=0.7973 id=a337417c-af2b-4952-9501-e10655312835
+2026-11-13 13:55:59 +00:00: [CryptoEngine] arranque pid=550272 venue=futures analysis=60000ms exits=5s
+2026-11-13 13:56:23 +00:00: [CryptoEngine] arranque pid=550416 venue=futures analysis=60000ms exits=5s
+--- últimas 15 líneas del motor (sin ciclos)
+2026-11-13 13:55:58 +00:00: [CryptoEngine] boot pid=550260 broker=kraken analysis=60000ms
+2026-11-13 13:55:59 +00:00: [CryptoEngine] arranque pid=550272 venue=futures analysis=60000ms exits=5s
+2026-11-13 13:55:59 +00:00: [Kraken/Futures] started shadow=false levCap=2
+2026-11-13 13:55:59 +00:00: [Kraken/Futures/WS] conectado — 17 PF símbolos
+2026-11-13 13:56:06 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=17 total=17 minBars 5m=300 15m=300 1h=300
+2026-11-13 13:56:07 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=17 total=17 minBars 5m=300 15m=300 1h=300
+2026-11-13 13:56:22 +00:00: [CryptoEngine] SIGINT — salida
+2026-11-13 13:56:22 +00:00: [CryptoEngine] FORGEOS_ROOT=/var/www/forgeos
+2026-11-13 13:56:22 +00:00: [CryptoEngine] FORGEOS_CACHE_DIR=/var/www/forgeos/.forgeos/cache
+2026-11-13 13:56:22 +00:00: [CryptoEngine] boot pid=550403 broker=kraken analysis=60000ms
+2026-11-13 13:56:23 +00:00: [CryptoEngine] arranque pid=550416 venue=futures analysis=60000ms exits=5s
+2026-11-13 13:56:23 +00:00: [Kraken/Futures] started shadow=false levCap=2
+2026-11-13 13:56:24 +00:00: [Kraken/Futures/WS] conectado — 17 PF símbolos
+2026-11-13 13:56:30 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=17 total=17 minBars 5m=300 15m=300 1h=300
+2026-11-13 13:56:30 +00:00: [Kraken/Futures/REST] backfill 5/15/1h universe: ok=17 total=17 minBars 5m=300 15m=300 1h=300
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

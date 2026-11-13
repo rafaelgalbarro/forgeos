@@ -1,0 +1,5 @@
+a simulación: F24_YEN_USDJPY_M30 · EMA8 cruza SMA21 de máximos/mínimos + ADX>15 subiendo y DI a favor
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

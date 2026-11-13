@@ -1216,7 +1216,7 @@ import json, os
 want = os.environ["ID"].upper()
 d = "/var/www/forgeos/.forgeos/forex-bot"
 hit = False
-for name, key in (("meanrev-latest.json", "results"), ("methods-latest.json", "results"), ("playbook-latest.json", "results"), ("pair-strategies.json", "choices")):
+for name, key in (("meanrev-latest.json", "results"), ("methods-latest.json", "results"), ("playbook-latest.json", "results"), ("pair-strategies.json", "choices"), ("forum40-latest.json", "results")):
     p = os.path.join(d, name)
     if not os.path.exists(p):
         continue

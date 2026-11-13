@@ -1,4 +1,4 @@
-sin cambios para F05_ELDER_MOM_USDJPY_M30
+sin cambios para F04_KUMO_EURUSD_M15
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

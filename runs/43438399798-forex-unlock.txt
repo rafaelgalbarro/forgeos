@@ -1,0 +1,5 @@
+a simulación: F05_ELDER_MOM_USDJPY_M30 · Momentum(18) cruza 100 con cierre sobre/bajo EMA19
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

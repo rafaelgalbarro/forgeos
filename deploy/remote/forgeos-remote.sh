@@ -1019,6 +1019,20 @@ case "$ACTION" in
     for f in /var/www/forgeos/.forgeos/stocks-journal.json /var/www/forgeos/.forgeos/positions.json /var/www/forgeos/.forgeos/trades.json; do [ -f "$f" ] && { echo "--- $f"; tail -c 6000 "$f"; echo; }; done
     ls -t /var/www/forgeos/.forgeos | head -40
     ;;
+  fmp-usage)
+    # Read-only: is Financial Modeling Prep still configured / called? (no key value is printed)
+    sec "FMP: configuración (solo si existe, nunca el valor)"
+    for k in FMP_API_KEY FMP_DISABLED EODHD_API_KEY FINNHUB_API_KEY; do
+      if grep -qE "^$k=.+" .env.local 2>/dev/null; then echo "$k: definido$( [ "$k" = FMP_DISABLED ] && echo " = $(grep -E "^$k=" .env.local | cut -d= -f2)")"; else echo "$k: no definido"; fi
+    done
+    sec "FMP: actividad en los logs de PM2 (últimas 40000 líneas por app)"
+    for app in $(pm2 jlist 2>/dev/null | python3 -c "import json,sys; print(' '.join(a['name'] for a in json.load(sys.stdin)))"); do
+      n=$(pm2 logs "$app" --lines 40000 --nostream 2>&1 | grep -ciE "\[FMP\]|financialmodelingprep|fmp-quote")
+      echo "$app: $n líneas con FMP"
+    done
+    sec "FMP: últimas líneas"
+    pm2 logs --lines 40000 --nostream 2>&1 | grep -iE "\[FMP\]|financialmodelingprep" | tail -15 | cut -c1-220
+    ;;
   forex-forum40-lock-all)
     # Owner order: every passing row of ONE timeframe → real (ARG = M30, or CM30 for Kraken).
     # Rows of other timeframes are not touched; rows of this timeframe that do not pass are unlocked.

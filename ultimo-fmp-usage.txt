@@ -1,0 +1,28 @@
+
+=== FMP: configuración (solo si existe, nunca el valor) ===
+FMP_API_KEY: definido
+FMP_DISABLED: no definido
+EODHD_API_KEY: definido
+FINNHUB_API_KEY: definido
+
+=== FMP: actividad en los logs de PM2 (últimas 40000 líneas por app) ===
+forgeos-scanner: 0 líneas con FMP
+forgeos-alerts: 0 líneas con FMP
+forgeos-reports: 0 líneas con FMP
+forgeos-forex: 0 líneas con FMP
+forgeos: 0 líneas con FMP
+forgeos-watchdog: 0 líneas con FMP
+forgeos-scheduler: 0 líneas con FMP
+ibkr-broker: 0 líneas con FMP
+forgeos-crypto-engine: 0 líneas con FMP
+forgeos-crypto-backtest: 0 líneas con FMP
+forgeos-eodhd-us-ws: 0 líneas con FMP
+pm2-logrotate: 0 líneas con FMP
+forgeos-forex-bot: 0 líneas con FMP
+forgeos-mt5-bridge: 0 líneas con FMP
+
+=== FMP: últimas líneas ===
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=1

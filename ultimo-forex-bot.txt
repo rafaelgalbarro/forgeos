@@ -3,38 +3,38 @@
 proceso: online reinicios: 67
 modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
 --- últimos ciclos
-2026-11-13 13:49:09 +00:00: 2026-11-13T13:49:08.875Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=77.84 EUR abiertas=2 simuladas=12 entradas=0 pnlHoy=0.00
-2026-11-13 13:50:09 +00:00: 2026-11-13T13:50:08.877Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=77.94 EUR abiertas=2 simuladas=12 entradas=0 pnlHoy=0.00
-2026-11-13 13:51:09 +00:00: 2026-11-13T13:51:08.878Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=77.93 EUR abiertas=2 simuladas=12 entradas=0 pnlHoy=0.00
-2026-11-13 13:52:09 +00:00: 2026-11-13T13:52:08.879Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=78.00 EUR abiertas=2 simuladas=12 entradas=0 pnlHoy=0.00
-2026-11-13 13:53:09 +00:00: 2026-11-13T13:53:08.881Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=78.15 EUR abiertas=2 simuladas=12 entradas=0 pnlHoy=0.00
-2026-11-13 13:54:09 +00:00: 2026-11-13T13:54:08.882Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=78.15 EUR abiertas=2 simuladas=12 entradas=0 pnlHoy=0.00
+2026-11-25 16:56:53 +00:00: 2026-11-25T16:56:53.123Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
+2026-11-25 16:57:53 +00:00: 2026-11-25T16:57:53.125Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
+2026-11-25 16:58:53 +00:00: 2026-11-25T16:58:53.129Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
+2026-11-25 16:59:53 +00:00: 2026-11-25T16:59:53.136Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
+2026-11-25 17:00:55 +00:00: 2026-11-25T17:00:53.138Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=27 entradas=1 pnlHoy=1.78 | AUD_CAD: en simulación por 4 pérdidas reales seguidas
+2026-11-25 17:01:53 +00:00: 2026-11-25T17:01:53.142Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
 --- resumen diario
-2026-11-13 00:00:06 +00:00: [Telegram] sendMessage HTTP 400: {"ok":false,"error_code":400,"description":"Bad Request: can't parse entities: Unsupported start tag \"\" at byte offset 173"}
-2026-11-13 00:00:06 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta
+2026-11-25 15:00:54 +00:00: [Telegram] sendMessage HTTP 400: {"ok":false,"error_code":400,"description":"Bad Request: can't parse entities: Unsupported start tag \"\" at byte offset 206"}
+2026-11-25 15:00:54 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta
 --- operaciones
-reales: 33 · simuladas: 168
-live F27_4UJ_USDJPY_M30 USD_JPY short 0.01 abierta 2026-11-09T09:30 entrada 157.974 SL 158.23 TP 156.948 | cierre 2026-11-09T21:30 TIME P&L 0.24 R 0.17
-live F05_ELDER_MOM_USDJPY_M30 USD_JPY short 0.01 abierta 2026-11-09T19:30 entrada 157.884 SL 158.109 TP 157.209 | cierre 2026-11-09T22:30 TP P&L -0.5 R -0.39
-live F20_EMA_RVI_USDJPY_M15 USD_JPY short 0.01 abierta 2026-11-10T07:45 entrada 157.917 SL 158.059 TP 157.492 | cierre 2026-11-10T08:05 SL P&L -0.82 R -1.03
-live F05_ELDER_MOM_USDJPY_M30 USD_JPY short 0.01 abierta 2026-11-10T08:30 entrada 157.95 SL 158.148 TP 157.355 | cierre 2026-11-10T09:11 SL P&L -1.13 R -1
-live F27_4UJ_USDJPY_M30 USD_JPY short 0.01 abierta 2026-11-10T08:30 entrada 157.95 SL 158.148 TP 157.156 | cierre 2026-11-10T09:11 SL P&L -1.13 R -1
-live V02_PINBAR_BB_VOL_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-10T08:00 entrada 158.018 SL 157.821 TP 158.608 | cierre 2026-11-10T09:30 TP P&L 0.07 R 0.07
-live M15_EMA_CROSS_fast20_slow50_A2_R2_Sasia AUD_JPY long 0.01 abierta 2026-11-11T01:15 entrada 109.249 SL 109.1 TP 109.546 | cierre 2026-11-11T09:11 SL P&L -0.84 R -1
-live F27_4UJ_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-11T08:30 entrada 158.916 SL 158.737 TP 159.631 | cierre 2026-11-11T14:26 TP P&L 4.04 R 3.99
-live F33_DOUBLE_MACD_GOLD_M30 GOLD short 0.001 abierta 2026-11-11T11:00 entrada 4050.85 SL 4067.58 TP 4000.65 | cierre 2026-11-11T16:41 TP P&L 4.49 R 3.0
-live F05_ELDER_MOM_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-12T07:00 entrada 159.86 SL 159.637 TP 160.529 | cierre 2026-11-12T08:45 SL P&L -1.26 R -1
-live F04_KUMO_EURUSD_M15 EUR_USD long 0.01 abierta 2026-11-12T09:30 entrada 1.10937 SL 1.10826 TP 1.1127 | cierre 2026-11-12T12:40 SL P&L -1.01 R -1.01
-live F27_4UJ_USDJPY_M30 USD_JPY short 0.01 abierta 2026-11-12T13:30 entrada 159.728 SL 159.97 TP 158.761 | cierre 2026-11-12T15:00 RULE P&L -0.83 R -0.61
-live F33_DOUBLE_MACD_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-12T15:00 entrada 159.874 SL 159.607 TP 160.674 | cierre 2026-11-12T16:44 SL P&L -1.54 R -1.01
-live F35_SARDAR_EURJPY_H4 EUR_JPY short 0.01 abierta 2026-11-11T23:01 entrada 177.141 SL 177.849 TP 175.37 | cierre abierta None P&L None R None
-live F10_BB_RSI_ADX_AUDCAD_H4 AUD_CAD long 0.01 abierta 2026-11-13T00:00 entrada 0.97103 SL 0.96629 TP 0.98524 | cierre abierta None P&L None R None
-shadow F05_ELDER_MOM_USDCHF_D1 USD_CHF long 0 abierta 2026-11-11T23:01 entrada 0.83263 SL 0.8216 TP 0.86571 | cierre abierta None P&L None R None
-shadow F12_PSAR_MACD_GBPCHF_D1 GBP_CHF long 0 abierta 2026-11-11T23:01 entrada 1.10566 SL 1.09546 TP 1.13626 | cierre abierta None P&L None R None
-shadow F35_SARDAR_DE30_H1 DE30 short 0 abierta 2026-11-12T15:00 entrada 26773.7 SL 26940.1 TP 26357.7 | cierre abierta None P&L None R None
-shadow F02_SIDUS_GBPUSD_D1 GBP_USD short 0 abierta 2026-11-13T00:00 entrada 1.3229 SL 1.3367 TP 1.28149 | cierre abierta None P&L None R None
-shadow F05_ELDER_MOM_USDJPY_H1 USD_JPY long 0.01 abierta 2026-11-13T11:00 entrada 159.922 SL 159.597 TP 160.897 | cierre abierta None P&L None R None
-shadow F37_UMI_USDJPY_H1 USD_JPY long 0.01 abierta 2026-11-13T13:00 entrada 160.027 SL 159.719 TP 160.95 | cierre abierta None P&L None R None
+reales: 54 · simuladas: 325
+live ST_G1_GOLD_H1 GOLD long 0.001 abierta 2026-11-18T06:00 entrada 3787.8 SL 3778.61 TP 3830.67 | cierre 2026-11-18T06:18 SL P&L -0.86 R -1.01
+live F35_SARDAR_GBPAUD_M30 GBP_AUD short 0.01 abierta 2026-11-19T07:01 entrada 1.96196 SL 1.96638 TP 1.9509 | cierre 2026-11-19T17:03 SL P&L -2.68 R -1
+live V01_ENGULF_EMA_VOL_USDCHF_M30 USD_CHF long 0.01 abierta 2026-11-19T17:30 entrada 0.84366 SL 0.84214 TP 0.84594 | cierre 2026-11-19T22:16 SL P&L -1.71 R -1.04
+live H4_RSI_REVERT_lo30_hi70_A1.5_R1.5 AUD_CAD long 0.01 abierta 2026-11-20T08:00 entrada 0.95614 SL 0.95215 TP 0.96213 | cierre 2026-11-20T15:53 SL P&L -2.54 R -1.0
+live F04_KUMO_USDJPY_H1 USD_JPY short 0.01 abierta 2026-11-20T02:00 entrada 159.325 SL 159.649 TP 158.354 | cierre 2026-11-20T20:00 WEEKEND P&L 4.95 R 2.66
+live F10_BB_RSI_ADX_AUDUSD_M15 AUD_USD short 0.01 abierta 2026-11-23T07:45 entrada 0.66506 SL 0.66606 TP 0.66205 | cierre 2026-11-23T10:00 RULE P&L 0.46 R 0.5
+live F27_4UJ_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-23T14:00 entrada 159.264 SL 159.01 TP 160.279 | cierre 2026-11-23T19:23 SL P&L -1.47 R -1.02
+live V01_ENGULF_EMA_VOL_USDCHF_M30 USD_CHF long 0.01 abierta 2026-11-24T08:30 entrada 0.84257 SL 0.84116 TP 0.84468 | cierre 2026-11-24T09:55 SL P&L -1.53 R -1
+live F27_4UJ_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-24T10:00 entrada 159.554 SL 159.307 TP 160.541 | cierre 2026-11-24T10:51 SL P&L -1.45 R -1.02
+live M15_EMA_CROSS_fast20_slow50_A2_R2_Sasia AUD_JPY short 0.01 abierta 2026-11-25T03:00 entrada 105.248 SL 105.531 TP 104.682 | cierre 2026-11-25T07:04 TP P&L 3.25 R 2
+live F27_4UJ_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-25T07:00 entrada 159.266 SL 159.043 TP 160.159 | cierre 2026-11-25T07:30 RULE P&L -1.09 R -0.85
+live F20_EMA_RVI_USDJPY_M15 USD_JPY short 0.01 abierta 2026-11-25T07:45 entrada 159.048 SL 159.23 TP 158.503 | cierre 2026-11-25T08:00 SL P&L -1.06 R -1.01
+live V01_ENGULF_EMA_VOL_USDCHF_M30 USD_CHF short 0.01 abierta 2026-11-25T09:00 entrada 0.83365 SL 0.8355 TP 0.83087 | cierre 2026-11-25T12:07 TP P&L 3.07 R 1.51
+live F20_EMA_RVI_USDJPY_M15 USD_JPY short 0.01 abierta 2026-11-25T12:30 entrada 159.248 SL 159.44 TP 158.672 | cierre 2026-11-25T14:15 RULE P&L -0.78 R -0.71
+live V02_PINBAR_BB_VOL_USDJPY_M30 USD_JPY long 0.01 abierta 2026-11-25T15:00 entrada 159.244 SL 158.969 TP 160.069 | cierre 2026-11-25T16:34 SL P&L -1.61 R -1.02
+shadow F01_WILLIAMS_USDJPY_H1 USD_JPY short 0.01 abierta 2026-11-25T16:00 entrada 159.111 SL 159.497 TP 157.952 | cierre abierta None P&L None R None
+shadow F04_KUMO_USDJPY_H1 USD_JPY short 0.01 abierta 2026-11-25T16:00 entrada 159.111 SL 159.497 TP 157.952 | cierre abierta None P&L None R None
+shadow F05_ELDER_MOM_USDJPY_H1 USD_JPY short 0.01 abierta 2026-11-25T16:00 entrada 159.111 SL 159.497 TP 157.952 | cierre abierta None P&L None R None
+shadow F26_BULLDOZER_USDJPY_H1 USD_JPY short 0.01 abierta 2026-11-25T16:00 entrada 159.111 SL 159.497 TP 157.952 | cierre abierta None P&L None R None
+shadow F20_EMA_RVI_USDJPY_M30 USD_JPY short 0.01 abierta 2026-11-25T16:00 entrada 159.111 SL 159.393 TP 158.265 | cierre abierta None P&L None R None
+shadow F24_YEN_USDJPY_M30 USD_JPY short 0.01 abierta 2026-11-25T16:30 entrada 159.003 SL 159.283 TP 158.163 | cierre abierta None P&L None R None
 --- preparación ---
 líneas clave: 7
 256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)

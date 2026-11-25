@@ -1,14 +1,14 @@
 
 === BOT FOREX ===
-proceso: online reinicios: 67
+proceso: online reinicios: 68
 modo: live (vacío = shadow) · OANDA: no configurado · entorno: 
 --- últimos ciclos
-2026-11-25 16:56:53 +00:00: 2026-11-25T16:56:53.123Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
-2026-11-25 16:57:53 +00:00: 2026-11-25T16:57:53.125Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
-2026-11-25 16:58:53 +00:00: 2026-11-25T16:58:53.129Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
-2026-11-25 16:59:53 +00:00: 2026-11-25T16:59:53.136Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
-2026-11-25 17:00:55 +00:00: 2026-11-25T17:00:53.138Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=27 entradas=1 pnlHoy=1.78 | AUD_CAD: en simulación por 4 pérdidas reales seguidas
-2026-11-25 17:01:53 +00:00: 2026-11-25T17:01:53.142Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
+2026-11-25 17:08:36 +00:00: 2026-11-25T17:08:31.777Z [ForexBot] modo=live broker=mt5 datos=— pares=21 nav=500.00 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD intr
+2026-11-25 17:09:36 +00:00: 2026-11-25T17:09:31.945Z [ForexBot] modo=live broker=mt5 datos=— pares=21 nav=500.00 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD intr
+2026-11-25 17:10:36 +00:00: 2026-11-25T17:10:31.969Z [ForexBot] modo=live broker=mt5 datos=— pares=21 nav=500.00 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78 | EUR_USD: EODHD intraday HTTP 402 EUR_USD | GBP_USD: EODHD intraday HTTP 402 GBP_USD | USD_JPY: EODHD intraday HTTP 402 USD_JPY | AUD_USD: EODHD intraday HTTP 402 AUD_USD | USD_CAD: EODHD intraday HTTP 402 USD_CAD | USD_CHF: EODHD intr
+2026-11-25 17:11:35 +00:00: 2026-11-25T17:11:31.993Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78 | AUD_CAD: en simulación por 4 pérdidas reales seguidas
+2026-11-25 17:12:32 +00:00: 2026-11-25T17:12:32.018Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
+2026-11-25 17:13:32 +00:00: 2026-11-25T17:13:32.048Z [ForexBot] modo=live broker=mt5 datos=MT5 pares=21 nav=70.56 EUR abiertas=0 simuladas=26 entradas=0 pnlHoy=1.78
 --- resumen diario
 2026-11-25 15:00:54 +00:00: [Telegram] sendMessage HTTP 400: {"ok":false,"error_code":400,"description":"Bad Request: can't parse entities: Unsupported start tag \"\" at byte offset 206"}
 2026-11-25 15:00:54 +00:00: [Telegram] sendMessage falló — sin message_id en respuesta

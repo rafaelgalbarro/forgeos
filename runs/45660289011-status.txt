@@ -1,0 +1,85 @@
+
+=== GIT ===
+HEAD: a4dba5b Revisión de pérdidas 11/11: aviso de cierres hechos por IB, OANDA una posición real por instrumento + espera 4 h tras stop, cierre por regla etiquetado REGLA, Kraken máx. 2 posiciones por dirección
+GitHub: 876dc8d remote: fmp-usage (solo lectura)
+Commits del servidor que no están en GitHub:
+Commits de GitHub pendientes de desplegar:
+876dc8d remote: fmp-usage (solo lectura)
+a1b6301 forex-unlock: también las combinaciones de la lista de 40
+7694fc6 set-flag: FUTURES_LIVE_STRATEGIES
+Cambios locales sin commit (sin .forgeos):
+ M package-lock.json
+
+=== PM2 ===
+forgeos-scanner              online   reinicios=54 uptime=20112m mem=89MB
+forgeos-alerts               online   reinicios=54 uptime=20112m mem=90MB
+forgeos-reports              online   reinicios=39 uptime=20112m mem=83MB
+forgeos-forex                stopped  reinicios=6 uptime=0m mem=0MB
+forgeos                      online   reinicios=624 uptime=20112m mem=78MB
+forgeos-watchdog             online   reinicios=1 uptime=130174m mem=1MB
+forgeos-scheduler            online   reinicios=118 uptime=20112m mem=107MB
+ibkr-broker                  online   reinicios=181 uptime=747m mem=128MB
+forgeos-crypto-engine        online   reinicios=212 uptime=17465m mem=83MB
+forgeos-crypto-backtest      stopped  reinicios=0 uptime=0m mem=0MB
+forgeos-eodhd-us-ws          online   reinicios=2464 uptime=20112m mem=82MB
+pm2-logrotate                online   reinicios=3 uptime=53573m mem=51MB
+forgeos-forex-bot            online   reinicios=67 uptime=20112m mem=82MB
+forgeos-mt5-bridge           online   reinicios=119 uptime=20112m mem=3MB
+
+=== BROKER IBKR ===
+conectado= True estado= CONNECTED cuentas= ['U15513057', 'U24225949']
+  error 300 Can't find EId with tickerId:13068
+  error 10089 Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more de
+  error 300 Can't find EId with tickerId:13069
+  error 10089 Requested market data requires additional subscription for API. See link in 'Market Data Connections' dialog for more de
+  error 300 Can't find EId with tickerId:13070
+tiempo de respuesta /status: 30 ms
+
+=== ÚLTIMAS PROPUESTAS IBKR ===
+2026-11-25T15:42:39 REJECTED  BUY  LRCX   qty=1.0 lmt=175.11 sl=171.6078 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-25T15:28:30 REJECTED  BUY  KLAC   qty=2.0 lmt=123.17 sl=120.7066 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-25T14:45:48 REJECTED  BUY  C      qty=1.0 lmt=110.555 sl=108.3439 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-25T14:45:38 REJECTED  BUY  ARM    qty=1.0 lmt=143.69 sl=140.8162 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-25T14:45:32 REJECTED  BUY  TXN    qty=1.0 lmt=248.245 sl=243.2801 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-25T14:45:26 REJECTED  BUY  ORCL   qty=2.0 lmt=99.65 sl=97.657 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-24T14:46:35 REJECTED  BUY  MRVL   qty=1.0 lmt=136.65 sl=133.917 cuenta=U24225949 ibkr=Inactive motivo=202 Order Canceled - reason: [BRACKET_TP id=2534]
+2026-11-23T14:55:10 REJECTED  BUY  ARM    qty=1.0 lmt=173.135 sl=169.6723 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-23T14:48:09 REJECTED  BUY  PYPL   qty=4.0 lmt=54.16 sl=53.0768 cuenta=U24225949 ibkr=Inactive motivo=IBKR status=Inactive (not Submitted/PreSubmitted/Filled)
+2026-11-20T20:56:27 REJECTED  BUY  ARM    qty=1.0 lmt=150.63 sl=147.6174 cuenta=U24225949 ibkr=Inactive motivo=202 Order Canceled - reason: [BRACKET_TP id=2521]
+2026-11-20T20:35:20 REJECTED  BUY  QCOM   qty=1.0 lmt=151.64499999999998 sl=148.6121 cuenta=U24225949 ibkr=Inactive motivo=202 Order Canceled - reason: [BRACKET_TP id=2518]
+2026-11-20T16:57:34 REJECTED  BUY  LRCX   qty=1.0 lmt=184.09 sl=180.4082 cuenta=U24225949 ibkr=Inactive motivo=202 Order Canceled - reason: [BRACKET_TP id=2515]
+
+=== KRAKEN FUTURES ===
+2026-11-25 16:59:10 +00:00: [Kraken/Futures] cycle margin=62.9272 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=9 orders=0 shadow=6 held=[PF_DOTUSD:TREND_PULLBACK_1H_SHORT:ya_hay_posicion | PF_SOLUSD:TREND_PULLBACK_1H_SHORT:pausa_tras_stop_90min | PF_ADAUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_OPUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_ETHUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_XBTUSD:TREND_PULLBACK_1H_SHORT:max_short_2]
+2026-11-25 16:59:10 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=9 orders=0 held=7 5138ms
+2026-11-25 17:00:09 +00:00: [Kraken/Futures] cycle margin=62.9500 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=3 held=[PF_OPUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_ETHUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_LTCUSD:TREND_PULLBACK_1H_SHORT:max_short_2]
+2026-11-25 17:00:09 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=3 4182ms
+2026-11-25 17:01:09 +00:00: [Kraken/Futures] cycle margin=62.9757 symbols=16 dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 shadow=3 held=[PF_OPUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_ETHUSD:TREND_PULLBACK_1H_SHORT:max_short_2 | PF_LTCUSD:TREND_PULLBACK_1H_SHORT:max_short_2]
+2026-11-25 17:01:09 +00:00: [CryptoEngine] analysis ws=true dataAge 5m=0s px=0s btc60=0s btcPx=0s signals=3 orders=0 held=3 4138ms
+
+=== PANEL /investment ===
+web: live= True readOnly= False modo= LIVE
+broker: CONNECTED IBKR_LIVE_READ_ONLY error= None
+accountSummary: CONNECTED error= None
+positions: None error= None
+portfolioSummary: CONNECTED error= None
+LIVE_TRADING_ENABLED en .env.local: true
+IBKR_READ_ONLY en .env.local: false
+
+=== ACCIONES: CICLO Y PRE-MERCADO (últimas líneas) ===
+11|forgeos | [Universe] SBUX price-source=none — SBUX: sin precio WS ni REST
+11|forgeos | [Universe] MCD price-source=none — MCD: sin precio WS ni REST
+11|forgeos | [Universe] CMG price-source=none — CMG: sin precio WS ni REST
+11|forgeos | [Universe] ULTA price-source=none — ULTA: sin precio WS ni REST
+11|forgeos | [Universe] XOM price-source=none — XOM: sin precio WS ni REST
+11|forgeos | [Universe] CVX price-source=none — CVX: sin precio WS ni REST
+11|forgeos | [Universe] COP price-source=none — COP: sin precio WS ni REST
+11|forgeos | [Universe] SLB price-source=none — SLB: sin precio WS ni REST
+11|forgeos | [Universe] OXY price-source=none — OXY: sin precio WS ni REST
+11|forgeos | [Universe] MPC price-source=none — MPC: sin precio WS ni REST
+11|forgeos | [Universe] PSX price-source=none — PSX: sin precio WS ni REST
+11|forgeos | [Universe] VLO price-source=none — VLO: sin precio WS ni REST
+--- preparación ---
+líneas clave: 7
+256 SHA256:2gaCgMA12wglbwm+UeREJRoiXozbzU67AIWa1JXnByM forgeos-github-actions (ED25519)
+codigo_salida=0

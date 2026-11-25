@@ -512,7 +512,25 @@ function isUsRegularSessionNow(at = new Date()): boolean {
  * IB filled the native bracket (STP or LMT) itself: record it and send the same Telegram SELL as
  * our own exits. The level is the one nearest to the last price the monitor saw.
  */
+/**
+ * Each broker-side close is reported once: the registry is rebuilt from the saved state after a
+ * restart (BAC 13/11 was re-announced on 18/11) and two processes run the monitor (4 messages per
+ * close). Key = ticker + entry price + opening time, kept on disk.
+ */
+function claimBrokerCloseReport(ticker: string, mem: PositionSLTP): boolean {
+  const file = path.join(process.env.FORGEOS_ROOT || process.cwd(), ".forgeos", "ib-broker-closed.json");
+  const key = `${ticker}|${mem.entryPrice.toFixed(4)}|${(mem.openedAt || "").slice(0, 16)}`;
+  let seen: Record<string, string> = {};
+  try { seen = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, string>; } catch { /* first */ }
+  if (seen[key]) return false;
+  seen[key] = new Date().toISOString();
+  const keep = Object.entries(seen).sort((a, b) => b[1].localeCompare(a[1])).slice(0, 300);
+  try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(Object.fromEntries(keep))); } catch { /* best effort */ }
+  return true;
+}
+
 async function reportBrokerClose(ticker: string, mem: PositionSLTP): Promise<void> {
+  if (!claimBrokerCloseReport(ticker, mem)) return;
   const last = mem.lastPrice && mem.lastPrice > 0 ? mem.lastPrice : mem.sl;
   const kind: "TP" | "SL" = Math.abs(last - mem.tp) < Math.abs(last - mem.sl) ? "TP" : "SL";
   const price = kind === "TP" ? mem.tp : mem.sl;
@@ -524,12 +542,12 @@ async function reportBrokerClose(ticker: string, mem: PositionSLTP): Promise<voi
   } catch (err) {
     console.warn("[PositionMonitor] SQLite recordClosedTrade failed:", err instanceof Error ? err.message : err);
   }
-  await notifyPositionClosed({ kind, ticker, pnlUSD, pnlPct, navUSD: 0, exitPrice: price, shares: mem.qty, inherited: !mem.orderId });
+  // one Telegram message per close (the exit-manager line), not two
   try {
     const { getExitManager } = await import("@/lib/trading/exit-manager");
     await getExitManager().notifyExit({ symbol: ticker, side: "SELL", qty: mem.qty, price, entry: mem.entryPrice, pnlPct: pnlPct / 100, pnlUSD, reason: kind === "SL" ? "STOP_LOSS" : "TAKE_PROFIT" });
   } catch {
-    /* non-fatal */
+    await notifyPositionClosed({ kind, ticker, pnlUSD, pnlPct, navUSD: 0, exitPrice: price, shares: mem.qty, inherited: !mem.orderId });
   }
 }
 

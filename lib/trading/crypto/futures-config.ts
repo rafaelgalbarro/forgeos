@@ -77,7 +77,9 @@ export function futuresDisabledStrategies(): Set<string> {
 
 export function isFuturesStrategyLive(strategyId: string): boolean {
   const list = parseFuturesLiveStrategiesList();
-  if (futuresDisabledStrategies().has(strategyId.trim().toUpperCase())) return false;
+  // entries are prefixes too ("RSI2_TREND" = RSI2_TREND_15M and RSI2_TREND_1H): the remote flag is capped at 60 chars
+  const sid = strategyId.trim().toUpperCase();
+  for (const d of futuresDisabledStrategies()) if (d.length >= 4 && sid.startsWith(d)) return false;
   if (futuresExtraLive() && isFuturesExtraStrategy(strategyId)) return true;
   return list.has(strategyId.trim().toUpperCase());
 }

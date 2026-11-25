@@ -1,32 +1,30 @@
 
 === COMPROBACIONES PREVIAS ===
-Desplegando a4dba5b Revisión de pérdidas 11/11: aviso de cierres hechos por IB, OANDA una posición real por instrumento + espera 4 h tras stop, cierre por regla etiquetado REGLA, Kraken máx. 2 posiciones por dirección
+Desplegando 6b7a3c3 IB: cada cierre hecho por IB se avisa una sola vez (antes 4 mensajes y repetido tras reinicio); Kraken: desactivar por prefijo
 
 === COPIA DE ESTADO Y ACTUALIZACIÓN ===
-estado copiado en /root/forgeos-state-20261111-174739 (sin caché)
-Updating abdf8e9..a4dba5b
+estado copiado en /root/forgeos-state-20261125-170616 (sin caché)
+Updating a4dba5b..6b7a3c3
 Fast-forward
- deploy/remote/forgeos-remote.sh      | 10 +++++++++
- lib/forex-bot/engine-extra.ts        | 13 +++++++++--
- lib/forex-bot/types.ts               |  2 +-
- lib/trading/crypto/futures-engine.ts | 11 ++++++++++
- src/core/trading/position-monitor.ts | 42 ++++++++++++++++++++++++++++++++++++
- 5 files changed, 75 insertions(+), 3 deletions(-)
+ deploy/remote/forgeos-remote.sh      | 20 +++++++++++++++++---
+ lib/trading/crypto/futures-config.ts |  4 +++-
+ src/core/trading/position-monitor.ts | 22 ++++++++++++++++++++--
+ 3 files changed, 40 insertions(+), 6 deletions(-)
 
 === TESTS DEL BROKER ===
 ...................                                                      [100%]
-19 passed in 0.44s
+19 passed in 0.42s
 
 === BUILD ===
 procesos MT5 antes: terminal=2 puente=1 wine=5
-Mem:            7746        2556        3019           4        2470        5189
-Swap:           4095         754        3341
+Mem:            7746        3150         957           4        3948        4595
+Swap:           4095         207        3888
      0 MB COMMAND
-   709 MB java
-   311 MB next-server
-   286 MB node
-   158 MB node
-   139 MB python3
+   706 MB java
+   576 MB node
+   415 MB next-server
+   262 MB node
+   164 MB node
 
 up to date in 1s
    Generating static pages (153/204) 
